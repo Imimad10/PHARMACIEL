@@ -3,7 +3,7 @@ import pandas as pd
 import os
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Pharmaciel Pro", layout="wide")
+# st.set_page_config(page_title="Pharmaciel Pro", layout="wide")
 DATA_DIR = "data_inventaire"
 os.makedirs(DATA_DIR, exist_ok=True)
 MASTER_PATH = os.path.join(DATA_DIR, "master.xlsx")
@@ -31,37 +31,18 @@ def find_quantity_col(df_check):
             return col
     return None
 
-# --- INITIALISATION ---
-if not os.path.exists(USERS_PATH):
-    pd.DataFrame([{"username": "Admin", "password": "admin", "role": "Admin"}]).to_csv(USERS_PATH, index=False)
-
-if "user_data" not in st.session_state: 
-    st.session_state.user_data = None
-
-# --- LOGIN ---
-if st.session_state.user_data is None:
-    st.title("🔐 Pharmaciel - Connexion")
-    users_db = pd.read_csv(USERS_PATH)
-    u = st.selectbox("Utilisateur", users_db['username'].tolist())
-    p = st.text_input("Mot de passe", type="password")
-    if st.button("Se connecter"):
-        row = users_db[(users_db['username'] == u) & (users_db['password'] == p)]
-        if not row.empty:
-            st.session_state.user_data = row.iloc[0].to_dict()
-            st.rerun()
-        else: st.error("Accès refusé")
+# --- INITIALISATION ET SESSION ---
+if "current_user" not in st.session_state or st.session_state.current_user is None:
+    st.warning("Veuillez vous connecter depuis la page principale.")
     st.stop()
 
-user = st.session_state.user_data
+user = st.session_state.current_user
 
 # --- SIDEBAR ---
 with st.sidebar:
     st.title("🛡️ Contrôle")
     st.write(f"Utilisateur : **{user['username']}**")
     st.divider()
-    if st.button("🚪 Déconnexion", use_container_width=True):
-        st.session_state.user_data = None
-        st.rerun()
 
 df_master = load_data()
 

@@ -4,7 +4,7 @@ from tinydb import TinyDB, Query
 from datetime import datetime
 
 # --- CONFIGURATION ET BASE DE DONNÉES ---
-st.set_page_config(page_title="Pharmaciel Pro - Pointage", layout="wide", page_icon="🚚")
+# st.set_page_config(page_title="Pharmaciel Pro - Pointage", layout="wide", page_icon="🚚")
 
 # Initialisation de la base de données locale
 db = TinyDB('db_pharmaciel.json')

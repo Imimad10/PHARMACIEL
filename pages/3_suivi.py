@@ -8,29 +8,13 @@ from fpdf import FPDF
 import time
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Pharmaciel - Suivi Frigo", layout="wide")
+# st.set_page_config(page_title="Pharmaciel - Suivi Frigo", layout="wide")
 DATA_FILE = "suivi_data.csv"
 
-# --- UTILISATEURS ---
-USERS = {
-    "Ayoub": "ayoub2026", "Islem": "islem2026", "Seif": "seif2026",
-    "Rami (Chef Dépôt)": "rami2026", "Imad (Responsable)": "admin_imad"
-}
-
-if "user_authenticated" not in st.session_state:
-    st.session_state.user_authenticated = None
-
-# --- AUTHENTIFICATION ---
-if st.session_state.user_authenticated is None:
-    st.title("🔐 Accès Pharmaciel")
-    u = st.selectbox("Utilisateur", list(USERS.keys()))
-    p = st.text_input("Mot de passe", type="password")
-    if st.button("Se connecter"):
-        if p == USERS[u]:
-            st.session_state.user_authenticated = u
-            st.rerun()
-        else: st.error("Identifiants incorrects")
+if "current_user" not in st.session_state or st.session_state.current_user is None:
+    st.warning("Veuillez vous connecter depuis la page principale.")
     st.stop()
+
 
 # --- FONCTIONS ---
 def generer_pdf(df):
@@ -54,7 +38,7 @@ def save_data(data):
     st.success("✅ Donnée enregistrée !")
 
 # --- INTERFACE ---
-st.title(f"🌡️ Pharmaciel - {st.session_state.user_authenticated}")
+st.title(f"🌡️ Pharmaciel - {st.session_state.current_user['username']}")
 
 tab_saisie, tab_data = st.tabs(["📝 Saisie terrain", "📊 Tableau de bord"])
 
@@ -63,7 +47,7 @@ with tab_saisie:
     if st.button("🚀 Saisie Rapide (OK - Standard)", use_container_width=True):
         save_data({
             "Date": datetime.now().strftime("%d/%m/%Y"), "Heure": datetime.now().strftime("%H:%M"),
-            "Température": 4.0, "Agent": st.session_state.user_authenticated,
+            "Température": 4.0, "Agent": st.session_state.current_user['username'],
             "Statut": "OK", "Commentaire": "Rapide", "Type": "Relevé Standard"
         })
         time.sleep(0.5); st.rerun()
@@ -75,7 +59,7 @@ with tab_saisie:
         if st.form_submit_button("Enregistrer", use_container_width=True):
             save_data({
                 "Date": datetime.now().strftime("%d/%m/%Y"), "Heure": datetime.now().strftime("%H:%M"),
-                "Température": t, "Agent": st.session_state.user_authenticated,
+                "Température": t, "Agent": st.session_state.current_user['username'],
                 "Statut": "OK" if t <= 5.0 else "ALERTE", "Commentaire": comm, "Type": type_releve
             })
             time.sleep(0.5); st.rerun()

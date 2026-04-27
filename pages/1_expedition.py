@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Gestion des Expéditions", layout="wide")
+# st.set_page_config(page_title="Gestion des Expéditions", layout="wide")
 DATA_DIR = "data_expedition"
 os.makedirs(DATA_DIR, exist_ok=True)
 SECTEURS_PATH = os.path.join(DATA_DIR, "secteurs.csv")
