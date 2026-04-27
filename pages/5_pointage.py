@@ -68,13 +68,16 @@ elif menu == "Pointage Factures":
                 df_clean = df[cols_attendues].copy()
                 
                 # --- FILTRES ---
-                col_a, col_b = st.columns(2)
+                col_a, col_b, col_c = st.columns(3)
                 
                 with col_a:
                     liste_regions = sorted(df_clean['Région'].dropna().unique())
                     region_sel = st.selectbox("📍 Sélectionner la Région", liste_regions)
                 
                 with col_b:
+                    rotation_sel = st.selectbox("🔄 Rotation", ["1ère Rotation (Matin)", "2ème Rotation (Après-midi)"])
+
+                with col_c:
                     liste_livreurs = get_livreurs()
                     if not liste_livreurs:
                         st.error("⚠️ Allez dans 'Administration' pour ajouter des livreurs d'abord.")
@@ -112,11 +115,12 @@ elif menu == "Pointage Factures":
                                 table_pointage.insert({
                                     'date_pointage': datetime.now().strftime("%d/%m/%Y %H:%M"),
                                     'livreur': livreur_sel,
+                                    'rotation': rotation_sel,
                                     'reference': row['Référence'],
                                     'client': row['Client'],
                                     'region': row['Région']
                                 })
-                            st.success(f"✅ {len(factures_ok)} factures pointées avec succès pour {livreur_sel} !")
+                            st.success(f"✅ {len(factures_ok)} factures pointées avec succès pour {livreur_sel} ({rotation_sel}) !")
                         else:
                             st.warning("Veuillez cocher au moins une facture avant de valider.")
             else:
