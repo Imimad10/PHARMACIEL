@@ -1,0 +1,6 @@
+streamlit
+pandas
+tinydb
+fpdf
+plotly
+openpyxl
