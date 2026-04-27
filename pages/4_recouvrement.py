@@ -65,7 +65,7 @@ def generate_pdf(df, livreur_name):
         pdf.cell(35, 10, f"{row['Reste à payer']:,.2f} DA", 1, 0, 'R')
         pdf.cell(25, 10, str(row['Mode Paiement']), 1, 0, 'C')
         pdf.cell(35, 10, "", 1, 1) 
-    return bytes(pdf.output(dest='S'))
+    return pdf.output(dest='S').encode('latin-1', 'replace')
 
 # --- INTERFACE UTILISATEUR ---
 st.title("💰 Système de Recouvrement")

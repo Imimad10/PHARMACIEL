@@ -44,7 +44,7 @@ def generer_pdf(df):
         texte = f"{row['Date']} {row['Heure']} | {row['Type']} | T°: {row['Température']}°C | Agent: {row['Agent']}"
         pdf.cell(0, 7, texte, 0, 1)
     # Conversion en bytes corrigée ici
-    return bytes(pdf.output(dest='S'))
+    return pdf.output(dest='S').encode('latin-1', 'replace')
 
 def save_data(data):
     df_to_save = pd.DataFrame([data])
