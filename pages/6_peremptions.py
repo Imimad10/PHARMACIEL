@@ -120,7 +120,7 @@ with tab2:
                     
                     # On veut comparer les produits par désignation (produit)
                     # On prend la date la plus proche pour chaque produit dans chaque dépôt et la quantité totale
-                    qte_col = 'quantite' if 'quantite' in df_ext.columns else ('quantite' if 'quantite' in df_ext.columns else None)
+                    qte_col = 'quantite' if 'quantite' in df_ext.columns else None
                     # Note: clean_col turned 'Quantité' into 'quantite'
                     
                     agg_dict = {'expiry_date': 'min'}
@@ -177,7 +177,7 @@ with tab2:
                             return ''
 
                         st.dataframe(
-                            display_df.style.applymap(color_alert, subset=['Statut DS']),
+                            display_df.style.map(color_alert, subset=['Statut DS']),
                             use_container_width=True,
                             hide_index=True
                         )
