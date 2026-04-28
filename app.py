@@ -22,25 +22,63 @@ if len(db_users) == 0:
     db_users.insert({'username': 'Islem', 'password': 'islem2026', 'role': 'Saisie', 'pages': ['Logistique', 'Suivi']})
     db_users.insert({'username': 'Seif', 'password': 'seif2026', 'role': 'Saisie', 'pages': ['Inventaire']})
 
-# --- 3. GESTION DE SESSION ---
+# --- 3. GESTION DE SESSION ET "RESTER CONNECTÉ" ---
+SESSION_FILE = 'data/session.json'
+
+def save_session(username):
+    if not os.path.exists('data'): os.makedirs('data')
+    with open(SESSION_FILE, 'w') as f:
+        import json
+        json.dump({'username': username}, f)
+
+def clear_session():
+    if os.path.exists(SESSION_FILE):
+        try: os.remove(SESSION_FILE)
+        except: pass
+
+def get_session():
+    if os.path.exists(SESSION_FILE):
+        try:
+            with open(SESSION_FILE, 'r') as f:
+                import json
+                return json.load(f).get('username')
+        except:
+            return None
+    return None
+
 if "current_user" not in st.session_state:
     st.session_state.current_user = None
+    saved_user = get_session()
+    if saved_user:
+        User = Query()
+        result = db_users.search(User.username == saved_user)
+        if result:
+            st.session_state.current_user = result[0]
 
 # --- 4. ÉCRAN DE CONNEXION ---
 if st.session_state.current_user is None:
+    st.markdown("""
+        <style>
+            [data-testid="stSidebar"], [data-testid="stSidebarNav"] {display: none;}
+            section[data-testid="stSidebar"] {width: 0px;}
+        </style>
+    """, unsafe_allow_html=True)
     st.title("🔐 Portail Pharmaciel")
     st.write("Veuillez vous connecter pour accéder à vos modules.")
     
     with st.form("login_form"):
         u = st.text_input("Nom d'utilisateur")
         p = st.text_input("Mot de passe", type="password")
-        submit = st.form_submit_button("Se connecter")
+        remember = st.checkbox("Rester connecté")
+        submit = st.form_submit_button("Se connecter", use_container_width=True)
         
         if submit:
             User = Query()
             result = db_users.search((User.username == u) & (User.password == p))
             if result:
                 st.session_state.current_user = result[0]
+                if remember:
+                    save_session(u)
                 st.rerun()
             else:
                 st.error("Identifiants incorrects.")
@@ -91,6 +129,7 @@ with st.sidebar:
     st.title("💊 Pharmaciel")
     st.write(f"Connecté: **{user['username']}** ({user.get('role', 'Saisie')})")
     if st.button("🚪 Déconnexion", use_container_width=True):
+        clear_session()
         st.session_state.current_user = None
         st.rerun()
 
