@@ -63,8 +63,15 @@ elif menu == "Pointage Factures":
         try:
             df = pd.read_excel(uploaded_file)
             
-            # Correction des colonnes : on s'adapte à votre export (Client, Référence, Région, Date Création)
-            cols_attendues = ['Client', 'Référence', 'Région', 'Date Création']
+            # Normalisation robuste des colonnes (gestion des accents, espaces et casses)
+            import unicodedata
+            def clean_col(c):
+                c = str(c).strip().lower()
+                return ''.join(ch for ch in unicodedata.normalize('NFD', c) if unicodedata.category(ch) != 'Mn')
+            
+            df.columns = [clean_col(c) for c in df.columns]
+            
+            cols_attendues = ['client', 'reference', 'region', 'date creation']
             
             if all(c in df.columns for c in cols_attendues):
                 df_clean = df[cols_attendues].copy()
@@ -73,7 +80,7 @@ elif menu == "Pointage Factures":
                 col_a, col_b, col_c = st.columns(3)
                 
                 with col_a:
-                    liste_regions = sorted(df_clean['Région'].dropna().unique())
+                    liste_regions = sorted(df_clean['region'].dropna().unique())
                     region_sel = st.selectbox("📍 Sélectionner la Région (Secteur)", liste_regions)
                 
                 with col_b:
@@ -103,7 +110,6 @@ elif menu == "Pointage Factures":
                             t_end = st.time_input("Fin", value=datetime.strptime("23:59", "%H:%M").time(), key="t2")
                         time_filter_active = True
                     else:
-                        # Pour la 2ème rotation, on peut aussi mettre un filtre par défaut ou laisser libre
                         t_start, t_end = None, None
 
                 with col_c:
@@ -112,7 +118,6 @@ elif menu == "Pointage Factures":
                         st.error("⚠️ Allez dans 'Administration' pour ajouter des livreurs d'abord.")
                         livreur_sel = None
                     else:
-                        # Auto-sélection du livreur
                         idx_livreur = 0
                         if "alger 1" in reg_str:
                             match = [i for i, l in enumerate(liste_livreurs) if "fethi" in l.lower()]
@@ -125,10 +130,10 @@ elif menu == "Pointage Factures":
 
                 if livreur_sel:
                     # --- LOGIQUE DE FILTRAGE ---
-                    df_filtre = df_clean[df_clean['Région'] == region_sel].copy()
+                    df_filtre = df_clean[df_clean['region'] == region_sel].copy()
                     
                     # Conversion en datetime
-                    df_filtre['dt_creation'] = pd.to_datetime(df_filtre['Date Création'], dayfirst=True)
+                    df_filtre['dt_creation'] = pd.to_datetime(df_filtre['date creation'], dayfirst=True)
                     
                     # Filtre de Date obligatoire
                     df_filtre = df_filtre[df_filtre['dt_creation'].dt.date == d_sel]
@@ -151,21 +156,20 @@ elif menu == "Pointage Factures":
 
                     st.subheader(f"📊 Liste des Factures ({len(df_filtre)})")
                     
-                    # Ajout de la case OK pour l'impression et de la validation
                     df_view = df_filtre.copy()
-                    df_view.insert(0, "OK", "[  ]") # Case pour cocher manuellement après impression
-                    df_view.insert(1, "Validé", False) # Case à cocher pour le système
+                    df_view.insert(0, "OK", "[  ]")
+                    df_view.insert(1, "Validé", False)
                     
-                    # 2. Éditeur de données interactif
                     edited_df = st.data_editor(
                         df_view,
                         column_config={
                             "OK": st.column_config.TextColumn("Pointage Manuel", width="small", disabled=True),
                             "Validé": st.column_config.CheckboxColumn("Système", default=False),
-                            "Référence": st.column_config.TextColumn("N° Facture", disabled=True),
-                            "Client": st.column_config.TextColumn("Nom du Client", disabled=True),
-                            "Date Création": st.column_config.TextColumn("Préparée le", disabled=True),
-                            "Région": None # Cacher car déjà en titre
+                            "reference": st.column_config.TextColumn("N° Facture", disabled=True),
+                            "client": st.column_config.TextColumn("Nom du Client", disabled=True),
+                            "date creation": st.column_config.TextColumn("Préparée le", disabled=True),
+                            "region": None,
+                            "dt_creation": None
                         },
                         hide_index=True,
                         use_container_width=True
@@ -182,17 +186,17 @@ elif menu == "Pointage Factures":
                                     'date_pointage': datetime.now().strftime("%d/%m/%Y %H:%M"),
                                     'livreur': livreur_sel,
                                     'rotation': rotation_sel,
-                                    'reference': row['Référence'],
-                                    'client': row['Client'],
-                                    'region': row['Région']
+                                    'reference': row['reference'],
+                                    'client': row['client'],
+                                    'region': row['region']
                                 })
                                 
                                 # Préparation des données pour le module Recouvrement
                                 new_recouv_rows.append({
-                                    "Client": row['Client'],
-                                    "Facture": row['Référence'],
+                                    "Client": row['client'],
+                                    "Facture": row['reference'],
                                     "Mode Paiement": "À Définir",
-                                    "Région": row['Région'],
+                                    "Région": row['region'],
                                     "Reste à payer": 0.0,
                                     "Livreur": livreur_sel,
                                     "Date": datetime.now().strftime("%d/%m/%Y"),
