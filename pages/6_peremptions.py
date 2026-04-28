@@ -189,6 +189,63 @@ with tab2:
                         st.download_button(f"📥 Télécharger la comparaison ({depot_p} vs {depot_s})", buffer.getvalue(), f"Comparaison_{depot_p}_{depot_s}.xlsx")
                         
                         log_action(st.session_state.current_user['username'], f"Comparaison péremptions {depot_p} vs {depot_s}", "Péremptions")
+
+                        # --- PHASE 4: ORDRE DE TRANSFERT ---
+                        st.divider()
+                        st.subheader("📋 Automatisation des Transferts")
+                        st.write(f"Suggérer le transfert des produits critiques de **{depot_s}** vers **{depot_p}**.")
+                        
+                        df_transfert = comparison[comparison['Statut DS'].isin(["🚨 CRITIQUE", "⚠️ PROCHE"])].copy()
+                        
+                        if not df_transfert.empty:
+                            from fpdf import FPDF
+                            def generate_transfer_pdf(df, ds, dp):
+                                pdf = FPDF()
+                                pdf.add_page()
+                                pdf.set_font("Arial", 'B', 16)
+                                pdf.cell(0, 10, f"ORDRE DE TRANSFERT - Pharmaciel Pro", 0, 1, 'C')
+                                pdf.set_font("Arial", '', 11)
+                                pdf.cell(0, 8, f"Date: {datetime.now().strftime('%d/%m/%Y')}", 0, 1, 'R')
+                                pdf.ln(10)
+                                
+                                pdf.set_font("Arial", 'B', 12)
+                                pdf.cell(0, 8, f"ORIGINE : {ds}", 0, 1, 'L')
+                                pdf.cell(0, 8, f"DESTINATION : {dp}", 0, 1, 'L')
+                                pdf.ln(5)
+                                
+                                pdf.set_font("Arial", 'B', 10)
+                                pdf.cell(80, 8, "Désignation", 1)
+                                pdf.cell(30, 8, "Date Exp.", 1)
+                                pdf.cell(30, 8, "Qte à Transf.", 1)
+                                pdf.cell(50, 8, "Observations", 1)
+                                pdf.ln()
+                                
+                                pdf.set_font("Arial", '', 9)
+                                for _, row in df.iterrows():
+                                    pdf.cell(80, 8, str(row['produit'])[:40].encode('latin-1', 'replace').decode('latin-1'), 1)
+                                    pdf.cell(30, 8, row['Date DS'], 1)
+                                    qte = f"{row[f'{qte_col}_s']}" if qte_col else "N/A"
+                                    pdf.cell(30, 8, qte, 1)
+                                    obs = "URGENT (PROCHE)" if "CRITIQUE" in row['Statut DS'] else "Vigilance"
+                                    pdf.cell(50, 8, obs, 1)
+                                    pdf.ln()
+                                
+                                return pdf.output(dest='S').encode('latin-1', 'replace')
+
+                            c_t1, c_t2 = st.columns([2, 1])
+                            with c_t1:
+                                st.info(f"Il y a {len(df_transfert)} produits à transférer en priorité de {depot_s} vers {depot_p}.")
+                            with c_t2:
+                                pdf_t_bytes = generate_transfer_pdf(df_transfert, depot_s, depot_p)
+                                st.download_button(
+                                    "📥 Générer Bon de Transfert (PDF)", 
+                                    pdf_t_bytes, 
+                                    f"Transfert_{depot_s}_to_{depot_p}.pdf",
+                                    mime="application/pdf"
+                                )
+                        else:
+                            st.success(f"Tous les produits de {depot_s} sont en sécurité (dates éloignées).")
+
                     else:
                         st.info("Aucun produit commun trouvé entre ces deux dépôts.")
             else:

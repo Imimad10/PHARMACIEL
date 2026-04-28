@@ -118,7 +118,7 @@ def generate_relance_pdf(client_name, df_client, total_du):
 # --- INTERFACE UTILISATEUR ---
 st.title("💰 Système de Recouvrement")
 
-tabs = st.tabs(["🆕 Créer / Importer", "📄 Feuilles de Route", "📊 Suivi Global", "⚙️ Administration"])
+tabs = st.tabs(["🆕 Créer / Importer", "📄 Feuilles de Route", "📊 Suivi Global", "📈 Analyse Financière", "⚙️ Administration"])
 
 # ONGLET 1 : SAISIE ET IMPORT
 with tabs[0]:
@@ -222,13 +222,80 @@ with tabs[2]:
                 mime="application/pdf",
                 type="primary"
             )
+            
+            # --- PHASE 5: WHATSAPP LINK ---
+            st.write("---")
+            st.subheader("📲 Relance Rapide via WhatsApp")
+            client_phone = df_clients[df_clients["Nom Client"] == client_relance]["Téléphone"].values[0] if not df_clients.empty else ""
+            
+            if pd.notna(client_phone) and str(client_phone) != "":
+                # Nettoyage du numéro (garder uniquement les chiffres)
+                phone_clean = "".join(filter(str.isdigit, str(client_phone)))
+                if not phone_clean.startswith("213"): phone_clean = "213" + phone_clean.lstrip("0")
+                
+                msg = f"Bonjour {client_relance}, nous vous relançons concernant un solde débiteur de {total_client:,.2f} DA. Merci de régulariser la situation. Cordialement, Service Recouvrement Pharmaciel."
+                wa_link = f"https://wa.me/{phone_clean}?text={msg.replace(' ', '%20')}"
+                
+                st.link_button(f"💬 Envoyer Relance WhatsApp à {client_phone}", wa_link)
+            else:
+                st.warning("Numéro de téléphone manquant pour ce client dans la base.")
         else:
             st.success("Aucun client n'a de reste à payer. Tout est en règle !")
     else:
         st.info("Base de données vide.")
 
-# ONGLET 4 : ADMINISTRATION
+# ONGLET 4 : ANALYSE FINANCIÈRE (BALANCE ÂGÉE)
 with tabs[3]:
+    st.header("📈 Dashboard Financier & Balance Âgée")
+    df_global = load_data(DATA_RECOUV, COLS_RECOUV)
+    
+    if not df_global.empty:
+        # Conversion date
+        df_global['Date_dt'] = pd.to_datetime(df_global['Date'], errors='coerce')
+        now = pd.to_datetime(datetime.now().date())
+        
+        # Calcul de l'ancienneté
+        df_global['Ancienneté'] = (now - df_global['Date_dt']).dt.days
+        
+        def age_bucket(days):
+            if days <= 15: return "0-15 Jours"
+            if days <= 30: return "16-30 Jours"
+            if days <= 60: return "31-60 Jours"
+            return "+60 Jours"
+        
+        df_global['Tranche'] = df_global['Ancienneté'].apply(age_bucket)
+        
+        # Graphiques
+        col_g1, col_g2 = st.columns(2)
+        
+        with col_g1:
+            st.subheader("📁 Balance Âgée")
+            df_age = df_global.groupby('Tranche')['Reste à payer'].sum().reindex(["0-15 Jours", "16-30 Jours", "31-60 Jours", "+60 Jours"]).reset_index()
+            import plotly.express as px
+            fig_age = px.bar(df_age, x='Tranche', y='Reste à payer', color='Tranche', 
+                             color_discrete_sequence=px.colors.sequential.Reds_r, template="plotly_dark")
+            st.plotly_chart(fig_age, use_container_width=True)
+            
+        with col_g2:
+            st.subheader("🚚 Dette par Livreur")
+            df_liv_debt = df_global.groupby('Livreur')['Reste à payer'].sum().reset_index()
+            fig_pie = px.pie(df_liv_debt, values='Reste à payer', names='Livreur', hole=0.4, template="plotly_dark")
+            st.plotly_chart(fig_pie, use_container_width=True)
+            
+        st.divider()
+        st.subheader("🚨 Risques Clients (+60 Jours)")
+        df_risques = df_global[df_global['Tranche'] == "+60 Jours"].sort_values('Ancienneté', ascending=False)
+        if not df_risques.empty:
+            st.warning(f"Il y a {len(df_risques)} factures impayées depuis plus de 60 jours !")
+            st.dataframe(df_risques, use_container_width=True)
+        else:
+            st.success("Aucun client n'a de dettes de plus de 60 jours.")
+            
+    else:
+        st.info("Aucune donnée pour l'analyse financière.")
+
+# ONGLET 5 : ADMINISTRATION
+with tabs[4]:
     st.subheader("Gestion de la Base Clients")
     f_cli = st.file_uploader("Importer base clients (Excel)", type=["xlsx"])
     if f_cli:

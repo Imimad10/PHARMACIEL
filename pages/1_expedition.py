@@ -5,6 +5,7 @@ from datetime import datetime
 from fpdf import FPDF
 import qrcode
 from utils import log_action
+from tinydb import TinyDB, Query
 
 # --- CONFIGURATION ---
 # st.set_page_config(page_title="Gestion des Expéditions", layout="wide")
@@ -13,6 +14,8 @@ os.makedirs(DATA_DIR, exist_ok=True)
 SECTEURS_PATH = os.path.join(DATA_DIR, "secteurs.csv")
 LIVREURS_PATH = os.path.join(DATA_DIR, "livreurs.csv")
 MOTIFS_PATH = os.path.join(DATA_DIR, "motifs.csv")
+db_global = TinyDB('db_pharmaciel.json')
+table_reclam = db_global.table('reclamations')
 
 # --- FONCTIONS DE CHARGEMENT ---
 def load_clients():
@@ -53,21 +56,30 @@ def save_motifs(motifs):
 if "rows" not in st.session_state:
     st.session_state.rows = pd.DataFrame(columns=["Client", "Ville", "N° Doc", "Info", "Statut", "Signature"])
 
-def add_or_merge_row(client, ville, ref, info, statut, signature):
+def add_or_merge_row(client, ville, ref, info, statut, signature, mode="Commande"):
     """Ajoute une ligne ou fusionne si le client existe déjà."""
-    # Nettoyage des chaînes
     client = str(client).strip()
     ref = str(ref).strip()
     
-    # Recherche d'un doublon client
+    # Pour les réclamations, on enregistre en base persistante
+    if mode == "Réclamation":
+        table_reclam.insert({
+            "client": client,
+            "ville": ville,
+            "ref": ref,
+            "motif": info,
+            "date_crea": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "statut": "En cours",
+            "signature": signature
+        })
+
+    # Mise à jour de la vue session en cours
     mask = st.session_state.rows['Client'] == client
     if mask.any():
         idx = st.session_state.rows[mask].index[0]
         current_ref = str(st.session_state.rows.at[idx, 'N° Doc'])
-        # Fusion des références si elle n'y est pas déjà
         if ref not in current_ref and ref != "Réclamation non validée":
             st.session_state.rows.at[idx, 'N° Doc'] = f"{current_ref} | {ref}"
-        # On peut aussi concaténer les infos si besoin, mais ici on garde l'info principale
     else:
         new_row = pd.DataFrame([{
             "Client": client, 
@@ -82,8 +94,8 @@ def add_or_merge_row(client, ville, ref, info, statut, signature):
 # --- INTERFACE ---
 st.title("🚛 Gestion des Expéditions")
 
-tab_exp, tab_livreurs, tab_secteurs, tab_admin = st.tabs([
-    "📋 Programme d'Expédition", "👤 Gestion des Livreurs", "📍 Gestion des Secteurs", "⚙️ Administration"
+tab_exp, tab_suivi_sav, tab_livreurs, tab_secteurs, tab_admin = st.tabs([
+    "📋 Programme d'Expédition", "📊 Suivi des Litiges", "👤 Gestion des Livreurs", "📍 Gestion des Secteurs", "⚙️ Administration"
 ])
 
 # 1. PROGRAMME D'EXPÉDITION
@@ -177,7 +189,7 @@ with tab_exp:
                                     telephone = tel_map.get(client_name, "")
                                     info_str = f"Tel: {telephone}" if telephone else ""
                                     
-                                    add_or_merge_row(client_name, ville, ref_val, "RÉCLAMATION IMPORTÉE", "En cours", info_str)
+                                    add_or_merge_row(client_name, ville, ref_val, "RÉCLAMATION IMPORTÉE", "En cours", info_str, mode="Réclamation")
                                     added_count += 1
                                 
                                 if added_count > 0:
@@ -223,7 +235,7 @@ with tab_exp:
             full_ref = f"{annee}/{prefixe}/{ref_bon}"
             ville = client_map.get(new_client, "")
             
-            add_or_merge_row(new_client, ville, full_ref, val_info, "En cours", "")
+            add_or_merge_row(new_client, ville, full_ref, val_info, "En cours", "", mode=mode)
             st.rerun()
 
     st.subheader(f"Détails des {mode}s")
@@ -316,6 +328,65 @@ with tab_exp:
                 st.error(f"Erreur PDF : {e}")
         else:
             st.warning("Le tableau est vide.")
+
+# 1.1 SUIVI DES LITIGES (SAV)
+with tab_suivi_sav:
+    st.header("📊 Historique et Suivi des Réclamations")
+    
+    reclams_all = table_reclam.all()
+    if not reclams_all:
+        st.info("Aucun litige enregistré dans l'historique.")
+    else:
+        df_sav = pd.DataFrame(reclams_all)
+        df_sav['date_crea'] = pd.to_datetime(df_sav['date_crea'])
+        
+        # Alerte retard (> 48h)
+        now = datetime.now()
+        df_sav['retard'] = (now - df_sav['date_crea']).dt.total_seconds() / 3600 > 48
+        retards_count = df_sav[(df_sav['retard']) & (df_sav['statut'] == 'En cours')].shape[0]
+        
+        if retards_count > 0:
+            st.error(f"🚨 {retards_count} réclamation(s) en attente depuis plus de 48 heures !")
+        
+        # Filtres
+        col_s1, col_s2 = st.columns(2)
+        with col_s1:
+            filtre_statut = st.selectbox("Filtrer par statut", ["Tous", "En cours", "Livré", "Annulé"])
+        
+        if filtre_statut != "Tous":
+            df_sav = df_sav[df_sav['statut'] == filtre_statut]
+            
+        # Stats motifs
+        st.subheader("📈 Analyse des Motifs")
+        df_motif_stats = df_sav['motif'].value_counts().reset_index()
+        df_motif_stats.columns = ['Motif', 'Nombre']
+        import plotly.express as px
+        fig_motifs = px.bar(df_motif_stats, x='Motif', y='Nombre', color='Nombre', template="plotly_dark")
+        st.plotly_chart(fig_motifs, use_container_width=True)
+        
+        # Liste éditable pour clore les litiges
+        st.subheader("📝 Liste détaillée")
+        edited_sav = st.data_editor(
+            df_sav.sort_values('date_crea', ascending=False),
+            use_container_width=True,
+            column_config={
+                "statut": st.column_config.SelectboxColumn("Statut", options=["En cours", "Livré", "Annulé"]),
+                "retard": None # On cache la colonne technique
+            }
+        )
+        
+        if st.button("💾 Mettre à jour l'historique"):
+            # Pour chaque ligne modifiée, mettre à jour la TinyDB
+            # (Note: une implémentation plus complexe utiliserait l'ID TinyDB, 
+            # ici on écrase tout le tableau pour faire simple dans ce contexte)
+            table_reclam.truncate()
+            # On retire la colonne technique 'retard' avant sauvegarde
+            df_to_save = edited_sav.drop(columns=['retard'])
+            # Conversion date en string pour JSON
+            df_to_save['date_crea'] = df_to_save['date_crea'].dt.strftime("%Y-%m-%d %H:%M")
+            table_reclam.insert_multiple(df_to_save.to_dict('records'))
+            st.success("Historique mis à jour !")
+            st.rerun()
 
 # 2. GESTION DES LIVREURS
 with tab_livreurs:
