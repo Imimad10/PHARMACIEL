@@ -53,6 +53,32 @@ def save_motifs(motifs):
 if "rows" not in st.session_state:
     st.session_state.rows = pd.DataFrame(columns=["Client", "Ville", "N° Doc", "Info", "Statut", "Signature"])
 
+def add_or_merge_row(client, ville, ref, info, statut, signature):
+    """Ajoute une ligne ou fusionne si le client existe déjà."""
+    # Nettoyage des chaînes
+    client = str(client).strip()
+    ref = str(ref).strip()
+    
+    # Recherche d'un doublon client
+    mask = st.session_state.rows['Client'] == client
+    if mask.any():
+        idx = st.session_state.rows[mask].index[0]
+        current_ref = str(st.session_state.rows.at[idx, 'N° Doc'])
+        # Fusion des références si elle n'y est pas déjà
+        if ref not in current_ref and ref != "Réclamation non validée":
+            st.session_state.rows.at[idx, 'N° Doc'] = f"{current_ref} | {ref}"
+        # On peut aussi concaténer les infos si besoin, mais ici on garde l'info principale
+    else:
+        new_row = pd.DataFrame([{
+            "Client": client, 
+            "Ville": ville, 
+            "N° Doc": ref, 
+            "Info": info, 
+            "Statut": statut, 
+            "Signature": signature
+        }])
+        st.session_state.rows = pd.concat([st.session_state.rows, new_row], ignore_index=True)
+
 # --- INTERFACE ---
 st.title("🚛 Gestion des Expéditions")
 
@@ -91,8 +117,6 @@ with tab_exp:
         client_list = df_clients_filtre["Client"].dropna().astype(str).unique().tolist()
         client_map = dict(zip(df_clients_filtre['Client'].astype(str), df_clients_filtre['Ville']))
     else:
-        # Si pas de secteur défini pour le livreur, on montre tout ou rien ?
-        # On montre tout par défaut mais on prévient
         if livreur_choisi: st.warning(f"Le livreur {livreur_choisi} n'a pas de secteur assigné.")
 
     st.divider()
@@ -106,7 +130,6 @@ with tab_exp:
                 try:
                     df_reclam = pd.read_excel(file_complaints)
                     
-                    # Normalisation des colonnes
                     import unicodedata
                     def clean_col(c):
                         c = str(c).strip().lower()
@@ -114,15 +137,13 @@ with tab_exp:
                     
                     df_reclam.columns = [clean_col(c) for c in df_reclam.columns]
                     
-                    required = {'client', 'statut'} # Reference est optionnelle selon la règle
+                    required = {'client', 'statut'}
                     if required.issubset(df_reclam.columns):
-                        # Filtrage statut "en cours"
                         df_reclam['statut_clean'] = df_reclam['statut'].astype(str).str.strip().str.lower()
                         df_to_add = df_reclam[df_reclam['statut_clean'].str.contains("en cours", na=False)].copy()
                         
                         if not df_to_add.empty:
                             df_clients = load_clients()
-                            # Dictionnaires de recherche
                             ville_map = dict(zip(df_clients['Client'].astype(str), df_clients['Ville']))
                             tel_map = dict(zip(df_clients['Client'].astype(str), df_clients['Tel']))
                             secteur_map = dict(zip(df_clients['Client'].astype(str), df_clients['Secteur'].astype(str).str.strip().str.lower()))
@@ -132,7 +153,6 @@ with tab_exp:
                             for _, row in df_to_add.iterrows():
                                 client_name = str(row['client']).strip()
                                 
-                                # Vérification du secteur (STRICTE)
                                 if secteur_livreur:
                                     client_secteur = secteur_map.get(client_name, "")
                                     if client_secteur != secteur_livreur:
@@ -145,29 +165,16 @@ with tab_exp:
                                 telephone = tel_map.get(client_name, "")
                                 info_str = f"Tel: {telephone}" if telephone else ""
                                 
-                                new_entry = pd.DataFrame([{
-                                    "Client": client_name, 
-                                    "Ville": ville, 
-                                    "N° Doc": ref_val, 
-                                    "Info": "RÉCLAMATION IMPORTÉE", 
-                                    "Statut": "En cours", 
-                                    "Signature": info_str
-                                }])
-                                
-                                st.session_state.rows = pd.concat([st.session_state.rows, new_entry], ignore_index=True)
+                                add_or_merge_row(client_name, ville, ref_val, "RÉCLAMATION IMPORTÉE", "En cours", info_str)
                                 added_count += 1
                             
                             if added_count > 0:
-                                st.success(f"✅ {added_count} réclamations pour {livreur_choisi} ({secteur_livreur}) importées !")
+                                st.success(f"✅ {added_count} réclamations traitées !")
                                 if skipped_count > 0:
                                     st.warning(f"ℹ️ {skipped_count} réclamations ignorées (autres secteurs).")
-                                log_action(st.session_state.current_user['username'], f"Importation {added_count} réclamations pour {livreur_choisi}", "Expédition")
+                                log_action(st.session_state.current_user['username'], f"Importation réclamations pour {livreur_choisi}", "Expédition")
                             else:
-                                st.warning(f"⚠️ Aucune réclamation dans le fichier ne correspond au secteur de {livreur_choisi} ({secteur_livreur}).")
-                        else:
-                            st.info("Aucune réclamation avec le statut 'En cours' trouvée dans le fichier.")
-                    else:
-                        st.error(f"Colonnes manquantes. Attendu: client, statut. Trouvé: {list(df_reclam.columns)}")
+                                st.warning(f"⚠️ Aucune réclamation correspondante au secteur.")
                 except Exception as e:
                     st.error(f"Erreur lors de la lecture : {e}")
 
@@ -183,9 +190,14 @@ with tab_exp:
                 val_info = st.text_input("Colissage")
             else:
                 liste_motifs = load_motifs()
-                val_info = st.selectbox("Motif", liste_motifs)
+                val_motif = st.selectbox("Motif", liste_motifs)
+                if val_motif == "MANQUE":
+                    extra_colis = st.text_input("📦 Colissage (Manque)")
+                    val_info = f"MANQUE: {extra_colis}" if extra_colis else "MANQUE"
+                else:
+                    val_info = val_motif
         with c4:
-            st.write("###") # Aligne avec le champ texte
+            st.write("###")
             btn_ajouter = st.button("➕ Ajouter")
 
     if btn_ajouter:
@@ -195,8 +207,7 @@ with tab_exp:
             full_ref = f"{annee}/{prefixe}/{ref_bon}"
             ville = client_map.get(new_client, "")
             
-            new_row = pd.DataFrame([{"Client": new_client, "Ville": ville, "N° Doc": full_ref, "Info": val_info, "Statut": "En cours", "Signature": ""}])
-            st.session_state.rows = pd.concat([st.session_state.rows, new_row], ignore_index=True)
+            add_or_merge_row(new_client, ville, full_ref, val_info, "En cours", "")
             st.rerun()
 
     st.subheader(f"Détails des {mode}s")
