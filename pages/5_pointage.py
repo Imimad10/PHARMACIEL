@@ -63,8 +63,8 @@ elif menu == "Pointage Factures":
         try:
             df = pd.read_excel(uploaded_file)
             
-            # Correction des colonnes : on s'adapte à votre export (Client, Référence, Région)
-            cols_attendues = ['Client', 'Référence', 'Région']
+            # Correction des colonnes : on s'adapte à votre export (Client, Référence, Région, Date Création)
+            cols_attendues = ['Client', 'Référence', 'Région', 'Date Création']
             
             if all(c in df.columns for c in cols_attendues):
                 df_clean = df[cols_attendues].copy()
@@ -74,7 +74,7 @@ elif menu == "Pointage Factures":
                 
                 with col_a:
                     liste_regions = sorted(df_clean['Région'].dropna().unique())
-                    region_sel = st.selectbox("📍 Sélectionner la Région", liste_regions)
+                    region_sel = st.selectbox("📍 Sélectionner la Région (Secteur)", liste_regions)
                 
                 with col_b:
                     reg_str = str(region_sel).lower()
@@ -86,6 +86,17 @@ elif menu == "Pointage Factures":
                         opts_rotation = ["1ère Rotation (Matin)"]
                         
                     rotation_sel = st.selectbox("🔄 Rotation", opts_rotation)
+                    
+                    # Filtre horaire pour la 1ère rotation
+                    time_filter_active = False
+                    if "1ère Rotation" in rotation_sel:
+                        st.write("⏱️ Fenêtre de préparation :")
+                        tc1, tc2 = st.columns(2)
+                        with tc1:
+                            t_start = st.time_input("Début", value=datetime.strptime("00:00", "%H:%M").time(), key="t1")
+                        with tc2:
+                            t_end = st.time_input("Fin", value=datetime.strptime("23:59", "%H:%M").time(), key="t2")
+                        time_filter_active = True
 
                 with col_c:
                     liste_livreurs = get_livreurs()
@@ -93,7 +104,7 @@ elif menu == "Pointage Factures":
                         st.error("⚠️ Allez dans 'Administration' pour ajouter des livreurs d'abord.")
                         livreur_sel = None
                     else:
-                        # Auto-sélection du livreur pour Alger 1 et Alger 2
+                        # Auto-sélection du livreur
                         idx_livreur = 0
                         if "alger 1" in reg_str:
                             match = [i for i, l in enumerate(liste_livreurs) if "fethi" in l.lower()]
@@ -105,21 +116,42 @@ elif menu == "Pointage Factures":
                         livreur_sel = st.selectbox("🚚 Affecter au Livreur", liste_livreurs, index=idx_livreur)
 
                 if livreur_sel:
-                    # Filtrage des données selon la région choisie
+                    # --- LOGIQUE DE FILTRAGE ---
                     df_filtre = df_clean[df_clean['Région'] == region_sel].copy()
-                    df_filtre.insert(0, "Reçu", False) # Ajout de la case à cocher au début
+                    
+                    if time_filter_active:
+                        df_filtre['dt_creation'] = pd.to_datetime(df_filtre['Date Création'], dayfirst=True)
+                        df_filtre = df_filtre[
+                            (df_filtre['dt_creation'].dt.time >= t_start) & 
+                            (df_filtre['dt_creation'].dt.time <= t_end)
+                        ]
 
+                    # --- AFFICHAGE POUR IMPRESSION ---
                     st.divider()
-                    st.subheader(f"Factures à pointer pour : {region_sel}")
+                    st.markdown(f"""
+                    <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; border-left: 5px solid #ff4b4b; margin-bottom: 20px;">
+                        <h1 style="margin: 0; color: #1f1f1f;">Livreur : <span style="color: #ff4b4b;">{livreur_sel}</span></h1>
+                        <h2 style="margin: 5px 0 0 0; color: #555;">Secteur : {region_sel} | {rotation_sel}</h2>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    st.subheader(f"📊 Liste des Factures ({len(df_filtre)})")
+                    
+                    # Ajout de la case OK pour l'impression et de la validation
+                    df_view = df_filtre.copy()
+                    df_view.insert(0, "OK", "[  ]") # Case pour cocher manuellement après impression
+                    df_view.insert(1, "Validé", False) # Case à cocher pour le système
                     
                     # 2. Éditeur de données interactif
                     edited_df = st.data_editor(
-                        df_filtre,
+                        df_view,
                         column_config={
-                            "Reçu": st.column_config.CheckboxColumn("Validé", default=False),
+                            "OK": st.column_config.TextColumn("Pointage Manuel", width="small", disabled=True),
+                            "Validé": st.column_config.CheckboxColumn("Système", default=False),
                             "Référence": st.column_config.TextColumn("N° Facture", disabled=True),
                             "Client": st.column_config.TextColumn("Nom du Client", disabled=True),
-                            "Région": st.column_config.TextColumn("Zone", disabled=True)
+                            "Date Création": st.column_config.TextColumn("Préparée le", disabled=True),
+                            "Région": None # Cacher car déjà en titre
                         },
                         hide_index=True,
                         use_container_width=True
@@ -127,7 +159,7 @@ elif menu == "Pointage Factures":
 
                     # 3. Bouton d'enregistrement
                     if st.button("Confirmer le pointage"):
-                        factures_ok = edited_df[edited_df['Reçu'] == True]
+                        factures_ok = edited_df[edited_df['Validé'] == True]
                         
                         if not factures_ok.empty:
                             new_recouv_rows = []
