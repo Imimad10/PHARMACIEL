@@ -73,7 +73,7 @@ with tabs[1]:
             all_labs = sorted(df_master['laboratoire'].unique().tolist()) if 'laboratoire' in df_master.columns else []
             selected_labs = st.multiselect("🧪 Filtrer par Labo", all_labs)
         with c_m3:
-            search = st.text_input("🔍 Rechercher un produit")
+            search = st.text_input("🔍 Scanner (Douchette) / Rechercher")
 
         df_work = df_master.copy()
         if selected_labs:
@@ -122,6 +122,19 @@ with tabs[2]:
                 comp = pd.merge(df_master, saisie[['designation', 'qte_saisie']], on='designation', how='inner')
                 comp['écart'] = comp['qte_saisie'] - comp[q_theo_col]
                 st.dataframe(comp[['designation', 'laboratoire', q_theo_col, 'qte_saisie', 'écart']], use_container_width=True)
+                
+                # EXPORT EXCEL
+                import io
+                buffer = io.BytesIO()
+                comp.to_excel(buffer, index=False)
+                st.download_button(
+                    label="📥 Exporter les écarts en Excel",
+                    data=buffer.getvalue(),
+                    file_name="Ecarts_Inventaire.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    type="primary"
+                )
+                
                 if st.button("🗑️ Reset Inventaire"):
                     os.remove(SAISIE_PATH)
                     st.rerun()
@@ -132,27 +145,11 @@ with tabs[2]:
 with tabs[3]:
     if user['role'] == "Admin":
         st.header("⚙️ Configuration Admin")
-        up = st.file_uploader("Upload Master", type=["xlsx"])
+        up = st.file_uploader("Upload Master Excel", type=["xlsx"])
         if up:
             with open(MASTER_PATH, "wb") as f: f.write(up.getbuffer())
-            st.success("Master OK.")
-        
-        st.divider()
-        st.subheader("👥 Gestion des utilisateurs")
-        users_df = pd.read_csv(USERS_PATH)
-        st.dataframe(users_df, use_container_width=True)
-        
-        with st.form("form_ajout_user"):
-            new_username = st.text_input("Nom d'utilisateur")
-            new_password = st.text_input("Mot de passe", type="password")
-            new_role = st.selectbox("Rôle", ["Saisie", "Admin"])
-            submit_user = st.form_submit_button("Ajouter l'utilisateur")
-            
-            if submit_user:
-                if new_username and new_password:
-                    new_row = pd.DataFrame([{"username": new_username, "password": new_password, "role": new_role}])
-                    pd.concat([users_df, new_row], ignore_index=True).to_csv(USERS_PATH, index=False)
-                    st.success(f"Utilisateur {new_username} ajouté !")
-                    st.rerun()
+            st.success("Fichier Master importé avec succès.")
+            st.rerun()
+        st.info("💡 Note : La gestion des utilisateurs se fait désormais dans le menu principal 'Administration Centrale'.")
     else:
         st.warning("Accès restreint.")

@@ -67,6 +67,54 @@ def generate_pdf(df, livreur_name):
         pdf.cell(35, 10, "", 1, 1) 
     return pdf.output(dest='S').encode('latin-1', 'replace')
 
+def generate_relance_pdf(client_name, df_client, total_du):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(0, 10, "PHARMACIEL - MISE EN DEMEURE / RELANCE", 0, 1, 'C')
+    pdf.ln(10)
+    
+    pdf.set_font("Arial", '', 12)
+    pdf.cell(0, 8, f"Date : {datetime.now().strftime('%d/%m/%Y')}", 0, 1, 'R')
+    pdf.ln(10)
+    
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 8, f"A l'attention de : {client_name}", 0, 1, 'L')
+    pdf.ln(5)
+    
+    pdf.set_font("Arial", '', 11)
+    texte = (
+        "Cher client,\n\n"
+        "Sauf erreur ou omission de notre part, nous constatons que votre compte client presente "
+        f"actuellement un solde debiteur de {total_du:,.2f} DA.\n\n"
+        "Voici le detail des factures / montants en attente :\n"
+    )
+    pdf.multi_cell(0, 8, texte.encode('latin-1', 'replace').decode('latin-1'))
+    pdf.ln(5)
+    
+    pdf.set_font("Arial", 'B', 10)
+    pdf.cell(60, 8, "Facture / Ref", 1)
+    pdf.cell(40, 8, "Date", 1)
+    pdf.cell(40, 8, "Montant Du (DA)", 1)
+    pdf.ln()
+    
+    pdf.set_font("Arial", '', 10)
+    for _, row in df_client.iterrows():
+        fac = str(row.get('Facture', 'N/A'))
+        d = str(row.get('Date', ''))
+        mnt = f"{row.get('Reste à payer', 0.0):,.2f}"
+        
+        pdf.cell(60, 8, fac[:25].encode('latin-1', 'replace').decode('latin-1'), 1)
+        pdf.cell(40, 8, d.encode('latin-1', 'replace').decode('latin-1'), 1)
+        pdf.cell(40, 8, mnt.encode('latin-1', 'replace').decode('latin-1'), 1)
+        pdf.ln()
+        
+    pdf.ln(10)
+    footer = "Nous vous remercions de bien vouloir regulariser cette situation dans les plus brefs delais.\n\nCordialement,\nLe Service Recouvrement"
+    pdf.multi_cell(0, 8, footer.encode('latin-1', 'replace').decode('latin-1'))
+    
+    return pdf.output(dest='S').encode('latin-1', 'replace')
+
 # --- INTERFACE UTILISATEUR ---
 st.title("💰 Système de Recouvrement")
 
@@ -153,6 +201,29 @@ with tabs[2]:
         c2.metric("Nombre de Clients", len(df_global["Client"].unique()))
         c3.metric("En attente", len(df_global[df_global["Statut"] == "En attente"]))
         st.dataframe(df_global.sort_values("Date", ascending=False), use_container_width=True, hide_index=True)
+        
+        st.divider()
+        st.subheader("✉️ Génération de Lettres de Relance")
+        clients_impayes = df_global[df_global['Reste à payer'] > 0]['Client'].dropna().unique().tolist()
+        
+        if clients_impayes:
+            client_relance = st.selectbox("Sélectionner un client pour la relance", clients_impayes)
+            df_client_impayes = df_global[(df_global['Client'] == client_relance) & (df_global['Reste à payer'] > 0)]
+            total_client = df_client_impayes['Reste à payer'].sum()
+            
+            st.write(f"Total dû par **{client_relance}** : {total_client:,.2f} DA")
+            
+            pdf_relance_bytes = generate_relance_pdf(client_relance, df_client_impayes, total_client)
+            
+            st.download_button(
+                label="📥 Télécharger Lettre de Relance (PDF)",
+                data=pdf_relance_bytes,
+                file_name=f"Relance_{client_relance.replace(' ', '_')}.pdf",
+                mime="application/pdf",
+                type="primary"
+            )
+        else:
+            st.success("Aucun client n'a de reste à payer. Tout est en règle !")
     else:
         st.info("Base de données vide.")
 
