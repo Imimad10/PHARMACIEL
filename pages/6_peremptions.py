@@ -74,46 +74,126 @@ with tab1:
         st.info("Aucun inventaire terrain trouvé.")
 
 with tab2:
-    st.subheader("Analyse de stock externe (Excel)")
-    st.write("Déposez un fichier exporté de votre logiciel (colonnes attendues : **depot, quantité, ddp**)")
+    st.subheader("📥 Import & Comparaison de Stocks")
+    st.write("Comparez les dates de péremption entre deux dépôts pour les mêmes produits.")
     
-    file_up = st.file_uploader("Choisir un fichier Excel", type=["xlsx", "xls"])
+    file_up = st.file_uploader("Choisir le fichier Excel de stock", type=["xlsx", "xls"])
     
     if file_up:
-        df_ext = pd.read_excel(file_up)
-        # Normalisation des colonnes
-        df_ext.columns = [c.lower().strip() for c in df_ext.columns]
-        
-        needed = ['ddp', 'quantité'] 
-        if all(c in df_ext.columns for c in needed):
-            df_ext_res = analyze_peremptions(df_ext, date_col='ddp', qte_col='quantité')
+        try:
+            df_ext = pd.read_excel(file_up)
             
-            if not df_ext_res.empty:
-                # Filtre par dépôt
-                if 'depot' in df_ext_res.columns:
-                    df_ext_res['depot'] = df_ext_res['depot'].astype(str).str.lower()
-                    depots = ["Tous"] + sorted(df_ext_res['depot'].unique().tolist())
-                    sel_depot = st.selectbox("Filtrer par Dépôt", depots)
-                    if sel_depot != "Tous":
-                        df_ext_res = df_ext_res[df_ext_res['depot'] == sel_depot]
+            # Normalisation robuste des colonnes (gestion des accents et casses)
+            import unicodedata
+            def clean_col(c):
+                c = str(c).strip().lower()
+                return ''.join(ch for ch in unicodedata.normalize('NFD', c) if unicodedata.category(ch) != 'Mn')
+            
+            df_ext.columns = [clean_col(c) for c in df_ext.columns]
+            
+            # Vérification des colonnes essentielles
+            # Dans le screenshot : Produit, Depot, DDP (ou ddp)
+            expected = {'produit', 'depot', 'ddp'}
+            missing = expected - set(df_ext.columns)
+            
+            if not missing:
+                # Nettoyage des données
+                df_ext['expiry_date'] = df_ext['ddp'].apply(parse_ddp)
+                df_ext = df_ext.dropna(subset=['expiry_date', 'depot', 'produit'])
                 
-                # Tri par date de péremption (Priorité de vente)
-                df_ext_res = df_ext_res.sort_values('expiry_date')
+                # Liste des dépôts uniques
+                all_depots = sorted(df_ext['depot'].unique().tolist())
                 
-                # Affichage des alertes critiques
-                critiques = df_ext_res[df_ext_res['mois_restants'] <= 6]
-                if not critiques.empty:
-                    st.error(f"🚨 {len(critiques)} produits nécessitent une mise en vente prioritaire !")
+                col1, col2 = st.columns(2)
+                with col1:
+                    depot_p = st.selectbox("🏗️ Dépôt Principal", all_depots, key="dp")
                 
-                st.dataframe(df_ext_res, use_container_width=True)
+                with col2:
+                    # Exclure le dépôt principal du deuxième choix
+                    other_depots = [d for d in all_depots if d != depot_p]
+                    depot_s = st.selectbox("🏢 Deuxième Dépôt (Comparaison)", other_depots, key="ds")
                 
-                # Export
-                import io
-                buffer = io.BytesIO()
-                df_ext_res.to_excel(buffer, index=False)
-                st.download_button("📥 Télécharger l'analyse de priorité (.xlsx)", buffer.getvalue(), "Analyse_Priorite_Vente.xlsx")
-                log_action(st.session_state.current_user['username'], "Analyse stock externe péremptions", "Péremptions")
+                if depot_p and depot_s:
+                    # Filtrer les données pour les deux dépôts
+                    df_p = df_ext[df_ext['depot'] == depot_p].copy()
+                    df_s = df_ext[df_ext['depot'] == depot_s].copy()
+                    
+                    # On veut comparer les produits par désignation (produit)
+                    # On prend la date la plus proche pour chaque produit dans chaque dépôt et la quantité totale
+                    qte_col = 'quantite' if 'quantite' in df_ext.columns else ('quantite' if 'quantite' in df_ext.columns else None)
+                    # Note: clean_col turned 'Quantité' into 'quantite'
+                    
+                    agg_dict = {'expiry_date': 'min'}
+                    if qte_col: agg_dict[qte_col] = 'sum'
+                    
+                    p_data = df_p.groupby('produit').agg(agg_dict).reset_index()
+                    s_data = df_s.groupby('produit').agg(agg_dict).reset_index()
+                    
+                    # Fusionner pour comparer
+                    comparison = pd.merge(p_data, s_data, on='produit', how='inner', suffixes=('_p', '_s'))
+                    
+                    if not comparison.empty:
+                        now = datetime.now()
+                        comparison['mois_restants_s'] = comparison['expiry_date_s'].apply(lambda d: (d.year - now.year) * 12 + d.month - now.month)
+                        
+                        # Fonction d'alerte
+                        def get_alert(row):
+                            if row['mois_restants_s'] <= 3: return "🚨 CRITIQUE"
+                            if row['mois_restants_s'] <= 6: return "⚠️ PROCHE"
+                            return "✅ OK"
+                        
+                        comparison['Statut DS'] = comparison.apply(get_alert, axis=1)
+                        
+                        # Formater les dates pour l'affichage
+                        comparison['Date DP'] = comparison['expiry_date_p'].dt.strftime('%m/%Y')
+                        comparison['Date DS'] = comparison['expiry_date_s'].dt.strftime('%m/%Y')
+                        
+                        st.write(f"### 🔍 Comparaison : {depot_p} vs {depot_s}")
+                        
+                        # Metrics
+                        c1, c2, c3 = st.columns(3)
+                        c1.metric("Produits Communs", len(comparison))
+                        crit_count = len(comparison[comparison['Statut DS'] == "🚨 CRITIQUE"])
+                        c2.metric("Alertes Critiques (DS)", crit_count, delta=-crit_count if crit_count > 0 else 0, delta_color="inverse")
+                        c3.metric("Alertes Proches (DS)", len(comparison[comparison['Statut DS'] == "⚠️ PROCHE"]))
+                        
+                        # Colonnes à afficher
+                        cols_to_show = ['produit', 'Date DP', 'Date DS']
+                        rename_dict = {'produit': 'Désignation', 'Date DP': f'Date ({depot_p})', 'Date DS': f'Date ({depot_s})'}
+                        
+                        if qte_col:
+                            comparison[f'Qte_{depot_p}'] = comparison[f'{qte_col}_p']
+                            comparison[f'Qte_{depot_s}'] = comparison[f'{qte_col}_s']
+                            cols_to_show.extend([f'Qte_{depot_p}', f'Qte_{depot_s}'])
+                        
+                        cols_to_show.append('Statut DS')
+                        
+                        display_df = comparison[cols_to_show].rename(columns=rename_dict)
+                        
+                        # Style
+                        def color_alert(val):
+                            if "🚨" in val: return 'background-color: #ff4b4b; color: white; font-weight: bold'
+                            if "⚠️" in val: return 'background-color: #ffa500; color: black; font-weight: bold'
+                            return ''
+
+                        st.dataframe(
+                            display_df.style.applymap(color_alert, subset=['Statut DS']),
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                        
+                        # Export
+                        import io
+                        buffer = io.BytesIO()
+                        comparison.to_excel(buffer, index=False)
+                        st.download_button(f"📥 Télécharger la comparaison ({depot_p} vs {depot_s})", buffer.getvalue(), f"Comparaison_{depot_p}_{depot_s}.xlsx")
+                        
+                        log_action(st.session_state.current_user['username'], f"Comparaison péremptions {depot_p} vs {depot_s}", "Péremptions")
+                    else:
+                        st.info("Aucun produit commun trouvé entre ces deux dépôts.")
             else:
-                st.error("Aucune donnée de date valide dans le fichier.")
-        else:
-            st.error(f"Colonnes manquantes. Le fichier doit contenir au moins : {needed}")
+                st.error(f"Colonnes manquantes dans le fichier Excel : {', '.join(missing)}")
+                st.info("Colonnes détectées : " + ", ".join(df_ext.columns))
+                
+        except Exception as e:
+            st.error(f"Erreur lors de la lecture du fichier : {e}")
