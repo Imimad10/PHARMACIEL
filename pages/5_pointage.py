@@ -23,6 +23,46 @@ def ajouter_livreur(nom):
 def get_livreurs():
     return [item['nom'] for item in table_livreurs.all()]
 
+def archive_pointages_mensuel():
+    """Archive les pointages des mois précédents vers un dossier archive."""
+    now = datetime.now()
+    all_data = table_pointage.all()
+    if not all_data: return
+    
+    archive_dir = "data_archive"
+    os.makedirs(archive_dir, exist_ok=True)
+    
+    data_to_archive = {}
+    data_to_keep = []
+    
+    for item in all_data:
+        try:
+            dt = datetime.strptime(item['date_pointage'], "%d/%m/%Y %H:%M")
+            if dt.month != now.month or dt.year != now.year:
+                key = dt.strftime("%Y_%m")
+                if key not in data_to_archive: data_to_archive[key] = []
+                data_to_archive[key].append(item)
+            else:
+                data_to_keep.append(item)
+        except:
+            data_to_keep.append(item)
+            
+    if data_to_archive:
+        import json
+        for key, data in data_to_archive.items():
+            archive_file = os.path.join(archive_dir, f"pointage_archive_{key}.json")
+            with open(archive_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+        
+        table_pointage.truncate()
+        if data_to_keep:
+            table_pointage.insert_multiple(data_to_keep)
+        return True
+    return False
+
+# Exécution de l'archivage automatique au chargement
+archive_pointages_mensuel()
+
 # --- INTERFACE SIDEBAR ---
 st.sidebar.title("📦 Pharmaciel Pro")
 menu = st.sidebar.radio("Navigation", ["Pointage Factures", "Administration"])
@@ -49,6 +89,12 @@ if menu == "Administration":
         if livreurs:
             for l in livreurs:
                 st.text(f"• {l}")
+            
+            st.divider()
+            if st.button("🗑️ Vider tout l'historique de pointage", type="primary"):
+                table_pointage.truncate()
+                st.success("Historique vidé !")
+                st.rerun()
         else:
             st.info("Aucun livreur enregistré.")
 
@@ -144,6 +190,10 @@ elif menu == "Pointage Factures":
                             (df_filtre['dt_creation'].dt.time >= t_start) & 
                             (df_filtre['dt_creation'].dt.time <= t_end)
                         ]
+                    
+                    # --- DETECTION DES DOUBLONS (Factures déjà pointées) ---
+                    existing_refs = {item['reference'] for item in table_pointage.all()}
+                    df_filtre['deja_pointe'] = df_filtre['reference'].isin(existing_refs)
 
                     # --- ACTIONS DE MASSE ET PDF ---
                     st.divider()
@@ -172,17 +222,16 @@ elif menu == "Pointage Factures":
                             pdf.ln(5)
                             # Header
                             pdf.set_font("Arial", 'B', 10)
-                            pdf.cell(10, 10, "OK", 1, 0, 'C')
-                            pdf.cell(40, 10, "Facture", 1, 0, 'C')
-                            pdf.cell(100, 10, "Client", 1, 0, 'C')
-                            pdf.cell(40, 10, "Prep", 1, 1, 'C')
+                            pdf.cell(15, 10, "OK", 1, 0, 'C')
+                            pdf.cell(50, 10, "Facture", 1, 0, 'C')
+                            pdf.cell(125, 10, "Client", 1, 1, 'C')
                             # Rows
                             pdf.set_font("Arial", '', 9)
                             for _, r in df_rows.iterrows():
-                                pdf.cell(10, 8, "[  ]", 1, 0, 'C')
-                                pdf.cell(40, 8, str(r['reference']), 1)
-                                pdf.cell(100, 8, str(r['client'])[:45], 1)
-                                pdf.cell(40, 8, str(r['date creation'])[-5:], 1, 1) # Juste l'heure
+                                if r.get('deja_pointe'): continue # Ne pas imprimer les déjà pointées
+                                pdf.cell(15, 8, "[  ]", 1, 0, 'C')
+                                pdf.cell(50, 8, str(r['reference']), 1)
+                                pdf.cell(125, 8, str(r['client'])[:55], 1, 1)
                             return pdf.output(dest='S').encode('latin-1', 'ignore')
 
                         if not df_filtre.empty:
@@ -205,18 +254,25 @@ elif menu == "Pointage Factures":
                     
                     df_view = df_filtre.copy()
                     df_view.insert(0, "OK", "[  ]")
-                    df_view.insert(1, "Validé", st.session_state.sel_all)
+                    
+                    # On ne sélectionne par défaut que celles qui ne sont pas déjà pointées
+                    df_view.insert(1, "Validé", st.session_state.sel_all & ~df_view['deja_pointe'])
+                    
+                    # Formatter pour le statut
+                    df_view['Statut System'] = df_view['deja_pointe'].apply(lambda x: "✅ Déjà Pointé" if x else "🆕 Nouveau")
                     
                     edited_df = st.data_editor(
                         df_view,
                         column_config={
                             "OK": st.column_config.TextColumn("Pointage Papier", width="small", disabled=True),
-                            "Validé": st.column_config.CheckboxColumn("Saisi Karim", default=st.session_state.sel_all),
+                            "Validé": st.column_config.CheckboxColumn("Saisi Karim", default=False),
+                            "Statut System": st.column_config.TextColumn("État", disabled=True),
                             "reference": st.column_config.TextColumn("N° Facture", disabled=True),
                             "client": st.column_config.TextColumn("Nom du Client", disabled=True),
                             "date creation": st.column_config.TextColumn("Heure Prep", disabled=True),
                             "region": None,
-                            "dt_creation": None
+                            "dt_creation": None,
+                            "deja_pointe": None
                         },
                         hide_index=True,
                         use_container_width=True,
