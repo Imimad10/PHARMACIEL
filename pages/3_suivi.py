@@ -6,6 +6,7 @@ import os
 import plotly.express as px
 from fpdf import FPDF
 import time
+from utils import log_action
 
 # --- CONFIGURATION ---
 # st.set_page_config(page_title="Pharmaciel - Suivi Frigo", layout="wide")
@@ -35,7 +36,13 @@ def save_data(data):
     # Création du header uniquement si le fichier n'existe pas
     file_exists = os.path.isfile(DATA_FILE)
     df_to_save.to_csv(DATA_FILE, mode='a', header=not file_exists, index=False)
-    st.success("✅ Donnée enregistrée !")
+    
+    # Historisation et Alerte
+    log_action(data['Agent'], f"Saisie température: {data['Température']}°C ({data['Statut']})", "Suivi Frigo")
+    if data['Statut'] == "ALERTE":
+        st.error(f"⚠️ ALERTE : La température ({data['Température']}°C) est supérieure au seuil maximal !")
+    else:
+        st.success("✅ Donnée enregistrée !")
 
 # --- INTERFACE ---
 st.title(f"🌡️ Pharmaciel - {st.session_state.current_user['username']}")

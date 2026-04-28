@@ -2,6 +2,9 @@ import streamlit as st
 import pandas as pd
 import os
 from datetime import datetime
+from fpdf import FPDF
+import qrcode
+from utils import log_action
 
 # --- CONFIGURATION ---
 # st.set_page_config(page_title="Gestion des Expéditions", layout="wide")
@@ -35,7 +38,7 @@ def save_livreurs(df):
 
 # --- INITIALISATION ÉTAT ---
 if "rows" not in st.session_state:
-    st.session_state.rows = pd.DataFrame(columns=["Client", "Ville", "N° Doc", "Info", "Signature"])
+    st.session_state.rows = pd.DataFrame(columns=["Client", "Ville", "N° Doc", "Info", "Statut", "Signature"])
 
 # --- INTERFACE ---
 st.title("🚛 Gestion des Expéditions")
@@ -87,7 +90,7 @@ with tab_exp:
             full_ref = f"{annee}/{prefixe}/{ref_bon}"
             ville = client_map.get(new_client, "")
             
-            new_row = pd.DataFrame([{"Client": new_client, "Ville": ville, "N° Doc": full_ref, "Info": val_info, "Signature": ""}])
+            new_row = pd.DataFrame([{"Client": new_client, "Ville": ville, "N° Doc": full_ref, "Info": val_info, "Statut": "En cours", "Signature": ""}])
             st.session_state.rows = pd.concat([st.session_state.rows, new_row], ignore_index=True)
             st.rerun()
 
@@ -99,16 +102,81 @@ with tab_exp:
         st.session_state.rows, 
         num_rows="dynamic", 
         use_container_width=True, 
-        column_config={"Info": st.column_config.TextColumn(label=col_label)}
+        column_config={
+            "Info": st.column_config.TextColumn(label=col_label),
+            "Statut": st.column_config.SelectboxColumn("Statut", options=["En cours", "Livré", "Reporté", "Annulé"])
+        }
     )
     st.session_state.rows = edited_rows
     
     if st.button("🗑️ Vider le tableau"):
-        st.session_state.rows = pd.DataFrame(columns=["Client", "Ville", "N° Doc", "Info", "Signature"])
+        st.session_state.rows = pd.DataFrame(columns=["Client", "Ville", "N° Doc", "Info", "Statut", "Signature"])
         st.rerun()
         
-    if st.button("🖨️ Extraire en PDF"):
-        st.info(f"Génération PDF pour {livreur_choisi} le {date_exp}")
+    if st.button("🖨️ Générer la Feuille de Route (PDF)"):
+        if not st.session_state.rows.empty:
+            try:
+                # Génération du QR Code
+                qr = qrcode.QRCode(box_size=4, border=2)
+                qr_data = f"Livreur: {livreur_choisi}\nDate: {date_exp}\nDoc: {len(st.session_state.rows)}"
+                qr.add_data(qr_data)
+                qr.make(fit=True)
+                img = qr.make_image(fill_color="black", back_color="white")
+                qr_path = "temp_qr.png"
+                img.save(qr_path)
+                
+                pdf = FPDF()
+                pdf.add_page()
+                pdf.set_font("Arial", 'B', 16)
+                pdf.cell(0, 10, f"FEUILLE DE ROUTE - {livreur_choisi}", 0, 1, 'C')
+                pdf.set_font("Arial", '', 12)
+                pdf.cell(0, 10, f"Date d'expedition: {date_exp}   |   Total: {len(st.session_state.rows)}", 0, 1, 'C')
+                
+                pdf.image(qr_path, x=170, y=10, w=30)
+                pdf.ln(15)
+                
+                pdf.set_font("Arial", 'B', 10)
+                pdf.cell(45, 8, "Client", 1)
+                pdf.cell(30, 8, "Ville", 1)
+                pdf.cell(40, 8, "N Doc", 1)
+                pdf.cell(25, 8, col_label, 1)
+                pdf.cell(20, 8, "Statut", 1)
+                pdf.cell(30, 8, "Signature", 1)
+                pdf.ln()
+                
+                pdf.set_font("Arial", '', 9)
+                for _, row in st.session_state.rows.iterrows():
+                    c = str(row.get('Client', '')).encode('latin-1', 'replace').decode('latin-1')
+                    v = str(row.get('Ville', '')).encode('latin-1', 'replace').decode('latin-1')
+                    d = str(row.get('N° Doc', '')).encode('latin-1', 'replace').decode('latin-1')
+                    i = str(row.get('Info', '')).encode('latin-1', 'replace').decode('latin-1')
+                    s = str(row.get('Statut', '')).encode('latin-1', 'replace').decode('latin-1')
+                    
+                    pdf.cell(45, 8, c[:22], 1)
+                    pdf.cell(30, 8, v[:13], 1)
+                    pdf.cell(40, 8, d[:20], 1)
+                    pdf.cell(25, 8, i[:12], 1)
+                    pdf.cell(20, 8, s[:10], 1)
+                    pdf.cell(30, 8, "", 1)
+                    pdf.ln()
+                    
+                pdf_bytes = pdf.output(dest='S').encode('latin-1', 'replace')
+                if os.path.exists(qr_path):
+                    os.remove(qr_path)
+                    
+                log_action(st.session_state.current_user['username'], f"Génération PDF Expédition pour {livreur_choisi}", "Expédition")
+                
+                st.download_button(
+                    label="📥 Télécharger le PDF",
+                    data=pdf_bytes,
+                    file_name=f"Feuille_Route_{livreur_choisi}_{date_exp}.pdf",
+                    mime="application/pdf",
+                    type="primary"
+                )
+            except Exception as e:
+                st.error(f"Erreur PDF : {e}")
+        else:
+            st.warning("Le tableau est vide.")
 
 # 2. GESTION DES LIVREURS
 with tab_livreurs:

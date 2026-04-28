@@ -4,3 +4,4 @@ tinydb
 fpdf
 plotly
 openpyxl
+qrcode[pil]

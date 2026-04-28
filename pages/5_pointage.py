@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 from tinydb import TinyDB, Query
 from datetime import datetime
+import os
+from utils import log_action
 
 # --- CONFIGURATION ET BASE DE DONNÉES ---
 # st.set_page_config(page_title="Pharmaciel Pro - Pointage", layout="wide", page_icon="🚚")
@@ -128,6 +130,7 @@ elif menu == "Pointage Factures":
                         factures_ok = edited_df[edited_df['Reçu'] == True]
                         
                         if not factures_ok.empty:
+                            new_recouv_rows = []
                             for _, row in factures_ok.iterrows():
                                 table_pointage.insert({
                                     'date_pointage': datetime.now().strftime("%d/%m/%Y %H:%M"),
@@ -137,7 +140,35 @@ elif menu == "Pointage Factures":
                                     'client': row['Client'],
                                     'region': row['Région']
                                 })
-                            st.success(f"✅ {len(factures_ok)} factures pointées avec succès pour {livreur_sel} ({rotation_sel}) !")
+                                
+                                # Préparation des données pour le module Recouvrement
+                                new_recouv_rows.append({
+                                    "Client": row['Client'],
+                                    "Facture": row['Référence'],
+                                    "Mode Paiement": "À Définir",
+                                    "Région": row['Région'],
+                                    "Reste à payer": 0.0,
+                                    "Livreur": livreur_sel,
+                                    "Date": datetime.now().strftime("%d/%m/%Y"),
+                                    "Statut": "Non Payé"
+                                })
+                            
+                            # Insertion dans Recouvrement
+                            recouv_file = "data_recouvrement.csv"
+                            if os.path.exists(recouv_file):
+                                df_recouv = pd.read_csv(recouv_file)
+                                # S'assurer que la colonne Facture existe
+                                if "Facture" not in df_recouv.columns:
+                                    df_recouv["Facture"] = ""
+                            else:
+                                df_recouv = pd.DataFrame(columns=["Client", "Facture", "Mode Paiement", "Région", "Reste à payer", "Livreur", "Date", "Statut"])
+                                
+                            df_new_recouv = pd.DataFrame(new_recouv_rows)
+                            df_recouv = pd.concat([df_recouv, df_new_recouv], ignore_index=True)
+                            df_recouv.to_csv(recouv_file, index=False)
+                            
+                            log_action(st.session_state.current_user['username'], f"Pointage de {len(factures_ok)} factures ({livreur_sel})", "Pointage")
+                            st.success(f"✅ {len(factures_ok)} factures pointées avec succès et transférées au Recouvrement !")
                         else:
                             st.warning("Veuillez cocher au moins une facture avant de valider.")
             else:

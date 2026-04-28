@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 from tinydb import TinyDB, Query
+import os
+import shutil
+from utils import log_action
 
 # Sécurité
 if "current_user" not in st.session_state or st.session_state.current_user is None or st.session_state.current_user.get('role') != 'Admin':
@@ -24,7 +27,9 @@ if not df_users.empty:
 
 st.divider()
 
-tab_add, tab_edit, tab_del = st.tabs(["➕ Ajouter un compte", "✏️ Modifier un compte", "🗑️ Supprimer un compte"])
+tab_add, tab_edit, tab_del, tab_logs, tab_backup = st.tabs([
+    "➕ Ajouter", "✏️ Modifier", "🗑️ Supprimer", "📝 Traçabilité (Logs)", "💾 Sauvegarde"
+])
 
 MODULES_DISPO = ["Logistique", "Inventaire", "Suivi", "Recouvrement", "Pointage"]
 
@@ -48,6 +53,7 @@ with tab_add:
                     'pages': u_pages
                 })
                 st.success(f"Utilisateur {u_name} créé !")
+                log_action(st.session_state.current_user['username'], f"Création de l'utilisateur {u_name}", "Administration")
                 st.rerun()
             else:
                 st.error("Nom d'utilisateur et mot de passe requis.")
@@ -88,6 +94,7 @@ with tab_edit:
                         st.session_state.current_user['pages'] = new_pages
                     
                     st.success(f"Profil de {edit_target} mis à jour !")
+                    log_action(st.session_state.current_user['username'], f"Modification de l'utilisateur {edit_target}", "Administration")
                     st.rerun()
                 else:
                     st.error("Le mot de passe ne peut pas être vide.")
@@ -106,4 +113,52 @@ with tab_del:
                 User = Query()
                 db_users.remove(User.username == u_del)
                 st.success(f"Utilisateur {u_del} supprimé.")
+                log_action(st.session_state.current_user['username'], f"Suppression de l'utilisateur {u_del}", "Administration")
                 st.rerun()
+
+with tab_logs:
+    st.subheader("📝 Historique des actions (Logs)")
+    if os.path.exists('data/db_logs.json'):
+        db_logs = TinyDB('data/db_logs.json')
+        logs = db_logs.all()
+        if logs:
+            df_logs = pd.DataFrame(logs)
+            st.dataframe(df_logs.sort_values(by='timestamp', ascending=False), use_container_width=True)
+        else:
+            st.info("Aucun log disponible pour le moment.")
+    else:
+        st.info("La base de logs n'a pas encore été créée.")
+
+with tab_backup:
+    st.subheader("💾 Sauvegarde complète du système")
+    st.write("Générez une archive contenant toutes les bases de données (Utilisateurs, Logs, Inventaires, Frigo...).")
+    
+    if st.button("📦 Générer le fichier de sauvegarde (ZIP)", use_container_width=True):
+        try:
+            # Créer un dossier temporaire pour rassembler les fichiers
+            backup_dir = "backup_temp"
+            os.makedirs(backup_dir, exist_ok=True)
+            
+            # Copier les dossiers/fichiers cibles
+            targets = ["data", "data_expedition", "data_inventaire", "suivi_data.csv", "base_clients.csv", "data_recouvrement.csv", "db_pharmaciel.json"]
+            for target in targets:
+                if os.path.exists(target):
+                    if os.path.isdir(target):
+                        shutil.copytree(target, os.path.join(backup_dir, target), dirs_exist_ok=True)
+                    else:
+                        shutil.copy2(target, backup_dir)
+            
+            # Créer l'archive zip
+            zip_filename = "Pharmaciel_Backup"
+            shutil.make_archive(zip_filename, 'zip', backup_dir)
+            
+            # Nettoyer le dossier temporaire
+            shutil.rmtree(backup_dir)
+            
+            # Proposer le téléchargement
+            with open(f"{zip_filename}.zip", "rb") as f:
+                st.download_button("📥 Télécharger la sauvegarde (.zip)", f, file_name=f"{zip_filename}_{pd.Timestamp.now().strftime('%Y%m%d_%H%M')}.zip", mime="application/zip", type="primary", use_container_width=True)
+                
+            log_action(st.session_state.current_user['username'], "Génération d'une sauvegarde ZIP", "Administration")
+        except Exception as e:
+            st.error(f"Erreur lors de la sauvegarde : {e}")

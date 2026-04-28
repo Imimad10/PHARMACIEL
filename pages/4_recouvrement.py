@@ -7,7 +7,7 @@ from fpdf import FPDF
 # --- CONFIGURATION ET CHEMINS ---
 DATA_RECOUV = "data_recouvrement.csv"
 DATA_CLIENTS = "base_clients.csv"
-COLS_RECOUV = ["Client", "Mode Paiement", "Région", "Reste à payer", "Livreur", "Date", "Statut"]
+COLS_RECOUV = ["Client", "Facture", "Mode Paiement", "Région", "Reste à payer", "Livreur", "Date", "Statut"]
 COLS_CLIENTS = ["Nom Client", "Région", "Téléphone", "Secteur"]
 
 # --- FONCTIONS DE GESTION DES DONNÉES ---
