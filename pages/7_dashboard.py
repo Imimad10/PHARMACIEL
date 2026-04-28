@@ -4,12 +4,40 @@ import plotly.express as px
 from tinydb import TinyDB, Query
 from datetime import datetime
 import os
+import cv2
+import numpy as np
 
 # Configuration
 db = TinyDB('db_pharmaciel.json')
 table_pointage = db.table('pointages')
 
 st.title("📊 Tableau de Bord Performance")
+
+# --- 0. SCANNEUR QR ---
+with st.expander("🔍 Scanner une Feuille de Route (QR Code)", expanded=False):
+    st.write("Utilisez votre caméra pour scanner le QR Code présent sur la feuille de route.")
+    cam_input = st.camera_input("Scanner le QR")
+    
+    if cam_input:
+        try:
+            # Conversion de l'image pour OpenCV
+            file_bytes = np.asarray(bytearray(cam_input.read()), dtype=np.uint8)
+            opencv_image = cv2.imdecode(file_bytes, 1)
+            
+            # Détection et Décodage
+            detector = cv2.QRCodeDetector()
+            data, bbox, _ = detector.detectAndDecode(opencv_image)
+            
+            if data:
+                st.success(f"✅ QR Code détecté !")
+                st.code(data)
+                # On peut essayer d'extraire des infos si le format est standard
+                if "Livreur:" in data:
+                    st.info("Informations de la tournée extraites avec succès.")
+            else:
+                st.warning("Aucun QR Code valide détecté. Assurez-vous qu'il soit bien visible et éclairé.")
+        except Exception as e:
+            st.error(f"Erreur lors du scan : {e}")
 
 # --- 1. CHARGEMENT DES DONNÉES ---
 data_p = table_pointage.all()
