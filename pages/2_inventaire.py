@@ -66,61 +66,104 @@ with tabs[0]:
 with tabs[1]:
     st.subheader("📝 Saisie Inventaire")
     if df_master is not None:
-        c_m1, c_m2, c_m3 = st.columns([1, 1, 1])
+        # Initialiser la liste des produits pour le selectbox
+        liste_produits = sorted(df_master['designation'].unique().tolist())
+        
+        c_m1, c_m2 = st.columns([1, 2])
         with c_m1:
             mode = st.radio("Méthode d'inventaire", ["⚡ Rapide (Qte uniquement)", "📑 Détaillé (Complet)"])
         with c_m2:
-            all_labs = sorted(df_master['laboratoire'].unique().tolist()) if 'laboratoire' in df_master.columns else []
-            selected_labs = st.multiselect("🧪 Filtrer par Labo", all_labs)
-        with c_m3:
-            search = st.text_input("🔍 Scanner (Douchette) / Rechercher")
+            produit_sel = st.selectbox("🔍 Sélectionner un produit", [""] + liste_produits)
 
-        df_work = df_master.copy()
-        if selected_labs:
-            df_work = df_work[df_work['laboratoire'].isin(selected_labs)]
-        if search:
-            df_work = df_work[df_work['designation'].str.contains(search, case=False, na=False)]
-        
-        if 'qte_saisie' not in df_work.columns:
-            df_work['qte_saisie'] = 0.0
+        if produit_sel:
+            # Récupérer les infos du master pour ce produit
+            info_master = df_master[df_master['designation'] == produit_sel].iloc[0]
+            
+            with st.form("form_saisie_inventaire", clear_on_submit=True):
+                st.write(f"Saisie pour : **{produit_sel}**")
+                col1, col2, col3, col4, col5 = st.columns(5)
+                
+                with col1:
+                    qte_in = st.number_input("Quantité", min_value=0.0, step=1.0)
+                
+                if mode == "📑 Détaillé (Complet)":
+                    with col2:
+                        lot_in = st.text_input("Lot", value=str(info_master.get('lot', '')))
+                    with col3:
+                        ddp_in = st.text_input("DDP (MM/AA)", value=str(info_master.get('ddp', '')))
+                    with col4:
+                        ppa_in = st.number_input("PPA", value=float(info_master.get('ppa', 0.0)))
+                    with col5:
+                        shp_in = st.text_input("SHP", value=str(info_master.get('shp', '')))
+                else:
+                    # En mode rapide, on prend les valeurs du master
+                    lot_in = str(info_master.get('lot', 'N/A'))
+                    ddp_in = str(info_master.get('ddp', 'N/A'))
+                    ppa_in = float(info_master.get('ppa', 0.0))
+                    shp_in = str(info_master.get('shp', 'N/A'))
+                    st.info(f"Lot: {lot_in} | DDP: {ddp_in} | PPA: {ppa_in}")
 
-        q_theo_col = find_quantity_col(df_master)
-        
-        if mode == "⚡ Rapide (Qte uniquement)":
-            cols_to_show = ['designation', 'qte_saisie']
-            disabled_cols = ['designation']
+                submit_saisie = st.form_submit_button("➕ Ajouter à l'inventaire")
+
+                if submit_saisie:
+                    if qte_in > 0:
+                        new_entry = {
+                            'designation': produit_sel,
+                            'qte_saisie': qte_in,
+                            'lot': lot_in,
+                            'ddp': ddp_in,
+                            'ppa': ppa_in,
+                            'shp': shp_in,
+                            'saisi_par': user['username'],
+                            'date_saisie': pd.Timestamp.now().strftime("%d/%m/%Y %H:%M")
+                        }
+                        
+                        # Sauvegarde
+                        df_new = pd.DataFrame([new_entry])
+                        if os.path.exists(SAISIE_PATH):
+                            df_old = pd.read_csv(SAISIE_PATH, sep=';', encoding='utf-8-sig')
+                            df_final = pd.concat([df_old, df_new], ignore_index=True)
+                        else:
+                            df_final = df_new
+                        
+                        df_final.to_csv(SAISIE_PATH, index=False, sep=';', encoding='utf-8-sig')
+                        st.success(f"✅ Ajouté : {produit_sel} (Qte: {qte_in})")
+                        st.rerun()
+                    else:
+                        st.error("La quantité doit être supérieure à 0.")
+
+        st.divider()
+        st.subheader("📋 Historique de saisie (Détail des lots)")
+        if os.path.exists(SAISIE_PATH):
+            df_saisie_view = pd.read_csv(SAISIE_PATH, sep=';', encoding='utf-8-sig')
+            st.dataframe(df_saisie_view.sort_index(ascending=False), use_container_width=True)
+            
+            if st.button("🗑️ Supprimer la dernière ligne"):
+                df_saisie_view = df_saisie_view.drop(df_saisie_view.index[-1])
+                df_saisie_view.to_csv(SAISIE_PATH, index=False, sep=';', encoding='utf-8-sig')
+                st.rerun()
         else:
-            cols_to_show = list(df_work.columns)
-            if q_theo_col in cols_to_show:
-                cols_to_show.remove(q_theo_col)
-            disabled_cols = ['designation']
-
-        edited = st.data_editor(df_work[cols_to_show], use_container_width=True, key=f"edit_{mode}", disabled=disabled_cols)
-        
-        if st.button("💾 Enregistrer l'inventaire"):
-            to_save = edited[edited['qte_saisie'] > 0].copy()
-            if not to_save.empty:
-                to_save['saisi_par'] = user['username']
-                try:
-                    if os.path.exists(SAISIE_PATH):
-                        old = pd.read_csv(SAISIE_PATH, sep=';', encoding='utf-8-sig')
-                        to_save = pd.concat([old, to_save]).drop_duplicates(subset=['designation'], keep='last')
-                    to_save.to_csv(SAISIE_PATH, index=False, sep=';', encoding='utf-8-sig')
-                    st.success(f"✅ Enregistrement réussi !")
-                except PermissionError:
-                    st.error("Fermez le fichier 'saisie.csv' !")
+            st.info("Aucune saisie pour le moment.")
 
 # 3. CONFRONTATION
 with tabs[2]:
-    st.subheader("🔍 Analyse des écarts")
+    st.subheader("🔍 Analyse des écarts (Minitieuse)")
     if user['role'] == "Admin":
         if os.path.exists(SAISIE_PATH) and df_master is not None:
             saisie = pd.read_csv(SAISIE_PATH, sep=';', encoding='utf-8-sig')
             saisie = clean_columns(saisie)
             q_theo_col = find_quantity_col(df_master)
+            
             if q_theo_col and 'designation' in df_master.columns:
-                comp = pd.merge(df_master, saisie[['designation', 'qte_saisie']], on='designation', how='inner')
+                # Grouper la saisie par produit pour avoir la quantité totale (tous lots confondus)
+                saisie_grouped = saisie.groupby('designation')['qte_saisie'].sum().reset_index()
+                
+                # Fusionner avec le Master
+                comp = pd.merge(df_master, saisie_grouped, on='designation', how='left')
+                comp['qte_saisie'] = comp['qte_saisie'].fillna(0)
                 comp['écart'] = comp['qte_saisie'] - comp[q_theo_col]
+                
+                st.write("### Tableau Récapitulatif")
                 st.dataframe(comp[['designation', 'laboratoire', q_theo_col, 'qte_saisie', 'écart']], use_container_width=True)
                 
                 # EXPORT EXCEL
@@ -130,16 +173,20 @@ with tabs[2]:
                 st.download_button(
                     label="📥 Exporter les écarts en Excel",
                     data=buffer.getvalue(),
-                    file_name="Ecarts_Inventaire.xlsx",
+                    file_name="Ecarts_Inventaire_Detaille.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     type="primary"
                 )
                 
-                if st.button("🗑️ Reset Inventaire"):
+                st.divider()
+                st.write("### Détail par Lot (Saisie terrain)")
+                st.dataframe(saisie, use_container_width=True)
+
+                if st.button("🗑️ Réinitialiser tout l'inventaire"):
                     os.remove(SAISIE_PATH)
                     st.rerun()
-        else: st.info("Aucune donnée.")
-    else: st.warning("Accès restreint.")
+        else: st.info("Aucune donnée de saisie trouvée.")
+    else: st.warning("Accès restreint à l'administrateur.")
 
 # 4. ADMINISTRATION
 with tabs[3]:
