@@ -122,20 +122,27 @@ with tab_exp:
                         
                         if not df_to_add.empty:
                             df_clients = load_clients()
-                            # Création de dictionnaires de recherche pour Ville et Tel
+                            # Dictionnaires de recherche
                             ville_map = dict(zip(df_clients['Client'].astype(str), df_clients['Ville']))
                             tel_map = dict(zip(df_clients['Client'].astype(str), df_clients['Tel']))
+                            secteur_map = dict(zip(df_clients['Client'].astype(str), df_clients['Secteur'].astype(str).str.strip().str.lower()))
                             
                             added_count = 0
+                            skipped_count = 0
                             for _, row in df_to_add.iterrows():
                                 client_name = str(row['client']).strip()
+                                
+                                # Vérification du secteur (STRICTE)
+                                if secteur_livreur:
+                                    client_secteur = secteur_map.get(client_name, "")
+                                    if client_secteur != secteur_livreur:
+                                        skipped_count += 1
+                                        continue
+                                
                                 ref_val = str(row['reference']).strip() if 'reference' in df_reclam.columns and pd.notna(row['reference']) else "Réclamation non validée"
                                 
                                 ville = ville_map.get(client_name, "")
                                 telephone = tel_map.get(client_name, "")
-                                
-                                # Formatage final de la ligne pour st.session_state.rows
-                                # Info pour réclamation est "Motif" par défaut (vide ici ou "Importé")
                                 info_str = f"Tel: {telephone}" if telephone else ""
                                 
                                 new_entry = pd.DataFrame([{
@@ -150,9 +157,13 @@ with tab_exp:
                                 st.session_state.rows = pd.concat([st.session_state.rows, new_entry], ignore_index=True)
                                 added_count += 1
                             
-                            st.success(f"✅ {added_count} réclamations 'En cours' importées avec succès !")
-                            log_action(st.session_state.current_user['username'], f"Importation de {added_count} réclamations", "Expédition")
-                            # st.rerun() # Optionnel selon si on veut voir le message de succès
+                            if added_count > 0:
+                                st.success(f"✅ {added_count} réclamations pour {livreur_choisi} ({secteur_livreur}) importées !")
+                                if skipped_count > 0:
+                                    st.warning(f"ℹ️ {skipped_count} réclamations ignorées (autres secteurs).")
+                                log_action(st.session_state.current_user['username'], f"Importation {added_count} réclamations pour {livreur_choisi}", "Expédition")
+                            else:
+                                st.warning(f"⚠️ Aucune réclamation dans le fichier ne correspond au secteur de {livreur_choisi} ({secteur_livreur}).")
                         else:
                             st.info("Aucune réclamation avec le statut 'En cours' trouvée dans le fichier.")
                     else:
@@ -282,24 +293,40 @@ with tab_exp:
 # 2. GESTION DES LIVREURS
 with tab_livreurs:
     st.header("👤 Gestion des Livreurs")
+    
+    # Récupérer les secteurs existants dans la base clients pour l'attribution
+    df_clients_all = load_clients()
+    liste_secteurs_dispo = sorted(df_clients_all["Secteur"].dropna().unique().tolist()) if "Secteur" in df_clients_all.columns else []
+    
     with st.form("form_ajout_livreur", clear_on_submit=True):
         col1, col2 = st.columns(2)
         nom = col1.text_input("Nom")
         prenom = col1.text_input("Prénom")
         tel = col2.text_input("Téléphone")
-        secteur = col2.text_input("Secteur")
+        secteur = col2.selectbox("Attribuer un Secteur", ["Aucun"] + liste_secteurs_dispo)
+        
         if st.form_submit_button("Ajouter le livreur"):
             if nom:
                 df_l = load_livreurs()
-                new_l = pd.DataFrame([{"Nom": nom, "Prénom": prenom, "Téléphone": tel, "Secteur": secteur}])
+                sect_val = secteur if secteur != "Aucun" else ""
+                new_l = pd.DataFrame([{"Nom": nom, "Prénom": prenom, "Téléphone": tel, "Secteur": sect_val}])
                 save_livreurs(pd.concat([df_l, new_l], ignore_index=True))
+                st.success(f"Livreur {nom} ajouté au secteur {sect_val}")
                 st.rerun()
 
-    df_livreurs = load_livreurs()
-    edited_livreurs = st.data_editor(df_livreurs, use_container_width=True, num_rows="dynamic")
-    if st.button("💾 Sauvegarder les livreurs"):
+    st.subheader("📋 Liste des Livreurs et Affectations")
+    df_livreurs_actuel = load_livreurs()
+    edited_livreurs = st.data_editor(
+        df_livreurs_actuel, 
+        use_container_width=True, 
+        num_rows="dynamic",
+        column_config={
+            "Secteur": st.column_config.SelectboxColumn("Secteur Affecté", options=liste_secteurs_dispo)
+        }
+    )
+    if st.button("💾 Sauvegarder les modifications"):
         save_livreurs(edited_livreurs)
-        st.success("Enregistré !")
+        st.success("Affectations mises à jour !")
 
 # 3. GESTION DES SECTEURS (Clients)
 with tab_secteurs:
