@@ -87,7 +87,7 @@ with tab_exp:
                     required = {'client', 'statut'} # Reference est optionnelle selon la règle
                     if required.issubset(df_reclam.columns):
                         # Filtrage statut "en cours"
-                        df_reclam['statut_clean'] = df_reclam['statut'].astype(str).strip().lower()
+                        df_reclam['statut_clean'] = df_reclam['statut'].astype(str).str.strip().str.lower()
                         df_to_add = df_reclam[df_reclam['statut_clean'].str.contains("en cours", na=False)].copy()
                         
                         if not df_to_add.empty:
