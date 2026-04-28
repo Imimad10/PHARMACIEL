@@ -67,7 +67,70 @@ with tab_exp:
 
     st.divider()
     
-    # Formulaire d'ajout
+    if mode == "Réclamation":
+        with st.expander("📥 Importation groupée des Réclamations (Excel)", expanded=False):
+            st.write("Le fichier doit contenir les colonnes : **client, reference, statut**")
+            file_complaints = st.file_uploader("Glisser le fichier Excel ici", type=['xlsx', 'xls'], key="uploader_reclamations")
+            
+            if file_complaints:
+                try:
+                    df_reclam = pd.read_excel(file_complaints)
+                    
+                    # Normalisation des colonnes
+                    import unicodedata
+                    def clean_col(c):
+                        c = str(c).strip().lower()
+                        return ''.join(ch for ch in unicodedata.normalize('NFD', c) if unicodedata.category(ch) != 'Mn')
+                    
+                    df_reclam.columns = [clean_col(c) for c in df_reclam.columns]
+                    
+                    required = {'client', 'statut'} # Reference est optionnelle selon la règle
+                    if required.issubset(df_reclam.columns):
+                        # Filtrage statut "en cours"
+                        df_reclam['statut_clean'] = df_reclam['statut'].astype(str).strip().lower()
+                        df_to_add = df_reclam[df_reclam['statut_clean'].str.contains("en cours", na=False)].copy()
+                        
+                        if not df_to_add.empty:
+                            df_clients = load_clients()
+                            # Création de dictionnaires de recherche pour Ville et Tel
+                            ville_map = dict(zip(df_clients['Client'].astype(str), df_clients['Ville']))
+                            tel_map = dict(zip(df_clients['Client'].astype(str), df_clients['Tel']))
+                            
+                            added_count = 0
+                            for _, row in df_to_add.iterrows():
+                                client_name = str(row['client']).strip()
+                                ref_val = str(row['reference']).strip() if 'reference' in df_reclam.columns and pd.notna(row['reference']) else "Réclamation non validée"
+                                
+                                ville = ville_map.get(client_name, "")
+                                telephone = tel_map.get(client_name, "")
+                                
+                                # Formatage final de la ligne pour st.session_state.rows
+                                # Info pour réclamation est "Motif" par défaut (vide ici ou "Importé")
+                                info_str = f"Tel: {telephone}" if telephone else ""
+                                
+                                new_entry = pd.DataFrame([{
+                                    "Client": client_name, 
+                                    "Ville": ville, 
+                                    "N° Doc": ref_val, 
+                                    "Info": "RÉCLAMATION IMPORTÉE", 
+                                    "Statut": "En cours", 
+                                    "Signature": info_str
+                                }])
+                                
+                                st.session_state.rows = pd.concat([st.session_state.rows, new_entry], ignore_index=True)
+                                added_count += 1
+                            
+                            st.success(f"✅ {added_count} réclamations 'En cours' importées avec succès !")
+                            log_action(st.session_state.current_user['username'], f"Importation de {added_count} réclamations", "Expédition")
+                            # st.rerun() # Optionnel selon si on veut voir le message de succès
+                        else:
+                            st.info("Aucune réclamation avec le statut 'En cours' trouvée dans le fichier.")
+                    else:
+                        st.error(f"Colonnes manquantes. Attendu: client, statut. Trouvé: {list(df_reclam.columns)}")
+                except Exception as e:
+                    st.error(f"Erreur lors de la lecture : {e}")
+
+    # Formulaire d'ajout manuel
     with st.container():
         c1, c2, c3, c4 = st.columns([2, 1.5, 1.5, 1])
         with c1:
