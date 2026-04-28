@@ -75,7 +75,15 @@ elif menu == "Pointage Factures":
                     region_sel = st.selectbox("📍 Sélectionner la Région", liste_regions)
                 
                 with col_b:
-                    rotation_sel = st.selectbox("🔄 Rotation", ["1ère Rotation (Matin)", "2ème Rotation (Après-midi)"])
+                    reg_str = str(region_sel).lower()
+                    opts_rotation = ["1ère Rotation (Matin)", "2ème Rotation (Après-midi)"]
+                    
+                    if "blida" in reg_str:
+                        opts_rotation = ["2ème Rotation (Après-midi)"]
+                    elif any(r in reg_str for r in ["alger est", "tipaza", "medea", "chlef", "djelfa", "oran", "tizi ouzou", "tissemssilt", "relizane"]):
+                        opts_rotation = ["1ère Rotation (Matin)"]
+                        
+                    rotation_sel = st.selectbox("🔄 Rotation", opts_rotation)
 
                 with col_c:
                     liste_livreurs = get_livreurs()
@@ -83,7 +91,16 @@ elif menu == "Pointage Factures":
                         st.error("⚠️ Allez dans 'Administration' pour ajouter des livreurs d'abord.")
                         livreur_sel = None
                     else:
-                        livreur_sel = st.selectbox("🚚 Affecter au Livreur", liste_livreurs)
+                        # Auto-sélection du livreur pour Alger 1 et Alger 2
+                        idx_livreur = 0
+                        if "alger 1" in reg_str:
+                            match = [i for i, l in enumerate(liste_livreurs) if "fethi" in l.lower()]
+                            if match: idx_livreur = match[0]
+                        elif "alger 2" in reg_str:
+                            match = [i for i, l in enumerate(liste_livreurs) if "fares" in l.lower()]
+                            if match: idx_livreur = match[0]
+                            
+                        livreur_sel = st.selectbox("🚚 Affecter au Livreur", liste_livreurs, index=idx_livreur)
 
                 if livreur_sel:
                     # Filtrage des données selon la région choisie
