@@ -87,16 +87,24 @@ elif menu == "Pointage Factures":
                         
                     rotation_sel = st.selectbox("🔄 Rotation", opts_rotation)
                     
-                    # Filtre horaire pour la 1ère rotation
+                    # Filtre de date et heure pour la rotation
+                    st.write("📅 Période de préparation :")
+                    
+                    # Date de préparation (par défaut aujourd'hui)
+                    default_date = datetime.now().date()
+                    d_sel = st.date_input("Date", value=default_date)
+                    
                     time_filter_active = False
                     if "1ère Rotation" in rotation_sel:
-                        st.write("⏱️ Fenêtre de préparation :")
                         tc1, tc2 = st.columns(2)
                         with tc1:
                             t_start = st.time_input("Début", value=datetime.strptime("00:00", "%H:%M").time(), key="t1")
                         with tc2:
                             t_end = st.time_input("Fin", value=datetime.strptime("23:59", "%H:%M").time(), key="t2")
                         time_filter_active = True
+                    else:
+                        # Pour la 2ème rotation, on peut aussi mettre un filtre par défaut ou laisser libre
+                        t_start, t_end = None, None
 
                 with col_c:
                     liste_livreurs = get_livreurs()
@@ -119,8 +127,14 @@ elif menu == "Pointage Factures":
                     # --- LOGIQUE DE FILTRAGE ---
                     df_filtre = df_clean[df_clean['Région'] == region_sel].copy()
                     
+                    # Conversion en datetime
+                    df_filtre['dt_creation'] = pd.to_datetime(df_filtre['Date Création'], dayfirst=True)
+                    
+                    # Filtre de Date obligatoire
+                    df_filtre = df_filtre[df_filtre['dt_creation'].dt.date == d_sel]
+                    
+                    # Filtre d'Heure (si applicable)
                     if time_filter_active:
-                        df_filtre['dt_creation'] = pd.to_datetime(df_filtre['Date Création'], dayfirst=True)
                         df_filtre = df_filtre[
                             (df_filtre['dt_creation'].dt.time >= t_start) & 
                             (df_filtre['dt_creation'].dt.time <= t_end)
