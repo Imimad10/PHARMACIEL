@@ -12,6 +12,7 @@ DATA_DIR = "data_expedition"
 os.makedirs(DATA_DIR, exist_ok=True)
 SECTEURS_PATH = os.path.join(DATA_DIR, "secteurs.csv")
 LIVREURS_PATH = os.path.join(DATA_DIR, "livreurs.csv")
+MOTIFS_PATH = os.path.join(DATA_DIR, "motifs.csv")
 
 # --- FONCTIONS DE CHARGEMENT ---
 def load_clients():
@@ -35,6 +36,18 @@ def load_livreurs():
 
 def save_livreurs(df):
     df.to_csv(LIVREURS_PATH, index=False)
+
+def load_motifs():
+    if not os.path.exists(MOTIFS_PATH):
+        # Motifs par défaut
+        return ["RETOUR", "DEPOSER COLI", "ECHANGE"]
+    try:
+        return pd.read_csv(MOTIFS_PATH)['Motif'].tolist()
+    except:
+        return ["RETOUR", "DEPOSER COLI", "ECHANGE"]
+
+def save_motifs(motifs):
+    pd.DataFrame({"Motif": motifs}).to_csv(MOTIFS_PATH, index=False)
 
 # --- INITIALISATION ÉTAT ---
 if "rows" not in st.session_state:
@@ -62,8 +75,25 @@ with tab_exp:
     
     with col_g1:
         livreur_choisi = st.selectbox("Choisir le livreur", liste_livreurs)
+        # Déterminer le secteur du livreur
+        secteur_livreur = ""
+        if livreur_choisi:
+            row_l = df_livreurs[df_livreurs['Nom'] == livreur_choisi]
+            if not row_l.empty:
+                secteur_livreur = str(row_l.iloc[0]['Secteur']).strip().lower()
+
     with col_d1:
         date_exp = st.date_input("Date d'expédition")
+
+    # Filtrer les clients selon le secteur du livreur
+    if secteur_livreur:
+        df_clients_filtre = df_clients[df_clients['Secteur'].astype(str).str.strip().str.lower() == secteur_livreur]
+        client_list = df_clients_filtre["Client"].dropna().astype(str).unique().tolist()
+        client_map = dict(zip(df_clients_filtre['Client'].astype(str), df_clients_filtre['Ville']))
+    else:
+        # Si pas de secteur défini pour le livreur, on montre tout ou rien ?
+        # On montre tout par défaut mais on prévient
+        if livreur_choisi: st.warning(f"Le livreur {livreur_choisi} n'a pas de secteur assigné.")
 
     st.divider()
     
@@ -141,7 +171,8 @@ with tab_exp:
             if mode == "Commande":
                 val_info = st.text_input("Colissage")
             else:
-                val_info = st.selectbox("Motif", ["RETOUR", "DEPOSER COLI", "ECHANGE"])
+                liste_motifs = load_motifs()
+                val_info = st.selectbox("Motif", liste_motifs)
         with c4:
             st.write("###") # Aligne avec le champ texte
             btn_ajouter = st.button("➕ Ajouter")
@@ -161,12 +192,19 @@ with tab_exp:
     
     # Édition et mise à jour du tableau
     col_label = "Colissage" if mode == "Commande" else "Motif"
+    
+    # Configuration dynamique de la colonne Info selon le mode
+    if mode == "Réclamation":
+        info_config = st.column_config.SelectboxColumn("Motif", options=load_motifs())
+    else:
+        info_config = st.column_config.TextColumn("Colissage")
+
     edited_rows = st.data_editor(
         st.session_state.rows, 
         num_rows="dynamic", 
         use_container_width=True, 
         column_config={
-            "Info": st.column_config.TextColumn(label=col_label),
+            "Info": info_config,
             "Statut": st.column_config.SelectboxColumn("Statut", options=["En cours", "Livré", "Reporté", "Annulé"])
         }
     )
@@ -281,3 +319,34 @@ with tab_secteurs:
 
     df_clients_edit = load_clients()
     edited_clients = st.data_editor(df_clients_edit, use_container_width=True, num_rows="dynamic")
+    if st.button("💾 Sauvegarder les clients"):
+        save_clients(edited_clients)
+        st.success("Clients sauvegardés !")
+
+# 4. ADMINISTRATION
+with tab_admin:
+    st.header("⚙️ Paramètres du module")
+    
+    st.subheader("📋 Gestion des Motifs (Réclamations)")
+    current_motifs = load_motifs()
+    
+    col_m1, col_m2 = st.columns([2, 1])
+    with col_m1:
+        new_motif = st.text_input("Nouveau motif")
+    with col_m2:
+        st.write("###")
+        if st.button("➕ Ajouter Motif"):
+            if new_motif and new_motif not in current_motifs:
+                current_motifs.append(new_motif)
+                save_motifs(current_motifs)
+                st.rerun()
+    
+    # Liste des motifs avec bouton supprimer
+    st.write("Motifs actuels :")
+    for i, m in enumerate(current_motifs):
+        c_m1, c_m2 = st.columns([3, 1])
+        c_m1.text(f"• {m}")
+        if c_m2.button("🗑️", key=f"del_m_{i}"):
+            current_motifs.pop(i)
+            save_motifs(current_motifs)
+            st.rerun()
