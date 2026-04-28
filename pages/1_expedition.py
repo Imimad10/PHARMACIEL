@@ -54,9 +54,9 @@ def save_motifs(motifs):
 
 # --- INITIALISATION ÉTAT ---
 if "rows" not in st.session_state:
-    st.session_state.rows = pd.DataFrame(columns=["Client", "Ville", "N° Doc", "Info", "Statut", "Signature"])
+    st.session_state.rows = pd.DataFrame(columns=["Client", "Ville", "Secteur", "N° Doc", "Info", "Statut", "Signature"])
 
-def add_or_merge_row(client, ville, ref, info, statut, signature, mode="Commande"):
+def add_or_merge_row(client, ville, ref, info, statut, signature, secteur=""):
     """Ajoute une ligne ou fusionne si le client existe déjà."""
     client = str(client).strip()
     ref = str(ref).strip()
@@ -84,6 +84,7 @@ def add_or_merge_row(client, ville, ref, info, statut, signature, mode="Commande
         new_row = pd.DataFrame([{
             "Client": client, 
             "Ville": ville, 
+            "Secteur": secteur,
             "N° Doc": ref, 
             "Info": info, 
             "Statut": statut, 
@@ -189,7 +190,7 @@ with tab_exp:
                                     telephone = tel_map.get(client_name, "")
                                     info_str = f"Tel: {telephone}" if telephone else ""
                                     
-                                    add_or_merge_row(client_name, ville, ref_val, "RÉCLAMATION IMPORTÉE", "En cours", info_str, mode="Réclamation")
+                                    add_or_merge_row(client_name, ville, ref_val, "RÉCLAMATION IMPORTÉE", "En cours", info_str, secteur=secteur_livreur)
                                     added_count += 1
                                 
                                 if added_count > 0:
@@ -235,7 +236,7 @@ with tab_exp:
             full_ref = f"{annee}/{prefixe}/{ref_bon}"
             ville = client_map.get(new_client, "")
             
-            add_or_merge_row(new_client, ville, full_ref, val_info, "En cours", "", mode=mode)
+            add_or_merge_row(new_client, ville, full_ref, val_info, "En cours", "", secteur=secteur_livreur)
             st.rerun()
 
     st.subheader(f"Détails des {mode}s")
@@ -255,7 +256,9 @@ with tab_exp:
         use_container_width=True, 
         column_config={
             "Info": info_config,
-            "Statut": st.column_config.SelectboxColumn("Statut", options=["En cours", "Livré", "Reporté", "Annulé"])
+            "Statut": st.column_config.SelectboxColumn("Statut", options=["En cours", "Livré", "Reporté", "Annulé"]),
+            "Signature": None, # Cache la signature du tableau UI
+            "Secteur": st.column_config.TextColumn("Secteur", disabled=True)
         }
     )
     st.session_state.rows = edited_rows
@@ -324,6 +327,13 @@ with tab_exp:
                     mime="application/pdf",
                     type="primary"
                 )
+                
+                st.success("✅ PDF prêt ! Une fois téléchargé, cliquez ci-dessous pour archiver et passer au livreur suivant.")
+                if st.button("🏁 Valider l'envoi & Vider le tableau", type="secondary"):
+                    log_action(st.session_state.current_user['username'], f"Validation finale tournée {livreur_choisi}", "Expédition")
+                    st.session_state.rows = pd.DataFrame(columns=["Client", "Ville", "Secteur", "N° Doc", "Info", "Statut", "Signature"])
+                    st.success("Tableau vidé ! Vous pouvez sélectionner un autre livreur.")
+                    st.rerun()
             except Exception as e:
                 st.error(f"Erreur PDF : {e}")
         else:
