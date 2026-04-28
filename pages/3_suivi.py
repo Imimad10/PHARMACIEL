@@ -40,7 +40,14 @@ def save_data(data):
 # --- INTERFACE ---
 st.title(f"🌡️ Pharmaciel - {st.session_state.current_user['username']}")
 
-tab_saisie, tab_data = st.tabs(["📝 Saisie terrain", "📊 Tableau de bord"])
+tab_names = ["📝 Saisie terrain", "📊 Tableau de bord"]
+is_admin = st.session_state.current_user.get('role') == 'Admin'
+if is_admin:
+    tab_names.append("⚙️ Administration")
+
+tabs = st.tabs(tab_names)
+tab_saisie = tabs[0]
+tab_data = tabs[1]
 
 with tab_saisie:
     st.subheader("Nouvelle saisie")
@@ -87,3 +94,38 @@ with tab_data:
         st.dataframe(df.sort_index(ascending=False), use_container_width=True)
     else:
         st.info("Aucune donnée disponible.")
+
+if is_admin:
+    tab_admin = tabs[2]
+    with tab_admin:
+        st.subheader("🛠️ Édition manuelle des relevés")
+        if os.path.isfile(DATA_FILE):
+            df_admin = pd.read_csv(DATA_FILE)
+            edited_df = st.data_editor(df_admin, use_container_width=True, num_rows="dynamic")
+            if st.button("💾 Sauvegarder les modifications"):
+                edited_df.to_csv(DATA_FILE, index=False)
+                st.success("Modifications enregistrées !")
+                st.rerun()
+        else:
+            st.info("Aucun historique à éditer.")
+            
+        st.divider()
+        st.subheader("📥 Importer un historique Excel")
+        st.write("Format attendu : **Date, Heure, Température, Agent, Statut, Commentaire, Type**")
+        f_up = st.file_uploader("Fichier Excel (.xlsx)", type=["xlsx"])
+        if f_up:
+            try:
+                df_up = pd.read_excel(f_up)
+                st.write("Aperçu de l'import :")
+                st.dataframe(df_up.head())
+                if st.button("Fusionner avec l'historique existant"):
+                    if os.path.isfile(DATA_FILE):
+                        df_current = pd.read_csv(DATA_FILE)
+                        df_final = pd.concat([df_current, df_up], ignore_index=True)
+                    else:
+                        df_final = df_up
+                    df_final.to_csv(DATA_FILE, index=False)
+                    st.success("Données importées avec succès !")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Erreur de lecture du fichier : {e}")
