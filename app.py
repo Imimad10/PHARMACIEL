@@ -15,7 +15,7 @@ if len(db_users) == 0:
         'username': 'admin_imad',
         'password': 'admin_imad_pwd',
         'role': 'Admin',
-        'pages': ['Logistique', 'Inventaire', 'Suivi', 'Recouvrement', 'Pointage']
+        'pages': ['Logistique', 'Inventaire', 'Suivi', 'Recouvrement', 'Pointage', 'Péremptions']
     })
     # Quelques utilisateurs de test basés sur le code existant
     db_users.insert({'username': 'Ayoub', 'password': 'ayoub2026', 'role': 'Saisie', 'pages': ['Logistique', 'Suivi']})
@@ -57,7 +57,8 @@ ALL_PAGES = {
     "Inventaire": st.Page("pages/2_inventaire.py", title="Inventaire", icon="📦"),
     "Suivi": st.Page("pages/3_suivi.py", title="Suivi Frigo", icon="📊"),
     "Recouvrement": st.Page("pages/4_recouvrement.py", title="Recouvrement", icon="💰"),
-    "Pointage": st.Page("pages/5_pointage.py", title="Pointage Factures", icon="📝")
+    "Pointage": st.Page("pages/5_pointage.py", title="Pointage Factures", icon="📝"),
+    "Péremptions": st.Page("pages/6_peremptions.py", title="Gestion des Péremptions", icon="⏳")
 }
 
 # Filtrer selon les privilèges
