@@ -63,12 +63,14 @@ def archive_pointages_mensuel():
 # Exécution de l'archivage automatique au chargement
 archive_pointages_mensuel()
 
-# --- INTERFACE SIDEBAR ---
-st.sidebar.title("📦 Pharmaciel Pro")
-menu = st.sidebar.radio("Navigation", ["Pointage Factures", "Administration"])
+st.header("📝 Pointage des Factures", divider="red")
+
+tab_pointage, tab_admin, tab_historique = st.tabs([
+    "📋 Pointage Factures", "⚙️ Gestion des Livreurs", "📊 Historique"
+])
 
 # --- ONGLET ADMINISTRATION ---
-if menu == "Administration":
+with tab_admin:
     st.header("⚙️ Gestion des Livreurs")
     
     col1, col2 = st.columns(2)
@@ -99,8 +101,7 @@ if menu == "Administration":
             st.info("Aucun livreur enregistré.")
 
 # --- ONGLET POINTAGE ---
-elif menu == "Pointage Factures":
-    st.header("📝 Pointage des Factures")
+with tab_pointage:
 
     # 1. Importation du fichier Excel
     uploaded_file = st.file_uploader("Importer l'export LogiPharm (Excel)", type=['xlsx'])
@@ -333,13 +334,13 @@ elif menu == "Pointage Factures":
         except Exception as e:
             st.error(f"Erreur lors de la lecture du fichier : {e}")
 
-# --- HISTORIQUE (EN BAS DE PAGE) ---
-if st.sidebar.checkbox("Afficher l'historique"):
-    st.divider()
+# --- ONGLET HISTORIQUE ---
+with tab_historique:
     st.subheader("📊 Historique des derniers pointages")
     data_hist = table_pointage.all()
     if data_hist:
         df_hist = pd.DataFrame(data_hist)
-        st.dataframe(df_hist.tail(20), use_container_width=True)
+        st.dataframe(df_hist.sort_values('date_pointage', ascending=False).head(50), use_container_width=True)
     else:
         st.write("Aucun historique pour le moment.")
+

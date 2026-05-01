@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 from fpdf import FPDF
 import qrcode
+import plotly.express as px
 from utils import log_action
 from tinydb import TinyDB, Query
 
@@ -56,7 +57,7 @@ def save_motifs(motifs):
 if "rows" not in st.session_state:
     st.session_state.rows = pd.DataFrame(columns=["Client", "Ville", "Secteur", "N° Doc", "Info", "Statut", "Signature"])
 
-def add_or_merge_row(client, ville, ref, info, statut, signature, secteur=""):
+def add_or_merge_row(client, ville, ref, info, statut, signature, mode, secteur=""):
     """Ajoute une ligne ou fusionne si le client existe déjà."""
     client = str(client).strip()
     ref = str(ref).strip()
@@ -190,7 +191,7 @@ with tab_exp:
                                     telephone = tel_map.get(client_name, "")
                                     info_str = f"Tel: {telephone}" if telephone else ""
                                     
-                                    add_or_merge_row(client_name, ville, ref_val, "RÉCLAMATION IMPORTÉE", "En cours", info_str, secteur=secteur_livreur)
+                                    add_or_merge_row(client_name, ville, ref_val, "RÉCLAMATION IMPORTÉE", "En cours", info_str, mode="Réclamation", secteur=secteur_livreur)
                                     added_count += 1
                                 
                                 if added_count > 0:
@@ -236,7 +237,7 @@ with tab_exp:
             full_ref = f"{annee}/{prefixe}/{ref_bon}"
             ville = client_map.get(new_client, "")
             
-            add_or_merge_row(new_client, ville, full_ref, val_info, "En cours", "", secteur=secteur_livreur)
+            add_or_merge_row(new_client, ville, full_ref, val_info, "En cours", "", mode=mode, secteur=secteur_livreur)
             st.rerun()
 
     st.subheader(f"Détails des {mode}s")
@@ -264,7 +265,7 @@ with tab_exp:
     st.session_state.rows = edited_rows
     
     if st.button("🗑️ Vider le tableau"):
-        st.session_state.rows = pd.DataFrame(columns=["Client", "Ville", "N° Doc", "Info", "Statut", "Signature"])
+        st.session_state.rows = pd.DataFrame(columns=["Client", "Ville", "Secteur", "N° Doc", "Info", "Statut", "Signature"])
         st.rerun()
         
     if st.button("🖨️ Générer la Feuille de Route (PDF)"):

@@ -4,8 +4,6 @@ import plotly.express as px
 from tinydb import TinyDB, Query
 from datetime import datetime
 import os
-import cv2
-import numpy as np
 
 # Configuration
 db = TinyDB('db_pharmaciel.json')
@@ -20,6 +18,8 @@ with st.expander("🔍 Scanner une Feuille de Route (QR Code)", expanded=False):
     
     if cam_input:
         try:
+            import cv2
+            import numpy as np
             # Conversion de l'image pour OpenCV
             file_bytes = np.asarray(bytearray(cam_input.read()), dtype=np.uint8)
             opencv_image = cv2.imdecode(file_bytes, 1)

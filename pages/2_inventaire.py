@@ -8,7 +8,6 @@ DATA_DIR = "data_inventaire"
 os.makedirs(DATA_DIR, exist_ok=True)
 MASTER_PATH = os.path.join(DATA_DIR, "master.xlsx")
 SAISIE_PATH = os.path.join(DATA_DIR, "saisie.csv")
-USERS_PATH = os.path.join(DATA_DIR, "users.csv")
 
 # --- FONCTIONS ---
 def clean_columns(df_to_clean):

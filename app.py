@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
-from tinydb import TinyDB, Query
+import json
 import os
+from tinydb import TinyDB, Query
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Pharmaciel - Portail", layout="wide", page_icon="💊")
@@ -28,7 +29,6 @@ SESSION_FILE = 'data/session.json'
 def save_session(username):
     if not os.path.exists('data'): os.makedirs('data')
     with open(SESSION_FILE, 'w') as f:
-        import json
         json.dump({'username': username}, f)
 
 def clear_session():
@@ -40,7 +40,6 @@ def get_session():
     if os.path.exists(SESSION_FILE):
         try:
             with open(SESSION_FILE, 'r') as f:
-                import json
                 return json.load(f).get('username')
         except:
             return None

@@ -1,11 +1,9 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, date, timedelta
-import calendar
+from datetime import datetime
 import os
 import plotly.express as px
 from fpdf import FPDF
-import time
 from utils import log_action
 
 # --- CONFIGURATION ---
@@ -64,7 +62,7 @@ with tab_saisie:
             "Température": 4.0, "Agent": st.session_state.current_user['username'],
             "Statut": "OK", "Commentaire": "Rapide", "Type": "Relevé Standard"
         })
-        time.sleep(0.5); st.rerun()
+        st.rerun()
 
     with st.form("form_saisie", clear_on_submit=True):
         t = st.number_input("Température (°C)", min_value=-20.0, max_value=30.0, value=4.0, step=0.1)
@@ -76,7 +74,7 @@ with tab_saisie:
                 "Température": t, "Agent": st.session_state.current_user['username'],
                 "Statut": "OK" if t <= 5.0 else "ALERTE", "Commentaire": comm, "Type": type_releve
             })
-            time.sleep(0.5); st.rerun()
+            st.rerun()
 
 with tab_data:
     if os.path.isfile(DATA_FILE):

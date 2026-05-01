@@ -3,6 +3,7 @@ import pandas as pd
 import os
 from datetime import datetime
 from fpdf import FPDF
+import plotly.express as px
 
 # --- CONFIGURATION ET CHEMINS ---
 DATA_RECOUV = "data_recouvrement.csv"
@@ -271,7 +272,6 @@ with tabs[3]:
         with col_g1:
             st.subheader("📁 Balance Âgée")
             df_age = df_global.groupby('Tranche')['Reste à payer'].sum().reindex(["0-15 Jours", "16-30 Jours", "31-60 Jours", "+60 Jours"]).reset_index()
-            import plotly.express as px
             fig_age = px.bar(df_age, x='Tranche', y='Reste à payer', color='Tranche', 
                              color_discrete_sequence=px.colors.sequential.Reds_r, template="plotly_dark")
             st.plotly_chart(fig_age, use_container_width=True)
