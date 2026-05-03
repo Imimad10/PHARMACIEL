@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 from fpdf import FPDF
 import plotly.express as px
+from utils_ia import ask_ai
 
 # --- CONFIGURATION ET CHEMINS ---
 DATA_RECOUV = "data_recouvrement.csv"
@@ -237,7 +238,36 @@ with tabs[2]:
                 msg = f"Bonjour {client_relance}, nous vous relançons concernant un solde débiteur de {total_client:,.2f} DA. Merci de régulariser la situation. Cordialement, Service Recouvrement Darpharm Solution."
                 wa_link = f"https://wa.me/{phone_clean}?text={msg.replace(' ', '%20')}"
                 
-                st.link_button(f"💬 Envoyer Relance WhatsApp à {client_phone}", wa_link)
+                st.link_button(f"💬 Envoyer Relance Standard (WhatsApp)", wa_link)
+                
+                # --- ASSISTANT IA POUR LA RELANCE ---
+                st.write("---")
+                st.markdown("### 🤖 Assistant IA de Relance")
+                st.info("L'IA va rédiger un message de recouvrement personnalisé en analysant la situation du client.")
+                
+                tone = st.selectbox("Ton du message", ["Professionnel et courtois", "Amical (Bon client)", "Ferme et urgent (Retard important)"])
+                
+                if st.button("✨ Générer un message sur mesure avec l'IA"):
+                    with st.spinner("L'IA rédige le message..."):
+                        factures_str = "\n".join([f"- Facture {row.get('Facture', 'N/A')} du {row.get('Date', '')}: {row.get('Reste à payer', 0.0)} DA" for _, row in df_client_impayes.iterrows()])
+                        
+                        prompt = f"""
+                        Rédige un message WhatsApp de relance de paiement pour le client {client_relance}.
+                        Le ton doit être : {tone}.
+                        Le total dû est de {total_client:,.2f} DA.
+                        Détail des factures :
+                        {factures_str}
+                        
+                        Le message doit être poli, professionnel, inclure des émojis adaptés et être prêt à être envoyé par le Service Recouvrement de Darpharm Solution. Ne mets pas d'objet de mail, commence directement par Bonjour.
+                        """
+                        ai_message = ask_ai(prompt)
+                        st.session_state[f"ai_msg_{client_relance}"] = ai_message
+                
+                if f"ai_msg_{client_relance}" in st.session_state:
+                    ai_text = st.text_area("Message IA (vous pouvez le modifier)", st.session_state[f"ai_msg_{client_relance}"], height=200)
+                    wa_link_ai = f"https://wa.me/{phone_clean}?text={ai_text.replace(' ', '%20').replace(chr(10), '%0A')}"
+                    st.link_button(f"🚀 Envoyer ce message IA via WhatsApp", wa_link_ai, type="primary")
+
             else:
                 st.warning("Numéro de téléphone manquant pour ce client dans la base.")
         else:
