@@ -16,6 +16,14 @@ if "current_user" not in st.session_state or st.session_state.current_user is No
 
 
 # --- FONCTIONS ---
+def clean_frigo_data(df):
+    if 'Température' in df.columns:
+        df.loc[(df['Température'] >= 2.0) & (df['Température'] <= 8.0), 'Statut'] = 'OK'
+        df.loc[(df['Température'] < 2.0) | (df['Température'] > 8.0), 'Statut'] = 'ALERTE'
+    if 'Type' in df.columns:
+        df['Type'] = df['Type'].replace('Relevé Standard', 'Plage idéale :+2°C+8°C')
+    return df
+
 def generer_pdf(df):
     pdf = FPDF()
     pdf.add_page()
@@ -79,6 +87,7 @@ with tab_saisie:
 with tab_data:
     if os.path.isfile(DATA_FILE):
         df = pd.read_csv(DATA_FILE)
+        df = clean_frigo_data(df)
         
         # Création d'une colonne Timestamp pour le graphe
         df['Timestamp'] = pd.to_datetime(df['Date'] + ' ' + df['Heure'], format="%d/%m/%Y %H:%M", errors='coerce')
@@ -106,6 +115,7 @@ if is_admin:
         st.subheader("🛠️ Édition manuelle des relevés")
         if os.path.isfile(DATA_FILE):
             df_admin = pd.read_csv(DATA_FILE)
+            df_admin = clean_frigo_data(df_admin)
             edited_df = st.data_editor(df_admin, use_container_width=True, num_rows="dynamic")
             if st.button("💾 Sauvegarder les modifications"):
                 edited_df.to_csv(DATA_FILE, index=False)
@@ -129,6 +139,7 @@ if is_admin:
                         df_final = pd.concat([df_current, df_up], ignore_index=True)
                     else:
                         df_final = df_up
+                    df_final = clean_frigo_data(df_final)
                     df_final.to_csv(DATA_FILE, index=False)
                     st.success("Données importées avec succès !")
                     st.rerun()
