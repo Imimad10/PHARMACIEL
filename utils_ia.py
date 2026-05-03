@@ -27,20 +27,25 @@ def ask_ai(prompt, fallback_msg="⚠️ L'IA n'est pas configurée. Allez dans A
             if not api_key: return fallback_msg
             genai.configure(api_key=api_key)
             
-            # Essayer plusieurs variantes de noms de modèles pour éviter l'erreur 404
-            last_error = None
-            for model_name in ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-pro']:
-                try:
-                    model = genai.GenerativeModel(model_name)
-                    response = model.generate_content(prompt)
-                    return response.text
-                except Exception as e:
-                    last_error = str(e)
-                    if "404" in last_error or "not found" in last_error.lower():
-                        continue
-                    else:
+            # Détection dynamique du meilleur modèle disponible
+            try:
+                available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                # Priorité : Flash 1.5 -> Pro 1.5 -> Pro 1.0
+                target_model = None
+                for candidate in ["1.5-flash", "1.5-pro", "gemini-pro"]:
+                    match = next((m for m in available_models if candidate in m), None)
+                    if match:
+                        target_model = match
                         break
-            return f"Erreur IA (Gemini) : {last_error}"
+                
+                if not target_model:
+                    target_model = available_models[0] if available_models else "gemini-1.5-flash"
+                
+                model = genai.GenerativeModel(target_model)
+                response = model.generate_content(prompt)
+                return response.text
+            except Exception as e:
+                return f"Erreur IA (Gemini - Auto) : {str(e)}"
             
         elif provider == 'Claude (Anthropic)':
             api_key = get_setting('anthropic_api_key') or st.secrets.get("ANTHROPIC_API_KEY")
