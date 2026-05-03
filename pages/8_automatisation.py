@@ -91,7 +91,7 @@ if uploaded_files:
                     S'il n'y a aucun produit détecté, renvoie [].
                     """
                     
-                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    model = genai.GenerativeModel('gemini-1.5-flash-latest')
                     response = model.generate_content([sample_file, prompt])
                     
                     # Nettoyage de la réponse

@@ -26,7 +26,7 @@ def get_gemini_model():
         return None
         
     genai.configure(api_key=api_key)
-    return genai.GenerativeModel('gemini-1.5-flash')
+    return genai.GenerativeModel('gemini-1.5-flash-latest')
 
 def ask_ai(prompt, fallback_msg="⚠️ L'IA n'est pas configurée. Allez dans Administration Centrale > Configuration IA."):
     """Sends a text prompt to Gemini and returns the response."""
