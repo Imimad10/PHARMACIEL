@@ -4,7 +4,7 @@ import os
 import urllib.parse
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Pharmaciel - Gestion Para", layout="wide")
+st.set_page_config(page_title="Darpharm Solution - Gestion Para", layout="wide")
 
 # --- FICHIERS ---
 DB_PATH = 'database_para.csv'

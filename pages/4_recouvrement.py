@@ -72,7 +72,7 @@ def generate_relance_pdf(client_name, df_client, total_du):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, "PHARMACIEL - MISE EN DEMEURE / RELANCE", 0, 1, 'C')
+    pdf.cell(0, 10, "DARPHARM SOLUTION - MISE EN DEMEURE / RELANCE", 0, 1, 'C')
     pdf.ln(10)
     
     pdf.set_font("Arial", '', 12)
@@ -234,7 +234,7 @@ with tabs[2]:
                 phone_clean = "".join(filter(str.isdigit, str(client_phone)))
                 if not phone_clean.startswith("213"): phone_clean = "213" + phone_clean.lstrip("0")
                 
-                msg = f"Bonjour {client_relance}, nous vous relançons concernant un solde débiteur de {total_client:,.2f} DA. Merci de régulariser la situation. Cordialement, Service Recouvrement Pharmaciel."
+                msg = f"Bonjour {client_relance}, nous vous relançons concernant un solde débiteur de {total_client:,.2f} DA. Merci de régulariser la situation. Cordialement, Service Recouvrement Darpharm Solution."
                 wa_link = f"https://wa.me/{phone_clean}?text={msg.replace(' ', '%20')}"
                 
                 st.link_button(f"💬 Envoyer Relance WhatsApp à {client_phone}", wa_link)

@@ -203,7 +203,7 @@ with tab2:
                                 pdf = FPDF()
                                 pdf.add_page()
                                 pdf.set_font("Arial", 'B', 16)
-                                pdf.cell(0, 10, f"ORDRE DE TRANSFERT - Pharmaciel Pro", 0, 1, 'C')
+                                pdf.cell(0, 10, f"ORDRE DE TRANSFERT - Darpharm Solution", 0, 1, 'C')
                                 pdf.set_font("Arial", '', 11)
                                 pdf.cell(0, 8, f"Date: {datetime.now().strftime('%d/%m/%Y')}", 0, 1, 'R')
                                 pdf.ln(10)

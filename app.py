@@ -5,7 +5,7 @@ import os
 from tinydb import TinyDB, Query
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="Pharmaciel - Portail", layout="wide", page_icon="💊")
+st.set_page_config(page_title="Darpharm Solution - Portail", layout="wide", page_icon="💊")
 
 # --- 2. BASE DE DONNÉES UTILISATEURS ---
 os.makedirs("data", exist_ok=True)
@@ -62,7 +62,9 @@ if st.session_state.current_user is None:
             section[data-testid="stSidebar"] {width: 0px;}
         </style>
     """, unsafe_allow_html=True)
-    st.title("🔐 Portail Pharmaciel")
+    if os.path.exists("logo.png"):
+        st.image("logo.png", width=200)
+    st.title("🔐 Portail Darpharm Solution")
     st.write("Veuillez vous connecter pour accéder à vos modules.")
     
     with st.form("login_form"):
@@ -125,7 +127,10 @@ if not pages_to_show:
 pg = st.navigation(pages_to_show)
 
 with st.sidebar:
-    st.title("💊 Pharmaciel")
+    if os.path.exists("logo.png"):
+        st.image("logo.png", use_container_width=True)
+    else:
+        st.title("💊 Darpharm Solution")
     st.write(f"Connecté: **{user['username']}** ({user.get('role', 'Saisie')})")
     if st.button("🚪 Déconnexion", use_container_width=True):
         clear_session()

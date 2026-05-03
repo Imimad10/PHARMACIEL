@@ -3,7 +3,7 @@ import pandas as pd
 import os
 
 # --- CONFIGURATION ---
-# st.set_page_config(page_title="Pharmaciel Pro", layout="wide")
+# st.set_page_config(page_title="Darpharm Solution", layout="wide")
 DATA_DIR = "data_inventaire"
 os.makedirs(DATA_DIR, exist_ok=True)
 MASTER_PATH = os.path.join(DATA_DIR, "master.xlsx")

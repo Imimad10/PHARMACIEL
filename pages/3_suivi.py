@@ -7,7 +7,7 @@ from fpdf import FPDF
 from utils import log_action
 
 # --- CONFIGURATION ---
-# st.set_page_config(page_title="Pharmaciel - Suivi Frigo", layout="wide")
+# st.set_page_config(page_title="Darpharm Solution - Suivi Frigo", layout="wide")
 DATA_FILE = "suivi_data.csv"
 
 if "current_user" not in st.session_state or st.session_state.current_user is None:
@@ -28,7 +28,7 @@ def generer_pdf(df):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, "PHARMACIEL - RAPPORT MENSUEL", 0, 1, 'C')
+    pdf.cell(0, 10, "DARPHARM SOLUTION - RAPPORT MENSUEL", 0, 1, 'C')
     pdf.ln(10)
     pdf.set_font("Arial", size=9)
     for _, row in df.iterrows():
@@ -51,7 +51,7 @@ def save_data(data):
         st.success("✅ Donnée enregistrée !")
 
 # --- INTERFACE ---
-st.title(f"🌡️ Pharmaciel - {st.session_state.current_user['username']}")
+st.title(f"🌡️ Darpharm Solution - {st.session_state.current_user['username']}")
 
 tab_names = ["📝 Saisie terrain", "📊 Tableau de bord"]
 is_admin = st.session_state.current_user.get('role') == 'Admin'

@@ -5,7 +5,7 @@ import urllib.parse
 from PIL import Image
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Pharmaciel - Gestion Para", layout="wide")
+st.set_page_config(page_title="Darpharm Solution - Gestion Para", layout="wide")
 
 # --- FICHIERS ET DOSSIERS ---
 DB_PATH = 'database_para.csv'

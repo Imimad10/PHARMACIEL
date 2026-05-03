@@ -20,7 +20,7 @@ def generate_pdf(df, livreur_name):
     pdf.set_font("Arial", 'B', 16)
     
     # Entête
-    pdf.cell(190, 10, "PHARMACIEL - FEUILLE DE ROUTE", ln=True, align='C')
+    pdf.cell(190, 10, "DARPHARM SOLUTION - FEUILLE DE ROUTE", ln=True, align='C')
     pdf.set_font("Arial", '', 12)
     date_str = datetime.now().strftime("%d/%m/%Y")
     pdf.cell(190, 10, f"Livreur : {livreur_name} | Date d'expédition : {date_str}", ln=True, align='C')
@@ -46,7 +46,7 @@ def generate_pdf(df, livreur_name):
     return pdf.output(dest='S').encode('latin-1', 'replace')
 
 # --- INTERFACE ---
-st.set_page_config(page_title="Pharmaciel - Recouvrement", layout="wide")
+st.set_page_config(page_title="Darpharm Solution - Recouvrement", layout="wide")
 st.title("💰 Suivi du Recouvrement")
 
 tab_creer, tab_suivi = st.tabs(["🆕 Créer une fiche", "📊 État & Téléchargements"])

@@ -10,7 +10,7 @@ if "current_user" not in st.session_state or st.session_state.current_user is No
     st.error("Accès refusé.")
     st.stop()
 
-st.title("⚙️ Administration Centrale - Pharmaciel")
+st.title("⚙️ Administration Centrale - Darpharm Solution")
 st.write("Gérez les utilisateurs, leurs rôles et leurs accès aux différentes pages de l'application.")
 
 db_users = TinyDB('data/db_users.json')
@@ -149,7 +149,7 @@ with tab_backup:
                         shutil.copy2(target, backup_dir)
             
             # Créer l'archive zip
-            zip_filename = "Pharmaciel_Backup"
+            zip_filename = "Darpharm Solution_Backup"
             shutil.make_archive(zip_filename, 'zip', backup_dir)
             
             # Nettoyer le dossier temporaire

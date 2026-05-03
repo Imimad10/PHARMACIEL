@@ -6,7 +6,7 @@ import os
 from utils import log_action
 
 # --- CONFIGURATION ET BASE DE DONNÉES ---
-# st.set_page_config(page_title="Pharmaciel Pro - Pointage", layout="wide", page_icon="🚚")
+# st.set_page_config(page_title="Darpharm Solution - Pointage", layout="wide", page_icon="🚚")
 
 # Initialisation de la base de données locale
 db = TinyDB('db_pharmaciel.json')

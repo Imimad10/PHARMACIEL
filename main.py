@@ -2,7 +2,7 @@ import streamlit as st
 from streamlit import Page
 
 # 1. CONFIGURATION (Impérativement la première ligne du script)
-st.set_page_config(page_title="Pharmaciel Pro", layout="wide", page_icon="💊")
+st.set_page_config(page_title="Darpharm Solution", layout="wide", page_icon="💊")
 
 # 2. INITIALISATION DE L'AUTHENTIFICATION
 if "user_authenticated" not in st.session_state:
@@ -10,7 +10,7 @@ if "user_authenticated" not in st.session_state:
 
 # --- ÉCRAN DE CONNEXION ---
 if st.session_state.user_authenticated is None:
-    st.title("🔐 Connexion Pharmaciel")
+    st.title("🔐 Connexion Darpharm Solution")
     col_auth, _ = st.columns([1, 2])
     with col_auth:
         u = st.text_input("Utilisateur")
@@ -35,7 +35,7 @@ try:
     })
     
     # Barre latérale (Sidebar) avec infos utilisateur
-    st.sidebar.title("💊 Pharmaciel")
+    st.sidebar.title("💊 Darpharm Solution")
     st.sidebar.write(f"Connecté : **{st.session_state.user_authenticated}**")
     
     if st.sidebar.button("Déconnexion"):
