@@ -27,8 +27,8 @@ if not df_users.empty:
 
 st.divider()
 
-tab_add, tab_edit, tab_del, tab_logs, tab_backup = st.tabs([
-    "➕ Ajouter", "✏️ Modifier", "🗑️ Supprimer", "📝 Traçabilité (Logs)", "💾 Sauvegarde"
+tab_add, tab_edit, tab_del, tab_logs, tab_backup, tab_ia = st.tabs([
+    "➕ Ajouter", "✏️ Modifier", "🗑️ Supprimer", "📝 Traçabilité (Logs)", "💾 Sauvegarde", "🤖 Configuration IA"
 ])
 
 MODULES_DISPO = ["Logistique", "Inventaire", "Suivi", "Recouvrement", "Pointage", "Péremptions", "Dashboard"]
@@ -162,3 +162,23 @@ with tab_backup:
             log_action(st.session_state.current_user['username'], "Génération d'une sauvegarde ZIP", "Administration")
         except Exception as e:
             st.error(f"Erreur lors de la sauvegarde : {e}")
+
+with tab_ia:
+    st.subheader("🤖 Configuration de l'Intelligence Artificielle")
+    st.write("Configurez ici la clé API Google Gemini pour faire fonctionner le scanner de factures. Plus besoin de modifier les fichiers de secrets complexes !")
+    
+    db_settings = TinyDB('data/db_settings.json')
+    Setting = Query()
+    ia_setting = db_settings.search(Setting.name == 'gemini_api_key')
+    current_key = ia_setting[0]['value'] if ia_setting else ""
+    
+    with st.form("form_ia_config"):
+        new_key = st.text_input("Clé API Gemini", value=current_key, type="password", help="Obtenez une clé gratuite sur https://aistudio.google.com/app/apikey")
+        if st.form_submit_button("Sauvegarder la clé", use_container_width=True):
+            if ia_setting:
+                db_settings.update({'value': new_key}, Setting.name == 'gemini_api_key')
+            else:
+                db_settings.insert({'name': 'gemini_api_key', 'value': new_key})
+            st.success("✅ Clé API sauvegardée avec succès ! Le scanner de factures est désormais opérationnel.")
+            log_action(st.session_state.current_user['username'], "Mise à jour de la clé API IA", "Administration")
+            st.rerun()

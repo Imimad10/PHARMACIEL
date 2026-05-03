@@ -19,16 +19,35 @@ st.title("🤖 Automatisation & IA - Scanner de Factures")
 
 st.info("Ce module utilise l'Intelligence Artificielle de Google (Gemini) pour lire vos factures fournisseurs (Photos ou PDF) et extraire automatiquement les informations structurées des produits.")
 
+from tinydb import TinyDB, Query
+
+# ...
+
 # Récupération de la clé API
-api_key = st.secrets.get("GEMINI_API_KEY")
+api_key = None
+
+# 1. Vérifier la configuration Administrateur (Base de données)
+if os.path.exists('data/db_settings.json'):
+    db_settings = TinyDB('data/db_settings.json')
+    Setting = Query()
+    ia_setting = db_settings.search(Setting.name == 'gemini_api_key')
+    if ia_setting and ia_setting[0]['value']:
+        api_key = ia_setting[0]['value']
+
+# 2. Secours : Vérifier les secrets Streamlit
+if not api_key:
+    try:
+        api_key = st.secrets.get("GEMINI_API_KEY")
+    except:
+        pass
+
 if not api_key:
     st.error("⚠️ Clé API Gemini introuvable.")
     st.markdown("""
-    **Comment configurer l'IA :**
+    **Comment configurer l'IA très facilement :**
     1. Obtenez une clé API gratuite sur [Google AI Studio](https://aistudio.google.com/app/apikey).
-    2. Allez dans les Secrets de Streamlit Cloud.
-    3. Ajoutez la ligne suivante tout en haut :
-       `GEMINI_API_KEY = "votre_cle_api_ici"`
+    2. Allez dans le menu **Administration Centrale** > **Gestion des Accès**.
+    3. Allez dans l'onglet **🤖 Configuration IA**, collez votre clé et cliquez sur sauvegarder.
     """)
     st.stop()
 
