@@ -49,7 +49,10 @@ def ask_ai(prompt, fallback_msg="⚠️ L'IA n'est pas configurée. Allez dans A
                 response = model.generate_content(prompt)
                 return response.text
             except Exception as e:
-                return f"Erreur IA (Gemini - Auto) : {str(e)}"
+                err_msg = str(e)
+                if "429" in err_msg or "quota" in err_msg.lower():
+                    return "⚠️ Quota Gemini épuisé (Limite gratuite atteinte). Veuillez réessayer dans une minute ou utiliser un autre moteur (Claude/OpenAI) dans l'Administration."
+                return f"Erreur IA (Gemini - Auto) : {err_msg}"
             
         elif provider == 'Claude (Anthropic)':
             api_key = get_setting('anthropic_api_key') or st.secrets.get("ANTHROPIC_API_KEY")
