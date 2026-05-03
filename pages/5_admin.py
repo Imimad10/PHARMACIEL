@@ -165,20 +165,41 @@ with tab_backup:
 
 with tab_ia:
     st.subheader("🤖 Configuration de l'Intelligence Artificielle")
-    st.write("Configurez ici la clé API Google Gemini pour faire fonctionner le scanner de factures. Plus besoin de modifier les fichiers de secrets complexes !")
+    st.write("Configurez ici les clés API de vos fournisseurs préférés et choisissez le moteur par défaut.")
     
     db_settings = TinyDB('data/db_settings.json')
     Setting = Query()
-    ia_setting = db_settings.search(Setting.name == 'gemini_api_key')
-    current_key = ia_setting[0]['value'] if ia_setting else ""
+    
+    def get_setting(name, default=""):
+        res = db_settings.search(Setting.name == name)
+        return res[0]['value'] if res else default
+        
+    current_gemini = get_setting('gemini_api_key')
+    current_claude = get_setting('anthropic_api_key')
+    current_openai = get_setting('openai_api_key')
+    current_provider = get_setting('active_ai_provider', 'Gemini (Google)')
     
     with st.form("form_ia_config"):
-        new_key = st.text_input("Clé API Gemini", value=current_key, type="password", help="Obtenez une clé gratuite sur https://aistudio.google.com/app/apikey")
-        if st.form_submit_button("Sauvegarder la clé", use_container_width=True):
-            if ia_setting:
-                db_settings.update({'value': new_key}, Setting.name == 'gemini_api_key')
-            else:
-                db_settings.insert({'name': 'gemini_api_key', 'value': new_key})
-            st.success("✅ Clé API sauvegardée avec succès ! Le scanner de factures est désormais opérationnel.")
-            log_action(st.session_state.current_user['username'], "Mise à jour de la clé API IA", "Administration")
+        active_provider = st.selectbox("Moteur IA par défaut", ["Gemini (Google)", "Claude (Anthropic)", "ChatGPT (OpenAI)"], index=["Gemini (Google)", "Claude (Anthropic)", "ChatGPT (OpenAI)"].index(current_provider) if current_provider in ["Gemini (Google)", "Claude (Anthropic)", "ChatGPT (OpenAI)"] else 0)
+        
+        st.write("---")
+        st.write("🔑 **Clés API des fournisseurs :**")
+        new_gemini = st.text_input("Clé API Gemini (Google)", value=current_gemini, type="password", help="Obtenez une clé sur https://aistudio.google.com/")
+        new_claude = st.text_input("Clé API Claude (Anthropic)", value=current_claude, type="password", help="Obtenez une clé sur https://console.anthropic.com/")
+        new_openai = st.text_input("Clé API ChatGPT (OpenAI)", value=current_openai, type="password", help="Obtenez une clé sur https://platform.openai.com/")
+        
+        if st.form_submit_button("💾 Sauvegarder la configuration", use_container_width=True):
+            def save_setting(name, val):
+                if db_settings.search(Setting.name == name):
+                    db_settings.update({'value': val}, Setting.name == name)
+                else:
+                    db_settings.insert({'name': name, 'value': val})
+                    
+            save_setting('gemini_api_key', new_gemini)
+            save_setting('anthropic_api_key', new_claude)
+            save_setting('openai_api_key', new_openai)
+            save_setting('active_ai_provider', active_provider)
+            
+            st.success(f"✅ Configuration IA sauvegardée ! Moteur actif : {active_provider}")
+            log_action(st.session_state.current_user['username'], f"Mise à jour configuration IA ({active_provider})", "Administration")
             st.rerun()

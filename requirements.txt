@@ -8,3 +8,5 @@ qrcode[pil]
 opencv-python-headless
 st-gsheets-connection
 google-generativeai
+anthropic
+openai
