@@ -5,6 +5,7 @@ import os
 import plotly.express as px
 from fpdf import FPDF
 from utils import log_action
+from streamlit_gsheets import GSheetsConnection
 
 # --- CONFIGURATION ---
 # st.set_page_config(page_title="Darpharm Solution - Suivi Frigo", layout="wide")
@@ -37,18 +38,55 @@ def generer_pdf(df):
     # Conversion en bytes corrigée ici
     return pdf.output(dest='S').encode('latin-1', 'replace')
 
+def get_data():
+    try:
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        df = conn.read(worksheet="Suivi_Frigo", ttl=0)
+        df = df.dropna(how="all")
+        if not df.empty and 'Température' in df.columns:
+            return clean_frigo_data(df), True
+    except Exception as e:
+        pass
+        
+    # Fallback local
+    if os.path.isfile(DATA_FILE):
+        df = pd.read_csv(DATA_FILE)
+        return clean_frigo_data(df), False
+    return pd.DataFrame(), False
+
 def save_data(data):
-    df_to_save = pd.DataFrame([data])
-    # Création du header uniquement si le fichier n'existe pas
+    df_new = pd.DataFrame([data])
+    
+    # 1. Sauvegarde Google Sheets
+    gsheets_ok = False
+    try:
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        try:
+            existing_df = conn.read(worksheet="Suivi_Frigo", ttl=0).dropna(how="all")
+            if existing_df.empty or 'Température' not in existing_df.columns:
+                updated_df = df_new
+            else:
+                updated_df = pd.concat([existing_df, df_new], ignore_index=True)
+        except:
+            updated_df = df_new
+        conn.update(worksheet="Suivi_Frigo", data=updated_df)
+        gsheets_ok = True
+    except Exception as e:
+        st.warning(f"⚠️ Erreur Google Sheets (sauvegarde locale uniquement). Vérifiez vos Secrets.")
+
+    # 2. Sauvegarde Locale (Secours)
     file_exists = os.path.isfile(DATA_FILE)
-    df_to_save.to_csv(DATA_FILE, mode='a', header=not file_exists, index=False)
+    df_new.to_csv(DATA_FILE, mode='a', header=not file_exists, index=False)
     
     # Historisation et Alerte
     log_action(data['Agent'], f"Saisie température: {data['Température']}°C ({data['Statut']})", "Suivi Frigo")
     if data['Statut'] == "ALERTE":
         st.error(f"⚠️ ALERTE : La température ({data['Température']}°C) est en dehors de la plage idéale (+2°C à +8°C) !")
     else:
-        st.success("✅ Donnée enregistrée !")
+        if gsheets_ok:
+            st.success("✅ Donnée synchronisée sur Google Sheets et en local !")
+        else:
+            st.success("✅ Donnée enregistrée localement.")
 
 # --- INTERFACE ---
 st.title(f"🌡️ Darpharm Solution - {st.session_state.current_user['username']}")
@@ -85,10 +123,13 @@ with tab_saisie:
             st.rerun()
 
 with tab_data:
-    if os.path.isfile(DATA_FILE):
-        df = pd.read_csv(DATA_FILE)
-        df = clean_frigo_data(df)
-        
+    df, is_gsheets = get_data()
+    if not df.empty:
+        if is_gsheets:
+            st.caption("🟢 Synchronisé avec Google Sheets")
+        else:
+            st.caption("🟠 Mode hors-ligne (Fichier Local)")
+            
         # Création d'une colonne Timestamp pour le graphe
         df['Timestamp'] = pd.to_datetime(df['Date'] + ' ' + df['Heure'], format="%d/%m/%Y %H:%M", errors='coerce')
         
@@ -112,15 +153,39 @@ with tab_data:
 if is_admin:
     tab_admin = tabs[2]
     with tab_admin:
+        st.subheader("☁️ Migration vers Google Sheets")
+        st.write("Si votre fichier Google Sheets est vide, utilisez ce bouton pour y envoyer tout l'historique local.")
+        if st.button("🚀 Migrer l'historique local vers Google Sheets", use_container_width=True):
+            if os.path.isfile(DATA_FILE):
+                try:
+                    df_local = pd.read_csv(DATA_FILE)
+                    df_local = clean_frigo_data(df_local)
+                    conn = st.connection("gsheets", type=GSheetsConnection)
+                    conn.update(worksheet="Suivi_Frigo", data=df_local)
+                    st.success("Migration réussie ! Toutes les anciennes données ont été transférées vers Google Sheets.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erreur de migration : {e}")
+            else:
+                st.info("Aucun historique local à migrer.")
+                
+        st.divider()
         st.subheader("🛠️ Édition manuelle des relevés")
-        if os.path.isfile(DATA_FILE):
-            df_admin = pd.read_csv(DATA_FILE)
+        df_admin, is_gsheets = get_data()
+        if not df_admin.empty:
             df_admin = clean_frigo_data(df_admin)
             edited_df = st.data_editor(df_admin, use_container_width=True, num_rows="dynamic")
             if st.button("💾 Sauvegarder les modifications"):
-                edited_df.to_csv(DATA_FILE, index=False)
-                st.success("Modifications enregistrées !")
-                st.rerun()
+                try:
+                    if is_gsheets:
+                        conn = st.connection("gsheets", type=GSheetsConnection)
+                        conn.update(worksheet="Suivi_Frigo", data=edited_df)
+                    # Sauvegarde locale aussi
+                    edited_df.to_csv(DATA_FILE, index=False)
+                    st.success("Modifications enregistrées !")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erreur lors de la sauvegarde : {e}")
         else:
             st.info("Aucun historique à éditer.")
             
@@ -134,14 +199,21 @@ if is_admin:
                 st.write("Aperçu de l'import :")
                 st.dataframe(df_up.head())
                 if st.button("Fusionner avec l'historique existant"):
-                    if os.path.isfile(DATA_FILE):
-                        df_current = pd.read_csv(DATA_FILE)
+                    df_current, is_gs = get_data()
+                    if not df_current.empty:
                         df_final = pd.concat([df_current, df_up], ignore_index=True)
                     else:
                         df_final = df_up
                     df_final = clean_frigo_data(df_final)
-                    df_final.to_csv(DATA_FILE, index=False)
-                    st.success("Données importées avec succès !")
-                    st.rerun()
+                    
+                    try:
+                        if is_gs:
+                            conn = st.connection("gsheets", type=GSheetsConnection)
+                            conn.update(worksheet="Suivi_Frigo", data=df_final)
+                        df_final.to_csv(DATA_FILE, index=False)
+                        st.success("Données importées avec succès !")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erreur lors de l'importation : {e}")
             except Exception as e:
                 st.error(f"Erreur de lecture du fichier : {e}")
