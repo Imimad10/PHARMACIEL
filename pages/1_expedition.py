@@ -7,6 +7,7 @@ import qrcode
 import plotly.express as px
 from utils import log_action
 from tinydb import TinyDB, Query
+from utils_ia import ask_ai, is_ia_enabled
 
 # --- CONFIGURATION ---
 # st.set_page_config(page_title="Gestion des Expéditions", layout="wide")
@@ -239,6 +240,24 @@ with tab_exp:
             
             add_or_merge_row(new_client, ville, full_ref, val_info, "En cours", "", mode=mode, secteur=secteur_livreur)
             st.rerun()
+
+    # --- OPTIMISATION IA ---
+    if is_ia_enabled() and not st.session_state.rows.empty:
+        st.divider()
+        with st.expander("🤖 Assistant IA Logistique"):
+            c_ia1, c_ia2 = st.columns(2)
+            with c_ia1:
+                if st.button("🗺️ Optimiser l'ordre de livraison", use_container_width=True):
+                    with st.spinner("L'IA calcule l'itinéraire optimal..."):
+                        villes = st.session_state.rows['Ville'].tolist()
+                        prompt = f"Tu es un expert en logistique en Algérie. Voici une liste de villes pour une tournée de livraison : {villes}. Donne l'ordre le plus logique pour minimiser les kilomètres. Réponds par une liste simple."
+                        st.info(ask_ai(prompt))
+            with c_ia2:
+                if mode == "Réclamation" and st.button("🧠 Analyser la gravité des litiges", use_container_width=True):
+                    with st.spinner("Analyse IA en cours..."):
+                        motifs = st.session_state.rows['Info'].tolist()
+                        prompt = f"Voici des motifs de réclamations clients : {motifs}. Lesquels sont les plus critiques pour un grossiste pharma ? Donne une priorité."
+                        st.warning(ask_ai(prompt))
 
     st.subheader(f"Détails des {mode}s")
     

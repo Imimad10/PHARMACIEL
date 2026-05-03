@@ -126,6 +126,11 @@ with tab_logs:
             st.dataframe(df_logs.sort_values(by='timestamp', ascending=False), use_container_width=True)
         else:
             st.info("Aucun log disponible pour le moment.")
+        
+        if st.button("🗑️ Nettoyer tout l'historique", type="secondary"):
+            db_logs.truncate()
+            st.success("Historique des logs vidé !")
+            st.rerun()
     else:
         st.info("La base de logs n'a pas encore été créée.")
 

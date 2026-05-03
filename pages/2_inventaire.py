@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+from utils_ia import ask_ai, is_ia_enabled
 
 # --- CONFIGURATION ---
 # st.set_page_config(page_title="Darpharm Solution", layout="wide")
@@ -184,6 +185,16 @@ with tabs[2]:
                 if st.button("🗑️ Réinitialiser tout l'inventaire"):
                     os.remove(SAISIE_PATH)
                     st.rerun()
+            
+            # --- ANALYSE IA ---
+            if is_ia_enabled():
+                st.divider()
+                with st.expander("🤖 Assistant IA Inventaire"):
+                    if st.button("📊 Analyser les écarts", use_container_width=True):
+                        with st.spinner("L'IA analyse vos données..."):
+                            ecarts = comp[comp['écart'] != 0][['designation', 'écart']].to_dict('records')
+                            prompt = f"Voici les écarts d'inventaire détectés : {ecarts}. Donne-moi un résumé des 3 plus gros problèmes et suggère des actions correctives pour un dépôt pharmaceutique."
+                            st.write(ask_ai(prompt))
         else: st.info("Aucune donnée de saisie trouvée.")
     else: st.warning("Accès restreint à l'administrateur.")
 
