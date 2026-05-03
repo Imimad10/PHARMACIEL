@@ -26,9 +26,21 @@ def ask_ai(prompt, fallback_msg="⚠️ L'IA n'est pas configurée. Allez dans A
             api_key = get_setting('gemini_api_key') or st.secrets.get("GEMINI_API_KEY")
             if not api_key: return fallback_msg
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-1.5-flash-latest')
-            response = model.generate_content(prompt)
-            return response.text
+            
+            # Essayer plusieurs variantes de noms de modèles pour éviter l'erreur 404
+            last_error = None
+            for model_name in ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-pro']:
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    response = model.generate_content(prompt)
+                    return response.text
+                except Exception as e:
+                    last_error = str(e)
+                    if "404" in last_error or "not found" in last_error.lower():
+                        continue
+                    else:
+                        break
+            return f"Erreur IA (Gemini) : {last_error}"
             
         elif provider == 'Claude (Anthropic)':
             api_key = get_setting('anthropic_api_key') or st.secrets.get("ANTHROPIC_API_KEY")

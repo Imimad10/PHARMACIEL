@@ -91,8 +91,25 @@ if uploaded_files:
                     S'il n'y a aucun produit détecté, renvoie [].
                     """
                     
-                    model = genai.GenerativeModel('gemini-1.5-flash-latest')
-                    response = model.generate_content([sample_file, prompt])
+                    # Essayer plusieurs variantes de noms de modèles pour éviter l'erreur 404
+                    last_error = None
+                    success = False
+                    for model_name in ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-pro']:
+                        try:
+                            model = genai.GenerativeModel(model_name)
+                            response = model.generate_content([sample_file, prompt])
+                            success = True
+                            break
+                        except Exception as e:
+                            last_error = str(e)
+                            if "404" in last_error or "not found" in last_error.lower():
+                                continue
+                            else:
+                                break
+                    
+                    if not success:
+                        st.error(f"Erreur technique IA : {last_error}")
+                        st.stop()
                     
                     # Nettoyage de la réponse
                     res_text = response.text.strip()
