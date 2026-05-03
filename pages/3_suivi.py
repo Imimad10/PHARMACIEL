@@ -6,7 +6,7 @@ import plotly.express as px
 from fpdf import FPDF
 from utils import log_action
 from streamlit_gsheets import GSheetsConnection
-from utils_ia import ask_ai
+from utils_ia import ask_ai, is_ia_enabled
 
 # --- CONFIGURATION ---
 # st.set_page_config(page_title="Darpharm Solution - Suivi Frigo", layout="wide")
