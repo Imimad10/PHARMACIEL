@@ -39,20 +39,23 @@ def generer_pdf(df):
     return pdf.output(dest='S').encode('latin-1', 'replace')
 
 def get_data():
+    error_msg = None
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
         df = conn.read(worksheet="Suivi_Frigo", ttl=0)
         df = df.dropna(how="all")
         if not df.empty and 'Température' in df.columns:
-            return clean_frigo_data(df), True
+            return clean_frigo_data(df), True, None
+        else:
+            return df, True, None # Connecté mais vide
     except Exception as e:
-        pass
+        error_msg = str(e)
         
     # Fallback local
     if os.path.isfile(DATA_FILE):
         df = pd.read_csv(DATA_FILE)
-        return clean_frigo_data(df), False
-    return pd.DataFrame(), False
+        return clean_frigo_data(df), False, error_msg
+    return pd.DataFrame(), False, error_msg
 
 def save_data(data):
     df_new = pd.DataFrame([data])
@@ -72,7 +75,7 @@ def save_data(data):
         conn.update(worksheet="Suivi_Frigo", data=updated_df)
         gsheets_ok = True
     except Exception as e:
-        st.warning(f"⚠️ Erreur Google Sheets (sauvegarde locale uniquement). Vérifiez vos Secrets.")
+        st.warning(f"⚠️ Erreur Google Sheets (sauvegarde locale uniquement). Erreur: {e}")
 
     # 2. Sauvegarde Locale (Secours)
     file_exists = os.path.isfile(DATA_FILE)
@@ -123,13 +126,16 @@ with tab_saisie:
             st.rerun()
 
 with tab_data:
-    df, is_gsheets = get_data()
-    if not df.empty:
-        if is_gsheets:
-            st.caption("🟢 Synchronisé avec Google Sheets")
-        else:
-            st.caption("🟠 Mode hors-ligne (Fichier Local)")
+    df, is_gsheets, error_msg = get_data()
+    
+    if is_gsheets:
+        st.caption("🟢 Synchronisé avec Google Sheets")
+    else:
+        st.caption("🟠 Mode hors-ligne (Fichier Local)")
+        if error_msg:
+            st.error(f"Détail de l'erreur de connexion : {error_msg}")
             
+    if not df.empty and 'Température' in df.columns:
         # Création d'une colonne Timestamp pour le graphe
         df['Timestamp'] = pd.to_datetime(df['Date'] + ' ' + df['Heure'], format="%d/%m/%Y %H:%M", errors='coerce')
         
@@ -171,8 +177,8 @@ if is_admin:
                 
         st.divider()
         st.subheader("🛠️ Édition manuelle des relevés")
-        df_admin, is_gsheets = get_data()
-        if not df_admin.empty:
+        df_admin, is_gsheets, _ = get_data()
+        if not df_admin.empty and 'Température' in df_admin.columns:
             df_admin = clean_frigo_data(df_admin)
             edited_df = st.data_editor(df_admin, use_container_width=True, num_rows="dynamic")
             if st.button("💾 Sauvegarder les modifications"):
@@ -199,7 +205,7 @@ if is_admin:
                 st.write("Aperçu de l'import :")
                 st.dataframe(df_up.head())
                 if st.button("Fusionner avec l'historique existant"):
-                    df_current, is_gs = get_data()
+                    df_current, is_gs, _ = get_data()
                     if not df_current.empty:
                         df_final = pd.concat([df_current, df_up], ignore_index=True)
                     else:
