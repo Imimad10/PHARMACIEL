@@ -28,14 +28,72 @@ def clean_frigo_data(df):
 def generer_pdf(df):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, "DARPHARM SOLUTION - RAPPORT MENSUEL", 0, 1, 'C')
-    pdf.ln(10)
-    pdf.set_font("Arial", size=9)
+    
+    # 1. Logo
+    if os.path.exists("logo.png"):
+        try:
+            pdf.image("logo.png", x=10, y=8, w=30)
+        except:
+            pass
+            
+    # 2. En-tête
+    pdf.set_font("Arial", 'B', 15)
+    pdf.cell(0, 10, "DARPHARM SOLUTION", 0, 1, 'C')
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 8, "RAPPORT DE SUIVI FRIGO (+2 C a +8 C)", 0, 1, 'C')
+    
+    pdf.set_font("Arial", 'I', 9)
+    extraction_date = datetime.now().strftime("%d/%m/%Y a %H:%M")
+    pdf.cell(0, 6, f"Date d'extraction : {extraction_date}", 0, 1, 'C')
+    pdf.ln(8)
+    
+    # 3. KPIs
+    nb_releves = len(df)
+    moyenne = df['Température'].mean() if nb_releves > 0 else 0
+    alertes = len(df[df['Statut'] == 'ALERTE'])
+    
+    pdf.set_font("Arial", 'B', 10)
+    pdf.cell(0, 6, "Resume des donnees :", 0, 1)
+    pdf.set_font("Arial", '', 9)
+    pdf.cell(0, 5, f"- Total des releves : {nb_releves}", 0, 1)
+    pdf.cell(0, 5, f"- Temperature moyenne : {moyenne:.1f} C", 0, 1)
+    pdf.cell(0, 5, f"- Nombre d'alertes : {alertes}", 0, 1)
+    pdf.ln(6)
+    
+    # 4. En-tête du tableau
+    pdf.set_fill_color(200, 220, 255)
+    pdf.set_font("Arial", 'B', 8)
+    w = [20, 15, 20, 20, 65, 50] # Largeurs de colonnes (Total 190)
+    
+    pdf.cell(w[0], 7, "Date", border=1, fill=True, align='C')
+    pdf.cell(w[1], 7, "Heure", border=1, fill=True, align='C')
+    pdf.cell(w[2], 7, "Temp (C)", border=1, fill=True, align='C')
+    pdf.cell(w[3], 7, "Statut", border=1, fill=True, align='C')
+    pdf.cell(w[4], 7, "Motif", border=1, fill=True, align='C')
+    pdf.cell(w[5], 7, "Agent", border=1, fill=True, align='C', ln=1)
+    
+    # 5. Lignes du tableau
+    pdf.set_font("Arial", '', 8)
     for _, row in df.iterrows():
-        texte = f"{row['Date']} {row['Heure']} | {row['Type']} | T°: {row['Température']}°C | Agent: {row['Agent']}"
-        pdf.cell(0, 7, texte, 0, 1)
-    # Conversion en bytes corrigée ici
+        temp_val = f"{row['Température']} C"
+        statut = str(row['Statut'])
+        
+        if statut == "ALERTE":
+            pdf.set_text_color(200, 0, 0)
+        else:
+            pdf.set_text_color(0, 100, 0)
+            
+        pdf.cell(w[0], 6, str(row['Date']), border=1, align='C')
+        pdf.cell(w[1], 6, str(row['Heure']), border=1, align='C')
+        pdf.cell(w[2], 6, temp_val, border=1, align='C')
+        pdf.cell(w[3], 6, statut, border=1, align='C')
+        
+        pdf.set_text_color(0, 0, 0)
+        motif = str(row['Type'])[:40].encode('latin-1', 'replace').decode('latin-1')
+        pdf.cell(w[4], 6, motif, border=1)
+        agent = str(row['Agent'])[:30].encode('latin-1', 'replace').decode('latin-1')
+        pdf.cell(w[5], 6, agent, border=1, ln=1)
+        
     return pdf.output(dest='S').encode('latin-1', 'replace')
 
 def get_data():
