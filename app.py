@@ -90,6 +90,9 @@ user = st.session_state.current_user
 user_pages = user.get('pages', [])
 is_admin = user.get('role') == 'Admin'
 
+if is_admin and "Automatisation" not in user_pages:
+    user_pages.append("Automatisation")
+
 # Dictionnaire de toutes les pages possibles (Key: Nom, Value: Path)
 ALL_PAGES = {
     "Logistique": st.Page("pages/1_expedition.py", title="Logistique", icon="🚛"),
@@ -116,8 +119,7 @@ if nav_list:
 if is_admin:
     # Page cachée ou dédiée à l'administration
     pages_to_show["Administration Centrale"] = [
-        st.Page("pages/5_admin.py", title="Gestion des Accès", icon="⚙️"),
-        st.Page("pages/8_automatisation.py", title="Automatisation & IA", icon="🤖")
+        st.Page("pages/5_admin.py", title="Gestion des Accès", icon="⚙️")
     ]
 
 if not pages_to_show:
