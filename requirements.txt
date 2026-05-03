@@ -6,4 +6,4 @@ plotly
 openpyxl
 qrcode[pil]
 opencv-python-headless
-st-gsheets-connection
+st-gsheets-connectiongoogle-generativeai

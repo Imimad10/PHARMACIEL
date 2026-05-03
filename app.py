@@ -98,7 +98,8 @@ ALL_PAGES = {
     "Recouvrement": st.Page("pages/4_recouvrement.py", title="Recouvrement", icon="💰"),
     "Pointage": st.Page("pages/5_pointage.py", title="Pointage Factures", icon="📝"),
     "Péremptions": st.Page("pages/6_peremptions.py", title="Gestion des Péremptions", icon="⏳"),
-    "Dashboard": st.Page("pages/7_dashboard.py", title="Tableau de Bord", icon="📊")
+    "Dashboard": st.Page("pages/7_dashboard.py", title="Tableau de Bord", icon="📊"),
+    "Automatisation": st.Page("pages/8_automatisation.py", title="Automatisation & IA", icon="🤖")
 }
 
 # Filtrer selon les privilèges
@@ -114,7 +115,10 @@ if nav_list:
 
 if is_admin:
     # Page cachée ou dédiée à l'administration
-    pages_to_show["Administration Centrale"] = [st.Page("pages/5_admin.py", title="Gestion des Accès", icon="⚙️")]
+    pages_to_show["Administration Centrale"] = [
+        st.Page("pages/5_admin.py", title="Gestion des Accès", icon="⚙️"),
+        st.Page("pages/8_automatisation.py", title="Automatisation & IA", icon="🤖")
+    ]
 
 if not pages_to_show:
     st.warning("Vous n'avez accès à aucun module. Contactez l'administrateur.")
