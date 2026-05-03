@@ -4,7 +4,7 @@ import plotly.express as px
 from tinydb import TinyDB, Query
 from datetime import datetime
 import os
-from utils_ia import ask_ai
+from utils_ia import ask_ai, is_ia_enabled
 
 # Configuration
 db = TinyDB('db_pharmaciel.json')
@@ -75,36 +75,37 @@ c3.metric("Clients Servis", total_clients)
 c4.metric("Dernier Pointage", derniere_activite)
 
 # --- 3.5 ASSISTANT IA GLOBAL ---
-st.divider()
-st.subheader("🤖 Assistant IA Global")
-st.write("Demandez à l'IA d'analyser vos performances :")
-
-question = st.text_input("Que voulez-vous savoir ? (ex: 'Qui est le meilleur livreur ce mois-ci ?')")
-if st.button("✨ Demander à l'IA", use_container_width=True):
-    with st.spinner("L'IA réfléchit..."):
-        # Préparation du contexte des données
-        top_liv = df_p['livreur'].value_counts().head(5).to_dict() if not df_p.empty else "Aucun"
-        top_reg = df_p['region'].value_counts().head(5).to_dict() if not df_p.empty else "Aucune"
-        
-        context = f"""
-        Voici les données actuelles du mois sélectionné :
-        - Total des factures traitées : {total_factures}
-        - Nombre de livreurs actifs : {total_livreurs}
-        - Top 5 livreurs (avec nombre de factures) : {top_liv}
-        - Top 5 régions : {top_reg}
-        - Dernière activité : {derniere_activite}
-        """
-        
-        prompt = f"""
-        Tu es l'expert analyste IA de la plateforme Darpharm Solution.
-        En te basant UNIQUEMENT sur les données suivantes, réponds à la question de l'utilisateur de manière concise et professionnelle.
-        Données : {context}
-        
-        Question de l'utilisateur : {question}
-        """
-        
-        reponse = ask_ai(prompt)
-        st.info(reponse)
+if is_ia_enabled():
+    st.divider()
+    st.subheader("🤖 Assistant IA Global")
+    st.write("Demandez à l'IA d'analyser vos performances :")
+    
+    question = st.text_input("Que voulez-vous savoir ? (ex: 'Qui est le meilleur livreur ce mois-ci ?')")
+    if st.button("✨ Demander à l'IA", use_container_width=True):
+        with st.spinner("L'IA réfléchit..."):
+            # Préparation du contexte des données
+            top_liv = df_p['livreur'].value_counts().head(5).to_dict() if not df_p.empty else "Aucun"
+            top_reg = df_p['region'].value_counts().head(5).to_dict() if not df_p.empty else "Aucune"
+            
+            context = f"""
+            Voici les données actuelles du mois sélectionné :
+            - Total des factures traitées : {total_factures}
+            - Nombre de livreurs actifs : {total_livreurs}
+            - Top 5 livreurs (avec nombre de factures) : {top_liv}
+            - Top 5 régions : {top_reg}
+            - Dernière activité : {derniere_activite}
+            """
+            
+            prompt = f"""
+            Tu es l'expert analyste IA de la plateforme Darpharm Solution.
+            En te basant UNIQUEMENT sur les données suivantes, réponds à la question de l'utilisateur de manière concise et professionnelle.
+            Données : {context}
+            
+            Question de l'utilisateur : {question}
+            """
+            
+            reponse = ask_ai(prompt)
+            st.info(reponse)
 
 # --- 4. ANALYSES GRAPHIQUES ---
 st.divider()

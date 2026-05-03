@@ -179,8 +179,11 @@ with tab_ia:
     current_openai = get_setting('openai_api_key')
     current_grok = get_setting('grok_api_key')
     current_provider = get_setting('active_ai_provider', 'Gemini (Google)')
+    current_ia_enabled = get_setting('ia_global_enabled', 'True') == 'True'
     
     with st.form("form_ia_config"):
+        ia_enabled = st.checkbox("🚀 Activer les fonctionnalités d'Intelligence Artificielle (Global)", value=current_ia_enabled)
+        st.write("---")
         providers = ["Gemini (Google)", "Claude (Anthropic)", "ChatGPT (OpenAI)", "Grok (xAI)"]
         active_provider = st.selectbox("Moteur IA par défaut", providers, index=providers.index(current_provider) if current_provider in providers else 0)
         
@@ -203,7 +206,8 @@ with tab_ia:
             save_setting('openai_api_key', new_openai)
             save_setting('grok_api_key', new_grok)
             save_setting('active_ai_provider', active_provider)
+            save_setting('ia_global_enabled', str(ia_enabled))
             
-            st.success(f"✅ Configuration IA sauvegardée ! Moteur actif : {active_provider}")
-            log_action(st.session_state.current_user['username'], f"Mise à jour configuration IA ({active_provider})", "Administration")
+            st.success(f"✅ Configuration IA sauvegardée ! (IA : {'Activée' if ia_enabled else 'Désactivée'})")
+            log_action(st.session_state.current_user['username'], f"IA {'Activée' if ia_enabled else 'Désactivée'} globalement", "Administration")
             st.rerun()

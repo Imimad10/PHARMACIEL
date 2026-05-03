@@ -3,6 +3,7 @@ import pandas as pd
 import json
 import os
 from tinydb import TinyDB, Query
+from utils_ia import is_ia_enabled
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Darpharm Solution - Portail", layout="wide", page_icon="💊")
@@ -101,9 +102,11 @@ ALL_PAGES = {
     "Recouvrement": st.Page("pages/4_recouvrement.py", title="Recouvrement", icon="💰"),
     "Pointage": st.Page("pages/5_pointage.py", title="Pointage Factures", icon="📝"),
     "Péremptions": st.Page("pages/6_peremptions.py", title="Gestion des Péremptions", icon="⏳"),
-    "Dashboard": st.Page("pages/7_dashboard.py", title="Tableau de Bord", icon="📊"),
-    "Automatisation": st.Page("pages/8_automatisation.py", title="Automatisation & IA", icon="🤖")
+    "Dashboard": st.Page("pages/7_dashboard.py", title="Tableau de Bord", icon="📊")
 }
+
+if is_ia_enabled():
+    ALL_PAGES["Automatisation"] = st.Page("pages/8_automatisation.py", title="Automatisation & IA", icon="🤖")
 
 # Filtrer selon les privilèges
 pages_to_show = {}

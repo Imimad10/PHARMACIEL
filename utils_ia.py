@@ -15,6 +15,10 @@ def get_setting(name):
             return res[0]['value']
     return None
 
+def is_ia_enabled():
+    """Vérifie si l'IA est activée globalement dans les réglages."""
+    return get_setting('ia_global_enabled') != 'False' # True par défaut
+
 def ask_ai(prompt, fallback_msg="⚠️ L'IA n'est pas configurée. Allez dans Administration Centrale > Configuration IA."):
     """Envoie un prompt au fournisseur d'IA actif et retourne la réponse."""
     provider = get_setting('active_ai_provider')
