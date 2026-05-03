@@ -177,16 +177,19 @@ with tab_ia:
     current_gemini = get_setting('gemini_api_key')
     current_claude = get_setting('anthropic_api_key')
     current_openai = get_setting('openai_api_key')
+    current_grok = get_setting('grok_api_key')
     current_provider = get_setting('active_ai_provider', 'Gemini (Google)')
     
     with st.form("form_ia_config"):
-        active_provider = st.selectbox("Moteur IA par défaut", ["Gemini (Google)", "Claude (Anthropic)", "ChatGPT (OpenAI)"], index=["Gemini (Google)", "Claude (Anthropic)", "ChatGPT (OpenAI)"].index(current_provider) if current_provider in ["Gemini (Google)", "Claude (Anthropic)", "ChatGPT (OpenAI)"] else 0)
+        providers = ["Gemini (Google)", "Claude (Anthropic)", "ChatGPT (OpenAI)", "Grok (xAI)"]
+        active_provider = st.selectbox("Moteur IA par défaut", providers, index=providers.index(current_provider) if current_provider in providers else 0)
         
         st.write("---")
         st.write("🔑 **Clés API des fournisseurs :**")
-        new_gemini = st.text_input("Clé API Gemini (Google)", value=current_gemini, type="password", help="Obtenez une clé sur https://aistudio.google.com/")
-        new_claude = st.text_input("Clé API Claude (Anthropic)", value=current_claude, type="password", help="Obtenez une clé sur https://console.anthropic.com/")
-        new_openai = st.text_input("Clé API ChatGPT (OpenAI)", value=current_openai, type="password", help="Obtenez une clé sur https://platform.openai.com/")
+        new_gemini = st.text_input("Clé API Gemini (Google)", value=current_gemini, type="password")
+        new_claude = st.text_input("Clé API Claude (Anthropic)", value=current_claude, type="password")
+        new_openai = st.text_input("Clé API ChatGPT (OpenAI)", value=current_openai, type="password")
+        new_grok = st.text_input("Clé API Grok (xAI)", value=current_grok, type="password")
         
         if st.form_submit_button("💾 Sauvegarder la configuration", use_container_width=True):
             def save_setting(name, val):
@@ -198,6 +201,7 @@ with tab_ia:
             save_setting('gemini_api_key', new_gemini)
             save_setting('anthropic_api_key', new_claude)
             save_setting('openai_api_key', new_openai)
+            save_setting('grok_api_key', new_grok)
             save_setting('active_ai_provider', active_provider)
             
             st.success(f"✅ Configuration IA sauvegardée ! Moteur actif : {active_provider}")

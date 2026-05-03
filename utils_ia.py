@@ -51,6 +51,16 @@ def ask_ai(prompt, fallback_msg="⚠️ L'IA n'est pas configurée. Allez dans A
             )
             return response.choices[0].message.content
             
+        elif provider == 'Grok (xAI)':
+            api_key = get_setting('grok_api_key') or st.secrets.get("GROK_API_KEY")
+            if not api_key: return fallback_msg
+            client = OpenAI(api_key=api_key, base_url="https://api.x.ai/v1")
+            response = client.chat.completions.create(
+                model="grok-beta",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return response.choices[0].message.content
+            
     except Exception as e:
         return f"Erreur IA ({provider}) : {str(e)}"
     
