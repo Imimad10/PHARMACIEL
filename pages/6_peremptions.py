@@ -3,6 +3,7 @@ import pandas as pd
 import os
 from datetime import datetime
 from utils import log_action
+from utils_ia import ask_ai
 
 # --- CONFIGURATION ---
 DATA_DIR = "data_inventaire"
@@ -66,6 +67,29 @@ with tab1:
                 filtre = st.selectbox("Filtrer par statut (Terrain)", ["Tous", "❌ Périmé", "⚠️ Critique (< 3 mois)", "🟠 Vigilance (3-6 mois)"])
                 df_show = df_res if filtre == "Tous" else df_res[df_res['Statut'] == filtre]
                 st.dataframe(df_show.sort_values('expiry_date'), use_container_width=True)
+                
+                # --- IA STRATEGIES DE LIQUIDATION ---
+                st.divider()
+                st.subheader("🤖 IA - Stratégies de Liquidation")
+                st.write("Demandez à l'IA des idées de promotions ou de retours pour les produits critiques.")
+                if st.button("✨ Analyser les stocks critiques", use_container_width=True):
+                    proches = df_res[df_res['Statut'].isin(["⚠️ Critique (< 3 mois)", "❌ Périmé"])]
+                    if proches.empty:
+                        st.success("Aucun produit critique pour le moment ! Vos stocks sont sains.")
+                    else:
+                        with st.spinner("L'IA conçoit un plan de liquidation..."):
+                            data_to_send = proches.head(15).to_dict(orient='records')
+                            prompt = f"""
+                            Tu es le directeur commercial et expert en logistique d'un grossiste répartiteur pharmaceutique (Darpharm Solution).
+                            Voici un extrait de 15 produits dont la date de péremption est dépassée ou très proche :
+                            {data_to_send}
+                            
+                            Ton rôle :
+                            Donne 3 conseils pratiques et immédiats pour limiter la perte financière sur ce stock précis (exemples : types de promotions pour les pharmacies clientes, retour labo, conditions de destruction si périmé). Ne récite pas de généralités, base-toi sur le contexte pharmaceutique.
+                            Sois direct, professionnel et utilise des bullet points.
+                            """
+                            st.info(ask_ai(prompt))
+                            
             else:
                 st.info("Aucune donnée valide.")
         else:

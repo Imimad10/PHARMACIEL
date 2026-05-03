@@ -6,6 +6,7 @@ import plotly.express as px
 from fpdf import FPDF
 from utils import log_action
 from streamlit_gsheets import GSheetsConnection
+from utils_ia import ask_ai
 
 # --- CONFIGURATION ---
 # st.set_page_config(page_title="Darpharm Solution - Suivi Frigo", layout="wide")
@@ -210,6 +211,23 @@ with tab_data:
         pdf_data = generer_pdf(df)
         st.download_button("📥 Télécharger Rapport PDF", data=pdf_data, file_name="Rapport_Frigo.pdf", mime="application/pdf")
         
+        # --- ASSISTANT IA MAINTENANCE PREDICTIVE ---
+        st.divider()
+        st.subheader("🤖 IA - Maintenance Prédictive")
+        st.info("L'IA analyse vos derniers relevés pour détecter des signes d'usure ou d'anomalies du frigo.")
+        if st.button("✨ Analyser la santé du Frigo", use_container_width=True):
+            with st.spinner("L'IA examine les variations de température..."):
+                last_temps = df.tail(30)['Température'].tolist()
+                prompt = f"""
+                Tu es l'expert technique IA de Darpharm Solution, spécialisé dans les chambres froides de pharmacie (plage cible: 2°C à 8°C).
+                Voici les 30 derniers relevés de température (en °C) : {last_temps}.
+                Analyse la tendance.
+                - Y a-t-il un risque de panne (tendance à la hausse) ?
+                - Les variations sont-elles saines ?
+                Fais un rapport très court (3 lignes max) et donne une recommandation immédiate au pharmacien.
+                """
+                st.warning(ask_ai(prompt))
+                
         st.dataframe(df.sort_index(ascending=False), use_container_width=True)
     else:
         st.info("Aucune donnée disponible.")
