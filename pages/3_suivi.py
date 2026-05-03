@@ -38,7 +38,7 @@ def save_data(data):
     # Historisation et Alerte
     log_action(data['Agent'], f"Saisie température: {data['Température']}°C ({data['Statut']})", "Suivi Frigo")
     if data['Statut'] == "ALERTE":
-        st.error(f"⚠️ ALERTE : La température ({data['Température']}°C) est supérieure au seuil maximal !")
+        st.error(f"⚠️ ALERTE : La température ({data['Température']}°C) est en dehors de la plage idéale (+2°C à +8°C) !")
     else:
         st.success("✅ Donnée enregistrée !")
 
@@ -56,23 +56,23 @@ tab_data = tabs[1]
 
 with tab_saisie:
     st.subheader("Nouvelle saisie")
-    if st.button("🚀 Saisie Rapide (OK - Standard)", use_container_width=True):
+    if st.button("🚀 Saisie Rapide (OK - Plage idéale :+2°C+8°C)", use_container_width=True):
         save_data({
             "Date": datetime.now().strftime("%d/%m/%Y"), "Heure": datetime.now().strftime("%H:%M"),
             "Température": 4.0, "Agent": st.session_state.current_user['username'],
-            "Statut": "OK", "Commentaire": "Rapide", "Type": "Relevé Standard"
+            "Statut": "OK", "Commentaire": "Rapide", "Type": "Plage idéale :+2°C+8°C"
         })
         st.rerun()
 
     with st.form("form_saisie", clear_on_submit=True):
         t = st.number_input("Température (°C)", min_value=-20.0, max_value=30.0, value=4.0, step=0.1)
-        type_releve = st.selectbox("Motif", ["Relevé Standard", "Remplissage / Arrivage", "Nettoyage", "Autre"])
+        type_releve = st.selectbox("Motif", ["Plage idéale :+2°C+8°C", "Remplissage / Arrivage", "Nettoyage", "Autre"])
         comm = st.text_input("Commentaire")
         if st.form_submit_button("Enregistrer", use_container_width=True):
             save_data({
                 "Date": datetime.now().strftime("%d/%m/%Y"), "Heure": datetime.now().strftime("%H:%M"),
                 "Température": t, "Agent": st.session_state.current_user['username'],
-                "Statut": "OK" if t <= 5.0 else "ALERTE", "Commentaire": comm, "Type": type_releve
+                "Statut": "OK" if 2.0 <= t <= 8.0 else "ALERTE", "Commentaire": comm, "Type": type_releve
             })
             st.rerun()
 
@@ -81,7 +81,7 @@ with tab_data:
         df = pd.read_csv(DATA_FILE)
         
         # Création d'une colonne Timestamp pour le graphe
-        df['Timestamp'] = pd.to_datetime(df['Date'] + ' ' + df['Heure'], dayfirst=True)
+        df['Timestamp'] = pd.to_datetime(df['Date'] + ' ' + df['Heure'], format="%d/%m/%Y %H:%M", errors='coerce')
         
         # KPIs
         c1, c2, c3 = st.columns(3)
