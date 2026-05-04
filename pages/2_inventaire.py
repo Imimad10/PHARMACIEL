@@ -106,7 +106,7 @@ with tabs[1]:
     if df_master is not None:
         st.subheader("📝 Enregistrement")
         mode = st.radio("Mode :", ["🚀 Rapide", "📋 Détaillé"], horizontal=True)
-        produits = sorted(df_master['designation'].unique().tolist())
+        produits = sorted([str(p) for p in df_master['designation'].unique() if pd.notna(p)])
         prod_sel = st.selectbox("🔍 Choisir Produit :", [""] + produits)
         
         if prod_sel:
@@ -160,9 +160,14 @@ with tabs[2]:
                     
                     if "Rapide" in mode_conf:
                         # --- MODE RAPIDE ---
+                        # Sécurisation des types pour le merge
+                        saisie['designation'] = saisie['designation'].astype(str).str.strip()
+                        df_master['designation'] = df_master['designation'].astype(str).str.strip()
+                        
                         saisie_grouped = saisie.groupby('designation')['qte_saisie'].sum().reset_index()
-                        comp = pd.merge(df_master.groupby('designation')[q_theo_col].sum().reset_index(), 
-                                        saisie_grouped, on='designation', how='outer').fillna(0)
+                        master_grouped = df_master.groupby('designation')[q_theo_col].sum().reset_index()
+                        
+                        comp = pd.merge(master_grouped, saisie_grouped, on='designation', how='outer').fillna(0)
                         comp['écart'] = comp['qte_saisie'] - comp[q_theo_col]
                         
                         st.write("### Récapitulatif Global")
@@ -170,9 +175,14 @@ with tabs[2]:
                     
                     else:
                         # --- MODE DÉTAILLÉ ---
-                        # On prépare le master pour la fusion par lot
+                        # Préparation et sécurisation des types
+                        saisie['designation'] = saisie['designation'].astype(str).str.strip()
+                        saisie['lot_master'] = saisie['lot_master'].astype(str).str.strip()
+                        
                         master_sub = df_master[['designation', 'lot', q_theo_col, 'ddp', 'ppa']].copy()
                         master_sub.columns = ['designation', 'lot_master', 'stock_theorique', 'ddp_master', 'ppa_master']
+                        master_sub['designation'] = master_sub['designation'].astype(str).str.strip()
+                        master_sub['lot_master'] = master_sub['lot_master'].astype(str).str.strip()
                         
                         # Fusion avec la saisie
                         comp_det = pd.merge(master_sub, saisie, on=['designation', 'lot_master'], how='outer').fillna({'qte_saisie': 0, 'stock_theorique': 0})
