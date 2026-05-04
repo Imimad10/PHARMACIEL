@@ -174,30 +174,34 @@ if tab_backup:
 
 if tab_ia:
     with tab_ia:
-        st.subheader("🤖 Configuration de l'Intelligence Artificielle")
-        db_settings = TinyDB('data/db_settings.json')
-        Setting = Query()
-        def get_setting(name, default=""):
-            res = db_settings.search(Setting.name == name)
-            return res[0]['value'] if res else default
-            
-        with st.form("form_ia_config"):
-            ia_en = st.checkbox("🚀 Activer l'IA globalement", value=get_setting('ia_global_enabled', 'True') == 'True')
-            providers = ["Gemini (Google)", "Claude (Anthropic)", "ChatGPT (OpenAI)", "Grok (xAI)"]
-            active_p = st.selectbox("Moteur par défaut", providers, index=providers.index(get_setting('active_ai_provider', 'Gemini (Google)')))
-            
-            new_gemini = st.text_input("Clé API Gemini", value=get_setting('gemini_api_key'), type="password")
-            new_claude = st.text_input("Clé API Claude", value=get_setting('anthropic_api_key'), type="password")
-            new_openai = st.text_input("Clé API ChatGPT", value=get_setting('openai_api_key'), type="password")
-            
-            if st.form_submit_button("💾 Sauvegarder la configuration IA", use_container_width=True):
-                def save_set(name, val):
-                    if db_settings.search(Setting.name == name): db_settings.update({'value': val}, Setting.name == name)
-                    else: db_settings.insert({'name': name, 'value': val})
-                save_set('gemini_api_key', new_gemini)
-                save_set('anthropic_api_key', new_claude)
-                save_set('openai_api_key', new_openai)
-                save_set('active_ai_provider', active_p)
-                save_set('ia_global_enabled', str(ia_en))
-                st.success("Configuration IA mise à jour !")
-                st.rerun()
+        if is_admin:
+            st.subheader("🤖 Configuration de l'Intelligence Artificielle")
+            db_settings = TinyDB('data/db_settings.json')
+            Setting = Query()
+            def get_setting(name, default=""):
+                res = db_settings.search(Setting.name == name)
+                return res[0]['value'] if res else default
+                
+            with st.form("form_ia_config_admin"):
+                ia_en = st.checkbox("🚀 Activer l'IA globalement", value=get_setting('ia_global_enabled', 'True') == 'True')
+                providers = ["Gemini (Google)", "Claude (Anthropic)", "ChatGPT (OpenAI)", "Grok (xAI)"]
+                active_p = st.selectbox("Moteur par défaut", providers, index=providers.index(get_setting('active_ai_provider', 'Gemini (Google)')))
+                
+                st.write("---")
+                new_gemini = st.text_input("Clé API Gemini (Google)", value=get_setting('gemini_api_key'), type="password")
+                new_claude = st.text_input("Clé API Claude (Anthropic)", value=get_setting('anthropic_api_key'), type="password")
+                new_openai = st.text_input("Clé API ChatGPT (OpenAI)", value=get_setting('openai_api_key'), type="password")
+                
+                if st.form_submit_button("💾 Sauvegarder la configuration IA", use_container_width=True):
+                    def save_set(name, val):
+                        if db_settings.search(Setting.name == name): db_settings.update({'value': val}, Setting.name == name)
+                        else: db_settings.insert({'name': name, 'value': val})
+                    save_set('gemini_api_key', new_gemini)
+                    save_set('anthropic_api_key', new_claude)
+                    save_set('openai_api_key', new_openai)
+                    save_set('active_ai_provider', active_p)
+                    save_set('ia_global_enabled', str(ia_en))
+                    st.success("✅ Configuration IA mise à jour avec succès !")
+                    st.rerun()
+        else:
+            st.warning("⚠️ Accès restreint. Seuls les administrateurs peuvent configurer l'IA.")
