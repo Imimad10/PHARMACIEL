@@ -169,13 +169,38 @@ with tabs[2]:
                 s_g = df_s_f.groupby('designation')['qte_saisie'].sum().reset_index()
                 comp = pd.merge(m_g, s_g, on='designation', how='outer').fillna(0)
                 comp['écart'] = comp['qte_saisie'] - comp[q_col]
-                st.dataframe(comp, use_container_width=True)
+                
+                def style_ecart(row):
+                    return ['background-color: #9e1a1a; color: white' if row['écart'] != 0 else '' for _ in row]
+                
+                st.write("### 📊 Écarts de Quantités Globales")
+                st.dataframe(comp.style.apply(style_ecart, axis=1), use_container_width=True, hide_index=True)
             else:
-                # Analyse détaillée
-                m_sub = df_m_f[['designation', 'lot', q_col, 'ddp', 'ppa']].copy()
-                m_sub.columns = ['designation', 'lot_master', 'stock_theo', 'ddp_master', 'ppa_master']
+                # Analyse détaillée par Lot
+                m_sub = df_m_f[['designation', 'lot', q_col, 'ddp', 'ppa', 'shp'] if 'shp' in df_m_f.columns else ['designation', 'lot', q_col, 'ddp', 'ppa']].copy()
+                m_sub.columns = [c + '_master' if c != 'designation' and c != 'lot' else ('lot_master' if c == 'lot' else c) for c in m_sub.columns]
+                
                 comp_d = pd.merge(m_sub, df_s_f, on=['designation', 'lot_master'], how='outer').fillna(0)
-                st.dataframe(comp_d, use_container_width=True)
+                
+                def highlight_diffs_detail(row):
+                    styles = ['' for _ in row.index]
+                    red = 'background-color: #9e1a1a; color: white'
+                    # Qte
+                    if row.get('qte_saisie', 0) != row.get(f'{q_col}_master' if q_col else 'stock_theorique_master', 0):
+                        styles[row.index.get_loc('qte_saisie')] = red
+                    # Lot
+                    if str(row.get('lot')) != str(row.get('lot_master')) and pd.notna(row.get('lot')):
+                        styles[row.index.get_loc('lot')] = red
+                    # DDP
+                    if str(row.get('ddp_saisi')) != str(row.get('ddp_master')) and pd.notna(row.get('ddp_saisi')):
+                        styles[row.index.get_loc('ddp_saisi')] = red
+                    # PPA
+                    if float(row.get('ppa_saisi', 0)) != float(row.get('ppa_master', 0)) and row.get('ppa_saisi') != 0:
+                        styles[row.index.get_loc('ppa_saisi')] = red
+                    return styles
+
+                st.write("### 🔬 Confrontation Minutieuse (Lots & Métadonnées)")
+                st.dataframe(comp_d.style.apply(highlight_diffs_detail, axis=1), use_container_width=True, hide_index=True)
         except Exception as e:
             st.error(f"Erreur d'analyse : {e}")
     else: st.info("Accès restreint ou données manquantes.")
