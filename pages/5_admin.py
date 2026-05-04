@@ -47,32 +47,33 @@ else:
 
 MODULES_DISPO = ["Dashboard", "Logistique", "Inventaire", "Inventaire Détail", "Suivi", "Recouvrement", "Pointage", "Péremptions", "Scanneur QR", "Automatisation"]
 
-with tab_add:
-    st.subheader("Créer un nouvel utilisateur")
-    with st.form("form_add_user"):
-        u_name = st.text_input("Nom d'utilisateur")
-        u_pwd = st.text_input("Mot de passe")
-        u_role = st.selectbox("Rôle", ["Saisie", "Superviseur", "Admin"])
-        u_pages = st.multiselect("Accès aux modules", MODULES_DISPO)
-        u_zone = st.selectbox("Zone Attribuée (Inventaire Détail)", ["Aucune", "A", "B", "C", "D", "Frigo"])
-        
-        if st.form_submit_button("Créer l'utilisateur"):
-            User = Query()
-            if db_users.search(User.username == u_name):
-                st.error("Ce nom d'utilisateur existe déjà !")
-            elif u_name and u_pwd:
-                db_users.insert({
-                    'username': u_name,
-                    'password': u_pwd,
-                    'role': u_role,
-                    'pages': u_pages,
-                    'zone': u_zone
-                })
-                st.success(f"Utilisateur {u_name} créé !")
-                log_action(st.session_state.current_user['username'], f"Création de l'utilisateur {u_name}", "Administration")
-                st.rerun()
-            else:
-                st.error("Nom d'utilisateur et mot de passe requis.")
+if tab_add:
+    with tab_add:
+        st.subheader("Créer un nouvel utilisateur")
+        with st.form("form_add_user"):
+            u_name = st.text_input("Nom d'utilisateur")
+            u_pwd = st.text_input("Mot de passe")
+            u_role = st.selectbox("Rôle", ["Saisie", "Superviseur", "Admin"])
+            u_pages = st.multiselect("Accès aux modules", MODULES_DISPO)
+            u_zone = st.selectbox("Zone Attribuée (Inventaire Détail)", ["Aucune", "A", "B", "C", "D", "Frigo"])
+            
+            if st.form_submit_button("Créer l'utilisateur"):
+                User = Query()
+                if db_users.search(User.username == u_name):
+                    st.error("Ce nom d'utilisateur existe déjà !")
+                elif u_name and u_pwd:
+                    db_users.insert({
+                        'username': u_name,
+                        'password': u_pwd,
+                        'role': u_role,
+                        'pages': u_pages,
+                        'zone': u_zone
+                    })
+                    st.success(f"Utilisateur {u_name} créé !")
+                    log_action(st.session_state.current_user['username'], f"Création de l'utilisateur {u_name}", "Administration")
+                    st.rerun()
+                else:
+                    st.error("Nom d'utilisateur et mot de passe requis.")
 
 if tab_edit:
     with tab_edit:
@@ -116,33 +117,7 @@ if tab_edit:
                     st.success("Mise à jour réussie !")
                     st.rerun()
 
-if tab_add:
-    with tab_add:
-        st.subheader("Créer un nouvel utilisateur")
-        with st.form("form_add_user"):
-            u_name = st.text_input("Nom d'utilisateur")
-            u_pwd = st.text_input("Mot de passe")
-            u_role = st.selectbox("Rôle", ["Saisie", "Superviseur", "Admin"])
-            u_pages = st.multiselect("Accès aux modules", MODULES_DISPO)
-            u_zone = st.selectbox("Zone Attribuée (Inventaire Détail)", ["Aucune", "A", "B", "C", "D", "Frigo"])
-            
-            if st.form_submit_button("Créer l'utilisateur"):
-                User = Query()
-                if db_users.search(User.username == u_name):
-                    st.error("Ce nom d'utilisateur existe déjà !")
-                elif u_name and u_pwd:
-                    db_users.insert({
-                        'username': u_name,
-                        'password': u_pwd,
-                        'role': u_role,
-                        'pages': u_pages,
-                        'zone': u_zone
-                    })
-                    st.success(f"Utilisateur {u_name} créé !")
-                    log_action(st.session_state.current_user['username'], f"Création de l'utilisateur {u_name}", "Administration")
-                    st.rerun()
-                else:
-                    st.error("Nom d'utilisateur et mot de passe requis.")
+
 
 if tab_del:
     with tab_del:
