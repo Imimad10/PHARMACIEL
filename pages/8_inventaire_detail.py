@@ -19,12 +19,12 @@ def normalize_text(text):
 
 def clean_columns_detail(df):
     mapping = {
-        'produit': 'designation', 'designation': 'designation',
-        'n°lot': 'lot', 'nlot': 'lot', 'lot': 'lot', 
-        'peremption': 'ddp', 'ddp': 'ddp', 'exp': 'ddp',
-        'ppa': 'ppa', 'shp': 'shp', 'zone': 'zone', 'emplacement': 'zone'
+        'produit': 'designation', 'designation': 'designation', 'article': 'designation', 'libelle': 'designation',
+        'n°lot': 'lot', 'nlot': 'lot', 'lot': 'lot', 'batch': 'lot',
+        'peremption': 'ddp', 'ddp': 'ddp', 'exp': 'ddp', 'date': 'ddp',
+        'ppa': 'ppa', 'shp': 'shp', 'zone': 'zone', 'emplacement': 'zone', 'sector': 'zone'
     }
-    stock_keywords = ['quantit', 'depot', 'stock', 'theorique', 'qte']
+    stock_keywords = ['quantit', 'depot', 'stock', 'theorique', 'qte', 'dispo']
     new_cols = []
     for col in df.columns:
         norm = normalize_text(col)
@@ -70,6 +70,14 @@ df_master = None
 if os.path.exists(st.session_state.MASTER_PATH_DET):
     mtime = os.path.getmtime(st.session_state.MASTER_PATH_DET)
     df_master = load_master_detail(st.session_state.MASTER_PATH_DET, mtime)
+    
+    if df_master is not None:
+        required = ['designation', 'lot', 'zone']
+        missing = [c for c in required if c not in df_master.columns]
+        if missing:
+            st.error(f"❌ Erreur de format dans le Master Détail. Colonnes introuvables : {missing}")
+            st.info("Assurez-vous que votre fichier Excel contient des colonnes nommées Produit, Lot et Zone (ou équivalent).")
+            df_master = None # On invalide pour éviter les crashs plus bas
 
 st.title("🔍 Inventaire Détail (Par Zones)")
 
