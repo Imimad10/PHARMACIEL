@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import unicodedata
 
-# --- 1. CONFIGURATION ---
+# --- 1. CONFIGURATION & CHEMINS ---
 st.set_page_config(page_title="Darpharm Solution - Inventaire", layout="wide")
 
 DATA_DIR = "data_inventaire"
@@ -11,13 +11,16 @@ MASTER_PATH = os.path.join(DATA_DIR, "master.xlsx")
 SAISIE_PATH = os.path.join(DATA_DIR, "saisie.csv")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# --- 2. FONCTIONS ---
+# --- 2. FONCTIONS TECHNIQUES ---
 def normalize_text(text):
     if not isinstance(text, str): return str(text)
     return unicodedata.normalize('NFD', text).encode('ascii', 'ignore').decode('utf-8').lower().strip()
 
 def clean_columns(df):
-    mapping = {'produit': 'designation', 'n°lot': 'lot', 'nlot': 'lot', 'lot_master': 'lot_master', 'qte_saisie': 'qte_saisie'}
+    mapping = {
+        'produit': 'designation', 'designation': 'designation',
+        'n°lot': 'lot', 'nlot': 'lot', 'lot': 'lot'
+    }
     stock_keywords = ['quantit', 'depot', 'stock', 'theorique', 'qte']
     new_cols = []
     for col in df.columns:
@@ -40,54 +43,101 @@ df_master = None
 if os.path.exists(MASTER_PATH):
     try:
         df_master = clean_columns(pd.read_excel(MASTER_PATH))
-    except:
-        st.error("Erreur lors de la lecture du Master Excel.")
+    except Exception as e:
+        st.error(f"Erreur Master : {e}")
 
-# --- 4. CRÉATION DES ONGLETS (IMPORTANT : DOIT ÊTRE ICI) ---
+# --- 4. INTERFACE (ONGLETS) ---
 tabs = st.tabs(["📊 Dashboard", "📝 Saisie Terrain", "🔍 Confrontation", "⚙️ Admin"])
 
-# --- 5. CONTENU DES ONGLETS ---
-
-with tabs[0]: # Dashboard
+# --- ONGLET DASHBOARD ---
+with tabs[0]:
     st.subheader("📦 Arrivages & Master")
     if df_master is not None:
-        st.metric("Total Articles", len(df_master))
-        if st.checkbox("🔄 Mode Arrivage : Remplacer le Master"):
-            if st.button("🗑️ Supprimer Master actuel"):
+        st.metric("Total Articles dans le Master", len(df_master))
+        st.info("Le système est prêt pour la saisie.")
+        with st.expander("🔄 Zone Arrivage (Remplacer le Master)"):
+            confirm = st.checkbox("Je confirme vouloir supprimer le Master actuel")
+            if st.button("🗑️ Supprimer le Master", disabled=not confirm):
                 os.remove(MASTER_PATH)
                 st.rerun()
     else:
-        st.info("Importez un fichier Excel dans l'onglet Admin.")
+        st.warning("⚠️ Aucun Master trouvé. Allez dans l'onglet 'Admin'.")
 
-with tabs[1]: # Saisie
+# --- ONGLET SAISIE TERRAIN ---
+with tabs[1]:
+    st.subheader("📝 Mode de Saisie")
     if df_master is not None:
-        st.subheader("📝 Mode de Saisie")
-        mode = st.radio("Mode :", ["🚀 Rapide", "📋 Détaillé"], horizontal=True)
-        # ... Reste du code de saisie (identique au précédent) ...
-    else:
-        st.warning("Master manquant.")
+        mode = st.radio("Choisir le mode :", ["🚀 Rapide", "📋 Détaillé"], horizontal=True, key="mode_sel")
+        
+        # Liste de recherche
+        produits = sorted(df_master['designation'].unique().tolist())
+        prod_sel = st.selectbox("🔍 Rechercher un produit :", [""] + produits, key="search_prod")
+        
+        if prod_sel != "":
+            df_p = df_master[df_master['designation'] == prod_sel]
+            lot_orig = st.selectbox("Choisir le lot Logipharm :", df_p['lot'].unique(), key="lot_sel")
+            info_m = df_p[df_p['lot'] == lot_orig].iloc[0]
 
-with tabs[2]: # Confrontation
+            with st.form("form_v3", clear_on_submit=True):
+                col1, col2 = st.columns(2)
+                lot_final = lot_orig
+                ddp_final = str(info_m.get('ddp', ''))
+
+                if mode == "🚀 Rapide":
+                    qte_s = col1.number_input("Quantité dénombrée", min_value=0.0, step=1.0)
+                    st.caption(f"Enregistrement sur le lot par défaut : {lot_orig}")
+                else:
+                    lot_final = col1.text_input("Modifier N° Lot", value=str(lot_orig))
+                    qte_s = col2.number_input("Quantité dénombrée", min_value=0.0, step=1.0)
+                    ddp_final = col1.text_input("Modifier DDP", value=ddp_final)
+
+                if st.form_submit_button("💾 VALIDER LA SAISIE"):
+                    new_row = pd.DataFrame([{
+                        'designation': prod_sel, 'lot_master': lot_orig,
+                        'lot': lot_final, 'qte_saisie': qte_s, 'ddp_saisi': ddp_final
+                    }])
+                    if os.path.exists(SAISIE_PATH):
+                        current_saisie = pd.read_csv(SAISIE_PATH, sep=';')
+                        new_row = pd.concat([current_saisie, new_row], ignore_index=True)
+                    new_row.to_csv(SAISIE_PATH, index=False, sep=';')
+                    st.success(f"✅ Ajouté : {prod_sel}")
+                    # Pas de rerun ici pour permettre de voir le message de succès
+    else:
+        st.info("Veuillez charger un fichier Excel dans l'onglet Admin.")
+
+# --- ONGLET CONFRONTATION ---
+with tabs[2]:
     st.subheader("🔍 Analyse")
     if os.path.exists(SAISIE_PATH) and df_master is not None:
         try:
-            saisie = pd.read_csv(SAISIE_PATH, sep=';', encoding='utf-8-sig')
-            if 'lot_master' not in saisie.columns:
-                st.error("Fichier de saisie incompatible.")
-                if st.button("Réinitialiser Saisie"):
-                    os.remove(SAISIE_PATH)
-                    st.rerun()
-            else:
-                # ... Logique de calcul (identique au précédent) ...
-                st.write("Tableau des écarts prêt.")
+            saisie = pd.read_csv(SAISIE_PATH, sep=';')
+            # Groupement pour gérer les saisies multiples du même produit
+            s_grouped = saisie.groupby(['designation', 'lot_master']).agg({'qte_saisie': 'sum'}).reset_index()
+            
+            # Fusion avec le Master
+            df_master['lot'] = df_master['lot'].astype(str)
+            s_grouped['lot_master'] = s_grouped['lot_master'].astype(str)
+            
+            comp = pd.merge(df_master, s_grouped, left_on=['designation', 'lot'], right_on=['designation', 'lot_master'], how='left')
+            comp['qte_saisie'] = comp['qte_saisie'].fillna(0)
+            comp['écart'] = comp['qte_saisie'] - comp.get('stock_theorique', 0)
+            
+            st.dataframe(comp[['designation', 'lot', 'stock_theorique', 'qte_saisie', 'écart']], use_container_width=True)
+            
+            if st.button("🗑️ Vider toutes les saisies"):
+                os.remove(SAISIE_PATH)
+                st.rerun()
         except Exception as e:
-            st.error(f"Erreur : {e}")
+            st.error(f"Erreur calcul : {e}")
+    else:
+        st.info("En attente de saisies terrain...")
 
-with tabs[3]: # ADMIN (Zone Drag & Drop)
+# --- ONGLET ADMIN ---
+with tabs[3]:
     st.header("⚙️ Admin")
-    file = st.file_uploader("Importer Excel Logipharm", type=["xlsx"])
-    if file:
+    up = st.file_uploader("Charger un nouvel export Logipharm (Excel)", type="xlsx")
+    if up:
         with open(MASTER_PATH, "wb") as f:
-            f.write(file.getbuffer())
-        st.success("Master mis à jour !")
+            f.write(up.getbuffer())
+        st.success("✅ Master mis à jour ! Le système est prêt.")
         st.rerun()
