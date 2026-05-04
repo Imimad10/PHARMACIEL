@@ -68,8 +68,23 @@ with tab2:
         try:
             df_ext = pd.read_excel(file_up)
             # Normalisation colonnes
-            df_ext.columns = [str(c).strip().lower() for c in df_ext.columns]
+            # Normalisation robuste des colonnes
+            import unicodedata
+            def norm_c(c):
+                c = str(c).strip().lower()
+                return ''.join(ch for ch in unicodedata.normalize('NFD', c) if unicodedata.category(ch) != 'Mn')
             
+            df_ext.columns = [norm_c(c) for c in df_ext.columns]
+            
+            # Mappage flexible
+            rename_map = {}
+            for c in df_ext.columns:
+                if 'produit' in c or 'designation' in c: rename_map[c] = 'produit'
+                if 'depot' in c or 'magasin' in c: rename_map[c] = 'depot'
+                if 'ddp' in c or 'peremption' in c or 'exp' in c: rename_map[c] = 'ddp'
+                if 'quantite' in c or 'stock' in c or 'qte' in c: rename_map[c] = 'quantite'
+            df_ext = df_ext.rename(columns=rename_map)
+
             if all(c in df_ext.columns for c in ['produit', 'depot', 'ddp']):
                 df_ext['expiry_date'] = df_ext['ddp'].apply(parse_ddp)
                 df_ext = df_ext.dropna(subset=['expiry_date', 'depot', 'produit'])
