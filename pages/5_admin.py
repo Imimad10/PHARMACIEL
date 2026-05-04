@@ -38,7 +38,7 @@ with tab_add:
     with st.form("form_add_user"):
         u_name = st.text_input("Nom d'utilisateur")
         u_pwd = st.text_input("Mot de passe")
-        u_role = st.selectbox("Rôle", ["Saisie", "Admin"])
+        u_role = st.selectbox("Rôle", ["Saisie", "Superviseur", "Admin"])
         u_pages = st.multiselect("Accès aux modules", MODULES_DISPO)
         u_zone = st.selectbox("Zone Attribuée (Inventaire Détail)", ["Aucune", "A", "B", "C", "D", "Frigo"])
         
@@ -74,8 +74,9 @@ with tab_edit:
             st.write(f"Modifications pour : **{edit_target}**")
             new_pwd = st.text_input("Nouveau mot de passe", value=target_data.get('password', ''))
             
-            role_idx = 0 if target_data.get('role') == 'Saisie' else 1
-            new_role = st.selectbox("Nouveau rôle", ["Saisie", "Admin"], index=role_idx)
+            role_list = ["Saisie", "Superviseur", "Admin"]
+            current_role = target_data.get('role', 'Saisie')
+            new_role = st.selectbox("Nouveau rôle", role_list, index=role_list.index(current_role) if current_role in role_list else 0)
             
             current_pages = [p for p in target_data.get('pages', []) if p in MODULES_DISPO]
             new_pages = st.multiselect("Accès aux modules", MODULES_DISPO, default=current_pages)
