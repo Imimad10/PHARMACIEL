@@ -132,15 +132,20 @@ with tabs[2]:
     if user['role'] == "Admin" and os.path.exists(SAISIE_PATH) and df_master is not None:
         try:
             saisie = pd.read_csv(SAISIE_PATH, sep=';', on_bad_lines='skip')
-            if saisie.empty or 'qte_saisie' not in saisie.columns:
-                st.info("ℹ️ En attente des premières saisies terrain pour cette zone.")
+            
+            st.write(f"📊 **Statut :** {len(saisie)} saisies totales détectées dans le journal.")
+            
+            if 'qte_saisie' not in saisie.columns:
+                st.warning("⚠️ Le format du fichier de saisie est obsolète. Veuillez le vider dans l'onglet Admin pour repartir à neuf.")
+                st.dataframe(saisie.head())
                 st.stop()
                 
-            mode_conf = st.radio("Analyse :", ["⚡ Rapide (Global)", "🔬 Détaillée (Par Lot)"], horizontal=True)
+            mode_conf = st.radio("Type d'Analyse :", ["⚡ Rapide (Global)", "🔬 Détaillée (Par Lot)"], horizontal=True)
             
             # Filtrage par zone pour l'analyse
             unique_zones = [str(z) for z in df_master['zone'].unique() if pd.notna(z)]
-            z_ana = st.selectbox("Filtrer l'analyse par Zone :", ["Toutes"] + sorted(unique_zones))
+            z_ana = st.selectbox("Filtrer par Zone :", ["Toutes"] + sorted(unique_zones))
+            
             df_m_f = df_master if z_ana == "Toutes" else df_master[df_master['zone'] == z_ana]
             df_s_f = saisie if z_ana == "Toutes" else saisie[saisie['zone'] == z_ana]
             
