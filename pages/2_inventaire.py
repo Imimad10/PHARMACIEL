@@ -19,6 +19,15 @@ def normalize_text(text):
     text = unicodedata.normalize('NFD', text).encode('ascii', 'ignore').decode('utf-8')
     return text.lower().strip()
 
+def safe_float(val, default=0.0):
+    try:
+        if pd.isna(val): return default
+        if isinstance(val, str):
+            val = val.replace(' ', '').replace(',', '.')
+        return float(val)
+    except:
+        return default
+
 def clean_columns(df_to_clean):
     # Mapping des variations vers les noms standards utilisés dans le code
     mapping = {
@@ -132,14 +141,14 @@ with tabs[1]:
                     with col3:
                         ddp_in = st.text_input("DDP (MM/AA)", value=str(info_master.get('ddp', '')))
                     with col4:
-                        ppa_in = st.number_input("PPA", value=float(info_master.get('ppa', 0.0)))
+                        ppa_in = st.number_input("PPA", value=safe_float(info_master.get('ppa', 0.0)))
                     with col5:
                         shp_in = st.text_input("SHP", value=str(info_master.get('shp', '')))
                 else:
                     # En mode rapide, on prend les valeurs du master
                     lot_in = str(info_master.get('lot', 'N/A'))
                     ddp_in = str(info_master.get('ddp', 'N/A'))
-                    ppa_in = float(info_master.get('ppa', 0.0))
+                    ppa_in = safe_float(info_master.get('ppa', 0.0))
                     shp_in = str(info_master.get('shp', 'N/A'))
                     st.info(f"Lot: {lot_in} | DDP: {ddp_in} | PPA: {ppa_in}")
 
@@ -200,7 +209,13 @@ with tabs[2]:
                 
                 # Fusionner avec le Master
                 comp = pd.merge(df_master, saisie_grouped, on='designation', how='left')
-                comp['qte_saisie'] = comp['qte_saisie'].fillna(0)
+                
+                # S'assurer que les colonnes sont numériques pour le calcul de l'écart
+                for c in ['qte_saisie', q_theo_col]:
+                    if comp[c].dtype == object:
+                        comp[c] = comp[c].astype(str).str.replace(' ', '').str.replace(',', '.')
+                    comp[c] = pd.to_numeric(comp[c], errors='coerce').fillna(0)
+                
                 comp['écart'] = comp['qte_saisie'] - comp[q_theo_col]
                 
                 st.write("### Tableau Récapitulatif")
