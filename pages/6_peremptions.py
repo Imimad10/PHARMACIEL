@@ -76,13 +76,20 @@ with tab2:
             
             df_ext.columns = [norm_c(c) for c in df_ext.columns]
             
-            # Mappage flexible
+            # Mappage flexible (évite les doublons)
             rename_map = {}
+            found_targets = set()
             for c in df_ext.columns:
-                if 'produit' in c or 'designation' in c: rename_map[c] = 'produit'
-                if 'depot' in c or 'magasin' in c: rename_map[c] = 'depot'
-                if 'ddp' in c or 'peremption' in c or 'exp' in c: rename_map[c] = 'ddp'
-                if 'quantite' in c or 'stock' in c or 'qte' in c: rename_map[c] = 'quantite'
+                target = None
+                if ('produit' in c or 'designation' in c) and 'produit' not in found_targets: target = 'produit'
+                elif ('depot' in c or 'magasin' in c) and 'depot' not in found_targets: target = 'depot'
+                elif ('ddp' in c or 'peremption' in c or 'exp' in c) and 'ddp' not in found_targets: target = 'ddp'
+                elif ('quantite' in c or 'stock' in c or 'qte' in c) and 'quantite' not in found_targets: target = 'quantite'
+                
+                if target:
+                    rename_map[c] = target
+                    found_targets.add(target)
+            
             df_ext = df_ext.rename(columns=rename_map)
 
             if all(c in df_ext.columns for c in ['produit', 'depot', 'ddp']):
