@@ -134,7 +134,8 @@ with tabs[2]:
         mode_conf = st.radio("Analyse :", ["⚡ Rapide (Global)", "🔬 Détaillée (Par Lot)"], horizontal=True)
         
         # Filtrage par zone pour l'analyse
-        z_ana = st.selectbox("Filtrer l'analyse par Zone :", ["Toutes"] + sorted(df_master['zone'].unique()))
+        unique_zones = [str(z) for z in df_master['zone'].unique() if pd.notna(z)]
+        z_ana = st.selectbox("Filtrer l'analyse par Zone :", ["Toutes"] + sorted(unique_zones))
         df_m_f = df_master if z_ana == "Toutes" else df_master[df_master['zone'] == z_ana]
         df_s_f = saisie if z_ana == "Toutes" else saisie[saisie['zone'] == z_ana]
         
