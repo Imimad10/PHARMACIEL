@@ -11,7 +11,6 @@ from utils_ia import ask_ai, is_ia_enabled
 # --- CONFIGURATION ---
 # st.set_page_config(page_title="Darpharm Solution - Suivi Frigo", layout="wide")
 DATA_FILE = "suivi_data.csv"
-EQUIPEMENTS = ["Chambre Froide 1", "Chambre Froide 2"]
 
 if "current_user" not in st.session_state or st.session_state.current_user is None:
     st.warning("Veuillez vous connecter depuis la page principale.")
@@ -25,8 +24,6 @@ def clean_frigo_data(df):
         df.loc[(df['Température'] < 2.0) | (df['Température'] > 8.0), 'Statut'] = 'ALERTE'
     if 'Type' in df.columns:
         df['Type'] = df['Type'].replace('Relevé Standard', 'Plage idéale :+2°C+8°C')
-    if 'Equipement' not in df.columns:
-        df['Equipement'] = EQUIPEMENTS[0]
     return df
 
 def generer_pdf(df):
@@ -49,10 +46,6 @@ def generer_pdf(df):
     pdf.set_font("Arial", 'I', 9)
     extraction_date = datetime.now().strftime("%d/%m/%Y a %H:%M")
     pdf.cell(0, 6, f"Date d'extraction : {extraction_date}", 0, 1, 'C')
-    
-    if 'Equipement' in df.columns and len(df['Equipement'].unique()) == 1:
-        pdf.cell(0, 6, f"Equipement : {df['Equipement'].iloc[0]}", 0, 1, 'C')
-    
     pdf.ln(8)
     
     # 3. KPIs
@@ -71,18 +64,17 @@ def generer_pdf(df):
     # 4. En-tête du tableau
     pdf.set_fill_color(200, 220, 255)
     pdf.set_font("Arial", 'B', 8)
-    w = [18, 12, 12, 12, 35, 60, 41] # Total 190
+    w = [20, 15, 20, 20, 65, 50] # Largeurs de colonnes (Total 190)
     
     pdf.cell(w[0], 7, "Date", border=1, fill=True, align='C')
     pdf.cell(w[1], 7, "Heure", border=1, fill=True, align='C')
     pdf.cell(w[2], 7, "Temp (C)", border=1, fill=True, align='C')
     pdf.cell(w[3], 7, "Statut", border=1, fill=True, align='C')
-    pdf.cell(w[4], 7, "Equipement", border=1, fill=True, align='C')
-    pdf.cell(w[5], 7, "Motif", border=1, fill=True, align='C')
-    pdf.cell(w[6], 7, "Agent", border=1, fill=True, align='C', ln=1)
+    pdf.cell(w[4], 7, "Motif", border=1, fill=True, align='C')
+    pdf.cell(w[5], 7, "Agent", border=1, fill=True, align='C', ln=1)
     
     # 5. Lignes du tableau
-    pdf.set_font("Arial", '', 7)
+    pdf.set_font("Arial", '', 8)
     for _, row in df.iterrows():
         temp_val = f"{row['Température']} C"
         statut = str(row['Statut'])
@@ -98,12 +90,10 @@ def generer_pdf(df):
         pdf.cell(w[3], 6, statut, border=1, align='C')
         
         pdf.set_text_color(0, 0, 0)
-        equip = str(row.get('Equipement', 'N/A'))[:25].encode('latin-1', 'replace').decode('latin-1')
-        pdf.cell(w[4], 6, equip, border=1)
-        motif = str(row['Type'])[:45].encode('latin-1', 'replace').decode('latin-1')
-        pdf.cell(w[5], 6, motif, border=1)
+        motif = str(row['Type'])[:40].encode('latin-1', 'replace').decode('latin-1')
+        pdf.cell(w[4], 6, motif, border=1)
         agent = str(row['Agent'])[:30].encode('latin-1', 'replace').decode('latin-1')
-        pdf.cell(w[6], 6, agent, border=1, ln=1)
+        pdf.cell(w[5], 6, agent, border=1, ln=1)
         
     return pdf.output(dest='S').encode('latin-1', 'replace')
 
@@ -174,14 +164,11 @@ tab_data = tabs[1]
 
 with tab_saisie:
     st.subheader("Nouvelle saisie")
-    selected_equip = st.selectbox("Sélectionner l'équipement", EQUIPEMENTS)
-    
-    if st.button(f"🚀 Saisie Rapide ({selected_equip} - OK)", use_container_width=True):
+    if st.button("🚀 Saisie Rapide (OK - Plage idéale :+2°C+8°C)", use_container_width=True):
         save_data({
             "Date": datetime.now().strftime("%d/%m/%Y"), "Heure": datetime.now().strftime("%H:%M"),
             "Température": 4.0, "Agent": st.session_state.current_user['username'],
-            "Statut": "OK", "Commentaire": "Rapide", "Type": "Plage idéale :+2°C+8°C",
-            "Equipement": selected_equip
+            "Statut": "OK", "Commentaire": "Rapide", "Type": "Plage idéale :+2°C+8°C"
         })
         st.rerun()
 
@@ -193,8 +180,7 @@ with tab_saisie:
             save_data({
                 "Date": datetime.now().strftime("%d/%m/%Y"), "Heure": datetime.now().strftime("%H:%M"),
                 "Température": t, "Agent": st.session_state.current_user['username'],
-                "Statut": "OK" if 2.0 <= t <= 8.0 else "ALERTE", "Commentaire": comm, "Type": type_releve,
-                "Equipement": selected_equip
+                "Statut": "OK" if 2.0 <= t <= 8.0 else "ALERTE", "Commentaire": comm, "Type": type_releve
             })
             st.rerun()
 
@@ -209,47 +195,41 @@ with tab_data:
             st.error(f"Détail de l'erreur de connexion : {error_msg}")
             
     if not df.empty and 'Température' in df.columns:
-        # Filtre par équipement pour le tableau de bord
-        st.divider()
-        view_equip = st.multiselect("Filtrer par équipement", EQUIPEMENTS, default=EQUIPEMENTS)
-        df_filtered = df[df['Equipement'].isin(view_equip)]
-        
         # Création d'une colonne Timestamp pour le graphe
-        df_filtered['Timestamp'] = pd.to_datetime(df_filtered['Date'] + ' ' + df_filtered['Heure'], format="%d/%m/%Y %H:%M", errors='coerce')
+        df['Timestamp'] = pd.to_datetime(df['Date'] + ' ' + df['Heure'], format="%d/%m/%Y %H:%M", errors='coerce')
         
         # KPIs
         c1, c2, c3 = st.columns(3)
-        if not df_filtered.empty:
-            c1.metric("Dernière T°", f"{df_filtered.iloc[-1]['Température']} °C")
-            c2.metric("Moyenne", f"{df_filtered['Température'].mean():.1f} °C")
-            c3.metric("Alertes", len(df_filtered[df_filtered['Statut'] == 'ALERTE']))
-            
-            # Graphique chronologique
-            st.plotly_chart(px.line(df_filtered.tail(50), x="Timestamp", y="Température", color="Equipement", markers=True, title="Tendance T° par Equipement"), use_container_width=True)
-            
-            # Export PDF
-            pdf_data = generer_pdf(df_filtered)
-            st.download_button("📥 Télécharger Rapport PDF (Filtré)", data=pdf_data, file_name="Rapport_Frigo_Filtre.pdf", mime="application/pdf")
-        else:
-            st.warning("Aucune donnée pour les équipements sélectionnés.")
+        c1.metric("Dernière T°", f"{df.iloc[-1]['Température']} °C")
+        c2.metric("Moyenne", f"{df['Température'].mean():.1f} °C")
+        c3.metric("Alertes", len(df[df['Statut'] == 'ALERTE']))
+        
+        # Graphique chronologique
+        st.plotly_chart(px.line(df.tail(50), x="Timestamp", y="Température", markers=True, title="Tendance T°"), use_container_width=True)
+        
+        # Export PDF
+        pdf_data = generer_pdf(df)
+        st.download_button("📥 Télécharger Rapport PDF", data=pdf_data, file_name="Rapport_Frigo.pdf", mime="application/pdf")
         
         # --- ASSISTANT IA MAINTENANCE PREDICTIVE ---
-        if is_ia_enabled() and not df_filtered.empty:
+        if is_ia_enabled():
             st.divider()
             st.subheader("🤖 IA - Maintenance Prédictive")
-            st.info("L'IA analyse vos derniers relevés pour détecter des signes d'usure ou d'anomalies.")
-            if st.button("✨ Analyser la santé", use_container_width=True):
-                with st.spinner("L'IA examine les variations..."):
-                    last_temps = df_filtered.tail(30).to_dict('records')
+            st.info("L'IA analyse vos derniers relevés pour détecter des signes d'usure ou d'anomalies du frigo.")
+            if st.button("✨ Analyser la santé du Frigo", use_container_width=True):
+                with st.spinner("L'IA examine les variations de température..."):
+                    last_temps = df.tail(30)['Température'].tolist()
                     prompt = f"""
-                    Tu es l'expert technique IA de Darpharm Solution.
-                    Voici les derniers relevés pour les équipements suivants : {view_equip}.
-                    Données : {last_temps}.
-                    Analyse la tendance et les risques de panne.
+                    Tu es l'expert technique IA de Darpharm Solution, spécialisé dans les chambres froides de pharmacie (plage cible: 2°C à 8°C).
+                    Voici les 30 derniers relevés de température (en °C) : {last_temps}.
+                    Analyse la tendance.
+                    - Y a-t-il un risque de panne (tendance à la hausse) ?
+                    - Les variations sont-elles saines ?
+                    Fais un rapport très court (3 lignes max) et donne une recommandation immédiate au pharmacien.
                     """
                     st.warning(ask_ai(prompt))
                 
-        st.dataframe(df_filtered.sort_index(ascending=False), use_container_width=True)
+        st.dataframe(df.sort_index(ascending=False), use_container_width=True)
     else:
         st.info("Aucune donnée disponible.")
 
