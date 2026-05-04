@@ -80,12 +80,43 @@ tabs = st.tabs(["📊 Dashboard", "📝 Saisie Terrain", "🔍 Confrontation", "
 
 with tabs[0]:
     if df_master is not None:
+        st.subheader("📈 Progression de l'Inventaire par Zone")
+        
+        # Charger les saisies pour calculer l'avancement
+        df_saisie_prog = pd.DataFrame()
+        if os.path.exists(SAISIE_PATH):
+            try:
+                df_saisie_prog = pd.read_csv(SAISIE_PATH, sep=';', on_bad_lines='skip')
+            except: pass
+            
+        zones_dispo = sorted([str(z) for z in df_master['zone'].unique() if pd.notna(z)])
+        
+        for z in zones_dispo:
+            # Produits totaux dans le master pour cette zone
+            df_m_z = df_master[df_master['zone'] == z]
+            total_items = df_m_z['designation'].nunique()
+            
+            # Produits déjà scannés dans cette zone
+            if not df_saisie_prog.empty:
+                df_s_z = df_saisie_prog[df_saisie_prog['zone'] == z]
+                done_items = df_s_z['designation'].nunique()
+            else:
+                done_items = 0
+                
+            percent = (done_items / total_items) if total_items > 0 else 0
+            
+            # Affichage
+            c_label, c_bar = st.columns([1, 3])
+            c_label.write(f"**Zone {z}**")
+            c_bar.progress(min(percent, 1.0), text=f"{done_items} / {total_items} ({percent*100:.1f}%)")
+            
+        st.divider()
         c1, c2 = st.columns(2)
-        c1.metric("Total Articles", len(df_master))
-        df_z = df_master[df_master['zone'] == selected_zone]
-        c2.metric(f"Zone {selected_zone}", len(df_z))
-        st.bar_chart(df_master['zone'].value_counts())
-    else: st.info("Importer Master dans Admin.")
+        c1.metric("Total Articles Master", len(df_master))
+        df_user_z = df_master[df_master['zone'] == selected_zone]
+        c2.metric(f"Votre Zone ({selected_zone})", len(df_user_z))
+    else:
+        st.info("💡 Veuillez importer un fichier Master dans l'onglet Admin pour activer le suivi.")
 
 with tabs[1]:
     if df_master is not None:
