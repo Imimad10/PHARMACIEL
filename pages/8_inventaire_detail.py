@@ -11,12 +11,12 @@ MASTER_PATH = os.path.join(DATA_DIR, "master_detail.xlsx")
 SAISIE_PATH = os.path.join(DATA_DIR, "saisie_detail.csv")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# --- 2. UTILS ---
+# --- 2. FONCTIONS ---
 def normalize_text(text):
     if not isinstance(text, str): return str(text)
     return unicodedata.normalize('NFD', text).encode('ascii', 'ignore').decode('utf-8').lower().strip()
 
-def clean_cols_v2(df):
+def clean_cols_v3(df):
     mapping = {
         'produit': 'designation', 'designation': 'designation', 'article': 'designation', 'libelle': 'designation',
         'n°lot': 'lot', 'nlot': 'lot', 'lot': 'lot', 'batch': 'lot',
@@ -38,102 +38,115 @@ def clean_cols_v2(df):
     df.columns = new_cols
     return df
 
-@st.cache_data(ttl=600) # Réduit le TTL pour plus de réactivité
-def load_master_detail_v2(path, mtime):
+@st.cache_data(ttl=300)
+def load_master_detail_v3(path, mtime):
     try:
-        df = pd.read_excel(path)
-        df = clean_cols_v2(df)
+        # Utilisation de engine='openpyxl' pour plus de stabilité
+        df = pd.read_excel(path, engine='openpyxl')
+        df = clean_cols_v3(df)
         if 'ddp' in df.columns:
             df['ddp'] = pd.to_datetime(df['ddp'], errors='coerce').dt.strftime('%m/%Y').fillna(df['ddp'].astype(str))
         if 'zone' not in df.columns: df['zone'] = 'A'
         df['zone'] = df['zone'].astype(str).str.upper().str.strip()
+        # Validation des colonnes essentielles
+        for c in ['designation', 'lot', 'zone']:
+            if c not in df.columns: return f"Colonne '{c}' manquante."
         return df
-    except: return None
+    except Exception as e:
+        return f"Erreur Excel : {str(e)}"
 
-# --- 3. LOGIQUE ---
+# --- 3. UI ---
+st.title("🔍 Inventaire Détail (Zones)")
+
 if "current_user" not in st.session_state or st.session_state.current_user is None:
     st.warning("Veuillez vous connecter.")
     st.stop()
 
 user = st.session_state.current_user
+user_zone = user.get('zone', 'Aucune')
+
+# Chargement différé du Master avec spinner
 df_master = None
 if os.path.exists(MASTER_PATH):
-    df_master = load_master_detail_v2(MASTER_PATH, os.path.getmtime(MASTER_PATH))
-    if df_master is not None:
-        missing = [c for c in ['designation', 'lot', 'zone'] if c not in df_master.columns]
-        if missing:
-            st.error(f"Colonnes manquantes : {missing}")
-            df_master = None
+    with st.spinner("Chargement des données..."):
+        res = load_master_detail_v3(MASTER_PATH, os.path.getmtime(MASTER_PATH))
+        if isinstance(res, str):
+            st.error(res)
+        else:
+            df_master = res
 
-st.title("🔍 Inventaire Détail (Zones)")
-
-# Zone logic
-user_zone = user.get('zone', 'Aucune')
-selected_zone = st.sidebar.selectbox("📍 Zone :", ["A", "B", "C", "D", "Frigo"], index=["A", "B", "C", "D", "Frigo"].index(user_zone) if user_zone in ["A", "B", "C", "D", "Frigo"] else 0)
-if user_zone != "Aucune":
-    st.sidebar.info(f"Assigné à : **{user_zone}**")
+# Sélection Zone
+if user_zone == "Aucune":
+    selected_zone = st.sidebar.selectbox("📍 Zone :", ["A", "B", "C", "D", "Frigo"])
+else:
     selected_zone = user_zone
+    st.sidebar.info(f"📍 Zone assignée : **{selected_zone}**")
 
 tabs = st.tabs(["📊 Dashboard", "📝 Saisie", "🔍 Confrontation", "⚙️ Admin"])
 
 with tabs[0]:
     if df_master is not None:
         c1, c2 = st.columns(2)
-        c1.metric("Master", len(df_master))
+        c1.metric("Total Articles", len(df_master))
         df_z = df_master[df_master['zone'] == selected_zone]
         c2.metric(f"Zone {selected_zone}", len(df_z))
+        st.write("### Répartition par Zone")
         st.bar_chart(df_master['zone'].value_counts())
-    else: st.warning("Master non chargé.")
+    else: st.info("Importez un fichier Master dans l'onglet Admin.")
 
 with tabs[1]:
     if df_master is not None:
         df_z = df_master[df_master['zone'] == selected_zone]
         if df_z.empty:
-            st.error(f"Zone {selected_zone} vide.")
+            st.warning(f"Aucun produit trouvé pour la zone {selected_zone}.")
         else:
             prods = sorted(df_z['designation'].unique())
-            sel = st.selectbox("Produit :", [""] + prods)
-            if sel:
-                df_p = df_z[df_z['designation'] == sel]
-                lots = df_p['lot'].unique()
-                lot_m = st.selectbox("Lot :", lots)
+            sel_prod = st.selectbox("Produit :", [""] + prods)
+            if sel_prod:
+                df_p = df_z[df_z['designation'] == sel_prod]
+                lot_m = st.selectbox("Lot Master :", df_p['lot'].unique())
                 info = df_p[df_p['lot'] == lot_m].iloc[0]
                 
-                with st.form("form_det_v2", clear_on_submit=True):
-                    q = st.number_input("Quantité", min_value=0.0, step=1.0)
-                    if st.form_submit_button("💾 Sauver"):
+                with st.form("form_saisie_det_v3", clear_on_submit=True):
+                    q = st.number_input("Quantité réelle", min_value=0.0, step=1.0)
+                    if st.form_submit_button("💾 Valider la saisie"):
                         line = pd.DataFrame([{
-                            'designation': sel, 'lot': lot_m, 'qte_saisie': q, 
+                            'designation': sel_prod, 'lot': lot_m, 'qte_saisie': q, 
                             'zone': selected_zone, 'agent': user['username'],
-                            'timestamp': datetime.now().strftime("%H:%M")
+                            'date': datetime.now().strftime("%d/%m/%Y %H:%M")
                         }])
                         exists = os.path.exists(SAISIE_PATH)
                         line.to_csv(SAISIE_PATH, mode='a', header=not exists, index=False, sep=';')
-                        st.success("Enregistré")
+                        st.success("Saisie enregistrée !")
     else: st.info("Master requis.")
 
 with tabs[2]:
-    if user['role'] == "Admin" and os.path.exists(SAISIE_PATH) and df_master is not None:
-        saisie = pd.read_csv(SAISIE_PATH, sep=';')
-        st.write("### Analyse par Zone")
-        z_ana = st.selectbox("Filtrer Zone :", ["Toutes"] + sorted(df_master['zone'].unique()))
-        
-        df_m_f = df_master if z_ana == "Toutes" else df_master[df_master['zone'] == z_ana]
-        df_s_f = saisie if z_ana == "Toutes" else saisie[saisie['zone'] == z_ana]
-        
-        # Merge global
-        m_g = df_m_f.groupby(['designation', 'zone'])['stock_theorique' if 'stock_theorique' in df_m_f.columns else df_m_f.columns[0]].count().reset_index() # Fallback safe
-        # On va simplifier pour éviter les erreurs de colonnes dynamiques
-        st.dataframe(df_s_f, use_container_width=True)
-    else: st.info("Données insuffisantes ou accès restreint.")
+    if user['role'] == "Admin":
+        if os.path.exists(SAISIE_PATH) and df_master is not None:
+            saisie = pd.read_csv(SAISIE_PATH, sep=';')
+            st.write(f"### Journal des saisies - Zone {selected_zone}")
+            st.dataframe(saisie[saisie['zone'] == selected_zone], use_container_width=True)
+            
+            if st.button("📊 Générer Analyse Complète"):
+                # Simplifié pour éviter le blocage
+                st.info("Traitement en cours...")
+                st.dataframe(saisie.groupby('designation')['qte_saisie'].sum(), use_container_width=True)
+        else: st.info("Aucune saisie détectée.")
+    else: st.warning("Accès Admin requis pour l'analyse.")
 
 with tabs[3]:
-    st.subheader("⚙️ Admin")
-    up = st.file_uploader("Master (XLSX)", type="xlsx")
+    st.subheader("⚙️ Administration du Module")
+    up = st.file_uploader("Importer Master Détail (XLSX)", type="xlsx")
     if up:
-        with open(MASTER_PATH, "wb") as f: f.write(up.getbuffer())
-        st.cache_data.clear()
-        st.success("Master OK")
-        st.rerun()
-    if st.button("🗑️ Vider Saisies"):
-        if os.path.exists(SAISIE_PATH): os.remove(SAISIE_PATH); st.rerun()
+        if st.button("🚀 Confirmer l'importation"):
+            with open(MASTER_PATH, "wb") as f: f.write(up.getbuffer())
+            st.cache_data.clear()
+            st.success("Fichier Master mis à jour avec succès !")
+            st.rerun()
+            
+    st.divider()
+    if st.button("🗑️ Vider toutes les saisies", type="secondary"):
+        if os.path.exists(SAISIE_PATH):
+            os.remove(SAISIE_PATH)
+            st.success("Saisies effacées.")
+            st.rerun()
