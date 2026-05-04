@@ -130,25 +130,34 @@ with tabs[1]:
 with tabs[2]:
     st.subheader("🔍 Analyse des écarts")
     if user['role'] == "Admin" and os.path.exists(SAISIE_PATH) and df_master is not None:
-        saisie = pd.read_csv(SAISIE_PATH, sep=';')
-        mode_conf = st.radio("Analyse :", ["⚡ Rapide (Global)", "🔬 Détaillée (Par Lot)"], horizontal=True)
-        
-        # Filtrage par zone pour l'analyse
-        unique_zones = [str(z) for z in df_master['zone'].unique() if pd.notna(z)]
-        z_ana = st.selectbox("Filtrer l'analyse par Zone :", ["Toutes"] + sorted(unique_zones))
-        df_m_f = df_master if z_ana == "Toutes" else df_master[df_master['zone'] == z_ana]
-        df_s_f = saisie if z_ana == "Toutes" else saisie[saisie['zone'] == z_ana]
-        
-        def robust_num(s):
-            if pd.isna(s): return 0.0
-            if isinstance(s, str): s = s.replace('\xa0', '').replace(' ', '').replace(',', '.')
-            return pd.to_numeric(s, errors='coerce')
+        try:
+            saisie = pd.read_csv(SAISIE_PATH, sep=';')
+            if saisie.empty or 'qte_saisie' not in saisie.columns:
+                st.info("ℹ️ En attente des premières saisies terrain pour cette zone.")
+                st.stop()
+                
+            mode_conf = st.radio("Analyse :", ["⚡ Rapide (Global)", "🔬 Détaillée (Par Lot)"], horizontal=True)
+            
+            # Filtrage par zone pour l'analyse
+            unique_zones = [str(z) for z in df_master['zone'].unique() if pd.notna(z)]
+            z_ana = st.selectbox("Filtrer l'analyse par Zone :", ["Toutes"] + sorted(unique_zones))
+            df_m_f = df_master if z_ana == "Toutes" else df_master[df_master['zone'] == z_ana]
+            df_s_f = saisie if z_ana == "Toutes" else saisie[saisie['zone'] == z_ana]
+            
+            if df_s_f.empty:
+                st.warning(f"Aucune saisie trouvée pour la zone {z_ana}.")
+                st.stop()
 
-        q_col = 'stock_theorique' if 'stock_theorique' in df_m_f.columns else None
-        
-        if q_col:
-            df_m_f[q_col] = df_m_f[q_col].apply(robust_num).fillna(0)
-            df_s_f['qte_saisie'] = df_s_f['qte_saisie'].apply(robust_num).fillna(0)
+            def robust_num(s):
+                if pd.isna(s): return 0.0
+                if isinstance(s, str): s = s.replace('\xa0', '').replace(' ', '').replace(',', '.')
+                return pd.to_numeric(s, errors='coerce')
+
+            q_col = 'stock_theorique' if 'stock_theorique' in df_m_f.columns else None
+            
+            if q_col:
+                df_m_f[q_col] = df_m_f[q_col].apply(robust_num).fillna(0)
+                df_s_f['qte_saisie'] = df_s_f['qte_saisie'].apply(robust_num).fillna(0)
             
             if "Rapide" in mode_conf:
                 m_g = df_m_f.groupby('designation')[q_col].sum().reset_index()
