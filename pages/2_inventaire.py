@@ -56,21 +56,38 @@ def clean_columns(df):
     df.columns = new_cols
     return df
 
-# --- 3. CHARGEMENT DES DONNÉES ET AUTH ---
+# --- 3. CHARGEMENT DES DONNÉES (OPTIMISÉ AVEC CACHE) ---
 if "current_user" not in st.session_state or st.session_state.current_user is None:
     st.warning("Veuillez vous connecter depuis la page principale.")
     st.stop()
 
 user = st.session_state.current_user
 
-df_master = None
-if os.path.exists(st.session_state.MASTER_PATH):
+@st.cache_data(ttl=3600)
+def load_and_clean_master(file_path, mtime):
     try:
-        df_master = clean_columns(pd.read_excel(st.session_state.MASTER_PATH))
-        if 'ddp' in df_master.columns:
-            df_master['ddp'] = df_master['ddp'].apply(format_ddp)
+        df = pd.read_excel(file_path)
+        # Nettoyage des colonnes
+        df = clean_columns(df)
+        
+        # Vectorisation du formatage DDP (beaucoup plus rapide que .apply)
+        if 'ddp' in df.columns:
+            # Conversion en datetime (coerce gère les erreurs en NaT)
+            dates = pd.to_datetime(df['ddp'], errors='coerce')
+            # Formater uniquement les dates valides
+            mask = dates.notna()
+            df['ddp'] = df['ddp'].astype(str) # Par défaut on garde le texte
+            df.loc[mask, 'ddp'] = dates[mask].dt.strftime('%m/%Y')
+            
+        return df
     except Exception as e:
         st.error(f"Erreur chargement Master : {e}")
+        return None
+
+df_master = None
+if os.path.exists(st.session_state.MASTER_PATH):
+    mtime = os.path.getmtime(st.session_state.MASTER_PATH)
+    df_master = load_and_clean_master(st.session_state.MASTER_PATH, mtime)
 
 # --- 4. INTERFACE (DÉFINITION DES TABS) ---
 # CRITIQUE : Cette ligne doit être AVANT l'utilisation de tabs[x]
