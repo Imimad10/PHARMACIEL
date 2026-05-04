@@ -282,12 +282,14 @@ with tabs[3]:
     df_global = load_data(DATA_RECOUV, COLS_RECOUV)
     
     if not df_global.empty:
-        # Conversion date
+        # Analyse de l'âge de la balance
         df_global['Date_dt'] = pd.to_datetime(df_global['Date'], errors='coerce')
-        now = pd.to_datetime(datetime.now().date())
+        now = pd.Timestamp(datetime.now().date())
         
-        # Calcul de l'ancienneté
-        df_global['Ancienneté'] = (now - df_global['Date_dt']).dt.days
+        df_global['Ancienneté'] = (now - df_global['Date_dt']).dt.days.fillna(0)
+        
+        # S'assurer que le reste à payer est numérique
+        df_global['Reste à payer'] = pd.to_numeric(df_global['Reste à payer'], errors='coerce').fillna(0)
         
         def age_bucket(days):
             if days <= 15: return "0-15 Jours"

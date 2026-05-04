@@ -47,7 +47,7 @@ if not data_p:
     st.stop()
 
 df_p = pd.DataFrame(data_p)
-df_p['date_dt'] = pd.to_datetime(df_p['date_pointage'], format="%d/%m/%Y %H:%M")
+df_p['date_dt'] = pd.to_datetime(df_p['date_pointage'], format="%d/%m/%Y %H:%M", errors='coerce')
 
 # --- 2. FILTRES ---
 col_f1, col_f2 = st.columns(2)
