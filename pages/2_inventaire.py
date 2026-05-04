@@ -6,7 +6,7 @@ import io
 from utils_ia import ask_ai, is_ia_enabled
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Darpharm Solution", layout="wide")
+st.set_page_config(page_title="Darpharm Solution - Mode Lot", layout="wide")
 DATA_DIR = "data_inventaire"
 ARCHIVE_DIR = os.path.join(DATA_DIR, "archives")
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -22,27 +22,17 @@ def normalize_text(text):
     text = unicodedata.normalize('NFD', text).encode('ascii', 'ignore').decode('utf-8')
     return text.lower().strip()
 
-def safe_float(val, default=0.0):
-    try:
-        if pd.isna(val): return default
-        if isinstance(val, str):
-            val = val.replace(' ', '').replace(',', '.')
-        return float(val)
-    except:
-        return default
-
 def clean_columns(df_to_clean):
+    # Mapping adapté spécifiquement à l'export Logipharm (image_9b9137.png)
     mapping = {
-        'designation': 'designation',
         'produit': 'designation',
-        'article': 'designation',
-        'lot': 'lot',
+        'n°lot': 'lot',
+        'nlot': 'lot',
+        'quantité dépôt': 'stock_theorique',
+        'quantite depot': 'stock_theorique',
         'ddp': 'ddp',
-        'peremption': 'ddp',
         'ppa': 'ppa',
-        'shp': 'shp',
-        'laboratoire': 'laboratoire',
-        'labo': 'laboratoire'
+        'shp': 'shp'
     }
     new_cols = []
     for col in df_to_clean.columns:
@@ -67,91 +57,59 @@ def load_data():
         st.error(f"Erreur Master : {e}")
         return None
 
-def find_quantity_col(df_check):
-    keywords = ['quantit', 'depot', 'stock', 'qte', 'globale']
-    for col in df_check.columns:
-        if any(key in col for key in keywords):
-            return col
-    return None
-
-# --- INITIALISATION ET SESSION ---
-if "current_user" not in st.session_state or st.session_state.current_user is None:
-    st.warning("Veuillez vous connecter depuis la page principale.")
+# --- INITIALISATION ---
+if "current_user" not in st.session_state:
+    st.warning("Veuillez vous connecter.")
     st.stop()
 
 user = st.session_state.current_user
 df_master = load_data()
 
-# --- SIDEBAR ---
-with st.sidebar:
-    st.title("🛡️ Contrôle")
-    st.write(f"Utilisateur : **{user['username']}**")
-    st.write(f"Rôle : `{user['role']}`")
-    st.divider()
-
-# --- INTERFACE PRINCIPALE ---
-tabs = st.tabs(["📊 Tableau de Bord", "📝 Saisie", "🔍 Confrontation", "⚙️ Administration"])
+# --- INTERFACE ---
+tabs = st.tabs(["📊 Tableau de Bord", "📝 Saisie par Lot", "🔍 Confrontation détaillée", "⚙️ Administration"])
 
 # 1. TABLEAU DE BORD
 with tabs[0]:
-    st.subheader("Vue d'ensemble")
     if df_master is not None:
         c1, c2 = st.columns(2)
-        c1.metric("Produits au Master", len(df_master))
+        c1.metric("Lignes Master (Lots)", len(df_master))
         if os.path.exists(SAISIE_PATH):
-            try:
-                s_count = pd.read_csv(SAISIE_PATH, sep=';', encoding='utf-8-sig')
-                c2.metric("Lignes Saisies", len(s_count))
-            except: c2.metric("Lignes Saisies", 0)
-        else:
-            c2.metric("Lignes Saisies", 0)
+            s_count = pd.read_csv(SAISIE_PATH, sep=';', encoding='utf-8-sig')
+            c2.metric("Lots Saisis", len(s_count))
     else:
-        st.info("Chargez un Master dans l'onglet Administration.")
+        st.info("Importez le fichier Logipharm dans Administration.")
 
-# 2. SAISIE
+# 2. SAISIE (Modifiée pour forcer la sélection du lot)
 with tabs[1]:
-    st.subheader("📝 Saisie Inventaire")
+    st.subheader("📝 Saisie par Lot")
     if df_master is not None:
-        if 'designation' not in df_master.columns:
-            st.error("⚠️ Colonne 'Désignation' introuvable.")
-            st.stop()
-            
         liste_produits = sorted(df_master['designation'].unique().tolist())
-        
-        c_m1, c_m2 = st.columns([1, 2])
-        with c_m1:
-            mode = st.radio("Méthode", ["⚡ Rapide", "📑 Détaillé"])
-        with c_m2:
-            produit_sel = st.selectbox("🔍 Produit", [""] + liste_produits)
+        produit_sel = st.selectbox("🔍 Sélectionner le produit", [""] + liste_produits)
 
         if produit_sel:
-            info_master = df_master[df_master['designation'] == produit_sel].iloc[0]
+            # Filtrer les lots disponibles pour ce produit dans le master
+            lots_disponibles = df_master[df_master['designation'] == produit_sel]['lot'].astype(str).tolist()
             
-            with st.form("form_saisie", clear_on_submit=True):
-                st.write(f"Saisie : **{produit_sel}**")
-                col1, col2, col3, col4, col5 = st.columns(5)
+            with st.form("form_saisie_lot", clear_on_submit=True):
+                col_l1, col_l2 = st.columns(2)
+                with col_l1:
+                    lot_sel = st.selectbox("📦 Sélectionner le Lot (Master)", lots_disponibles)
+                with col_l2:
+                    qte_in = st.number_input("Quantité dénombrée", min_value=0.0, step=1.0)
                 
-                with col1:
-                    qte_in = st.number_input("Quantité", min_value=0.0, step=1.0)
+                # Récupérer infos auto pour ce lot spécifique
+                info_lot = df_master[(df_master['designation'] == produit_sel) & (df_master['lot'].astype(str) == lot_sel)].iloc[0]
                 
-                if mode == "📑 Détaillé":
-                    with col2: lot_in = st.text_input("Lot", value=str(info_master.get('lot', '')))
-                    with col3: ddp_in = st.text_input("DDP", value=str(info_master.get('ddp', '')))
-                    with col4: ppa_in = st.number_input("PPA", value=safe_float(info_master.get('ppa', 0.0)))
-                    with col5: shp_in = st.text_input("SHP", value=str(info_master.get('shp', '')))
-                else:
-                    lot_in = str(info_master.get('lot', 'N/A'))
-                    ddp_in = str(info_master.get('ddp', 'N/A'))
-                    ppa_in = safe_float(info_master.get('ppa', 0.0))
-                    shp_in = str(info_master.get('shp', 'N/A'))
-                    st.info(f"Auto : Lot {lot_in} | DDP {ddp_in} | PPA {ppa_in}")
+                st.info(f"Info Master pour ce lot : DDP: {info_lot.get('ddp','?')} | PPA: {info_lot.get('ppa',0)}")
 
-                if st.form_submit_button("➕ Ajouter"):
-                    if qte_in > 0:
+                if st.form_submit_button("➕ Valider le lot"):
+                    if qte_in >= 0:
                         new_entry = {
                             'designation': produit_sel,
+                            'lot': lot_sel,
                             'qte_saisie': qte_in,
-                            'lot': lot_in, 'ddp': ddp_in, 'ppa': ppa_in, 'shp': shp_in,
+                            'ddp': info_lot.get('ddp',''),
+                            'ppa': info_lot.get('ppa',0),
                             'saisi_par': user['username'],
                             'date_saisie': pd.Timestamp.now().strftime("%d/%m/%Y %H:%M")
                         }
@@ -162,82 +120,57 @@ with tabs[1]:
                         else:
                             df_final = df_new
                         df_final.to_csv(SAISIE_PATH, index=False, sep=';', encoding='utf-8-sig')
-                        st.success("Ajouté !")
+                        st.success(f"Lot {lot_sel} enregistré.")
                         st.rerun()
 
-        st.divider()
-        if os.path.exists(SAISIE_PATH):
-            df_view = pd.read_csv(SAISIE_PATH, sep=';', encoding='utf-8-sig')
-            st.dataframe(df_view.sort_index(ascending=False), use_container_width=True)
-            if st.button("🗑️ Supprimer dernière ligne"):
-                df_view.drop(df_view.index[-1]).to_csv(SAISIE_PATH, index=False, sep=';', encoding='utf-8-sig')
-                st.rerun()
-
-# 3. CONFRONTATION (Avec boutons Archivage et Reset)
+# 3. CONFRONTATION (La fusion se fait maintenant sur Designation ET Lot)
 with tabs[2]:
-    st.subheader("🔍 Confrontation & Écarts")
+    st.subheader("🔍 Analyse des écarts par Lot")
     if user['role'] == "Admin":
         if os.path.exists(SAISIE_PATH) and df_master is not None:
             saisie = pd.read_csv(SAISIE_PATH, sep=';', encoding='utf-8-sig')
-            q_theo_col = find_quantity_col(df_master)
             
-            if q_theo_col:
-                # Calcul des écarts
-                saisie_grouped = saisie.groupby('designation')['qte_saisie'].sum().reset_index()
-                comp = pd.merge(df_master, saisie_grouped, on='designation', how='left')
-                
-                for c in ['qte_saisie', q_theo_col]:
-                    comp[c] = pd.to_numeric(comp[c], errors='coerce').fillna(0)
-                
-                comp['écart'] = comp['qte_saisie'] - comp[q_theo_col]
-                
-                # Affichage
-                st.write("### Synthèse des écarts")
-                st.dataframe(comp[['designation', q_theo_col, 'qte_saisie', 'écart']], use_container_width=True)
-                
-                # --- ACTIONS DE GESTION ---
-                st.divider()
-                st.subheader("📦 Fin de session d'inventaire")
-                
-                col_arch, col_reset = st.columns(2)
-                
-                with col_arch:
-                    st.write("**Archivage**")
-                    if st.button("📦 Archiver l'inventaire actuel", use_container_width=True):
-                        ts = pd.Timestamp.now().strftime("%Y%m%d_%H%M")
-                        arch_name = os.path.join(ARCHIVE_DIR, f"archive_{ts}.csv")
-                        saisie.to_csv(arch_name, index=False, sep=';', encoding='utf-8-sig')
-                        if os.path.exists(SAISIE_PATH): os.remove(SAISIE_PATH)
-                        st.success(f"Inventaire archivé : {arch_name}")
-                        st.rerun()
-                
-                with col_reset:
-                    st.write("**Remise à zéro**")
-                    confirm = st.checkbox("Confirmer la suppression totale")
-                    if st.button("🗑️ Réinitialiser (Vider tout)", disabled=not confirm, use_container_width=True):
-                        if os.path.exists(SAISIE_PATH): os.remove(SAISIE_PATH)
-                        st.warning("Données de saisie supprimées.")
-                        st.rerun()
+            # On groupe la saisie par Produit + Lot (au cas où on saisit le même lot en plusieurs fois)
+            saisie_grouped = saisie.groupby(['designation', 'lot'])['qte_saisie'].sum().reset_index()
+            saisie_grouped['lot'] = saisie_grouped['lot'].astype(str)
+            df_master['lot'] = df_master['lot'].astype(str)
 
-            # --- IA ---
-            if is_ia_enabled():
-                with st.expander("🤖 Assistant IA"):
-                    if st.button("Analyser les écarts"):
-                        ecarts = comp[comp['écart'] != 0][['designation', 'écart']].head(10).to_dict('records')
-                        st.write(ask_ai(f"Analyse ces écarts pharma : {ecarts}"))
+            # Fusion sur les DEUX colonnes
+            comp = pd.merge(df_master, saisie_grouped, on=['designation', 'lot'], how='left')
+            
+            comp['qte_saisie'] = comp['qte_saisie'].fillna(0)
+            comp['écart'] = comp['qte_saisie'] - comp['stock_theorique']
+            
+            # Mise en forme
+            def color_ecart(val):
+                color = 'red' if val < 0 else 'green' if val > 0 else 'black'
+                return f'color: {color}'
+
+            st.dataframe(comp[['designation', 'lot', 'ddp', 'stock_theorique', 'qte_saisie', 'écart']].style.applymap(color_ecart, subset=['écart']), use_container_width=True)
+
+            # --- BOUTONS ARCHIVE / RESET ---
+            st.divider()
+            c_a1, c_a2 = st.columns(2)
+            with c_a1:
+                if st.button("📦 Archiver l'inventaire Lot"):
+                    ts = pd.Timestamp.now().strftime("%Y%m%d_%H%M")
+                    saisie.to_csv(os.path.join(ARCHIVE_DIR, f"archive_lots_{ts}.csv"), index=False, sep=';')
+                    os.remove(SAISIE_PATH)
+                    st.rerun()
+            with c_a2:
+                conf = st.checkbox("Confirmer Reset Lot")
+                if st.button("🗑️ Tout effacer", disabled=not conf):
+                    os.remove(SAISIE_PATH)
+                    st.rerun()
         else:
-            st.info("Aucune donnée de saisie.")
-    else:
-        st.warning("Accès Admin requis.")
+            st.info("Pas de saisie détectée.")
 
 # 4. ADMINISTRATION
 with tabs[3]:
     if user['role'] == "Admin":
-        st.header("⚙️ Config Master")
-        up = st.file_uploader("Charger Master (XLSX)", type=["xlsx"])
+        st.write("### Import Logipharm")
+        up = st.file_uploader("Fichier Excel Logipharm", type=["xlsx"])
         if up:
             with open(MASTER_PATH, "wb") as f: f.write(up.getbuffer())
-            st.success("Master mis à jour.")
+            st.success("Master Logipharm chargé !")
             st.rerun()
-    else:
-        st.warning("Accès restreint.")
