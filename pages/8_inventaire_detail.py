@@ -206,10 +206,31 @@ with tabs[2]:
     else: st.info("Accès restreint ou données manquantes.")
 
 with tabs[3]:
-    st.subheader("⚙️ Admin")
-    up = st.file_uploader("Master (XLSX)", type="xlsx")
-    if up and st.button("🚀 Importer"):
-        with open(MASTER_PATH, "wb") as f: f.write(up.getbuffer())
-        st.cache_data.clear(); st.success("Master OK"); st.rerun()
-    if st.button("🗑️ Vider Saisies"):
-        if os.path.exists(SAISIE_PATH): os.remove(SAISIE_PATH); st.success("Saisies effacées"); st.rerun()
+    st.subheader("⚙️ Gestion des fichiers")
+    up = st.file_uploader("Importer Master Détail (XLSX)", type="xlsx")
+    if up:
+        if st.button("🚀 Confirmer l'importation"):
+            with open(MASTER_PATH, "wb") as f: f.write(up.getbuffer())
+            st.cache_data.clear()
+            st.success("Master Détail importé avec succès !")
+            st.rerun()
+            
+    st.divider()
+    c1, c2 = st.columns(2)
+    
+    if c1.button("🗑️ Vider Inventaire (Saisie)", use_container_width=True):
+        if os.path.exists(SAISIE_PATH):
+            os.remove(SAISIE_PATH)
+            st.success("Toutes les saisies terrain ont été effacées.")
+            st.rerun()
+        else:
+            st.info("Le fichier de saisie est déjà vide.")
+            
+    if c2.button("🔴 Supprimer Master", use_container_width=True):
+        if os.path.exists(MASTER_PATH):
+            os.remove(MASTER_PATH)
+            st.cache_data.clear()
+            st.success("Fichier Master supprimé.")
+            st.rerun()
+        else:
+            st.info("Aucun Master à supprimer.")
