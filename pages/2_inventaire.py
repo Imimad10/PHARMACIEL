@@ -11,8 +11,42 @@ MASTER_PATH = os.path.join(DATA_DIR, "master.xlsx")
 SAISIE_PATH = os.path.join(DATA_DIR, "saisie.csv")
 
 # --- FONCTIONS ---
+import unicodedata
+
+def normalize_text(text):
+    if not isinstance(text, str): return str(text)
+    # Normalisation pour enlever les accents
+    text = unicodedata.normalize('NFD', text).encode('ascii', 'ignore').decode('utf-8')
+    return text.lower().strip()
+
 def clean_columns(df_to_clean):
-    df_to_clean.columns = df_to_clean.columns.astype(str).str.lower().str.strip()
+    # Mapping des variations vers les noms standards utilisés dans le code
+    mapping = {
+        'designation': 'designation',
+        'produit': 'designation',
+        'article': 'designation',
+        'lot': 'lot',
+        'ddp': 'ddp',
+        'peremption': 'ddp',
+        'ppa': 'ppa',
+        'shp': 'shp',
+        'laboratoire': 'laboratoire',
+        'labo': 'laboratoire'
+    }
+    
+    new_cols = []
+    for col in df_to_clean.columns:
+        norm_col = normalize_text(col)
+        matched = False
+        for key, target in mapping.items():
+            if key in norm_col:
+                new_cols.append(target)
+                matched = True
+                break
+        if not matched:
+            new_cols.append(norm_col)
+            
+    df_to_clean.columns = new_cols
     return df_to_clean
 
 def load_data():
@@ -66,6 +100,12 @@ with tabs[0]:
 with tabs[1]:
     st.subheader("📝 Saisie Inventaire")
     if df_master is not None:
+        # Vérifier si la colonne 'designation' existe après nettoyage
+        if 'designation' not in df_master.columns:
+            st.error("⚠️ La colonne 'Désignation' est introuvable dans le fichier Master. Veuillez vérifier les entêtes.")
+            st.info(f"Colonnes détectées : {list(df_master.columns)}")
+            st.stop()
+            
         # Initialiser la liste des produits pour le selectbox
         liste_produits = sorted(df_master['designation'].unique().tolist())
         
@@ -164,7 +204,12 @@ with tabs[2]:
                 comp['écart'] = comp['qte_saisie'] - comp[q_theo_col]
                 
                 st.write("### Tableau Récapitulatif")
-                st.dataframe(comp[['designation', 'laboratoire', q_theo_col, 'qte_saisie', 'écart']], use_container_width=True)
+                # Colonnes à afficher
+                cols_to_show = ['designation']
+                if 'laboratoire' in comp.columns: cols_to_show.append('laboratoire')
+                cols_to_show.extend([q_theo_col, 'qte_saisie', 'écart'])
+                
+                st.dataframe(comp[cols_to_show], use_container_width=True)
                 
                 # EXPORT EXCEL
                 import io
