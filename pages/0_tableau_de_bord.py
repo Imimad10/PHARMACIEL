@@ -3,8 +3,13 @@ import pandas as pd
 import os
 from tinydb import TinyDB, Query
 
-st.title("📊 Tableau de Bord Central")
-st.write("Bienvenue sur votre portail de pilotage. Voici un résumé de l'activité globale.")
+user = st.session_state.get('current_user', {'username': 'Utilisateur', 'role': 'Saisie'})
+username = user['username']
+role = user.get('role', 'Saisie')
+
+st.title(f"👋 Bonjour, {username} !")
+st.markdown(f"### Bienvenue sur votre Portail Darpharm Solution")
+st.write(f"Connecté en tant que **{role}**. Voici un aperçu de l'activité en temps réel pour aujourd'hui.")
 
 # --- 1. COLLECTE DES DONNÉES ---
 # Note: On récupère les infos essentielles de chaque module

@@ -114,7 +114,13 @@ if is_ia_enabled():
 pages_to_show = {}
 nav_list = []
 
-for p_name in user_pages:
+# On s'assure que Dashboard est en premier si l'utilisateur y a accès
+ordered_user_pages = user_pages.copy()
+if "Dashboard" in ordered_user_pages:
+    ordered_user_pages.remove("Dashboard")
+    ordered_user_pages.insert(0, "Dashboard")
+
+for p_name in ordered_user_pages:
     if p_name in ALL_PAGES:
         nav_list.append(ALL_PAGES[p_name])
 
