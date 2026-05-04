@@ -129,7 +129,7 @@ with tabs[1]:
 
 with tabs[2]:
     st.subheader("🔍 Analyse des écarts")
-    if user['role'] == "Admin" and os.path.exists(SAISIE_PATH) and df_master is not None:
+    if user['role'] in ["Admin", "Superviseur"] and os.path.exists(SAISIE_PATH) and df_master is not None:
         try:
             saisie = pd.read_csv(SAISIE_PATH, sep=';', on_bad_lines='skip')
             
@@ -214,10 +214,11 @@ with tabs[2]:
                         st.dataframe(comp_d.style.apply(highlight_diffs_detail, axis=1), use_container_width=True, hide_index=True)
         except Exception as e:
             st.error(f"Erreur d'analyse : {e}")
-    else: st.info("Accès restreint ou données manquantes.")
+    else: st.warning("Accès réservé aux Administrateurs et Superviseurs.")
 
 with tabs[3]:
-    st.subheader("⚙️ Gestion des fichiers")
+    if user['role'] == "Admin":
+        st.subheader("⚙️ Gestion des fichiers")
     up = st.file_uploader("Importer Master Détail (XLSX)", type="xlsx")
     if up:
         if st.button("🚀 Confirmer l'importation"):
@@ -245,3 +246,5 @@ with tabs[3]:
             st.rerun()
         else:
             st.info("Aucun Master à supprimer.")
+    else:
+        st.warning("L'onglet Admin est réservé aux administrateurs système.")
