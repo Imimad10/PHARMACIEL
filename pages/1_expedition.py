@@ -443,18 +443,25 @@ with tab_livreurs:
                 st.rerun()
 
     st.subheader("📋 Liste des Livreurs et Affectations")
+    st.write("Vous pouvez modifier directement les informations dans le tableau ci-dessous (cliquez sur une cellule).")
     df_livreurs_actuel = load_livreurs()
+    
+    # On permet la saisie libre si le secteur n'est pas encore dans la base clients
     edited_livreurs = st.data_editor(
         df_livreurs_actuel, 
         use_container_width=True, 
         num_rows="dynamic",
         column_config={
-            "Secteur": st.column_config.SelectboxColumn("Secteur Affecté", options=liste_secteurs_dispo)
+            "Nom": st.column_config.TextColumn("Nom", help="Nom du livreur", required=True),
+            "Secteur": st.column_config.TextColumn("Secteur Affecté", help="Saisissez le nom du secteur (ex: BLIDA, ALGER...)")
         }
     )
-    if st.button("💾 Sauvegarder les modifications"):
+    
+    if st.button("💾 Sauvegarder les modifications", use_container_width=True, type="primary"):
         save_livreurs(edited_livreurs)
-        st.success("Affectations mises à jour !")
+        st.success("✅ Les informations des livreurs et leurs affectations ont été mises à jour !")
+        log_action(st.session_state.current_user['username'], "Mise à jour de la liste des livreurs", "Logistique")
+        st.rerun()
 
 # 3. GESTION DES SECTEURS (Clients)
 with tab_secteurs:

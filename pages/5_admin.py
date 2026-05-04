@@ -54,7 +54,15 @@ if tab_add:
             u_name = st.text_input("Nom d'utilisateur")
             u_pwd = st.text_input("Mot de passe")
             u_role = st.selectbox("Rôle", ["Saisie", "Superviseur", "Admin"])
-            u_pages = st.multiselect("Accès aux modules", MODULES_DISPO)
+            
+            # Suggestion automatique de pages selon le rôle
+            default_p = []
+            if u_role == "Superviseur":
+                default_p = ["Dashboard", "Logistique", "Inventaire Détail", "Scanneur QR", "Suivi"]
+            elif u_role == "Saisie":
+                default_p = ["Logistique", "Inventaire", "Inventaire Détail"]
+                
+            u_pages = st.multiselect("Accès aux modules", MODULES_DISPO, default=default_p)
             u_zone = st.selectbox("Zone Attribuée (Inventaire Détail)", ["Aucune", "A", "B", "C", "D", "Frigo"])
             
             if st.form_submit_button("Créer l'utilisateur"):
