@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import unicodedata
+from utils_ia import ask_ai, is_ia_enabled
 
 # --- 1. CONFIGURATION & CHEMINS ---
 if "DATA_DIR" not in st.session_state:
@@ -15,6 +16,13 @@ os.makedirs(st.session_state.DATA_DIR, exist_ok=True)
 def normalize_text(text):
     if not isinstance(text, str): return str(text)
     return unicodedata.normalize('NFD', text).encode('ascii', 'ignore').decode('utf-8').lower().strip()
+
+def find_quantity_col(df_check):
+    keywords = ['quantit', 'depot', 'stock', 'qte', 'globale']
+    for col in df_check.columns:
+        if any(key in col for key in keywords):
+            return col
+    return None
 
 def format_ddp(val):
     try:
@@ -48,7 +56,13 @@ def clean_columns(df):
     df.columns = new_cols
     return df
 
-# --- 3. CHARGEMENT DES DONNÉES ---
+# --- 3. CHARGEMENT DES DONNÉES ET AUTH ---
+if "current_user" not in st.session_state or st.session_state.current_user is None:
+    st.warning("Veuillez vous connecter depuis la page principale.")
+    st.stop()
+
+user = st.session_state.current_user
+
 df_master = None
 if os.path.exists(st.session_state.MASTER_PATH):
     try:
@@ -115,52 +129,59 @@ with tabs[1]:
 with tabs[2]:
     st.subheader("🔍 Analyse des écarts (Minitieuse)")
     if user['role'] == "Admin":
-        if os.path.exists(SAISIE_PATH) and df_master is not None:
-            saisie = pd.read_csv(SAISIE_PATH, sep=';', encoding='utf-8-sig')
-            saisie = clean_columns(saisie)
-            q_theo_col = find_quantity_col(df_master)
-            
-            if q_theo_col and 'designation' in df_master.columns:
-                # Grouper la saisie par produit pour avoir la quantité totale (tous lots confondus)
-                saisie_grouped = saisie.groupby('designation')['qte_saisie'].sum().reset_index()
+        if os.path.exists(st.session_state.SAISIE_PATH) and df_master is not None:
+            try:
+                saisie = pd.read_csv(st.session_state.SAISIE_PATH, sep=';', encoding='utf-8-sig')
+                saisie = clean_columns(saisie)
+                q_theo_col = find_quantity_col(df_master)
                 
-                # Fusionner avec le Master
-                comp = pd.merge(df_master, saisie_grouped, on='designation', how='left')
-                comp['qte_saisie'] = comp['qte_saisie'].fillna(0)
-                comp['écart'] = comp['qte_saisie'] - comp[q_theo_col]
-                
-                st.write("### Tableau Récapitulatif")
-                st.dataframe(comp[['designation', 'laboratoire', q_theo_col, 'qte_saisie', 'écart']], use_container_width=True)
-                
-                # EXPORT EXCEL
-                import io
-                buffer = io.BytesIO()
-                comp.to_excel(buffer, index=False)
-                st.download_button(
-                    label="📥 Exporter les écarts en Excel",
-                    data=buffer.getvalue(),
-                    file_name="Ecarts_Inventaire_Detaille.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    type="primary"
-                )
-                
-                st.divider()
-                st.write("### Détail par Lot (Saisie terrain)")
-                st.dataframe(saisie, use_container_width=True)
+                if q_theo_col and 'designation' in df_master.columns:
+                    # Assurer que les colonnes de quantité sont numériques
+                    saisie['qte_saisie'] = pd.to_numeric(saisie['qte_saisie'], errors='coerce').fillna(0)
+                    df_master[q_theo_col] = pd.to_numeric(df_master[q_theo_col], errors='coerce').fillna(0)
+                    
+                    # Grouper la saisie par produit pour avoir la quantité totale (tous lots confondus)
+                    saisie_grouped = saisie.groupby('designation')['qte_saisie'].sum().reset_index()
+                    
+                    # Fusionner avec le Master
+                    comp = pd.merge(df_master, saisie_grouped, on='designation', how='left')
+                    comp['qte_saisie'] = comp['qte_saisie'].fillna(0)
+                    comp['écart'] = comp['qte_saisie'] - comp[q_theo_col]
+                    
+                    st.write("### Tableau Récapitulatif")
+                    st.dataframe(comp[['designation', 'laboratoire', q_theo_col, 'qte_saisie', 'écart']], use_container_width=True)
+                    
+                    # EXPORT EXCEL
+                    import io
+                    buffer = io.BytesIO()
+                    comp.to_excel(buffer, index=False)
+                    st.download_button(
+                        label="📥 Exporter les écarts en Excel",
+                        data=buffer.getvalue(),
+                        file_name="Ecarts_Inventaire_Detaille.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        type="primary"
+                    )
+                    
+                    st.divider()
+                    st.write("### Détail par Lot (Saisie terrain)")
+                    st.dataframe(saisie, use_container_width=True)
 
-                if st.button("🗑️ Réinitialiser tout l'inventaire"):
-                    os.remove(SAISIE_PATH)
-                    st.rerun()
-            
-            # --- ANALYSE IA ---
-            if is_ia_enabled():
-                st.divider()
-                with st.expander("🤖 Assistant IA Inventaire"):
-                    if st.button("📊 Analyser les écarts", use_container_width=True):
-                        with st.spinner("L'IA analyse vos données..."):
-                            ecarts = comp[comp['écart'] != 0][['designation', 'écart']].to_dict('records')
-                            prompt = f"Voici les écarts d'inventaire détectés : {ecarts}. Donne-moi un résumé des 3 plus gros problèmes et suggère des actions correctives pour un dépôt pharmaceutique."
-                            st.write(ask_ai(prompt))
+                    if st.button("🗑️ Réinitialiser tout l'inventaire"):
+                        os.remove(st.session_state.SAISIE_PATH)
+                        st.rerun()
+                
+                # --- ANALYSE IA ---
+                if is_ia_enabled():
+                    st.divider()
+                    with st.expander("🤖 Assistant IA Inventaire"):
+                        if st.button("📊 Analyser les écarts", use_container_width=True):
+                            with st.spinner("L'IA analyse vos données..."):
+                                ecarts = comp[comp['écart'] != 0][['designation', 'écart']].to_dict('records')
+                                prompt = f"Voici les écarts d'inventaire détectés : {ecarts}. Donne-moi un résumé des 3 plus gros problèmes et suggère des actions correctives pour un dépôt pharmaceutique."
+                                st.write(ask_ai(prompt))
+            except Exception as e:
+                st.error(f"Erreur d'analyse : {e}")
         else: st.info("Aucune donnée de saisie trouvée.")
     else: st.warning("Accès restreint à l'administrateur.")
 
