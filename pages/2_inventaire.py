@@ -142,68 +142,98 @@ with tabs[1]:
     else:
         st.info("En attente du Master...")
 
-# --- ONGLET 2 : CONFRONTATION (CORRIGÉ POUR VALUEERROR ET ALERTES) ---
+# --- ONGLET 2 : CONFRONTATION ---
 with tabs[2]:
-    st.subheader("🔍 Analyse des écarts (Minitieuse)")
+    st.subheader("🔍 Analyse des écarts")
     if user['role'] == "Admin":
         if os.path.exists(st.session_state.SAISIE_PATH) and df_master is not None:
             try:
                 saisie = pd.read_csv(st.session_state.SAISIE_PATH, sep=';', encoding='utf-8-sig')
-                # saisie = clean_columns(saisie)  # Ne pas nettoyer la saisie, car les colonnes sont déjà nommées correctement
                 q_theo_col = find_quantity_col(df_master)
                 
                 if q_theo_col and 'designation' in df_master.columns:
-                    # Assurer que les colonnes de quantité sont numériques
-                    if 'qte_saisie' in saisie.columns:
-                        saisie['qte_saisie'] = pd.to_numeric(saisie['qte_saisie'], errors='coerce').fillna(0)
-                    else:
-                        st.error("La colonne 'qte_saisie' est absente du fichier de saisie.")
-                        st.stop()
+                    mode_conf = st.radio("Mode d'analyse :", ["⚡ Rapide (Global par produit)", "🔬 Détaillé (Par Lot & Métadonnées)"], horizontal=True)
+                    
+                    # Nettoyage numérique
+                    saisie['qte_saisie'] = pd.to_numeric(saisie['qte_saisie'], errors='coerce').fillna(0)
                     df_master[q_theo_col] = pd.to_numeric(df_master[q_theo_col], errors='coerce').fillna(0)
                     
-                    # Grouper la saisie par produit pour avoir la quantité totale (tous lots confondus)
-                    saisie_grouped = saisie.groupby('designation')['qte_saisie'].sum().reset_index()
+                    if "Rapide" in mode_conf:
+                        # --- MODE RAPIDE ---
+                        saisie_grouped = saisie.groupby('designation')['qte_saisie'].sum().reset_index()
+                        comp = pd.merge(df_master.groupby('designation')[q_theo_col].sum().reset_index(), 
+                                        saisie_grouped, on='designation', how='outer').fillna(0)
+                        comp['écart'] = comp['qte_saisie'] - comp[q_theo_col]
+                        
+                        st.write("### Récapitulatif Global")
+                        st.dataframe(comp[['designation', q_theo_col, 'qte_saisie', 'écart']], use_container_width=True)
                     
-                    # Fusionner avec le Master
-                    comp = pd.merge(df_master, saisie_grouped, on='designation', how='left')
-                    comp['qte_saisie'] = comp['qte_saisie'].fillna(0)
-                    comp['écart'] = comp['qte_saisie'] - comp[q_theo_col]
-                    
-                    st.write("### Tableau Récapitulatif")
-                    st.dataframe(comp[['designation', 'laboratoire', q_theo_col, 'qte_saisie', 'écart']], use_container_width=True)
-                    
+                    else:
+                        # --- MODE DÉTAILLÉ ---
+                        # On prépare le master pour la fusion par lot
+                        master_sub = df_master[['designation', 'lot', q_theo_col, 'ddp', 'ppa']].copy()
+                        master_sub.columns = ['designation', 'lot_master', 'stock_theorique', 'ddp_master', 'ppa_master']
+                        
+                        # Fusion avec la saisie
+                        comp_det = pd.merge(master_sub, saisie, on=['designation', 'lot_master'], how='outer').fillna({'qte_saisie': 0, 'stock_theorique': 0})
+                        comp_det['écart'] = comp_det['qte_saisie'] - comp_det['stock_theorique']
+                        
+                        # Fonction de stylage
+                        def highlight_diffs(row):
+                            style = ['' for _ in row.index]
+                            red_cell = 'background-color: #9e1a1a; color: white;'
+                            
+                            # Comparaison DDP
+                            if str(row.get('ddp_saisi')) != str(row.get('ddp_master')) and pd.notna(row.get('ddp_saisi')):
+                                style[row.index.get_loc('ddp_saisi')] = red_cell
+                            # Comparaison PPA
+                            if float(row.get('ppa_saisi', 0)) != float(row.get('ppa_master', 0)) and row.get('ppa_saisi') != 0:
+                                style[row.index.get_loc('ppa_saisi')] = red_cell
+                            # Comparaison Lot (si l'utilisateur a changé le lot réel par rapport au lot master)
+                            if str(row.get('lot')) != str(row.get('lot_master')) and pd.notna(row.get('lot')):
+                                style[row.index.get_loc('lot')] = red_cell
+                            # Comparaison Quantité
+                            if row['écart'] != 0:
+                                style[row.index.get_loc('qte_saisie')] = red_cell
+                                style[row.index.get_loc('écart')] = red_cell
+                                
+                            return style
+
+                        st.write("### Analyse Minitieuse des Lots")
+                        st.caption("💡 Les cellules en rouge indiquent une différence avec les données du Master.")
+                        
+                        cols_view = ['designation', 'lot_master', 'lot', 'stock_theorique', 'qte_saisie', 'écart', 'ddp_master', 'ddp_saisi', 'ppa_master', 'ppa_saisi']
+                        # Filtrer uniquement les colonnes qui existent
+                        actual_cols = [c for c in cols_view if c in comp_det.columns]
+                        
+                        st.dataframe(comp_det[actual_cols].style.apply(highlight_diffs, axis=1), use_container_width=True)
+
                     # EXPORT EXCEL
                     import io
                     buffer = io.BytesIO()
-                    comp.to_excel(buffer, index=False)
-                    st.download_button(
-                        label="📥 Exporter les écarts en Excel",
-                        data=buffer.getvalue(),
-                        file_name="Ecarts_Inventaire_Detaille.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        type="primary"
-                    )
+                    if "Rapide" in mode_conf: comp.to_excel(buffer, index=False)
+                    else: comp_det.to_excel(buffer, index=False)
                     
-                    st.divider()
-                    st.write("### Détail par Lot (Saisie terrain)")
-                    st.dataframe(saisie, use_container_width=True)
+                    st.download_button(
+                        label="📥 Exporter l'analyse en Excel",
+                        data=buffer.getvalue(),
+                        file_name=f"Analyse_Inventaire_{'Rapide' if 'Rapide' in mode_conf else 'Detaillee'}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
 
-                    if st.button("🗑️ Réinitialiser tout l'inventaire"):
-                        os.remove(st.session_state.SAISIE_PATH)
-                        st.rerun()
-                
                 # --- ANALYSE IA ---
                 if is_ia_enabled():
                     st.divider()
                     with st.expander("🤖 Assistant IA Inventaire"):
                         if st.button("📊 Analyser les écarts", use_container_width=True):
                             with st.spinner("L'IA analyse vos données..."):
-                                ecarts = comp[comp['écart'] != 0][['designation', 'écart']].to_dict('records')
-                                prompt = f"Voici les écarts d'inventaire détectés : {ecarts}. Donne-moi un résumé des 3 plus gros problèmes et suggère des actions correctives pour un dépôt pharmaceutique."
+                                df_target = comp if "Rapide" in mode_conf else comp_det
+                                ecarts = df_target[df_target['écart'] != 0].head(20).to_dict('records')
+                                prompt = f"Voici un extrait des écarts d'inventaire : {ecarts}. Analyse les causes possibles et suggère des corrections."
                                 st.write(ask_ai(prompt))
             except Exception as e:
                 st.error(f"Erreur d'analyse : {e}")
-        else: st.info("Aucune donnée de saisie trouvée.")
+        else: st.info("Aucune donnée de saisie trouvée ou Master manquant.")
     else: st.warning("Accès restreint à l'administrateur.")
 
 # --- ONGLET 3 : ADMIN ---
@@ -216,7 +246,17 @@ with tabs[3]:
         st.success("Master mis à jour !")
         st.rerun()
     
-    if st.button("🔴 RESET TOTAL (Vider tout)"):
-        if os.path.exists(st.session_state.MASTER_PATH): os.remove(st.session_state.MASTER_PATH)
-        if os.path.exists(st.session_state.SAISIE_PATH): os.remove(st.session_state.SAISIE_PATH)
-        st.rerun()
+    st.divider()
+    col_del1, col_del2 = st.columns(2)
+    
+    if col_del1.button("🗑️ Vider Inventaire (Saisie)", type="secondary", use_container_width=True):
+        if os.path.exists(st.session_state.SAISIE_PATH):
+            os.remove(st.session_state.SAISIE_PATH)
+            st.success("Saisies effacées.")
+            st.rerun()
+            
+    if col_del2.button("🔴 Supprimer Master", type="primary", use_container_width=True):
+        if os.path.exists(st.session_state.MASTER_PATH):
+            os.remove(st.session_state.MASTER_PATH)
+            st.success("Master supprimé.")
+            st.rerun()
