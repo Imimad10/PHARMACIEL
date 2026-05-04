@@ -23,7 +23,6 @@ if "current_user" not in st.session_state or st.session_state.current_user is No
 # --- FONCTIONS TEMPORELLES ---
 from datetime import timedelta
 def get_now():
-    # Application du décalage horaire
     return datetime.utcnow() + timedelta(hours=st.session_state.tz_offset)
 
 # --- FONCTIONS ---
@@ -53,7 +52,7 @@ def generer_pdf(df, chambre_name):
     pdf.set_font("Arial", 'I', 9)
     pdf.cell(0, 6, f"Extrait le : {get_now().strftime('%d/%m/%Y a %H:%M')}", 0, 1, 'C')
     pdf.ln(8)
-    # ... (reste du PDF identique)
+    
     nb_releves = len(df)
     moyenne = df['Température'].mean() if nb_releves > 0 else 0
     alertes = len(df[df['Statut'] == 'ALERTE'])
@@ -85,7 +84,7 @@ def generer_pdf(df, chambre_name):
 
 def get_data():
     df = pd.DataFrame()
-    conn_status = "red" # Initialement erreur
+    conn_status = "red"
     error_msg = None
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
@@ -93,10 +92,9 @@ def get_data():
         conn_status = "green"
     except Exception as e:
         error_msg = str(e)
-        conn_status = "orange" # Offline/Local
+        conn_status = "orange"
         if os.path.isfile(DATA_FILE):
             df = pd.read_csv(DATA_FILE)
-    
     if not df.empty:
         df = clean_frigo_data(df)
     return df, conn_status, error_msg
@@ -128,7 +126,7 @@ if conn_status == "green": st.sidebar.success("📡 Connecté (GSheets Online)")
 elif conn_status == "orange": st.sidebar.warning("💾 Mode Local (GSheets Offline)")
 else: st.sidebar.error("❌ Erreur Connexion")
 
-tabs = st.tabs(["📝 Saisie CF1", "📝 Saisie CF2", "📊 Dashboard CF1", "📊 Dashboard CF2", "⚙️ Admin"])
+tabs = st.tabs(["📝 Saisie CF1", "📝 Saisie CF2", "📊 Dashboard CF1", "📊 Dashboard CF2", "📋 Fiche Manuelle", "⚙️ Admin"])
 
 # --- SAISIE ---
 def render_saisie(chambre_name):
@@ -164,37 +162,25 @@ def render_dashboard(chambre_name, df_all):
     df = df_all[df_all['Chambre'] == chambre_name].copy()
     if not df.empty:
         df['Timestamp'] = pd.to_datetime(df['Date'] + ' ' + df['Heure'], format="%d/%m/%Y %H:%M", errors='coerce')
-        
-        # Alerte visuelle si le dernier relevé est critique
         last_entry = df.iloc[-1]
         if last_entry['Statut'] == "ALERTE":
             st.error(f"🚨 ATTENTION : La dernière température de la {chambre_name} ({last_entry['Température']}°C) est HORS PLAGE !")
-
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Dernier Relevé", f"{last_entry['Température']} °C")
         c2.metric("Moyenne", f"{df['Température'].mean():.1f} °C")
-        
-        # Suggestion : Taux de conformité
-        conformite = (len(df[df['Statut'] == 'OK']) / len(df)) * 100
+        conformite = (len(df[df['Statut'] == 'OK']) / len(df)) * 100 if len(df) > 0 else 0
         c3.metric("Conformité", f"{conformite:.1f} %")
         c4.metric("Alertes", len(df[df['Statut'] == 'ALERTE']))
-        
-        st.plotly_chart(px.line(df.tail(50), x="Timestamp", y="Température", markers=True, 
-                                title=f"Historique {chambre_name}", color_discrete_sequence=['#00CC96']), use_container_width=True)
-        
-        # Export & IA
+        st.plotly_chart(px.line(df.tail(50), x="Timestamp", y="Température", markers=True, title=f"Historique {chambre_name}"), use_container_width=True)
         col_exp1, col_exp2 = st.columns(2)
         with col_exp1:
             pdf = generer_pdf(df, chambre_name)
-            st.download_button(f"📥 Rapport PDF {chambre_name}", data=pdf, file_name=f"Rapport_{chambre_name.replace(' ','_')}.pdf", use_container_width=True)
+            st.download_button(f"📥 Rapport PDF {chambre_name}", data=pdf, file_name=f"Rapport_{chambre_name}.pdf", use_container_width=True)
         with col_exp2:
             if is_ia_enabled():
                 if st.button(f"🤖 IA Analyse : {chambre_name}", use_container_width=True):
                     last_30 = df.tail(30)['Température'].tolist()
-                    prompt = f"Analyse ces 30 relevés de la chambre froide '{chambre_name}' : {last_30}. Risque de panne ? Tendance ? Conseil court."
-                    st.info(ask_ai(prompt))
-                    
-        st.write("### Historique complet")
+                    st.info(ask_ai(f"Analyse ces relevés pour {chambre_name} : {last_30}"))
         st.dataframe(df.sort_index(ascending=False), use_container_width=True)
     else:
         st.info(f"Aucune donnée pour {chambre_name}")
@@ -202,19 +188,53 @@ def render_dashboard(chambre_name, df_all):
 with tabs[2]: render_dashboard(CHAMBRES[0], df_all)
 with tabs[3]: render_dashboard(CHAMBRES[1], df_all)
 
-# --- ADMIN ---
+# --- ONGLET 4 : FICHE MANUELLE ---
 with tabs[4]:
+    st.subheader("📋 Génération de Fiche de Relevés Manuels")
+    st.write("Générez un tableau vierge à imprimer pour vos relevés au stylo.")
+    col_f1, col_f2 = st.columns(2)
+    mois_noms = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
+    mois_sel = col_f1.selectbox("Mois", range(1, 13), format_func=lambda x: mois_noms[x-1], index=get_now().month - 1)
+    annee_sel = col_f2.number_input("Année", value=get_now().year, step=1)
+    room_fiche = st.selectbox("Chambre Froide concernée", CHAMBRES)
+    if st.button("📄 Générer la fiche PDF", use_container_width=True):
+        import calendar
+        num_days = calendar.monthrange(annee_sel, mois_sel)[1]
+        jours_valides = [datetime(annee_sel, mois_sel, d) for d in range(1, num_days + 1)]
+        jours_valides = [d.strftime("%d/%m/%Y") for d in jours_valides if d.weekday() not in [4, 5]]
+        pdf_f = FPDF()
+        pdf_f.add_page()
+        pdf_f.set_font("Arial", 'B', 14)
+        pdf_f.cell(0, 10, f"FICHE DE SUIVI DES TEMPERATURES ET HUMIDITE", 0, 1, 'C')
+        pdf_f.set_font("Arial", 'B', 11)
+        pdf_f.cell(0, 8, f"{room_fiche.upper()} - {mois_noms[mois_sel-1]} {annee_sel}", 0, 1, 'C')
+        pdf_f.ln(5)
+        pdf_f.set_font("Arial", 'B', 9)
+        pdf_f.set_fill_color(240, 240, 240)
+        h_cell = 8
+        w_cols = [35, 25, 30, 30, 70]
+        headers = ["Date", "Heure", "Temp (C)", "Humidite (%)", "Remarques"]
+        for i, h in enumerate(headers): pdf_f.cell(w_cols[i], h_cell, h, border=1, fill=True, align='C')
+        pdf_f.ln()
+        pdf_f.set_font("Arial", '', 9)
+        for d_str in jours_valides:
+            pdf_f.cell(w_cols[0], h_cell, d_str, border=1, align='C')
+            pdf_f.cell(w_cols[1], h_cell, "", border=1)
+            pdf_f.cell(w_cols[2], h_cell, "", border=1)
+            pdf_f.cell(w_cols[3], h_cell, "", border=1)
+            pdf_f.cell(w_cols[4], h_cell, "", border=1, ln=1)
+        st.download_button("📥 Télécharger la fiche PDF", data=pdf_f.output(dest='S').encode('latin-1'), file_name=f"Fiche_{mois_noms[mois_sel-1]}.pdf", type="primary")
+
+# --- ADMIN ---
+with tabs[5]:
     if st.session_state.current_user.get('role') == 'Admin':
         st.subheader("⚙️ Paramètres Système")
-        
-        # Réglage fuseau horaire
         st.session_state.tz_offset = st.number_input("Fuseau Horaire (GMT Offset)", value=st.session_state.tz_offset, step=1)
-        st.caption(f"Heure actuelle du système : **{get_now().strftime('%H:%M:%S')}**")
-        
+        st.caption(f"Heure actuelle : {get_now().strftime('%H:%M:%S')}")
         st.divider()
         st.subheader("🛠️ Gestion Administrative")
         df_edit = st.data_editor(df_all, use_container_width=True, num_rows="dynamic")
-        if st.button("💾 Sauvegarder les modifications"):
+        if st.button("💾 Sauvegarder"):
             try:
                 if conn_status == "green":
                     conn = st.connection("gsheets", type=GSheetsConnection)
@@ -223,14 +243,12 @@ with tabs[4]:
                 st.success("Base de données mise à jour !")
                 st.rerun()
             except Exception as e: st.error(f"Erreur: {e}")
-            
-        st.divider()
-        if st.button("🚀 Migrer Local -> Google Sheets"):
+        if st.button("🚀 Migrer vers GSheets"):
             try:
-                df_local = pd.read_csv(DATA_FILE)
+                df_l = pd.read_csv(DATA_FILE)
                 conn = st.connection("gsheets", type=GSheetsConnection)
-                conn.update(worksheet="Suivi_Frigo", data=df_local)
-                st.success("Migration terminée !")
+                conn.update(worksheet="Suivi_Frigo", data=df_l)
+                st.success("Migration réussie !")
             except Exception as e: st.error(f"Erreur: {e}")
     else:
-        st.warning("Accès réservé aux administrateurs.")
+        st.warning("Accès restreint.")
