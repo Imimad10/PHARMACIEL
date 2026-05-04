@@ -5,8 +5,37 @@ import os
 from tinydb import TinyDB, Query
 from utils_ia import is_ia_enabled
 
-# --- 1. CONFIGURATION ---
+# --- 1. CONFIGURATION & DESIGN RESPONSIVE ---
 st.set_page_config(page_title="Darpharm Solution - Portail", layout="wide", page_icon="💊")
+
+# Injection CSS pour l'adaptation mobile automatique
+st.markdown("""
+    <style>
+        /* Optimisations mobiles globales */
+        @media (max-width: 768px) {
+            .stButton button {
+                width: 100% !important;
+                height: 50px !important;
+                margin-bottom: 10px;
+            }
+            [data-testid="stMetricValue"] {
+                font-size: 1.8rem !important;
+            }
+            .main .block-container {
+                padding-left: 1rem !important;
+                padding-right: 1rem !important;
+                padding-top: 1rem !important;
+            }
+            /* Cacher les éléments trop larges sur mobile si besoin */
+            .mobile-hide { display: none; }
+        }
+        
+        /* Style Premium */
+        .stApp {
+            background: linear-gradient(135deg, #0e1117 0%, #161b22 100%);
+        }
+    </style>
+""", unsafe_allow_html=True)
 
 # --- 2. BASE DE DONNÉES UTILISATEURS ---
 os.makedirs("data", exist_ok=True)
@@ -152,6 +181,10 @@ with st.sidebar:
     else:
         st.title("💊 Darpharm Solution")
     st.write(f"Connecté: **{user['username']}** ({user.get('role', 'Saisie')})")
+    
+    if st.button("📱 Passer au Mode Mobile", use_container_width=True):
+        st.switch_page("pages/12_mobile_scan.py")
+        
     if st.button("🚪 Déconnexion", use_container_width=True):
         clear_session()
         st.session_state.current_user = None
