@@ -149,12 +149,16 @@ with tabs[2]:
         if os.path.exists(st.session_state.SAISIE_PATH) and df_master is not None:
             try:
                 saisie = pd.read_csv(st.session_state.SAISIE_PATH, sep=';', encoding='utf-8-sig')
-                saisie = clean_columns(saisie)
+                # saisie = clean_columns(saisie)  # Ne pas nettoyer la saisie, car les colonnes sont déjà nommées correctement
                 q_theo_col = find_quantity_col(df_master)
                 
                 if q_theo_col and 'designation' in df_master.columns:
                     # Assurer que les colonnes de quantité sont numériques
-                    saisie['qte_saisie'] = pd.to_numeric(saisie['qte_saisie'], errors='coerce').fillna(0)
+                    if 'qte_saisie' in saisie.columns:
+                        saisie['qte_saisie'] = pd.to_numeric(saisie['qte_saisie'], errors='coerce').fillna(0)
+                    else:
+                        st.error("La colonne 'qte_saisie' est absente du fichier de saisie.")
+                        st.stop()
                     df_master[q_theo_col] = pd.to_numeric(df_master[q_theo_col], errors='coerce').fillna(0)
                     
                     # Grouper la saisie par produit pour avoir la quantité totale (tous lots confondus)
