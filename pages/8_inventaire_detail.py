@@ -153,8 +153,13 @@ with tabs[2]:
                 else:
                     def robust_num(s):
                         if pd.isna(s): return 0.0
-                        if isinstance(s, str): s = s.replace('\xa0', '').replace(' ', '').replace(',', '.')
-                        return pd.to_numeric(s, errors='coerce')
+                        if isinstance(s, (int, float)): return float(s)
+                        if isinstance(s, str):
+                            s = s.replace('\xa0', '').replace(' ', '').replace(',', '.')
+                        try:
+                            val = pd.to_numeric(s, errors='coerce')
+                            return float(val) if pd.notna(val) else 0.0
+                        except: return 0.0
 
                     q_col = 'stock_theorique' if 'stock_theorique' in df_m_f.columns else None
                     
@@ -183,17 +188,25 @@ with tabs[2]:
                         def highlight_diffs_detail(row):
                             styles = ['' for _ in row.index]
                             red = 'background-color: #9e1a1a; color: white'
+                            
                             # Qte
-                            if row.get('qte_saisie', 0) != row.get(f'{q_col}_master' if q_col else 'stock_theorique_master', 0):
+                            q_m = robust_num(row.get(f'{q_col}_master' if q_col else 'stock_theorique_master', 0))
+                            q_s = robust_num(row.get('qte_saisie', 0))
+                            if q_s != q_m:
                                 styles[row.index.get_loc('qte_saisie')] = red
+                            
                             # Lot
                             if str(row.get('lot')) != str(row.get('lot_master')) and pd.notna(row.get('lot')):
                                 styles[row.index.get_loc('lot')] = red
+                            
                             # DDP
                             if str(row.get('ddp_saisi')) != str(row.get('ddp_master')) and pd.notna(row.get('ddp_saisi')):
                                 styles[row.index.get_loc('ddp_saisi')] = red
+                            
                             # PPA
-                            if float(row.get('ppa_saisi', 0)) != float(row.get('ppa_master', 0)) and row.get('ppa_saisi') != 0:
+                            p_m = robust_num(row.get('ppa_master', 0))
+                            p_s = robust_num(row.get('ppa_saisi', 0))
+                            if p_s != p_m and p_s != 0:
                                 styles[row.index.get_loc('ppa_saisi')] = red
                             return styles
 
