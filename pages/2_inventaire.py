@@ -154,9 +154,20 @@ with tabs[2]:
                 if q_theo_col and 'designation' in df_master.columns:
                     mode_conf = st.radio("Mode d'analyse :", ["⚡ Rapide (Global par produit)", "🔬 Détaillé (Par Lot & Métadonnées)"], horizontal=True)
                     
+                    # Fonction de nettoyage numérique robuste (gère '1 287,50')
+                    def robust_numeric(s):
+                        if pd.isna(s): return 0.0
+                        if isinstance(s, str):
+                            s = s.replace('\xa0', '').replace(' ', '').replace(',', '.')
+                        return pd.to_numeric(s, errors='coerce')
+
                     # Nettoyage numérique
-                    saisie['qte_saisie'] = pd.to_numeric(saisie['qte_saisie'], errors='coerce').fillna(0)
-                    df_master[q_theo_col] = pd.to_numeric(df_master[q_theo_col], errors='coerce').fillna(0)
+                    saisie['qte_saisie'] = saisie['qte_saisie'].apply(robust_numeric).fillna(0)
+                    df_master[q_theo_col] = df_master[q_theo_col].apply(robust_numeric).fillna(0)
+                    if 'ppa' in df_master.columns:
+                        df_master['ppa'] = df_master['ppa'].apply(robust_numeric).fillna(0)
+                    if 'ppa_saisi' in saisie.columns:
+                        saisie['ppa_saisi'] = saisie['ppa_saisi'].apply(robust_numeric).fillna(0)
                     
                     if "Rapide" in mode_conf:
                         # --- MODE RAPIDE ---
