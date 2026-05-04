@@ -177,11 +177,7 @@ with tabs[1]:
             st.download_button("📥 Télécharger PDF", generate_pdf(df_display, sel_liv), f"Route_{sel_liv}.pdf")
         
         with col_btns[1]:
-            # BOUTON RÉINITIALISER LE TABLEAU
-            if st.button("🗑️ Réinitialiser Tableau", help="Vide toutes les données de recouvrement"):
-                save_data(pd.DataFrame(columns=COLS_RECOUV), DATA_RECOUV)
-                st.warning("Tableau vidé avec succès.")
-                st.rerun()
+            st.write("") # Espace vide à la place du bouton supprimé
 
         edited = st.data_editor(df_display, use_container_width=True, hide_index=True)
         
@@ -333,9 +329,8 @@ with tabs[4]:
     f_cli = st.file_uploader("Importer base clients (Excel)", type=["xlsx"])
     if f_cli:
         df_cli_ex = pd.read_excel(f_cli)
-        if st.button("📥 Fusionner"):
+        if st.button("📥 Fusionner la base"):
             old_cli = load_data(DATA_CLIENTS, COLS_CLIENTS)
-            # Sécurité colonnes
             cols_ok = [c for c in COLS_CLIENTS if c in df_cli_ex.columns]
             updated_cli = pd.concat([old_cli, df_cli_ex[cols_ok]], ignore_index=True).drop_duplicates(subset=["Nom Client"])
             save_data(updated_cli, DATA_CLIENTS)
@@ -344,6 +339,21 @@ with tabs[4]:
     
     base_actuelle = load_data(DATA_CLIENTS, COLS_CLIENTS)
     edited_base = st.data_editor(base_actuelle, use_container_width=True, num_rows="dynamic")
-    if st.button("💾 Sauvegarder Base"):
+    if st.button("💾 Sauvegarder la Base Clients"):
         save_data(edited_base, DATA_CLIENTS)
+        st.success("Base sauvegardée.")
         st.rerun()
+
+    st.divider()
+    if st.session_state.current_user.get('role') == 'Admin':
+        st.subheader("🗑️ Nettoyage des Données (Admin uniquement)")
+        st.error("⚠️ Attention : Cette action supprimera définitivement toutes les données de recouvrement enregistrées.")
+        
+        # Double validation par checkbox pour éviter les erreurs
+        confirm = st.checkbox("Je confirme vouloir tout effacer")
+        if st.button("🔴 Réinitialiser le système de recouvrement", disabled=not confirm):
+            save_data(pd.DataFrame(columns=COLS_RECOUV), DATA_RECOUV)
+            st.success("Toutes les données de recouvrement ont été supprimées.")
+            st.rerun()
+    else:
+        st.info("Les fonctions de nettoyage sont réservées à l'administrateur système.")
