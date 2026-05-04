@@ -259,40 +259,51 @@ with tab_exp:
                         prompt = f"Voici des motifs de réclamations clients : {motifs}. Lesquels sont les plus critiques pour un grossiste pharma ? Donne une priorité."
                         st.warning(ask_ai(prompt))
 
-    st.subheader(f"Détails des {mode}s")
-    
-    # Édition et mise à jour du tableau
-    col_label = "Colissage" if mode == "Commande" else "Motif"
+    # --- FILTRAGE DYNAMIQUE DU TABLEAU ---
+    # On ne montre que les lignes qui correspondent au secteur du livreur actuel
+    if secteur_livreur and secteur_livreur != "nan":
+        df_visible = st.session_state.rows[st.session_state.rows['Secteur'].astype(str).str.strip().str.lower() == secteur_livreur.lower()]
+    else:
+        df_visible = pd.DataFrame(columns=st.session_state.rows.columns)
+
+    st.subheader(f"Détails des {mode}s ({secteur_livreur.upper() if secteur_livreur else 'Aucun secteur'})")
     
     # Configuration dynamique de la colonne Info selon le mode
+    col_label = "Colissage" if mode == "Commande" else "Motif"
     if mode == "Réclamation":
         info_config = st.column_config.SelectboxColumn("Motif", options=load_motifs())
     else:
         info_config = st.column_config.TextColumn("Colissage")
 
-    edited_rows = st.data_editor(
-        st.session_state.rows, 
+    # Édition du tableau filtré
+    edited_df = st.data_editor(
+        df_visible, 
         num_rows="dynamic", 
         use_container_width=True, 
         column_config={
             "Info": info_config,
             "Statut": st.column_config.SelectboxColumn("Statut", options=["En cours", "Livré", "Reporté", "Annulé"]),
-            "Signature": None, # Cache la signature du tableau UI
+            "Signature": None,
             "Secteur": st.column_config.TextColumn("Secteur", disabled=True)
         }
     )
-    st.session_state.rows = edited_rows
     
-    if st.button("🗑️ Vider le tableau"):
-        st.session_state.rows = pd.DataFrame(columns=["Client", "Ville", "Secteur", "N° Doc", "Info", "Statut", "Signature"])
+    # Synchronisation : On met à jour les lignes modifiées dans la session globale
+    if not edited_df.equals(df_visible):
+        # On supprime les anciennes lignes de ce secteur dans la session et on met les nouvelles
+        other_sectors = st.session_state.rows[st.session_state.rows['Secteur'].astype(str).str.strip().str.lower() != secteur_livreur.lower()]
+        st.session_state.rows = pd.concat([other_sectors, edited_df], ignore_index=True)
+    
+    if st.button("🗑️ Vider le secteur actuel"):
+        st.session_state.rows = st.session_state.rows[st.session_state.rows['Secteur'].astype(str).str.strip().str.lower() != secteur_livreur.lower()]
         st.rerun()
         
     if st.button("🖨️ Générer la Feuille de Route (PDF)"):
-        if not st.session_state.rows.empty:
+        if not df_visible.empty:
             try:
                 # Génération du QR Code
                 qr = qrcode.QRCode(box_size=4, border=2)
-                qr_data = f"Livreur: {livreur_choisi}\nDate: {date_exp}\nDoc: {len(st.session_state.rows)}"
+                qr_data = f"Livreur: {livreur_choisi}\nSecteur: {secteur_livreur}\nDate: {date_exp}"
                 qr.add_data(qr_data)
                 qr.make(fit=True)
                 img = qr.make_image(fill_color="black", back_color="white")
@@ -303,11 +314,13 @@ with tab_exp:
                 pdf.add_page()
                 pdf.set_font("Arial", 'B', 16)
                 pdf.cell(0, 10, f"FEUILLE DE ROUTE - {livreur_choisi}", 0, 1, 'C')
-                pdf.set_font("Arial", '', 12)
-                pdf.cell(0, 10, f"Date d'expedition: {date_exp}   |   Total: {len(st.session_state.rows)}", 0, 1, 'C')
+                pdf.set_font("Arial", 'B', 12)
+                pdf.cell(0, 8, f"SECTEUR : {secteur_livreur.upper()}", 0, 1, 'C')
+                pdf.set_font("Arial", '', 11)
+                pdf.cell(0, 10, f"Date: {date_exp}   |   Total Clients: {len(df_visible)}", 0, 1, 'C')
                 
                 pdf.image(qr_path, x=170, y=10, w=30)
-                pdf.ln(15)
+                pdf.ln(10)
                 
                 pdf.set_font("Arial", 'B', 10)
                 pdf.cell(45, 8, "Client", 1)
@@ -319,7 +332,7 @@ with tab_exp:
                 pdf.ln()
                 
                 pdf.set_font("Arial", '', 9)
-                for _, row in st.session_state.rows.iterrows():
+                for _, row in df_visible.iterrows():
                     c = str(row.get('Client', '')).encode('latin-1', 'replace').decode('latin-1')
                     v = str(row.get('Ville', '')).encode('latin-1', 'replace').decode('latin-1')
                     d = str(row.get('N° Doc', '')).encode('latin-1', 'replace').decode('latin-1')
