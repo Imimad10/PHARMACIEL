@@ -171,6 +171,8 @@ with tabs[2]:
                 m_sub.columns = ['designation', 'lot_master', 'stock_theo', 'ddp_master', 'ppa_master']
                 comp_d = pd.merge(m_sub, df_s_f, on=['designation', 'lot_master'], how='outer').fillna(0)
                 st.dataframe(comp_d, use_container_width=True)
+        except Exception as e:
+            st.error(f"Erreur d'analyse : {e}")
     else: st.info("Accès restreint ou données manquantes.")
 
 with tabs[3]:
