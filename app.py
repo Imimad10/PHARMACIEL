@@ -17,7 +17,7 @@ if len(db_users) == 0:
         'username': 'admin_imad',
         'password': 'admin_imad_pwd',
         'role': 'Admin',
-        'pages': ['Logistique', 'Inventaire', 'Inventaire Détail', 'Suivi', 'Recouvrement', 'Pointage', 'Péremptions', 'Dashboard', 'Automatisation']
+        'pages': ['Logistique', 'Inventaire', 'Inventaire Détail', 'Suivi', 'Recouvrement', 'Pointage', 'Péremptions', 'Dashboard', 'Automatisation', 'Litiges Fournisseurs']
     })
     # Quelques utilisateurs de test basés sur le code existant
     db_users.insert({'username': 'Ayoub', 'password': 'ayoub2026', 'role': 'Saisie', 'pages': ['Logistique', 'Suivi']})
@@ -104,7 +104,8 @@ ALL_PAGES = {
     "Recouvrement": st.Page("pages/4_recouvrement.py", title="Recouvrement", icon="💰"),
     "Pointage": st.Page("pages/5_pointage.py", title="Pointage Factures", icon="📝"),
     "Péremptions": st.Page("pages/6_peremptions.py", title="Gestion des Péremptions", icon="⏳"),
-    "Scanneur QR": st.Page("pages/7_scanneur_qr.py", title="Scanneur QR", icon="📸")
+    "Scanneur QR": st.Page("pages/7_scanneur_qr.py", title="Scanneur QR", icon="📸"),
+    "Litiges Fournisseurs": st.Page("pages/10_reclamations_fournisseurs.py", title="Litiges Fournisseurs", icon="🏢")
 }
 
 if is_ia_enabled():
