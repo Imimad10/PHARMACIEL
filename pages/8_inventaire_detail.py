@@ -131,7 +131,7 @@ with tabs[2]:
     st.subheader("🔍 Analyse des écarts")
     if user['role'] == "Admin" and os.path.exists(SAISIE_PATH) and df_master is not None:
         try:
-            saisie = pd.read_csv(SAISIE_PATH, sep=';')
+            saisie = pd.read_csv(SAISIE_PATH, sep=';', on_bad_lines='skip')
             if saisie.empty or 'qte_saisie' not in saisie.columns:
                 st.info("ℹ️ En attente des premières saisies terrain pour cette zone.")
                 st.stop()
