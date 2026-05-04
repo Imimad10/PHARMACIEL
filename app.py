@@ -98,6 +98,7 @@ if is_admin and "Automatisation" not in user_pages:
 ALL_PAGES = {
     "Logistique": st.Page("pages/1_expedition.py", title="Logistique", icon="🚛"),
     "Inventaire": st.Page("pages/2_inventaire.py", title="Inventaire", icon="📦"),
+    "Inventaire Détail": st.Page("pages/8_inventaire_detail.py", title="Inventaire Détail", icon="🔍"),
     "Suivi": st.Page("pages/3_suivi.py", title="Suivi Frigo", icon="📊"),
     "Recouvrement": st.Page("pages/4_recouvrement.py", title="Recouvrement", icon="💰"),
     "Pointage": st.Page("pages/5_pointage.py", title="Pointage Factures", icon="📝"),
@@ -106,7 +107,7 @@ ALL_PAGES = {
 }
 
 if is_ia_enabled():
-    ALL_PAGES["Automatisation"] = st.Page("pages/8_automatisation.py", title="Automatisation & IA", icon="🤖")
+    ALL_PAGES["Automatisation"] = st.Page("pages/9_automatisation.py", title="Automatisation & IA", icon="🤖")
 
 # Filtrer selon les privilèges
 pages_to_show = {}

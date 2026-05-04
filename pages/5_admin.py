@@ -40,6 +40,7 @@ with tab_add:
         u_pwd = st.text_input("Mot de passe")
         u_role = st.selectbox("Rôle", ["Saisie", "Admin"])
         u_pages = st.multiselect("Accès aux modules", MODULES_DISPO)
+        u_zone = st.selectbox("Zone Attribuée (Inventaire Détail)", ["Aucune", "A", "B", "C", "D", "Frigo"])
         
         if st.form_submit_button("Créer l'utilisateur"):
             User = Query()
@@ -50,7 +51,8 @@ with tab_add:
                     'username': u_name,
                     'password': u_pwd,
                     'role': u_role,
-                    'pages': u_pages
+                    'pages': u_pages,
+                    'zone': u_zone
                 })
                 st.success(f"Utilisateur {u_name} créé !")
                 log_action(st.session_state.current_user['username'], f"Création de l'utilisateur {u_name}", "Administration")
@@ -78,13 +80,18 @@ with tab_edit:
             current_pages = [p for p in target_data.get('pages', []) if p in MODULES_DISPO]
             new_pages = st.multiselect("Accès aux modules", MODULES_DISPO, default=current_pages)
             
+            zones_list = ["Aucune", "A", "B", "C", "D", "Frigo"]
+            current_zone = target_data.get('zone', 'Aucune')
+            new_zone = st.selectbox("Nouvelle zone", zones_list, index=zones_list.index(current_zone) if current_zone in zones_list else 0)
+            
             if st.form_submit_button("Mettre à jour"):
                 if new_pwd:
                     User = Query()
                     db_users.update({
                         'password': new_pwd,
                         'role': new_role,
-                        'pages': new_pages
+                        'pages': new_pages,
+                        'zone': new_zone
                     }, User.username == edit_target)
                     
                     # Si l'admin modifie son propre profil, on met à jour la session
@@ -92,6 +99,7 @@ with tab_edit:
                         st.session_state.current_user['password'] = new_pwd
                         st.session_state.current_user['role'] = new_role
                         st.session_state.current_user['pages'] = new_pages
+                        st.session_state.current_user['zone'] = new_zone
                     
                     st.success(f"Profil de {edit_target} mis à jour !")
                     log_action(st.session_state.current_user['username'], f"Modification de l'utilisateur {edit_target}", "Administration")
