@@ -262,5 +262,17 @@ with tabs[5]:
                 conn.update(worksheet="Suivi_Frigo", data=df_l)
                 st.success("Migration réussie !")
             except Exception as e: st.error(f"Erreur: {e}")
+            
+        st.divider()
+        st.subheader("🗑️ Nettoyage des Données (Admin)")
+        st.error("⚠️ Cette action supprimera définitivement tout l'historique des relevés de température.")
+        confirm_suivi = st.checkbox("Confirmer la suppression du Suivi Global")
+        if st.button("🔴 Réinitialiser le Suivi Global", disabled=not confirm_suivi, use_container_width=True):
+            if os.path.exists(DATA_FILE):
+                os.remove(DATA_FILE)
+            # Créer un fichier vide avec les colonnes attendues
+            pd.DataFrame(columns=["Date", "Heure", "Température", "Agent", "Statut", "Commentaire", "Type", "Chambre"]).to_csv(DATA_FILE, index=False)
+            st.success("Historique des températures supprimé.")
+            st.rerun()
     else:
         st.warning("Accès restreint.")

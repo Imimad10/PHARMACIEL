@@ -525,3 +525,15 @@ with tab_admin:
             current_motifs.pop(i)
             save_motifs(current_motifs)
             st.rerun()
+
+    st.divider()
+    if st.session_state.current_user.get('role') == 'Admin':
+        st.subheader("🗑️ Nettoyage des Données (Admin)")
+        st.error("⚠️ Cette action videra toutes les expéditions en cours pour tous les secteurs.")
+        confirm_route = st.checkbox("Confirmer la réinitialisation des feuilles de route")
+        if st.button("🔴 Réinitialiser toutes les Feuilles de Route", use_container_width=True, disabled=not confirm_route):
+            st.session_state.rows = pd.DataFrame(columns=["Client", "Ville", "Secteur", "N° Doc", "Info", "Statut", "Signature"])
+            st.success("Toutes les feuilles de route ont été réinitialisées.")
+            st.rerun()
+    else:
+        st.info("Les fonctions de nettoyage sont réservées à l'administrateur.")
