@@ -118,13 +118,15 @@ def save_data(data):
         st.success(f"✅ Enregistré pour {data['Chambre']}")
 
 # --- UI INTERFACE ---
-st.title(f"🌡️ Suivi Températures - {st.session_state.current_user['username']}")
-
-# Indicateur de Connexion
-df_all, conn_status, error_msg = get_data()
-if conn_status == "green": st.sidebar.success("📡 Connecté (GSheets Online)")
-elif conn_status == "orange": st.sidebar.warning("💾 Mode Local (GSheets Offline)")
-else: st.sidebar.error("❌ Erreur Connexion")
+col_head1, col_head2 = st.columns([3, 1])
+with col_head1:
+    st.title(f"🌡️ Suivi T° - {st.session_state.current_user['username']}")
+with col_head2:
+    df_all, conn_status, error_msg = get_data()
+    if conn_status == "green": st.success("📡 GSheets Online")
+    elif conn_status == "orange": st.warning("💾 Mode Local")
+    else: st.error("❌ Connexion Échouée")
+    st.caption(f"Maj: {get_now().strftime('%H:%M')}")
 
 tabs = st.tabs(["📝 Saisie CF1", "📝 Saisie CF2", "📊 Dashboard CF1", "📊 Dashboard CF2", "📋 Fiche Manuelle", "⚙️ Admin"])
 
