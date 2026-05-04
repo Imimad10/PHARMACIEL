@@ -96,14 +96,15 @@ if is_admin and "Automatisation" not in user_pages:
 
 # Dictionnaire de toutes les pages possibles (Key: Nom, Value: Path)
 ALL_PAGES = {
+    "Dashboard": st.Page("pages/0_tableau_de_bord.py", title="Tableau de Bord", icon="📊"),
     "Logistique": st.Page("pages/1_expedition.py", title="Logistique", icon="🚛"),
     "Inventaire": st.Page("pages/2_inventaire.py", title="Inventaire", icon="📦"),
     "Inventaire Détail": st.Page("pages/8_inventaire_detail.py", title="Inventaire Détail", icon="🔍"),
-    "Suivi": st.Page("pages/3_suivi.py", title="Suivi Frigo", icon="📊"),
+    "Suivi": st.Page("pages/3_suivi.py", title="Suivi Frigo", icon="❄️"),
     "Recouvrement": st.Page("pages/4_recouvrement.py", title="Recouvrement", icon="💰"),
     "Pointage": st.Page("pages/5_pointage.py", title="Pointage Factures", icon="📝"),
     "Péremptions": st.Page("pages/6_peremptions.py", title="Gestion des Péremptions", icon="⏳"),
-    "Dashboard": st.Page("pages/7_dashboard.py", title="Tableau de Bord", icon="📊")
+    "Scanneur QR": st.Page("pages/7_scanneur_qr.py", title="Scanneur QR", icon="📸")
 }
 
 if is_ia_enabled():
