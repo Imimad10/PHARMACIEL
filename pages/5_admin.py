@@ -31,7 +31,7 @@ tab_add, tab_edit, tab_del, tab_logs, tab_backup, tab_ia = st.tabs([
     "➕ Ajouter", "✏️ Modifier", "🗑️ Supprimer", "📝 Traçabilité (Logs)", "💾 Sauvegarde", "🤖 Configuration IA"
 ])
 
-MODULES_DISPO = ["Logistique", "Inventaire", "Suivi", "Recouvrement", "Pointage", "Péremptions", "Dashboard", "Automatisation"]
+MODULES_DISPO = ["Logistique", "Inventaire", "Inventaire Détail", "Suivi", "Recouvrement", "Pointage", "Péremptions", "Dashboard", "Automatisation"]
 
 with tab_add:
     st.subheader("Créer un nouvel utilisateur")
