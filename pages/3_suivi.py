@@ -211,20 +211,30 @@ with tabs[4]:
         pdf_f.set_font("Arial", 'B', 11)
         pdf_f.cell(0, 8, f"{room_fiche.upper()} - {mois_noms[mois_sel-1]} {annee_sel}", 0, 1, 'C')
         pdf_f.ln(5)
-        pdf_f.set_font("Arial", 'B', 9)
-        pdf_f.set_fill_color(240, 240, 240)
-        h_cell = 8
-        w_cols = [35, 25, 30, 30, 70]
-        headers = ["Date", "Heure", "Temp (C)", "Humidite (%)", "Remarques"]
-        for i, h in enumerate(headers): pdf_f.cell(w_cols[i], h_cell, h, border=1, fill=True, align='C')
+        # Tableau
+        pdf_f.set_font("Arial", 'B', 8)
+        pdf_f.set_fill_color(230, 230, 230)
+        h_cell = 7
+        w_date, w_sub, w_rem = 25, 15, 75
+        
+        # Ligne 1 : En-têtes groupés
+        pdf_f.cell(w_date, h_cell, " ", border=1)
+        pdf_f.cell(w_sub*3, h_cell, "MATIN", border=1, fill=True, align='C')
+        pdf_f.cell(w_sub*3, h_cell, "SOIR", border=1, fill=True, align='C')
+        pdf_f.cell(w_rem, h_cell, " ", border=1, ln=1)
+        
+        # Ligne 2 : Sous-titres
+        headers = ["Date", "Heure", "T (C)", "H (%)", "Heure", "T (C)", "H (%)", "Remarques"]
+        widths = [w_date, w_sub, w_sub, w_sub, w_sub, w_sub, w_sub, w_rem]
+        for i, head in enumerate(headers):
+            pdf_f.cell(widths[i], h_cell, head, border=1, fill=True, align='C')
         pdf_f.ln()
-        pdf_f.set_font("Arial", '', 9)
+        
+        pdf_f.set_font("Arial", '', 8)
         for d_str in jours_valides:
-            pdf_f.cell(w_cols[0], h_cell, d_str, border=1, align='C')
-            pdf_f.cell(w_cols[1], h_cell, "", border=1)
-            pdf_f.cell(w_cols[2], h_cell, "", border=1)
-            pdf_f.cell(w_cols[3], h_cell, "", border=1)
-            pdf_f.cell(w_cols[4], h_cell, "", border=1, ln=1)
+            pdf_f.cell(w_date, h_cell, d_str, border=1, align='C')
+            for _ in range(6): pdf_f.cell(w_sub, h_cell, "", border=1) # Matin + Soir
+            pdf_f.cell(w_rem, h_cell, "", border=1, ln=1)
         st.download_button("📥 Télécharger la fiche PDF", data=pdf_f.output(dest='S').encode('latin-1'), file_name=f"Fiche_{mois_noms[mois_sel-1]}.pdf", type="primary")
 
 # --- ADMIN ---
