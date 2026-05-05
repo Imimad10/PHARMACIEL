@@ -135,7 +135,9 @@ with tabs[0]:
                 nom_sel = st.selectbox("Client", noms_valides, index=None, placeholder="Rechercher ou sélectionner un client...")
                 
                 if nom_sel:
-                    reg_auto = df_clients[df_clients["Nom Client"] == nom_sel]["Région"].values[0]
+                    # Recherche sécurisée de la région
+                    match = df_clients[df_clients["Nom Client"] == nom_sel]["Région"]
+                    reg_auto = match.values[0] if not match.empty else ""
                 else:
                     reg_auto = ""
             else:
@@ -235,7 +237,10 @@ with tabs[2]:
             # --- PHASE 5: WHATSAPP LINK ---
             st.write("---")
             st.subheader("📲 Relance Rapide via WhatsApp")
-            client_phone = df_clients[df_clients["Nom Client"] == client_relance]["Téléphone"].values[0] if not df_clients.empty else ""
+            
+            # Recherche sécurisée du téléphone
+            match_phone = df_clients[df_clients["Nom Client"] == client_relance]["Téléphone"] if not df_clients.empty else pd.Series()
+            client_phone = match_phone.values[0] if not match_phone.empty else ""
             
             if pd.notna(client_phone) and str(client_phone) != "":
                 # Nettoyage du numéro (garder uniquement les chiffres)
