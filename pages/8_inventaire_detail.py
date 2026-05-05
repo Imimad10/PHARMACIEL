@@ -50,7 +50,12 @@ def load_master_v5(path, mtime):
         if not all(c in df.columns for c in req): return f"Colonnes manquantes : {[c for c in req if c not in df.columns]}"
         if 'ddp' in df.columns:
             df['ddp'] = pd.to_datetime(df['ddp'], errors='coerce').dt.strftime('%m/%Y').fillna(df['ddp'].astype(str))
-        df['zone'] = df['zone'].astype(str).str.upper().str.strip()
+        
+        # Forcer en string pour éviter les erreurs de comparaison (ex: lot qui ressemble à une date)
+        for col in ['designation', 'lot', 'zone']:
+            if col in df.columns:
+                df[col] = df[col].astype(str).str.upper().str.strip()
+        
         return df
     except Exception as e: return str(e)
 
@@ -191,10 +196,10 @@ with tabs[2]:
                     def robust_num(s):
                         if pd.isna(s): return 0.0
                         if isinstance(s, (int, float)): return float(s)
-                        if isinstance(s, str):
-                            s = s.replace('\xa0', '').replace(' ', '').replace(',', '.')
+                        # Si c'est un objet (ex: datetime), on le convertit en string d'abord
+                        s_str = str(s).replace('\xa0', '').replace(' ', '').replace(',', '.')
                         try:
-                            val = pd.to_numeric(s, errors='coerce')
+                            val = pd.to_numeric(s_str, errors='coerce')
                             return float(val) if pd.notna(val) else 0.0
                         except: return 0.0
 
@@ -220,7 +225,13 @@ with tabs[2]:
                         m_sub = df_m_f[['designation', 'lot', q_col, 'ddp', 'ppa', 'shp'] if 'shp' in df_m_f.columns else ['designation', 'lot', q_col, 'ddp', 'ppa']].copy()
                         m_sub.columns = [c + '_master' if c != 'designation' and c != 'lot' else ('lot_master' if c == 'lot' else c) for c in m_sub.columns]
                         
-                        comp_d = pd.merge(m_sub, df_s_f, on=['designation', 'lot_master'], how='outer').fillna(0)
+                        comp_d = pd.merge(m_sub, df_s_f, on=['designation', 'lot_master'], how='outer')
+                        # Remplissage intelligent au lieu du .fillna(0) global qui corrompt les types
+                        for c in comp_d.columns:
+                            if any(k in c.lower() for k in ['qte', 'ppa', 'theorique', 'shp']):
+                                comp_d[c] = comp_d[c].fillna(0)
+                            else:
+                                comp_d[c] = comp_d[c].fillna('')
                         
                         def highlight_diffs_detail(row):
                             styles = ['' for _ in row.index]
