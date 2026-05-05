@@ -39,21 +39,30 @@ with tabs[0]:
     if f_up:
         df_up = pd.read_excel(f_up)
         st.write("Aperçu des données détectées :")
-        st.dataframe(df_up.head(5), use_container_width=True)
+        # Détection automatique
+        cols = df_up.columns.tolist()
         
         target = None
-        # Détection améliorée
-        if "Prénom" in cols or "Prenom" in cols:
+        # Détection améliorée (inclut la gestion des en-têtes décalés)
+        is_livreur = "Prénom" in cols or "Prenom" in cols or "prenom" in cols or "livreurs" in cols
+        is_secteur = "Ville" in cols or "VILLE" in cols or "ville" in cols
+        
+        if is_livreur:
             target = "Livreurs"
-            mapping = {"Nom": "Nom", "Prénom": "Prénom", "Prenom": "Prénom", "Secteur": "Secteur", "Téléphone": "Téléphone", "Tel": "Téléphone"}
-        elif "Ville" in cols or "VILLE" in cols:
+            # Si "livreurs" est le nom de la colonne, les vrais en-têtes sont peut-être dans la première ligne
+            if "livreurs" in cols and df_up.iloc[0].tolist().count("prenom") > 0:
+                 # On décale tout
+                 df_up.columns = df_up.iloc[0]
+                 df_up = df_up[1:]
+                 cols = df_up.columns.tolist()
+
+            mapping = {"Nom": "Nom", "nom": "Nom", "Prénom": "Prénom", "Prenom": "Prénom", "prenom": "Prénom", "Secteur": "Secteur", "secteur": "Secteur", "Téléphone": "Téléphone", "Tel": "Téléphone", "telephone": "Téléphone"}
+        elif is_secteur:
             target = "Secteurs"
             mapping = {"Client": "Client", "Ville": "Ville", "Secteur": "Secteur", "Tel": "Tel", "tel": "Tel"}
-        elif any(c in cols for c in ["Raison sociale", "Nom Client", "Nom"]):
+        elif any(c in cols for c in ["Raison sociale", "Nom Client", "Nom", "Raison Sociale"]):
             target = "Base_Clients"
             mapping = {"Raison sociale": "Nom Client", "Nom Client": "Nom Client", "Nom": "Nom Client", "Région": "Région", "Region": "Région", "Secteur": "Secteur", "Téléphone": "Téléphone", "Tel": "Téléphone"}
-        
-        if target:
             st.success(f"🎯 Type détecté : **{target}**")
             if st.button(f"📥 Fusionner avec la base {target}", type="primary", use_container_width=True):
                 # Mapping et nettoyage
