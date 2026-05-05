@@ -94,8 +94,8 @@ def add_or_merge_row(client, ville, ref, info, statut, signature, mode, secteur=
 # --- INTERFACE ---
 st.title("🚛 Gestion des Expéditions")
 
-tab_exp, tab_suivi_sav, tab_livreurs, tab_secteurs, tab_admin = st.tabs([
-    "📋 Programme d'Expédition", "📊 Suivi des Litiges", "👤 Gestion des Livreurs", "📍 Gestion des Secteurs", "⚙️ Administration"
+tab_exp, tab_suivi_sav, tab_admin = st.tabs([
+    "📋 Programme d'Expédition", "📊 Suivi des Litiges", "⚙️ Administration"
 ])
 
 # 1. PROGRAMME D'EXPÉDITION
@@ -443,19 +443,7 @@ with tab_suivi_sav:
             st.success("Historique mis à jour !")
             st.rerun()
 
-# 2. GESTION DES LIVREURS
-with tab_livreurs:
-    st.header("👤 Gestion des Livreurs")
-    st.info("La gestion des livreurs est désormais centralisée. Veuillez utiliser le module **Admin Centrale** pour modifier, ajouter ou affecter des livreurs.")
-    if st.button("🚀 Aller à l'Administration Centrale", use_container_width=True, key="go_admin_liv"):
-        st.switch_page("pages/0_admin_centrale.py")
-
-# 3. GESTION DES SECTEURS (Clients)
-with tab_secteurs:
-    st.header("📍 Gestion des Clients & Secteurs")
-    st.info("La cartographie des secteurs et la base clients logistique sont désormais centralisées.")
-    if st.button("🚀 Aller à l'Administration Centrale", use_container_width=True, key="go_admin_sec"):
-        st.switch_page("pages/0_admin_centrale.py")
+# --- LES AUTRES ONGLETS SONT SUPPRIMÉS POUR CENTRALISATION ---
 
 # 4. ADMINISTRATION
 with tab_admin:
