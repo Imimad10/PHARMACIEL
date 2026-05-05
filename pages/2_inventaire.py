@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import os
 import unicodedata
+import shutil
+from datetime import datetime
 from utils_ia import ask_ai, is_ia_enabled
 
 # --- 1. CONFIGURATION & CHEMINS ---
@@ -285,3 +287,30 @@ with tabs[3]:
             os.remove(st.session_state.MASTER_PATH)
             st.success("Master supprimé.")
             st.rerun()
+
+    st.divider()
+    st.subheader("💾 Sauvegarde & Archivage")
+    col_bak1, col_bak2 = st.columns(2)
+
+    if col_bak1.button("📂 Créer un Backup", use_container_width=True):
+        if os.path.exists(st.session_state.SAISIE_PATH):
+            backup_dir = os.path.join(st.session_state.DATA_DIR, "backups")
+            os.makedirs(backup_dir, exist_ok=True)
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_path = os.path.join(backup_dir, f"saisie_backup_{ts}.csv")
+            shutil.copy(st.session_state.SAISIE_PATH, backup_path)
+            st.success(f"Sauvegarde créée : {backup_path}")
+        else:
+            st.warning("Aucune donnée de saisie à sauvegarder.")
+
+    if col_bak2.button("📦 Archiver la journée", use_container_width=True):
+        if os.path.exists(st.session_state.SAISIE_PATH):
+            archive_dir = os.path.join(st.session_state.DATA_DIR, "archives")
+            os.makedirs(archive_dir, exist_ok=True)
+            date_str = datetime.now().strftime("%Y-%m-%d")
+            archive_path = os.path.join(archive_dir, f"saisie_archive_{date_str}.csv")
+            shutil.move(st.session_state.SAISIE_PATH, archive_path)
+            st.success(f"Inventaire archivé et vidé : {archive_path}")
+            st.rerun()
+        else:
+            st.warning("Rien à archiver.")
