@@ -446,126 +446,16 @@ with tab_suivi_sav:
 # 2. GESTION DES LIVREURS
 with tab_livreurs:
     st.header("👤 Gestion des Livreurs")
-    
-    # Récupérer les secteurs existants dans la base clients pour l'attribution
-    df_clients_all = load_clients()
-    liste_secteurs_dispo = sorted(df_clients_all["Secteur"].dropna().unique().tolist()) if "Secteur" in df_clients_all.columns else []
-    
-    with st.form("form_ajout_livreur", clear_on_submit=True):
-        col1, col2 = st.columns(2)
-        nom = col1.text_input("Nom")
-        prenom = col1.text_input("Prénom")
-        tel = col2.text_input("Téléphone")
-        secteur = col2.selectbox("Attribuer un Secteur", ["Aucun"] + liste_secteurs_dispo)
-        
-        if st.form_submit_button("Ajouter le livreur"):
-            if nom:
-                df_l = load_livreurs()
-                sect_val = secteur if secteur != "Aucun" else ""
-                new_l = pd.DataFrame([{"Nom": nom, "Prénom": prenom, "Téléphone": tel, "Secteur": sect_val}])
-                save_livreurs(pd.concat([df_l, new_l], ignore_index=True))
-                st.success(f"Livreur {nom} ajouté au secteur {sect_val}")
-                st.rerun()
-
-    st.subheader("📋 Liste des Livreurs et Affectations")
-    st.write("Vous pouvez modifier directement les informations dans le tableau ci-dessous (cliquez sur une cellule).")
-    df_livreurs_actuel = load_livreurs()
-    
-    # On permet la saisie libre si le secteur n'est pas encore dans la base clients
-    edited_livreurs = st.data_editor(
-        df_livreurs_actuel, 
-        use_container_width=True, 
-        num_rows="dynamic",
-        column_config={
-            "Nom": st.column_config.TextColumn("Nom", help="Nom du livreur", required=True),
-            "Secteur": st.column_config.TextColumn("Secteur Affecté", help="Saisissez le nom du secteur (ex: BLIDA, ALGER...)")
-        }
-    )
-    
-    if st.button("💾 Sauvegarder les modifications", use_container_width=True, type="primary", key="save_livreurs"):
-        save_livreurs(edited_livreurs)
-        st.success("✅ Les informations des livreurs et leurs affectations ont été mises à jour !")
-        log_action(st.session_state.current_user['username'], "Mise à jour de la liste des livreurs", "Logistique")
-        st.rerun()
+    st.info("La gestion des livreurs est désormais centralisée. Veuillez utiliser le module **Admin Centrale** pour modifier, ajouter ou affecter des livreurs.")
+    if st.button("🚀 Aller à l'Administration Centrale", use_container_width=True, key="go_admin_liv"):
+        st.switch_page("pages/0_admin_centrale.py")
 
 # 3. GESTION DES SECTEURS (Clients)
 with tab_secteurs:
-    st.header("📍 Gestion des Clients")
-    
-    c_m1, c_m2 = st.columns(2)
-    with c_m1:
-        with st.expander("➕ Ajouter un client manuellement"):
-            with st.form("ajout_client", clear_on_submit=True):
-                c1, c2 = st.columns(2)
-                new_nom = c1.text_input("Nom Client")
-                new_ville = c1.text_input("Ville")
-                new_tel = c2.text_input("Téléphone")
-                new_secteur = c2.text_input("Secteur")
-                if st.form_submit_button("Valider l'ajout"):
-                    if new_nom:
-                        df_actuel = load_clients()
-                        new_data = pd.DataFrame([{"Client": new_nom, "Ville": new_ville, "Tel": new_tel, "Secteur": new_secteur}])
-                        save_clients(pd.concat([df_actuel, new_data], ignore_index=True))
-                        st.success("Client ajouté !")
-                        st.rerun()
-                    else:
-                        st.error("Le nom du client est obligatoire.")
-
-    with c_m2:
-        with st.expander("📥 Importer depuis Excel (Drag & Drop)"):
-            st.info("Colonnes attendues : 'Raison sociale' (ou Client) et 'Région' (ou Secteur)")
-            file_clients = st.file_uploader("Déposer le fichier Excel des clients", type=['xlsx', 'xls'])
-            if file_clients:
-                try:
-                    df_c_ex = pd.read_excel(file_clients)
-                    # Mappage flexible des colonnes
-                    mapping = {
-                        'Raison sociale': 'Client',
-                        'Raison Sociale': 'Client',
-                        'Région': 'Secteur',
-                        'Region': 'Secteur',
-                        'nom client': 'Client',
-                        'VILLE': 'Ville',
-                        'tel': 'Tel'
-                    }
-                    df_c_ex = df_c_ex.rename(columns=mapping)
-                    
-                    if 'Client' in df_c_ex.columns:
-                        if st.button("🚀 Valider l'importation groupée"):
-                            df_base = load_clients()
-                            # On ne garde que les colonnes nécessaires et on enlève les doublons
-                            df_new = df_c_ex[['Client', 'Secteur', 'Ville', 'Tel']].copy() if 'Ville' in df_c_ex.columns else df_c_ex[['Client', 'Secteur']].copy()
-                            # S'assurer que les colonnes manquantes sont créées
-                            for col in ["Client", "Ville", "Tel", "Secteur"]:
-                                if col not in df_new.columns: df_new[col] = ""
-                            
-                            final_clients = pd.concat([df_base, df_new], ignore_index=True).drop_duplicates(subset=['Client'])
-                            save_clients(final_clients)
-                            st.success(f"Base mise à jour avec {len(df_new)} clients !")
-                            st.rerun()
-                    else:
-                        st.error("Colonne 'Raison sociale' ou 'Client' introuvable.")
-                except Exception as e:
-                    st.error(f"Erreur : {e}")
-
-    st.divider()
-    st.subheader("📋 Base de Données Clients")
-    df_clients_edit = load_clients()
-    edited_clients = st.data_editor(df_clients_edit, use_container_width=True, num_rows="dynamic", hide_index=True)
-    
-    c_b1, c_b2 = st.columns(2)
-    with c_b1:
-        if st.button("💾 Sauvegarder les modifications", use_container_width=True, type="primary", key="save_clients_base"):
-            save_clients(edited_clients)
-            st.success("Clients sauvegardés !")
-            st.rerun()
-            
-    with c_b2:
-        if st.session_state.current_user.get('role') == 'Admin':
-            if st.button("🗑️ Supprimer toute la base", use_container_width=True, key="delete_clients_base"):
-                save_clients(pd.DataFrame(columns=["Client", "Ville", "Tel", "Secteur"]))
-                st.warning("Base de clients vidée.")
-                st.rerun()
+    st.header("📍 Gestion des Clients & Secteurs")
+    st.info("La cartographie des secteurs et la base clients logistique sont désormais centralisées.")
+    if st.button("🚀 Aller à l'Administration Centrale", use_container_width=True, key="go_admin_sec"):
+        st.switch_page("pages/0_admin_centrale.py")
 
 # 4. ADMINISTRATION
 with tab_admin:
