@@ -139,23 +139,29 @@ with tabs[1]:
                     ppa_m = float(info.get('ppa', 0)) if 'ppa' in info else 0.0
                     
                     if mode == "🚀 Rapide":
-                        qte = c1.number_input("Quantité", min_value=0.0, step=1.0)
+                        qte_vrac = c1.number_input("📦 Quantité Vrac", min_value=0.0, step=1.0)
+                        qte_colis = c2.number_input("📦 Colis Fermé", min_value=0.0, step=1.0, help="Saisir la qte des boites et pas le nombre des colis")
+                        st.warning("⚠️ **Remarque :** Veuillez saisir la qte des **BOITES** et pas le nombre des colis.")
                         lot_r, ddp_r, ppa_r = sel_lot, ddp_m, ppa_m
                     else:
-                        lot_r = c1.text_input("Lot Réel", value=str(sel_lot))
-                        qte = c2.number_input("Quantité", min_value=0.0, step=1.0)
-                        ddp_r = c1.text_input("DDP (MM/AAAA)", value=ddp_m)
-                        ppa_r = c2.number_input("PPA Saisi", value=ppa_m)
+                        lot_r = c1.text_input("🏷️ Lot Réel", value=str(sel_lot))
+                        ddp_r = c2.text_input("📅 DDP (MM/AAAA)", value=ddp_m)
+                        qte_vrac = c1.number_input("📦 Quantité Vrac", min_value=0.0, step=1.0)
+                        qte_colis = c2.number_input("📦 Colis Fermé", min_value=0.0, step=1.0, help="Saisir la qte des boites et pas le nombre des colis")
+                        ppa_r = c1.number_input("💰 PPA Saisi", value=ppa_m)
+                        st.warning("⚠️ **Remarque :** Veuillez saisir la qte des **BOITES** et pas le nombre des colis.")
                     
                     if st.form_submit_button("💾 Enregistrer"):
+                        total_qte = qte_vrac + qte_colis
                         new_line = pd.DataFrame([{
                             'designation': sel_prod, 'lot_master': sel_lot, 'lot': lot_r,
-                            'qte_saisie': qte, 'ddp_saisi': ddp_r, 'ppa_saisi': ppa_r,
+                            'qte_vrac': qte_vrac, 'qte_colis': qte_colis,
+                            'qte_saisie': total_qte, 'ddp_saisi': ddp_r, 'ppa_saisi': ppa_r,
                             'zone': selected_zone, 'agent': user['username']
                         }])
                         h = not os.path.exists(SAISIE_PATH)
                         new_line.to_csv(SAISIE_PATH, mode='a', header=h, index=False, sep=';')
-                        st.success(f"Saisie OK : {sel_prod}")
+                        st.success(f"Saisie OK : {sel_prod} (Total: {total_qte})")
     else: st.info("Master requis.")
 
 with tabs[2]:
@@ -166,8 +172,8 @@ with tabs[2]:
             
             st.write(f"📊 **Statut :** {len(saisie)} saisies totales détectées dans le journal.")
             
-            if 'qte_saisie' not in saisie.columns:
-                st.warning("⚠️ Le format du fichier de saisie est obsolète. Veuillez le vider dans l'onglet Admin pour repartir à neuf.")
+            if 'qte_vrac' not in saisie.columns:
+                st.warning("⚠️ Le format du fichier de saisie est ancien (manque Qte Vrac/Colis). Veuillez le vider dans l'onglet Admin pour repartir à neuf.")
                 st.dataframe(saisie.head())
             else:
                 mode_conf = st.radio("Type d'Analyse :", ["⚡ Rapide (Global)", "🔬 Détaillée (Par Lot)"], horizontal=True)
