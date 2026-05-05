@@ -9,8 +9,9 @@ from utils_ia import ask_ai, is_ia_enabled
 # --- CONFIGURATION ET CHEMINS ---
 DATA_RECOUV = "data_recouvrement.csv"
 DATA_CLIENTS = "base_clients.csv"
-COLS_RECOUV = ["Client", "Facture", "Mode Paiement", "Région", "Reste à payer", "Livreur", "Date", "Statut"]
+COLS_RECOUV = ["Client", "Facture", "Date", "Montant Initial", "Montant Réglé", "Reste à payer", "Mode Paiement", "Livreur", "Région", "Statut", "Commentaires"]
 COLS_CLIENTS = ["Nom Client", "Région", "Téléphone", "Secteur"]
+STATUS_OPTIONS = ["En attente", "Partiel", "Réglé", "Clôturé", "Annulé", "Litige"]
 
 # --- FONCTIONS DE GESTION DES DONNÉES ---
 def load_data(path, columns):
@@ -19,10 +20,12 @@ def load_data(path, columns):
             df = pd.read_csv(path, sep=',', encoding='utf-8-sig')
             # Nettoyage des montants pour éviter les erreurs de calcul
             if "Reste à payer" in df.columns:
-                df["Reste à payer"] = pd.to_numeric(
-                    df["Reste à payer"].astype(str).str.replace(',', '.').str.replace(r'\s+', '', regex=True), 
-                    errors='coerce'
-                ).fillna(0.0)
+                for col in ["Montant Initial", "Montant Réglé", "Reste à payer"]:
+                    if col in df.columns:
+                        df[col] = pd.to_numeric(
+                            df[col].astype(str).str.replace(',', '.').str.replace(r'\s+', '', regex=True), 
+                            errors='coerce'
+                        ).fillna(0.0)
             return df.reindex(columns=columns)
         except:
             return pd.DataFrame(columns=columns)
@@ -144,16 +147,35 @@ with tabs[0]:
                 nom_sel = st.text_input("Nom Client")
                 reg_auto = st.text_input("Région")
                 
-            montant = st.number_input("Montant", min_value=0.0)
-            mode = st.selectbox("Mode", ["CASH", "CHÈQUE", "VERSEMENT"])
-            if st.form_submit_button("Enregistrer"):
+            col_m1, col_m2 = st.columns(2)
+            montant_ini = col_m1.number_input("Montant Initial", min_value=0.0)
+            montant_reg = col_m2.number_input("Montant Réglé", min_value=0.0)
+            
+            mode = st.selectbox("Mode de Paiement", ["CASH", "CHÈQUE", "VERSEMENT", "TRAITE"])
+            statut = st.selectbox("Statut Initial", STATUS_OPTIONS)
+            comm = st.text_area("Commentaires / Notes", placeholder="Ex: Promesse de paiement pour lundi...")
+            
+            if st.form_submit_button("➕ Ajouter à la liste"):
                 if not nom_sel:
                     st.error("Veuillez sélectionner un client.")
                 else:
                     db = load_data(DATA_RECOUV, COLS_RECOUV)
-                    new_row = pd.DataFrame([{"Client": nom_sel, "Mode Paiement": mode, "Région": reg_auto, "Reste à payer": montant, "Livreur": get_livreur(reg_auto), "Date": str(datetime.now().date()), "Statut": "En attente"}])
+                    reste = max(0.0, montant_ini - montant_reg)
+                    new_row = pd.DataFrame([{
+                        "Client": nom_sel, 
+                        "Facture": f"MANUEL_{datetime.now().strftime('%d%m%H%M')}",
+                        "Date": str(datetime.now().date()),
+                        "Montant Initial": montant_ini,
+                        "Montant Réglé": montant_reg,
+                        "Reste à payer": reste,
+                        "Mode Paiement": mode, 
+                        "Livreur": get_livreur(reg_auto), 
+                        "Région": reg_auto, 
+                        "Statut": statut,
+                        "Commentaires": comm
+                    }])
                     save_data(pd.concat([db, new_row], ignore_index=True), DATA_RECOUV)
-                    st.success("Enregistré !")
+                    st.success("Dossier créé !")
                     st.rerun()
 
     with col2:
@@ -162,9 +184,18 @@ with tabs[0]:
         if f_rec:
             df_ex = pd.read_excel(f_rec)
             if st.button("🚀 Valider l'importation"):
+                # Nettoyage et complétion des colonnes pour le nouveau format
+                if "Région" not in df_ex.columns: df_ex["Région"] = "INCONNU"
+                if "Montant Initial" not in df_ex.columns and "Reste à payer" in df_ex.columns:
+                    df_ex["Montant Initial"] = df_ex["Reste à payer"]
+                if "Montant Réglé" not in df_ex.columns:
+                    df_ex["Montant Réglé"] = 0.0
+                
                 df_ex["Livreur"] = df_ex["Région"].apply(get_livreur)
                 df_ex["Date"] = str(datetime.now().date())
                 df_ex["Statut"] = "En attente"
+                df_ex["Reste à payer"] = df_ex["Montant Initial"] - df_ex["Montant Réglé"]
+                
                 db_old = load_data(DATA_RECOUV, COLS_RECOUV)
                 save_data(pd.concat([db_old, df_ex], ignore_index=True), DATA_RECOUV)
                 st.success("Import terminé !")
@@ -190,10 +221,13 @@ with tabs[1]:
 
         edited = st.data_editor(df_display, use_container_width=True, hide_index=True)
         
-        if st.button("💾 Sauvegarder Statuts"):
+        if st.button("💾 Sauvegarder Statuts & Montants"):
+            # Recalcul automatique du reste à payer avant sauvegarde
+            edited["Reste à payer"] = (edited["Montant Initial"] - edited["Montant Réglé"]).clip(lower=0)
+            
             df_final = pd.concat([df_main[~mask], edited], ignore_index=True)
             save_data(df_final, DATA_RECOUV)
-            st.success("Données mises à jour !")
+            st.success("Données mises à jour et soldes recalculés !")
             st.rerun()
     else:
         st.info("Aucune donnée disponible.")
