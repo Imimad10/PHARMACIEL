@@ -210,25 +210,25 @@ with tab_exp:
                         st.error(f"Erreur : {e}")
 
     # Formulaire d'ajout manuel
-        c1, c2, c3, c4 = st.columns([2, 1.5, 1.5, 1])
-        with c1:
-            new_client = st.selectbox("Client", client_list, index=None, placeholder="Rechercher ou sélectionner un client...")
-        with c2:
-            ref_bon = st.text_input("Réf. Bon")
-        with c3:
-            if mode == "Commande":
-                val_info = st.text_input("Colissage")
+    c1, c2, c3, c4 = st.columns([2, 1.5, 1.5, 1])
+    with c1:
+        new_client = st.selectbox("Client", client_list, index=None, placeholder="Rechercher ou sélectionner un client...")
+    with c2:
+        ref_bon = st.text_input("Réf. Bon")
+    with c3:
+        if mode == "Commande":
+            val_info = st.text_input("Colissage")
+        else:
+            liste_motifs = load_motifs()
+            val_motif = st.selectbox("Motif", liste_motifs)
+            if val_motif == "MANQUE":
+                extra_colis = st.text_input("📦 Colissage (Manque)")
+                val_info = f"MANQUE: {extra_colis}" if extra_colis else "MANQUE"
             else:
-                liste_motifs = load_motifs()
-                val_motif = st.selectbox("Motif", liste_motifs)
-                if val_motif == "MANQUE":
-                    extra_colis = st.text_input("📦 Colissage (Manque)")
-                    val_info = f"MANQUE: {extra_colis}" if extra_colis else "MANQUE"
-                else:
-                    val_info = val_motif
-        with c4:
-            st.write("###")
-            btn_ajouter = st.button("➕ Ajouter")
+                val_info = val_motif
+    with c4:
+        st.write("###")
+        btn_ajouter = st.button("➕ Ajouter")
 
     if btn_ajouter:
         if new_client and ref_bon:
