@@ -32,6 +32,17 @@ def format_ddp(val):
     except:
         return str(val)
 
+def robust_numeric(s):
+    if pd.isna(s) or s == "": return 0.0
+    if isinstance(s, str):
+        # Gérer les espaces insécables, les espaces et les virgules
+        s = s.replace('\xa0', '').replace(' ', '').replace(',', '.')
+    try:
+        val = pd.to_numeric(s, errors='coerce')
+        return float(val) if pd.notna(val) else 0.0
+    except:
+        return 0.0
+
 def clean_columns(df):
     mapping = {
         'produit': 'designation', 'designation': 'designation',
@@ -117,7 +128,7 @@ with tabs[1]:
             with st.form("form_saisie_v7", clear_on_submit=True):
                 c1, c2 = st.columns(2)
                 ddp_m = str(info_m.get('ddp', ''))
-                ppa_m = float(info_m.get('ppa', 0)) if 'ppa' in info_m else 0.0
+                ppa_m = robust_numeric(info_m.get('ppa', 0))
                 
                 if mode == "🚀 Rapide":
                     qte = c1.number_input("Quantité", min_value=0.0, step=1.0)
@@ -154,13 +165,6 @@ with tabs[2]:
                 if q_theo_col and 'designation' in df_master.columns:
                     mode_conf = st.radio("Mode d'analyse :", ["⚡ Rapide (Global par produit)", "🔬 Détaillé (Par Lot & Métadonnées)"], horizontal=True)
                     
-                    # Fonction de nettoyage numérique robuste (gère '1 287,50')
-                    def robust_numeric(s):
-                        if pd.isna(s): return 0.0
-                        if isinstance(s, str):
-                            s = s.replace('\xa0', '').replace(' ', '').replace(',', '.')
-                        return pd.to_numeric(s, errors='coerce')
-
                     # Nettoyage numérique
                     saisie['qte_saisie'] = saisie['qte_saisie'].apply(robust_numeric).fillna(0)
                     df_master[q_theo_col] = df_master[q_theo_col].apply(robust_numeric).fillna(0)
