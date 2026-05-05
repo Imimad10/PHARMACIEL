@@ -455,7 +455,7 @@ with tabs[5]:
         if c_mig3.button("🚚 Migrer Livreurs", use_container_width=True):
             import importlib.util
             spec = importlib.util.spec_from_file_location("expedition", "pages/1_expedition.py")
-            exp_mod = importlib.util.module_with_annotations(spec)
+            exp_mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(exp_mod)
             with st.spinner("Migration..."):
                 df = exp_mod.load_livreurs()
@@ -465,7 +465,7 @@ with tabs[5]:
         if c_mig4.button("🗺️ Migrer Secteurs/Clients Logistique", use_container_width=True):
             import importlib.util
             spec = importlib.util.spec_from_file_location("expedition", "pages/1_expedition.py")
-            exp_mod = importlib.util.module_with_annotations(spec)
+            exp_mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(exp_mod)
             with st.spinner("Migration..."):
                 df = exp_mod.load_clients()
