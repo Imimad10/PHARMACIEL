@@ -5,6 +5,8 @@ from datetime import datetime
 from fpdf import FPDF
 import plotly.express as px
 from utils_ia import ask_ai, is_ia_enabled
+import gspread
+from google.oauth2.service_account import Credentials
 
 # --- CONFIGURATION ET CHEMINS ---
 DATA_RECOUV = "data_recouvrement.csv"
@@ -12,13 +14,49 @@ DATA_CLIENTS = "base_clients.csv"
 COLS_RECOUV = ["Client", "Facture", "Date", "Montant Initial", "Montant Réglé", "Reste à payer", "Mode Paiement", "Livreur", "Région", "Statut", "Commentaires"]
 COLS_CLIENTS = ["Nom Client", "Région", "Téléphone", "Secteur"]
 STATUS_OPTIONS = ["En attente", "Partiel", "Réglé", "Clôturé", "Annulé", "Litige"]
+GS_CREDS_PATH = "google_creds.json"
+GS_CONFIG_PATH = "gs_config.txt"
 
-# --- FONCTIONS DE GESTION DES DONNÉES ---
+# --- FONCTIONS GOOGLE SHEETS ---
+def get_gs_client():
+    if os.path.exists(GS_CREDS_PATH):
+        try:
+            scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+            creds = Credentials.from_service_account_file(GS_CREDS_PATH, scopes=scopes)
+            return gspread.authorize(creds)
+        except Exception as e:
+            st.error(f"Erreur d'authentification Google : {e}")
+    return None
+
+def get_gs_url():
+    if os.path.exists(GS_CONFIG_PATH):
+        with open(GS_CONFIG_PATH, "r") as f:
+            return f.read().strip()
+    return None
+
 def load_data(path, columns):
+    gs_client = get_gs_client()
+    gs_url = get_gs_url()
+    
+    if gs_client and gs_url and path == DATA_RECOUV:
+        try:
+            sh = gs_client.open_by_url(gs_url)
+            worksheet = sh.get_worksheet(0)
+            data = worksheet.get_all_records()
+            df = pd.DataFrame(data)
+            if df.empty: return pd.DataFrame(columns=columns)
+            # Nettoyage
+            for col in ["Montant Initial", "Montant Réglé", "Reste à payer"]:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', '.'), errors='coerce').fillna(0.0)
+            return df.reindex(columns=columns)
+        except Exception as e:
+            st.warning(f"Impossible de lire Google Sheets, repli sur le local : {e}")
+            
     if os.path.exists(path):
         try:
             df = pd.read_csv(path, sep=',', encoding='utf-8-sig')
-            # Nettoyage des montants pour éviter les erreurs de calcul
+            # Nettoyage des montants
             if "Reste à payer" in df.columns:
                 for col in ["Montant Initial", "Montant Réglé", "Reste à payer"]:
                     if col in df.columns:
@@ -32,8 +70,27 @@ def load_data(path, columns):
     return pd.DataFrame(columns=columns)
 
 def save_data(df, path):
-    # Suppression des lignes vides avant sauvegarde
     df = df.dropna(how='all')
+    
+    gs_client = get_gs_client()
+    gs_url = get_gs_url()
+    
+    if gs_client and gs_url and path == DATA_RECOUV:
+        try:
+            sh = gs_client.open_by_url(gs_url)
+            worksheet = sh.get_worksheet(0)
+            worksheet.clear()
+            # Préparation des données pour Sheets (conversion dates en str)
+            df_gs = df.copy()
+            for col in df_gs.columns:
+                if pd.api.types.is_datetime64_any_dtype(df_gs[col]):
+                    df_gs[col] = df_gs[col].dt.strftime('%Y-%m-%d')
+            
+            worksheet.update([df_gs.columns.values.tolist()] + df_gs.values.tolist())
+            st.toast("✅ Synchronisé avec Google Sheets")
+        except Exception as e:
+            st.error(f"Erreur de sauvegarde Google Sheets : {e}")
+            
     df.to_csv(path, index=False, sep=',', encoding='utf-8-sig')
     return df
 
@@ -416,6 +473,29 @@ with tabs[4]:
 
 # ONGLET 6 : ADMINISTRATION
 with tabs[5]:
+    st.subheader("🌐 Connexion Google Sheets (Cloud)")
+    st.info("Cette section permet de synchroniser le module Recouvrement avec un Google Sheet pour un accès collaboratif.")
+    
+    with st.expander("🛠️ Configuration GSheets"):
+        c_gs1, c_gs2 = st.columns(2)
+        
+        # 1. Upload des credentials
+        uploaded_json = c_gs1.file_uploader("1. Upload 'service_account.json'", type="json")
+        if uploaded_json:
+            with open(GS_CREDS_PATH, "wb") as f:
+                f.write(uploaded_json.getbuffer())
+            st.success("Fichier credentials enregistré !")
+            
+        # 2. Saisie de l'URL
+        current_url = get_gs_url() or ""
+        new_url = c_gs2.text_input("2. URL du Google Sheet", value=current_url)
+        if c_gs2.button("Enregistrer l'URL"):
+            with open(GS_CONFIG_PATH, "w") as f:
+                f.write(new_url)
+            st.success("URL enregistrée !")
+            st.rerun()
+
+    st.divider()
     st.subheader("Gestion de la Base Clients")
     f_cli = st.file_uploader("Importer base clients (Excel)", type=["xlsx"])
     if f_cli:
