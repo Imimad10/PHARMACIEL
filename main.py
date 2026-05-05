@@ -17,17 +17,19 @@ if st.session_state.user_authenticated is None:
             [data-testid="stHeader"] {display: none;}
             .stApp { background-color: #f0f2f5 !important; }
             .main .block-container { max-width: 1000px; padding-top: 100px; margin: auto; }
-            .fb-logo-text { color: #1877f2; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 60px; font-weight: bold; letter-spacing: -2px; margin-bottom: 0px; }
-            .fb-slogan { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 24px; color: #1c1e21; }
-            .login-card { background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, .1), 0 8px 16px rgba(0, 0, 0, .1); text-align: center; }
-            .stTextInput input { height: 52px !important; border: 1px solid #dddfe2 !important; border-radius: 6px !important; }
-            .stButton > button { background-color: #1877f2 !important; color: white !important; font-size: 20px !important; font-weight: bold !important; height: 48px !important; border-radius: 6px !important; width: 100% !important; }
+            .fb-logo-text { color: #1877f2; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 55px; font-weight: bold; letter-spacing: -1.5px; margin-bottom: 0px; }
+            .fb-slogan { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 24px; color: #1c1e21; margin-top: 15px; }
+            .login-card { background-color: white; padding: 20px 20px 25px 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, .1), 0 8px 16px rgba(0, 0, 0, .1); }
+            .stTextInput input { height: 52px !important; border: 1px solid #dddfe2 !important; border-radius: 6px !important; margin-bottom: 10px !important; }
+            ::placeholder { color: #8d949e !important; opacity: 1 !important; }
+            div[data-testid="stFormSubmitButton"] button { background-color: #1877f2 !important; color: white !important; font-size: 20px !important; font-weight: bold !important; height: 48px !important; border-radius: 6px !important; width: 100% !important; border: none !important; }
+            [data-testid="stForm"] { border: none !important; padding: 0 !important; }
         </style>
     """, unsafe_allow_html=True)
 
-    col1, col2 = st.columns([1.2, 1], gap="large")
+    col1, col2 = st.columns([1.3, 1], gap="large")
     with col1:
-        st.markdown('<h1 class="fb-logo-text">darpharm</h1>', unsafe_allow_html=True)
+        st.markdown('<h1 class="fb-logo-text">DarPharm®Solutions</h1>', unsafe_allow_html=True)
         st.markdown('<p class="fb-slogan">Gérez votre logistique et vos stocks en toute simplicité.</p>', unsafe_allow_html=True)
     
     with col2:

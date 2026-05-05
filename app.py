@@ -93,9 +93,9 @@ if st.session_state.current_user is None:
             .fb-logo-text {
                 color: #1877f2;
                 font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-                font-size: 60px;
+                font-size: 55px;
                 font-weight: bold;
-                letter-spacing: -2px;
+                letter-spacing: -1.5px;
                 margin-bottom: 0px;
                 line-height: 1;
             }
@@ -105,17 +105,16 @@ if st.session_state.current_user is None:
                 line-height: 28px;
                 font-weight: normal;
                 color: #1c1e21;
-                margin-top: 10px;
+                margin-top: 15px;
                 max-width: 500px;
             }
             
             /* Styles de la carte de connexion */
             .login-card {
                 background-color: white;
-                padding: 20px;
+                padding: 20px 20px 25px 20px;
                 border-radius: 8px;
                 box-shadow: 0 2px 4px rgba(0, 0, 0, .1), 0 8px 16px rgba(0, 0, 0, .1);
-                text-align: center;
             }
             
             /* Style des inputs Streamlit */
@@ -127,14 +126,21 @@ if st.session_state.current_user is None:
                 border-radius: 6px !important;
                 color: #1c1e21 !important;
                 background-color: white !important;
+                margin-bottom: 10px !important;
             }
             .stTextInput input:focus {
                 border-color: #1877f2 !important;
                 box-shadow: 0 0 0 2px #e7f3ff !important;
             }
             
-            /* Style du bouton de connexion */
-            .stButton > button {
+            /* Visibilité des placeholders */
+            ::placeholder {
+                color: #8d949e !important;
+                opacity: 1 !important;
+            }
+            
+            /* Style du bouton de connexion (Submit Button) */
+            div[data-testid="stFormSubmitButton"] button {
                 background-color: #1877f2 !important;
                 color: white !important;
                 font-size: 20px !important;
@@ -143,69 +149,32 @@ if st.session_state.current_user is None:
                 border-radius: 6px !important;
                 border: none !important;
                 width: 100% !important;
-                margin-top: 10px !important;
+                margin-top: 5px !important;
+                transition: background-color 0.2s;
             }
-            .stButton > button:hover {
+            div[data-testid="stFormSubmitButton"] button:hover {
                 background-color: #166fe5 !important;
-            }
-            
-            /* Style du bouton "Créer compte" (en vert) */
-            div.stButton > button:contains("Créer") {
-                background-color: #42b72a !important;
-                font-size: 17px !important;
-                width: auto !important;
-                padding: 0 20px !important;
-                margin: 20px auto 10px auto !important;
-            }
-            div.stButton > button:contains("Créer"):hover {
-                background-color: #36a420 !important;
+                color: white !important;
             }
 
             [data-testid="stForm"] {
                 border: none !important;
                 padding: 0 !important;
             }
-            
-            .forgot-link {
-                color: #1877f2;
-                font-size: 14px;
-                font-family: Helvetica, Arial, sans-serif;
-                text-decoration: none;
-                margin-top: 15px;
-                display: block;
-            }
-            .forgot-link:hover {
-                text-decoration: underline;
-            }
-            
-            hr {
-                border: 0;
-                border-top: 1px solid #dadde1;
-                margin: 20px 0;
-            }
-            
-            .create-page-text {
-                margin-top: 28px;
-                font-size: 14px;
-                font-family: Helvetica, Arial, sans-serif;
-                color: #1c1e21;
-            }
-            .create-page-text b {
-                cursor: pointer;
-            }
-            .create-page-text b:hover {
-                text-decoration: underline;
+
+            /* Cacher d'éventuels éléments indésirables */
+            [data-testid="stForm"] hr, [data-testid="stForm"] .forgot-link {
+                display: none !important;
             }
         </style>
     """, unsafe_allow_html=True)
 
-    col1, col2 = st.columns([1.2, 1], gap="large")
+    col1, col2 = st.columns([1.3, 1], gap="large")
 
     with col1:
         st.markdown('<div class="fb-left-container">', unsafe_allow_html=True)
-        # On affiche le logo textuel façon Facebook
-        st.markdown('<h1 class="fb-logo-text">darpharm</h1>', unsafe_allow_html=True)
-        st.markdown('<p class="fb-slogan">Darpharm Solution vous aide à gérer vos stocks, vos expéditions et votre logistique en toute simplicité.</p>', unsafe_allow_html=True)
+        st.markdown('<h1 class="fb-logo-text">DarPharm®Solutions</h1>', unsafe_allow_html=True)
+        st.markdown('<p class="fb-slogan">DarPharm®Solutions vous aide à gérer vos stocks, vos expéditions et votre logistique en toute simplicité.</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
@@ -223,15 +192,7 @@ if st.session_state.current_user is None:
                     st.rerun()
                 else:
                     st.error("Identifiants incorrects.")
-            
-            st.markdown('<a href="#" class="forgot-link">Mot de passe oublié ?</a>', unsafe_allow_html=True)
-            st.markdown('<hr>', unsafe_allow_html=True)
-            
-            # Un bouton bidon pour le style Facebook
-            st.form_submit_button("Créer nouveau compte")
-            
         st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('<p class="create-page-text"><b>Créer une Page</b> pour une célébrité, une marque ou une entreprise.</p>', unsafe_allow_html=True)
 
     st.stop()
 
