@@ -68,14 +68,16 @@ def save_gs_data(df, worksheet_name, fallback_path):
                 worksheet = sh.add_worksheet(title=worksheet_name, rows="100", cols="20")
             
             worksheet.clear()
-            df_gs = df.copy()
+            df_gs = df.copy().fillna("") # On remplace les NaN par du vide pour JSON
             # Nettoyage types pour Sheets
             for col in df_gs.columns:
                 if pd.api.types.is_datetime64_any_dtype(df_gs[col]):
                     df_gs[col] = df_gs[col].dt.strftime('%Y-%m-%d')
             
-            worksheet.update([df_gs.columns.values.tolist()] + df_gs.values.tolist())
-            st.cache_data.clear() # On vide le cache après une sauvegarde pour forcer la lecture
+            # Conversion en liste de listes pour gspread
+            data_to_save = [df_gs.columns.values.tolist()] + df_gs.values.tolist()
+            worksheet.update(data_to_save)
+            st.cache_data.clear() 
         except Exception as e:
             st.error(f"Erreur sauvegarde GSheets ({worksheet_name}) : {e}")
             
