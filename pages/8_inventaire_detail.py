@@ -266,61 +266,90 @@ with tabs[2]:
     else: st.warning("Accès réservé aux Administrateurs et Superviseurs.")
 
 with tabs[3]:
-    if user['role'] == "Admin":
+    if user['role'] in ["Admin", "Superviseur"]:
+        st.subheader("👥 Gestion des Équipes & Zones")
+        # Charger les utilisateurs
+        db_u = TinyDB('data/db_users.json')
+        all_u = db_u.all()
+        saisie_users = [u['username'] for u in all_u if 'Inventaire Détail' in u.get('pages', [])]
+        
+        col_u1, col_u2, col_u3 = st.columns([2, 1, 1])
+        target_user = col_u1.selectbox("Sélectionner un agent de saisie :", saisie_users)
+        
+        # Trouver la zone actuelle
+        u_record = next((u for u in all_u if u['username'] == target_user), {})
+        current_z = u_record.get('zone', 'Aucune')
+        
+        # Liste des zones possibles du Master
+        z_list = ["Aucune"]
+        if df_master is not None:
+            z_list += sorted([str(z) for z in df_master['zone'].unique() if pd.notna(z)])
+        else:
+            z_list += ["A", "B", "C", "D", "Frigo"]
+            
+        new_z = col_u2.selectbox(f"Assigner Zone (Actuelle: {current_z})", z_list, index=z_list.index(current_z) if current_z in z_list else 0)
+        
+        if col_u3.button("✅ Confirmer l'affectation", use_container_width=True):
+            U = Query()
+            db_u.update({'zone': new_z}, U.username == target_user)
+            st.success(f"Zone de **{target_user}** mise à jour : **{new_z}**")
+            st.rerun()
+
+        st.divider()
         st.subheader("⚙️ Gestion des fichiers")
-    up = st.file_uploader("Importer Master Détail (XLSX)", type="xlsx")
-    if up:
-        if st.button("🚀 Confirmer l'importation"):
-            with open(MASTER_PATH, "wb") as f: f.write(up.getbuffer())
-            st.cache_data.clear()
-            st.success("Master Détail importé avec succès !")
-            st.rerun()
-            
-    st.divider()
-    c1, c2 = st.columns(2)
-    
-    if c1.button("🗑️ Vider Inventaire (Saisie)", use_container_width=True):
-        if os.path.exists(SAISIE_PATH):
-            os.remove(SAISIE_PATH)
-            st.success("Toutes les saisies terrain ont été effacées.")
-            st.rerun()
-        else:
-            st.info("Le fichier de saisie est déjà vide.")
-            
-    if c2.button("🔴 Supprimer Master", use_container_width=True):
-        if os.path.exists(MASTER_PATH):
-            os.remove(MASTER_PATH)
-            st.cache_data.clear()
-            st.success("Fichier Master supprimé.")
-            st.rerun()
-        else:
-            st.info("Aucun Master à supprimer.")
+        up = st.file_uploader("Importer Master Détail (XLSX)", type="xlsx")
+        if up:
+            if st.button("🚀 Confirmer l'importation"):
+                with open(MASTER_PATH, "wb") as f: f.write(up.getbuffer())
+                st.cache_data.clear()
+                st.success("Master Détail importé avec succès !")
+                st.rerun()
+                
+        st.divider()
+        c1, c2 = st.columns(2)
+        
+        if c1.button("🗑️ Vider Inventaire (Saisie)", use_container_width=True):
+            if os.path.exists(SAISIE_PATH):
+                os.remove(SAISIE_PATH)
+                st.success("Toutes les saisies terrain ont été effacées.")
+                st.rerun()
+            else:
+                st.info("Le fichier de saisie est déjà vide.")
+                
+        if c2.button("🔴 Supprimer Master", use_container_width=True):
+            if os.path.exists(MASTER_PATH):
+                os.remove(MASTER_PATH)
+                st.cache_data.clear()
+                st.success("Fichier Master supprimé.")
+                st.rerun()
+            else:
+                st.info("Aucun Master à supprimer.")
 
-    st.divider()
-    st.subheader("💾 Sauvegarde & Archivage")
-    col_b1, col_b2 = st.columns(2)
+        st.divider()
+        st.subheader("💾 Sauvegarde & Archivage")
+        col_b1, col_b2 = st.columns(2)
 
-    if col_b1.button("📂 Créer un Backup (Détail)", use_container_width=True):
-        if os.path.exists(SAISIE_PATH):
-            bak_dir = os.path.join(DATA_DIR, "backups")
-            os.makedirs(bak_dir, exist_ok=True)
-            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            bak_path = os.path.join(bak_dir, f"saisie_detail_backup_{ts}.csv")
-            shutil.copy(st.session_state.get('SAISIE_PATH', SAISIE_PATH), bak_path)
-            st.success(f"Sauvegarde créée : {bak_path}")
-        else:
-            st.warning("Aucune donnée à sauvegarder.")
+        if col_b1.button("📂 Créer un Backup (Détail)", use_container_width=True):
+            if os.path.exists(SAISIE_PATH):
+                bak_dir = os.path.join(DATA_DIR, "backups")
+                os.makedirs(bak_dir, exist_ok=True)
+                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                bak_path = os.path.join(bak_dir, f"saisie_detail_backup_{ts}.csv")
+                shutil.copy(SAISIE_PATH, bak_path)
+                st.success(f"Sauvegarde créée : {bak_path}")
+            else:
+                st.warning("Aucune donnée à sauvegarder.")
 
-    if col_b2.button("📦 Archiver la journée (Détail)", use_container_width=True):
-        if os.path.exists(SAISIE_PATH):
-            arc_dir = os.path.join(DATA_DIR, "archives")
-            os.makedirs(arc_dir, exist_ok=True)
-            date_s = datetime.now().strftime("%Y-%m-%d")
-            arc_path = os.path.join(arc_dir, f"saisie_detail_archive_{date_s}.csv")
-            shutil.move(SAISIE_PATH, arc_path)
-            st.success(f"Archivé et vidé : {arc_path}")
-            st.rerun()
-        else:
-            st.warning("Rien à archiver.")
+        if col_b2.button("📦 Archiver la journée (Détail)", use_container_width=True):
+            if os.path.exists(SAISIE_PATH):
+                arc_dir = os.path.join(DATA_DIR, "archives")
+                os.makedirs(arc_dir, exist_ok=True)
+                date_s = datetime.now().strftime("%Y-%m-%d")
+                arc_path = os.path.join(arc_dir, f"saisie_detail_archive_{date_s}.csv")
+                shutil.move(SAISIE_PATH, arc_path)
+                st.success(f"Archivé et vidé : {arc_path}")
+                st.rerun()
+            else:
+                st.warning("Rien à archiver.")
     else:
-        st.warning("L'onglet Admin est réservé aux administrateurs système.")
+        st.warning("L'onglet Admin est réservé aux administrateurs et superviseurs.")
