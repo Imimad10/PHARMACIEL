@@ -114,108 +114,105 @@ with tab_exp:
     df_livreurs = load_livreurs()
     liste_livreurs = df_livreurs["Nom"].tolist() if not df_livreurs.empty else []
     
+    # Liste de tous les secteurs pour le filtrage libre
+    all_sectors = sorted([str(s).strip().lower() for s in df_clients['Secteur'].dropna().unique() if str(s).lower() != 'nan'])
+
     with col_g1:
         livreur_choisi = st.selectbox("Choisir le livreur", liste_livreurs)
-        # Déterminer le secteur du livreur (Recherche robuste)
-        secteur_livreur = ""
+        # Déterminer le secteur par défaut du livreur
+        secteur_par_defaut = ""
         if livreur_choisi:
-            # On cherche sans tenir compte de la casse pour plus de sécurité
             row_l = df_livreurs[df_livreurs['Nom'].str.upper() == str(livreur_choisi).upper()]
             if not row_l.empty:
-                secteur_livreur = str(row_l.iloc[0]['Secteur']).strip().lower()
-                if secteur_livreur and secteur_livreur != "nan":
-                    st.success(f"📍 Secteur actif : **{secteur_livreur.upper()}**")
-                else:
-                    st.error("⚠️ Ce livreur n'a **pas de secteur** assigné dans l'onglet Administration.")
-            else:
-                st.error("⚠️ Livreur non trouvé dans la base.")
+                secteur_par_defaut = str(row_l.iloc[0]['Secteur']).strip().lower()
+        
+        # Sélecteur de secteur libre (choix de la région)
+        default_idx = (all_sectors.index(secteur_par_defaut) + 1) if secteur_par_defaut in all_sectors else 0
+        secteur_affichage = st.selectbox("🌍 Région / Secteur à traiter", ["Tous"] + all_sectors, index=default_idx)
+        
+        if secteur_affichage != "Tous":
+            st.success(f"📍 Filtre actif : **{secteur_affichage.upper()}**")
+        else:
+            st.info("🔓 Affichage de toutes les régions")
 
     with col_d1:
         date_exp = st.date_input("Date d'expédition")
 
-    # Filtrer les clients selon le secteur du livreur pour l'ajout manuel
-    if secteur_livreur and secteur_livreur != "nan":
-        df_clients_filtre = df_clients[df_clients['Secteur'].astype(str).str.strip().str.lower() == secteur_livreur]
-        client_list = df_clients_filtre["Client"].dropna().astype(str).unique().tolist()
-        client_map = dict(zip(df_clients_filtre['Client'].astype(str), df_clients_filtre['Ville']))
+    # Préparation de la liste des clients selon le secteur choisi
+    if secteur_affichage == "Tous":
+        client_list_filtered = df_clients["Client"].dropna().astype(str).unique().tolist()
     else:
-        client_list = []
-        client_map = {}
+        df_c_filtre = df_clients[df_clients['Secteur'].astype(str).str.strip().str.lower() == secteur_affichage]
+        client_list_filtered = df_c_filtre["Client"].dropna().astype(str).unique().tolist()
 
     st.divider()
     
     if mode == "Réclamation":
-        with st.expander("📥 Importation groupée des Réclamations (Excel)", expanded=True if not secteur_livreur else False):
-            if not secteur_livreur or secteur_livreur == "nan":
-                st.warning("🛑 Veuillez d'abord affecter un secteur à ce livreur dans l'onglet 'Gestion des Livreurs' pour pouvoir importer.")
-            else:
-                st.write(f"Importation pour le secteur : **{secteur_livreur.upper()}**")
-                file_complaints = st.file_uploader("Glisser le fichier Excel ici", type=['xlsx', 'xls'], key="uploader_reclamations")
-                
-                if file_complaints:
-                    try:
-                        df_reclam = pd.read_excel(file_complaints)
-                        
-                        import unicodedata
-                        def clean_col(c):
-                            c = str(c).strip().lower()
-                            return ''.join(ch for ch in unicodedata.normalize('NFD', c) if unicodedata.category(ch) != 'Mn')
-                        
-                        df_reclam.columns = [clean_col(c) for c in df_reclam.columns]
-                        
-                        if 'client' in df_reclam.columns:
-                            # Filtrage par statut si la colonne existe, sinon on prend tout
-                            if 'statut' in df_reclam.columns:
-                                df_reclam['statut_clean'] = df_reclam['statut'].astype(str).str.strip().str.lower()
-                                df_to_add = df_reclam[df_reclam['statut_clean'].str.contains("en cours", na=False)].copy()
-                            else:
-                                df_to_add = df_reclam.dropna(subset=['client']).copy()
-                            
-                            if not df_to_add.empty:
-                                df_clients = load_clients()
-                                # Dictionnaires de recherche (Normalisés)
-                                ville_map = dict(zip(df_clients['Client'].astype(str), df_clients['Ville']))
-                                tel_map = dict(zip(df_clients['Client'].astype(str), df_clients['Tel']))
-                                secteur_map = dict(zip(df_clients['Client'].astype(str), df_clients['Secteur'].astype(str).str.strip().str.lower()))
-                                
-                                added_count = 0
-                                skipped_count = 0
-                                for _, row in df_to_add.iterrows():
-                                    client_name = str(row['client']).strip()
-                                    
-                                    # Vérification du secteur (OBLIGATOIRE ET STRICTE)
-                                    client_secteur = secteur_map.get(client_name, "")
-                                    if client_secteur != secteur_livreur:
-                                        skipped_count += 1
-                                        continue
-                                    
-                                    ref_val = str(row['reference']).strip() if 'reference' in df_reclam.columns and pd.notna(row['reference']) else "Réclamation non validée"
-                                    
-                                    ville = ville_map.get(client_name, "")
-                                    telephone = tel_map.get(client_name, "")
-                                    info_str = f"Tel: {telephone}" if telephone else ""
-                                    
-                                    add_or_merge_row(client_name, ville, ref_val, "RÉCLAMATION IMPORTÉE", "En cours", info_str, mode="Réclamation", secteur=secteur_livreur)
-                                    added_count += 1
-                                
-                                if added_count > 0:
-                                    st.success(f"✅ {added_count} réclamations pour {livreur_choisi} ({secteur_livreur.upper()}) ajoutées !")
-                                    if skipped_count > 0:
-                                        st.info(f"ℹ️ {skipped_count} réclamations ignorées car elles ne sont pas de ce secteur.")
-                                    log_action(st.session_state.current_user['username'], f"Importation réclamations {livreur_choisi} ({secteur_livreur})", "Expédition")
-                                else:
-                                    st.error(f"❌ Aucune réclamation dans ce fichier ne correspond au secteur **{secteur_livreur.upper()}**.")
-                            else:
-                                st.info("Aucune réclamation valide trouvée dans le fichier.")
+        with st.expander("📥 Importation groupée des Réclamations (Excel)", expanded=False):
+            st.write(f"Importation pour le secteur : **{secteur_affichage.upper()}**")
+            file_complaints = st.file_uploader("Glisser le fichier Excel ici", type=['xlsx', 'xls'], key="uploader_reclamations")
+            
+            if file_complaints:
+                try:
+                    df_reclam = pd.read_excel(file_complaints)
+                    
+                    import unicodedata
+                    def clean_col(c):
+                        c = str(c).strip().lower()
+                        return ''.join(ch for ch in unicodedata.normalize('NFD', c) if unicodedata.category(ch) != 'Mn')
+                    
+                    df_reclam.columns = [clean_col(c) for c in df_reclam.columns]
+                    
+                    if 'client' in df_reclam.columns:
+                        if 'statut' in df_reclam.columns:
+                            df_reclam['statut_clean'] = df_reclam['statut'].astype(str).str.strip().str.lower()
+                            df_to_add = df_reclam[df_reclam['statut_clean'].str.contains("en cours", na=False)].copy()
                         else:
-                            st.error(f"Colonne 'client' manquante. Trouvé: {list(df_reclam.columns)}")
-                    except Exception as e:
-                        st.error(f"Erreur : {e}")
+                            df_to_add = df_reclam.dropna(subset=['client']).copy()
+                        
+                        if not df_to_add.empty:
+                            df_clients_base = load_clients()
+                            ville_map = dict(zip(df_clients_base['Client'].astype(str), df_clients_base['Ville']))
+                            tel_map = dict(zip(df_clients_base['Client'].astype(str), df_clients_base['Tel']))
+                            sect_map = dict(zip(df_clients_base['Client'].astype(str), df_clients_base['Secteur'].astype(str).str.strip().str.lower()))
+                            
+                            added_count = 0
+                            skipped_count = 0
+                            for _, row in df_to_add.iterrows():
+                                client_name = str(row['client']).strip()
+                                client_secteur = sect_map.get(client_name, "")
+                                
+                                # Filtrage selon le secteur d'affichage (si pas "Tous")
+                                if secteur_affichage != "Tous" and client_secteur != secteur_affichage:
+                                    skipped_count += 1
+                                    continue
+                                
+                                ref_val = str(row['reference']).strip() if 'reference' in df_reclam.columns and pd.notna(row['reference']) else "Réclamation non validée"
+                                ville = ville_map.get(client_name, "")
+                                telephone = tel_map.get(client_name, "")
+                                info_str = f"Tel: {telephone}" if telephone else ""
+                                
+                                add_or_merge_row(client_name, ville, ref_val, "RÉCLAMATION IMPORTÉE", "En cours", info_str, mode="Réclamation", secteur=client_secteur)
+                                added_count += 1
+                            
+                            if added_count > 0:
+                                st.success(f"✅ {added_count} réclamations ajoutées !")
+                                if skipped_count > 0:
+                                    st.info(f"ℹ️ {skipped_count} lignes ignorées (hors secteur {secteur_affichage}).")
+                                log_action(st.session_state.current_user['username'], f"Importation réclamations ({secteur_affichage})", "Expédition")
+                            else:
+                                st.error(f"❌ Aucune donnée correspondant au secteur **{secteur_affichage.upper()}**.")
+                        else:
+                            st.info("Aucune réclamation valide trouvée.")
+                    else:
+                        st.error(f"Colonne 'client' manquante. Trouvé: {list(df_reclam.columns)}")
+                except Exception as e:
+                    st.error(f"Erreur : {e}")
 
     # Formulaire d'ajout manuel
     c1, c2, c3, c4 = st.columns([2, 1.5, 1.5, 1])
     with c1:
-        new_client = st.selectbox("Client", client_list, index=None, placeholder="Rechercher ou sélectionner un client...")
+        new_client = st.selectbox("Client", client_list_filtered, index=None, placeholder="Rechercher ou sélectionner un client...")
     with c2:
         ref_bon = st.text_input("Réf. Bon")
     with c3:
@@ -238,9 +235,12 @@ with tab_exp:
             annee = datetime.now().strftime('%y')
             prefixe = "RC" if mode == "Réclamation" else "BL"
             full_ref = f"{annee}/{prefixe}/{ref_bon}"
-            ville = client_map.get(new_client, "")
+            # Récupération de la ville et du secteur du client depuis la base complète
+            client_data = df_clients[df_clients['Client'] == new_client]
+            ville = client_data['Ville'].values[0] if not client_data.empty else ""
+            secteur_client = str(client_data['Secteur'].values[0]).strip().lower() if not client_data.empty else ""
             
-            add_or_merge_row(new_client, ville, full_ref, val_info, "En cours", "", mode=mode, secteur=secteur_livreur)
+            add_or_merge_row(new_client, ville, full_ref, val_info, "En cours", "", mode=mode, secteur=secteur_client)
             st.rerun()
         elif not new_client:
             st.error("Veuillez sélectionner un client.")
@@ -266,13 +266,13 @@ with tab_exp:
                         st.warning(ask_ai(prompt))
 
     # --- FILTRAGE DYNAMIQUE DU TABLEAU ---
-    # On ne montre que les lignes qui correspondent au secteur du livreur actuel
-    if secteur_livreur and secteur_livreur != "nan":
-        df_visible = st.session_state.rows[st.session_state.rows['Secteur'].astype(str).str.strip().str.lower() == secteur_livreur.lower()]
+    # On filtre le tableau selon le secteur d'affichage choisi (Région)
+    if secteur_affichage == "Tous":
+        df_visible = st.session_state.rows
     else:
-        df_visible = pd.DataFrame(columns=st.session_state.rows.columns)
+        df_visible = st.session_state.rows[st.session_state.rows['Secteur'].astype(str).str.strip().str.lower() == secteur_affichage.lower()]
 
-    st.subheader(f"Détails des {mode}s ({secteur_livreur.upper() if secteur_livreur else 'Aucun secteur'})")
+    st.subheader(f"Détails des {mode}s ({secteur_affichage.upper()})")
     
     # Configuration dynamique de la colonne Info selon le mode
     col_label = "Colissage" if mode == "Commande" else "Motif"
@@ -296,12 +296,17 @@ with tab_exp:
     
     # Synchronisation : On met à jour les lignes modifiées dans la session globale
     if not edited_df.equals(df_visible):
-        # On supprime les anciennes lignes de ce secteur dans la session et on met les nouvelles
-        other_sectors = st.session_state.rows[st.session_state.rows['Secteur'].astype(str).str.strip().str.lower() != secteur_livreur.lower()]
-        st.session_state.rows = pd.concat([other_sectors, edited_df], ignore_index=True)
+        if secteur_affichage == "Tous":
+            st.session_state.rows = edited_df
+        else:
+            other_sectors = st.session_state.rows[st.session_state.rows['Secteur'].astype(str).str.strip().str.lower() != secteur_affichage.lower()]
+            st.session_state.rows = pd.concat([other_sectors, edited_df], ignore_index=True)
     
-    if st.button("🗑️ Vider le secteur actuel"):
-        st.session_state.rows = st.session_state.rows[st.session_state.rows['Secteur'].astype(str).str.strip().str.lower() != secteur_livreur.lower()]
+    if st.button("🗑️ Vider le secteur/filtre actuel"):
+        if secteur_affichage == "Tous":
+            st.session_state.rows = pd.DataFrame(columns=st.session_state.rows.columns)
+        else:
+            st.session_state.rows = st.session_state.rows[st.session_state.rows['Secteur'].astype(str).str.strip().str.lower() != secteur_affichage.lower()]
         st.rerun()
         
     if st.button("🖨️ Générer la Feuille de Route (PDF)"):
