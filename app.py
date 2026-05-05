@@ -173,6 +173,8 @@ if st.session_state.current_user is None:
 
     with col1:
         st.markdown('<div class="fb-left-container">', unsafe_allow_html=True)
+        if os.path.exists("logo.png"):
+            st.image("logo.png", width=140)
         st.markdown('<h1 class="fb-logo-text">DarPharm®Solutions</h1>', unsafe_allow_html=True)
         st.markdown('<p class="fb-slogan">DarPharm®Solutions vous aide à gérer vos stocks, vos expéditions et votre logistique en toute simplicité.</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
