@@ -59,7 +59,7 @@ if "rows" not in st.session_state:
     st.session_state.rows = pd.DataFrame(columns=["Client", "Ville", "Secteur", "N° Doc", "Info", "Statut", "Signature"])
 
 def add_or_merge_row(client, ville, ref, info, statut, signature, mode, secteur=""):
-    """Ajoute une ligne ou fusionne si le client existe déjà."""
+    """Ajoute une ligne pour chaque réclamation/commande (pas de fusion)."""
     client = str(client).strip()
     ref = str(ref).strip()
     
@@ -75,24 +75,17 @@ def add_or_merge_row(client, ville, ref, info, statut, signature, mode, secteur=
             "signature": signature
         })
 
-    # Mise à jour de la vue session en cours
-    mask = st.session_state.rows['Client'] == client
-    if mask.any():
-        idx = st.session_state.rows[mask].index[0]
-        current_ref = str(st.session_state.rows.at[idx, 'N° Doc'])
-        if ref not in current_ref and ref != "Réclamation non validée":
-            st.session_state.rows.at[idx, 'N° Doc'] = f"{current_ref} | {ref}"
-    else:
-        new_row = pd.DataFrame([{
-            "Client": client, 
-            "Ville": ville, 
-            "Secteur": secteur,
-            "N° Doc": ref, 
-            "Info": info, 
-            "Statut": statut, 
-            "Signature": signature
-        }])
-        st.session_state.rows = pd.concat([st.session_state.rows, new_row], ignore_index=True)
+    # Ajout systématique d'une nouvelle ligne
+    new_row = pd.DataFrame([{
+        "Client": client, 
+        "Ville": ville, 
+        "Secteur": secteur,
+        "N° Doc": ref, 
+        "Info": info, 
+        "Statut": statut, 
+        "Signature": signature
+    }])
+    st.session_state.rows = pd.concat([st.session_state.rows, new_row], ignore_index=True)
 
 # --- INTERFACE ---
 st.title("🚛 Gestion des Expéditions")
