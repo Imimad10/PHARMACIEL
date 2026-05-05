@@ -10,15 +10,36 @@ if "user_authenticated" not in st.session_state:
 
 # --- ÉCRAN DE CONNEXION ---
 if st.session_state.user_authenticated is None:
-    st.title("🔐 Connexion Darpharm Solution")
-    col_auth, _ = st.columns([1, 2])
-    with col_auth:
-        u = st.text_input("Utilisateur")
-        p = st.text_input("Mot de passe", type="password")
-        if st.button("Se connecter", use_container_width=True):
-            if u and p:
-                st.session_state.user_authenticated = u
-                st.rerun()
+    st.markdown("""
+        <style>
+            [data-testid="stSidebar"], [data-testid="stSidebarNav"] {display: none;}
+            section[data-testid="stSidebar"] {width: 0px;}
+            [data-testid="stHeader"] {display: none;}
+            .stApp { background-color: #f0f2f5 !important; }
+            .main .block-container { max-width: 1000px; padding-top: 100px; margin: auto; }
+            .fb-logo-text { color: #1877f2; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 60px; font-weight: bold; letter-spacing: -2px; margin-bottom: 0px; }
+            .fb-slogan { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 24px; color: #1c1e21; }
+            .login-card { background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, .1), 0 8px 16px rgba(0, 0, 0, .1); text-align: center; }
+            .stTextInput input { height: 52px !important; border: 1px solid #dddfe2 !important; border-radius: 6px !important; }
+            .stButton > button { background-color: #1877f2 !important; color: white !important; font-size: 20px !important; font-weight: bold !important; height: 48px !important; border-radius: 6px !important; width: 100% !important; }
+        </style>
+    """, unsafe_allow_html=True)
+
+    col1, col2 = st.columns([1.2, 1], gap="large")
+    with col1:
+        st.markdown('<h1 class="fb-logo-text">darpharm</h1>', unsafe_allow_html=True)
+        st.markdown('<p class="fb-slogan">Gérez votre logistique et vos stocks en toute simplicité.</p>', unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown('<div class="login-card">', unsafe_allow_html=True)
+        with st.form("login_form_main"):
+            u = st.text_input("Username", placeholder="Utilisateur", label_visibility="collapsed")
+            p = st.text_input("Password", type="password", placeholder="Mot de passe", label_visibility="collapsed")
+            if st.form_submit_button("Se connecter"):
+                if u and p:
+                    st.session_state.user_authenticated = u
+                    st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
 # --- NAVIGATION MULTI-PAGES ---
