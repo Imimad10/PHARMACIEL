@@ -23,6 +23,7 @@ def get_gs_url():
             return f.read().strip()
     return None
 
+@st.cache_data(ttl=300) # Cache de 5 minutes pour éviter les quotas Google
 def load_gs_data(worksheet_name, fallback_path, columns):
     client = get_gs_client()
     url = get_gs_url()
@@ -74,6 +75,7 @@ def save_gs_data(df, worksheet_name, fallback_path):
                     df_gs[col] = df_gs[col].dt.strftime('%Y-%m-%d')
             
             worksheet.update([df_gs.columns.values.tolist()] + df_gs.values.tolist())
+            st.cache_data.clear() # On vide le cache après une sauvegarde pour forcer la lecture
         except Exception as e:
             st.error(f"Erreur sauvegarde GSheets ({worksheet_name}) : {e}")
             
