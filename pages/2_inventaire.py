@@ -108,11 +108,68 @@ tabs = st.tabs(["📊 Dashboard", "📝 Saisie Terrain", "🔍 Confrontation", "
 
 # --- ONGLET 0 : DASHBOARD ---
 with tabs[0]:
-    st.subheader("📦 État de l'inventaire")
+    st.markdown("### 📊 Tableau de Bord Inventaire")
+    
     if df_master is not None:
-        st.metric("Articles dans le Master", len(df_master))
+        # Chargement de la saisie pour calculs
+        saisie = pd.read_csv(st.session_state.SAISIE_PATH, sep=';', encoding='utf-8-sig') if os.path.exists(st.session_state.SAISIE_PATH) else pd.DataFrame()
+        
+        # Calculs des métriques
+        total_master = len(df_master)
+        unique_counted = saisie['designation'].nunique() if not saisie.empty else 0
+        progress = (unique_counted / total_master) * 100 if total_master > 0 else 0
+        
+        # Estimation de la valeur (si PPA et Stock existants)
+        q_theo_col = find_quantity_col(df_master)
+        valeur_totale = 0
+        if q_theo_col and 'ppa' in df_master.columns:
+            df_master['valeur'] = df_master[q_theo_col].apply(robust_numeric) * df_master['ppa'].apply(robust_numeric)
+            valeur_totale = df_master['valeur'].sum()
+
+        # Affichage des métriques
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Articles Master", f"{total_master:,}")
+        m2.metric("Articles Comptés", f"{unique_counted:,}")
+        m3.metric("Progression", f"{progress:.1f}%")
+        if valeur_totale > 0:
+            m4.metric("Valeur Estimée", f"{valeur_totale:,.2f} DA")
+        else:
+            m4.metric("Saisie en cours", f"{len(saisie)} lignes")
+
+        st.divider()
+        
+        # Graphiques
+        col_g1, col_g2 = st.columns([2, 1])
+        
+        with col_g1:
+            if not saisie.empty:
+                st.write("📈 **Top 10 des produits comptés (Quantité)**")
+                top_10 = saisie.groupby('designation')['qte_saisie'].sum().nlargest(10).reset_index()
+                import plotly.express as px
+                fig = px.bar(top_10, x='qte_saisie', y='designation', orientation='h', 
+                             color='qte_saisie', color_continuous_scale='Blues',
+                             labels={'qte_saisie': 'Quantité', 'designation': 'Produit'})
+                fig.update_layout(showlegend=False, height=400, margin=dict(l=0, r=0, t=30, b=0))
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Aucune donnée de saisie pour générer le graphique.")
+                
+        with col_g2:
+            st.write("🎯 **État d'avancement**")
+            import plotly.graph_objects as go
+            fig_pie = go.Figure(go.Pie(
+                labels=['Comptés', 'Restants'],
+                values=[unique_counted, total_master - unique_counted],
+                hole=.6,
+                marker_colors=['#1877f2', '#e4e6eb']
+            ))
+            fig_pie.update_layout(showlegend=False, height=300, margin=dict(l=0, r=0, t=0, b=0))
+            st.plotly_chart(fig_pie, use_container_width=True)
+            st.caption(f"Il reste **{total_master - unique_counted}** articles à inventorier.")
+
     else:
-        st.warning("⚠️ Aucun Master détecté. Allez dans l'onglet Admin.")
+        st.warning("⚠️ Aucun Master détecté. Veuillez importer un fichier Excel dans l'onglet **Admin**.")
+        st.info("💡 Un Master est nécessaire pour calculer les taux de complétion et les écarts.")
 
 # --- ONGLET 1 : SAISIE TERRAIN ---
 with tabs[1]:
