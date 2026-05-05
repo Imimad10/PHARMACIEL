@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 import os
+import io
+import qrcode
+from PIL import Image
 from datetime import datetime
 from fpdf import FPDF
 import plotly.express as px
@@ -43,13 +46,29 @@ def get_livreur(region_val):
     return "NON ASSIGNÉ"
 
 def generate_pdf(df, livreur_name):
+    mission_id = f"REC-{int(datetime.now().timestamp())}"
+    total_du = df["Reste à payer"].sum() if "Reste à payer" in df.columns else 0
+    
+    # Génération du QR Code
+    qr_data = f"ID:{mission_id}|Livreur:{livreur_name}|Date:{datetime.now().strftime('%d/%m/%Y')}|Clients:{len(df)}|Total:{total_du:.2f} DA"
+    qr_img = qrcode.make(qr_data)
+    qr_path = f"temp_qr_recouv_{mission_id}.png"
+    qr_img.save(qr_path)
+
     pdf = FPDF()
     pdf.add_page()
+    
+    # En-tête avec QR Code à droite
     pdf.set_font("Arial", "B", 16)
-    pdf.cell(190, 10, f"FEUILLE DE ROUTE : {livreur_name}", ln=True, align='C')
-    pdf.set_font("Arial", "", 12)
-    pdf.cell(190, 10, f"Date: {datetime.now().strftime('%d/%m/%Y')}", ln=True, align='C')
-    pdf.ln(10)
+    pdf.cell(150, 10, f"FEUILLE DE ROUTE RECOUVREMENT", ln=False, align='L')
+    pdf.image(qr_path, x=165, y=8, w=35)  # QR en haut à droite
+    pdf.ln(12)
+    pdf.set_font("Arial", "B", 13)
+    pdf.cell(190, 8, f"Livreur : {livreur_name}", ln=True, align='L')
+    pdf.set_font("Arial", "", 11)
+    pdf.cell(190, 8, f"Date : {datetime.now().strftime('%d/%m/%Y')}   |   Ref. Mission : {mission_id}", ln=True)
+    pdf.cell(190, 8, f"Nb Clients : {len(df)}   |   Total à recouvrer : {total_du:,.2f} DA", ln=True)
+    pdf.ln(8)
     
     # Entête du tableau PDF
     pdf.set_fill_color(200, 220, 255)
@@ -58,7 +77,7 @@ def generate_pdf(df, livreur_name):
     pdf.cell(35, 10, "Region", 1, 0, 'C', True)
     pdf.cell(35, 10, "Montant", 1, 0, 'C', True)
     pdf.cell(25, 10, "Mode", 1, 0, 'C', True)
-    pdf.cell(35, 10, "Pointage", 1, 1, 'C', True) # Colonne vide pour stylo
+    pdf.cell(35, 10, "Pointage", 1, 1, 'C', True)
     
     pdf.set_font("Arial", "", 9)
     for _, row in df.iterrows():
@@ -66,8 +85,11 @@ def generate_pdf(df, livreur_name):
         pdf.cell(35, 10, str(row['Région']), 1)
         pdf.cell(35, 10, f"{row['Reste à payer']:,.2f} DA", 1, 0, 'R')
         pdf.cell(25, 10, str(row['Mode Paiement']), 1, 0, 'C')
-        pdf.cell(35, 10, "", 1, 1) 
-    return pdf.output(dest='S').encode('latin-1', 'replace')
+        pdf.cell(35, 10, "", 1, 1)
+    
+    result = pdf.output(dest='S').encode('latin-1', 'replace')
+    if os.path.exists(qr_path): os.remove(qr_path)
+    return result
 
 def generate_relance_pdf(client_name, df_client, total_du):
     pdf = FPDF()
