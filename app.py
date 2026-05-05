@@ -46,17 +46,21 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. BASE DE DONNÉES UTILISATEURS ---
+# --- 2. INITIALISATION DE LA BASE UTILISATEURS ---
 os.makedirs("data", exist_ok=True)
 db_users = TinyDB('data/db_users.json')
-if len(db_users) == 0:
-    # Création de l'administrateur par défaut
+User = Query()
+
+# Toujours s'assurer que l'admin principal existe
+if not db_users.search(User.username == 'admin_imad'):
     db_users.insert({
         'username': 'admin_imad',
         'password': 'admin_imad_pwd',
         'role': 'Admin',
-        'pages': ['Logistique', 'Inventaire', 'Inventaire Détail', 'Suivi', 'Recouvrement', 'Pointage', 'Péremptions', 'Dashboard', 'Automatisation', 'Litiges Fournisseurs', 'Analyse Rotation', 'Scan Mobile']
+        'pages': ['Admin Centrale', 'Dashboard', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Suivi', 'Recouvrement', 'Pointage', 'Péremptions', 'Scanneur QR', 'Automatisation', 'Litiges Fournisseurs', 'Analyse Rotation', 'Scan Mobile']
     })
+
+if len(db_users) <= 1: # Si seulement admin ou vide
     # Quelques utilisateurs de test basés sur le code existant
     db_users.insert({'username': 'Ayoub', 'password': 'ayoub2026', 'role': 'Saisie', 'pages': ['Logistique', 'Suivi']})
     db_users.insert({'username': 'Islem', 'password': 'islem2026', 'role': 'Saisie', 'pages': ['Logistique', 'Suivi']})
