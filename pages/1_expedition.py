@@ -59,23 +59,30 @@ if "rows" not in st.session_state:
     st.session_state.rows = pd.DataFrame(columns=["Client", "Ville", "Secteur", "N° Doc", "Info", "Statut", "Signature"])
 
 def add_or_merge_row(client, ville, ref, info, statut, signature, mode, secteur=""):
-    """Ajoute une ligne pour chaque réclamation/commande (pas de fusion)."""
+    """Ajoute une ligne pour chaque réclamation/commande (évite les doublons par référence)."""
     client = str(client).strip()
     ref = str(ref).strip()
     
-    # Pour les réclamations, on enregistre en base persistante
-    if mode == "Réclamation":
-        table_reclam.insert({
-            "client": client,
-            "ville": ville,
-            "ref": ref,
-            "motif": info,
-            "date_crea": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "statut": "En cours",
-            "signature": signature
-        })
+    # Vérification si la référence existe déjà dans le tableau actuel (session)
+    if not st.session_state.rows.empty:
+        if ref in st.session_state.rows['N° Doc'].astype(str).values:
+            return False # Indique que la ligne n'a pas été ajoutée car doublon
 
-    # Ajout systématique d'une nouvelle ligne
+    # Pour les réclamations, on enregistre en base persistante si pas déjà présent
+    if mode == "Réclamation":
+        Existing = Query()
+        if not table_reclam.search(Existing.ref == ref):
+            table_reclam.insert({
+                "client": client,
+                "ville": ville,
+                "ref": ref,
+                "motif": info,
+                "date_crea": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "statut": "En cours",
+                "signature": signature
+            })
+
+    # Ajout à l'état de session
     new_row = pd.DataFrame([{
         "Client": client, 
         "Ville": ville, 
@@ -86,6 +93,7 @@ def add_or_merge_row(client, ville, ref, info, statut, signature, mode, secteur=
         "Signature": signature
     }])
     st.session_state.rows = pd.concat([st.session_state.rows, new_row], ignore_index=True)
+    return True
 
 # --- INTERFACE ---
 st.title("🚛 Gestion des Expéditions")
