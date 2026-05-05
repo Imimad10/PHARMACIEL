@@ -17,81 +17,21 @@ STATUS_OPTIONS = ["En attente", "Partiel", "Réglé", "Clôturé", "Annulé", "L
 GS_CREDS_PATH = "google_creds.json"
 GS_CONFIG_PATH = "gs_config.txt"
 
-# --- FONCTIONS GOOGLE SHEETS ---
-def get_gs_client():
-    if os.path.exists(GS_CREDS_PATH):
-        try:
-            scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-            creds = Credentials.from_service_account_file(GS_CREDS_PATH, scopes=scopes)
-            return gspread.authorize(creds)
-        except Exception as e:
-            st.error(f"Erreur d'authentification Google : {e}")
-    return None
+from utils_gsheets import load_gs_data, save_gs_data, get_gs_client, get_gs_url, GS_CREDS_PATH, GS_CONFIG_PATH
 
-def get_gs_url():
-    if os.path.exists(GS_CONFIG_PATH):
-        with open(GS_CONFIG_PATH, "r") as f:
-            return f.read().strip()
-    return None
-
+# --- FONCTIONS DE GESTION DES DONNÉES (WRAPPERS) ---
 def load_data(path, columns):
-    gs_client = get_gs_client()
-    gs_url = get_gs_url()
-    
-    if gs_client and gs_url and path == DATA_RECOUV:
-        try:
-            sh = gs_client.open_by_url(gs_url)
-            worksheet = sh.get_worksheet(0)
-            data = worksheet.get_all_records()
-            df = pd.DataFrame(data)
-            if df.empty: return pd.DataFrame(columns=columns)
-            # Nettoyage
-            for col in ["Montant Initial", "Montant Réglé", "Reste à payer"]:
-                if col in df.columns:
-                    df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', '.'), errors='coerce').fillna(0.0)
-            return df.reindex(columns=columns)
-        except Exception as e:
-            st.warning(f"Impossible de lire Google Sheets, repli sur le local : {e}")
-            
-    if os.path.exists(path):
-        try:
-            df = pd.read_csv(path, sep=',', encoding='utf-8-sig')
-            # Nettoyage des montants
-            if "Reste à payer" in df.columns:
-                for col in ["Montant Initial", "Montant Réglé", "Reste à payer"]:
-                    if col in df.columns:
-                        df[col] = pd.to_numeric(
-                            df[col].astype(str).str.replace(',', '.').str.replace(r'\s+', '', regex=True), 
-                            errors='coerce'
-                        ).fillna(0.0)
-            return df.reindex(columns=columns)
-        except:
-            return pd.DataFrame(columns=columns)
-    return pd.DataFrame(columns=columns)
+    worksheet_name = "Recouvrement" if path == DATA_RECOUV else "Base_Clients"
+    df = load_gs_data(worksheet_name, path, columns)
+    # Nettoyage spécifique aux montants
+    for col in ["Montant Initial", "Montant Réglé", "Reste à payer"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', '.'), errors='coerce').fillna(0.0)
+    return df
 
 def save_data(df, path):
-    df = df.dropna(how='all')
-    
-    gs_client = get_gs_client()
-    gs_url = get_gs_url()
-    
-    if gs_client and gs_url and path == DATA_RECOUV:
-        try:
-            sh = gs_client.open_by_url(gs_url)
-            worksheet = sh.get_worksheet(0)
-            worksheet.clear()
-            # Préparation des données pour Sheets (conversion dates en str)
-            df_gs = df.copy()
-            for col in df_gs.columns:
-                if pd.api.types.is_datetime64_any_dtype(df_gs[col]):
-                    df_gs[col] = df_gs[col].dt.strftime('%Y-%m-%d')
-            
-            worksheet.update([df_gs.columns.values.tolist()] + df_gs.values.tolist())
-            st.toast("✅ Synchronisé avec Google Sheets")
-        except Exception as e:
-            st.error(f"Erreur de sauvegarde Google Sheets : {e}")
-            
-    df.to_csv(path, index=False, sep=',', encoding='utf-8-sig')
+    worksheet_name = "Recouvrement" if path == DATA_RECOUV else "Base_Clients"
+    save_gs_data(df, worksheet_name, path)
     return df
 
 def get_livreur(region_val):
@@ -496,19 +436,35 @@ with tabs[5]:
             st.rerun()
 
         st.write("---")
-        if st.button("🚀 Migrer les données locales vers Google Sheets", use_container_width=True):
-            gs_client = get_gs_client()
-            gs_url = get_gs_url()
-            if gs_client and gs_url:
-                with st.spinner("Migration en cours..."):
-                    df_local = load_data(DATA_RECOUV, COLS_RECOUV)
-                    if not df_local.empty:
-                        save_data(df_local, DATA_RECOUV) # save_data gère l'envoi vers GS si configuré
-                        st.success("🚀 Migration réussie ! Vos données locales sont maintenant sur le Cloud.")
-                    else:
-                        st.warning("Aucune donnée locale à migrer.")
-            else:
-                st.error("Veuillez d'abord configurer le fichier JSON et l'URL.")
+        st.markdown("### 🚀 Migration groupée vers le Cloud")
+        c_mig1, c_mig2 = st.columns(2)
+        
+        if c_mig1.button("📊 Migrer Recouvrement", use_container_width=True):
+            with st.spinner("Migration..."):
+                df = load_data(DATA_RECOUV, COLS_RECOUV)
+                save_data(df, DATA_RECOUV)
+                st.success("Recouvrement migré !")
+
+        if c_mig2.button("👥 Migrer Base Clients", use_container_width=True):
+            with st.spinner("Migration..."):
+                df = load_data(DATA_CLIENTS, COLS_CLIENTS)
+                save_data(df, DATA_CLIENTS)
+                st.success("Base Clients migrée !")
+
+        c_mig3, c_mig4 = st.columns(2)
+        if c_mig3.button("🚚 Migrer Livreurs", use_container_width=True):
+            from pages.1_expedition import LIVREURS_PATH, load_livreurs, save_livreurs
+            with st.spinner("Migration..."):
+                df = load_livreurs()
+                save_livreurs(df)
+                st.success("Livreurs migrés !")
+
+        if c_mig4.button("🗺️ Migrer Secteurs/Clients Logistique", use_container_width=True):
+            from pages.1_expedition import SECTEURS_PATH, load_clients, save_clients
+            with st.spinner("Migration..."):
+                df = load_clients()
+                save_clients(df)
+                st.success("Secteurs migrés !")
 
     st.divider()
     st.subheader("Gestion de la Base Clients")

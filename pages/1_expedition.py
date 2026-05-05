@@ -8,6 +8,7 @@ import plotly.express as px
 from utils import log_action
 from tinydb import TinyDB, Query
 from utils_ia import ask_ai, is_ia_enabled
+from utils_gsheets import load_gs_data, save_gs_data
 
 # --- CONFIGURATION ---
 # st.set_page_config(page_title="Gestion des Expéditions", layout="wide")
@@ -16,31 +17,26 @@ os.makedirs(DATA_DIR, exist_ok=True)
 SECTEURS_PATH = os.path.join(DATA_DIR, "secteurs.csv")
 LIVREURS_PATH = os.path.join(DATA_DIR, "livreurs.csv")
 MOTIFS_PATH = os.path.join(DATA_DIR, "motifs.csv")
+COLS_CLIENTS = ["Client", "Ville", "Tel", "Secteur"]
+COLS_LIVREURS = ["Nom", "Secteur"]
 db_global = TinyDB('db_pharmaciel.json')
 table_reclam = db_global.table('reclamations')
 
 # --- FONCTIONS DE CHARGEMENT ---
 def load_clients():
-    if not os.path.exists(SECTEURS_PATH) or os.path.getsize(SECTEURS_PATH) == 0:
-        return pd.DataFrame(columns=["Client", "Ville", "Tel", "Secteur"])
-    try:
-        df = pd.read_csv(SECTEURS_PATH)
-        mapping = {'nom client': 'Client', 'VILLE': 'Ville', 'tel': 'Tel', 'SECTEUR': 'Secteur'}
-        df = df.rename(columns=mapping)
-        return df.loc[:, ~df.columns.duplicated()] 
-    except:
-        return pd.DataFrame(columns=["Client", "Ville", "Tel", "Secteur"])
+    df = load_gs_data("Secteurs", SECTEURS_PATH, COLS_CLIENTS)
+    mapping = {'nom client': 'Client', 'VILLE': 'Ville', 'tel': 'Tel', 'SECTEUR': 'Secteur'}
+    df = df.rename(columns=mapping)
+    return df.loc[:, ~df.columns.duplicated()]
 
 def save_clients(df):
-    df.to_csv(SECTEURS_PATH, index=False)
+    save_gs_data(df, "Secteurs", SECTEURS_PATH)
 
 def load_livreurs():
-    if not os.path.exists(LIVREURS_PATH):
-        return pd.DataFrame(columns=["Nom", "Prénom", "Téléphone", "Secteur"])
-    return pd.read_csv(LIVREURS_PATH)
+    return load_gs_data("Livreurs", LIVREURS_PATH, ["Nom", "Prénom", "Téléphone", "Secteur"])
 
 def save_livreurs(df):
-    df.to_csv(LIVREURS_PATH, index=False)
+    save_gs_data(df, "Livreurs", LIVREURS_PATH)
 
 def load_motifs():
     if not os.path.exists(MOTIFS_PATH):
