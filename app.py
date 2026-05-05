@@ -9,7 +9,7 @@ from utils_ia import is_ia_enabled
 st.set_page_config(page_title="Darpharm Solution - Portail", layout="wide", page_icon="💊")
 
 if "theme" not in st.session_state:
-    st.session_state.theme = "Sombre"
+    st.session_state.theme = "Clair"
 
 # Définition des styles selon le thème
 if st.session_state.theme == "Sombre":
@@ -163,8 +163,8 @@ with st.sidebar:
     
     st.divider()
     # Sélecteur de thème
-    new_theme = st.selectbox("🎨 Thème d'affichage", ["Sombre", "Clair"], 
-                              index=0 if st.session_state.theme == "Sombre" else 1)
+    new_theme = st.selectbox("🎨 Thème d'affichage", ["Clair", "Sombre"], 
+                              index=0 if st.session_state.theme == "Clair" else 1)
     if new_theme != st.session_state.theme:
         st.session_state.theme = new_theme
         st.rerun()
