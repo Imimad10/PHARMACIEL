@@ -123,7 +123,7 @@ def generate_relance_pdf(client_name, df_client, total_du):
 # --- INTERFACE UTILISATEUR ---
 st.title("💰 Système de Recouvrement")
 
-tabs = st.tabs(["🆕 Créer / Importer", "📄 Feuilles de Route", "📊 Suivi Global", "📈 Analyse Financière", "⚙️ Administration"])
+tabs = st.tabs(["🆕 Créer / Importer", "📄 Feuilles de Route", "📊 Suivi Global", "🗄️ Archives", "📈 Analyse Financière", "⚙️ Administration"])
 
 # ONGLET 1 : SAISIE ET IMPORT
 with tabs[0]:
@@ -232,16 +232,35 @@ with tabs[1]:
     else:
         st.info("Aucune donnée disponible.")
 
-# ONGLET 3 : SUIVI GLOBAL
+# ONGLET 3 : SUIVI GLOBAL (FILTRÉ)
 with tabs[2]:
-    st.subheader("État Global des Recouvrements")
-    df_global = load_data(DATA_RECOUV, COLS_RECOUV)
+    st.subheader("État Global des Recouvrements Actifs")
+    df_all = load_data(DATA_RECOUV, COLS_RECOUV)
+    
+    # Séparation Actifs / Archivés
+    status_archived = ["Clôturé", "Annulé", "Réglé"]
+    df_global = df_all[~df_all["Statut"].isin(status_archived)].copy()
+    
     if not df_global.empty:
+        # Filtre par statut
+        col_f1, col_f2 = st.columns([1, 2])
+        filter_status = col_f1.selectbox("Filtrer par statut", ["Tous les actifs"] + [s for s in STATUS_OPTIONS if s not in status_archived])
+        
+        if filter_status != "Tous les actifs":
+            df_view = df_global[df_global["Statut"] == filter_status]
+        else:
+            df_view = df_global
+
         c1, c2, c3 = st.columns(3)
-        c1.metric("Total à recouvrer", f"{df_global['Reste à payer'].sum():,.2f} DA")
-        c2.metric("Nombre de Clients", len(df_global["Client"].unique()))
-        c3.metric("En attente", len(df_global[df_global["Statut"] == "En attente"]))
-        st.dataframe(df_global.sort_values("Date", ascending=False), use_container_width=True, hide_index=True)
+        c1.metric("Total Actif à recouvrer", f"{df_view['Reste à payer'].sum():,.2f} DA")
+        c2.metric("Dossiers en vue", len(df_view))
+        c3.metric("En attente critique", len(df_view[df_view["Statut"] == "En attente"]))
+        
+        # Action si "En attente" est sélectionné ou présent
+        if "En attente" in df_view["Statut"].values:
+            st.info("💡 **Conseil :** Vous avez des dossiers 'En attente'. Pensez à générer une relance ou à envoyer un message WhatsApp ci-dessous.")
+
+        st.dataframe(df_view.sort_values("Date", ascending=False), use_container_width=True, hide_index=True)
         
         st.divider()
         st.subheader("✉️ Génération de Lettres de Relance")
@@ -319,11 +338,33 @@ with tabs[2]:
                 st.warning("Numéro de téléphone manquant pour ce client dans la base.")
         else:
             st.success("Aucun client n'a de reste à payer. Tout est en règle !")
-    else:
-        st.info("Base de données vide.")
-
-# ONGLET 4 : ANALYSE FINANCIÈRE (BALANCE ÂGÉE)
+# ONGLET 4 : ARCHIVES
 with tabs[3]:
+    st.subheader("🗄️ Archives des dossiers terminés")
+    df_all_arch = load_data(DATA_RECOUV, COLS_RECOUV)
+    status_archived = ["Clôturé", "Annulé", "Réglé"]
+    df_arch = df_all_arch[df_all_arch["Statut"].isin(status_archived)].copy()
+    
+    if not df_arch.empty:
+        st.write(f"Il y a **{len(df_arch)}** dossiers archivés.")
+        st.dataframe(df_arch.sort_values("Date", ascending=False), use_container_width=True, hide_index=True)
+        
+        if st.button("📥 Exporter les archives en Excel"):
+            import io
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df_arch.to_excel(writer, index=False, sheet_name='Archives')
+            st.download_button(
+                label="📁 Télécharger le fichier Excel",
+                data=output.getvalue(),
+                file_name=f"Archives_Recouvrement_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+    else:
+        st.info("Aucune archive pour le moment.")
+
+# ONGLET 5 : ANALYSE FINANCIÈRE (BALANCE ÂGÉE)
+with tabs[4]:
     st.header("📈 Dashboard Financier & Balance Âgée")
     df_global = load_data(DATA_RECOUV, COLS_RECOUV)
     
@@ -373,8 +414,8 @@ with tabs[3]:
     else:
         st.info("Aucune donnée pour l'analyse financière.")
 
-# ONGLET 5 : ADMINISTRATION
-with tabs[4]:
+# ONGLET 6 : ADMINISTRATION
+with tabs[5]:
     st.subheader("Gestion de la Base Clients")
     f_cli = st.file_uploader("Importer base clients (Excel)", type=["xlsx"])
     if f_cli:
