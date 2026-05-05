@@ -100,9 +100,28 @@ with tabs[1]:
     st.subheader("👥 Annuaire Général des Clients")
     df_clients = load_gs_data("Base_Clients", DATA_CLIENTS, COLS_CLIENTS)
     edited_clients = st.data_editor(df_clients, use_container_width=True, num_rows="dynamic", key="editor_clients")
-    if st.button("💾 Sauvegarder Clients", key="btn_save_clients"):
+    
+    c1, c2 = st.columns(2)
+    if c1.button("💾 Sauvegarder Clients", key="btn_save_clients", use_container_width=True):
         save_gs_data(edited_clients, "Base_Clients", DATA_CLIENTS)
         st.success("Base Clients mise à jour !")
+
+    if c2.button("🔄 Transmettre vers Secteurs Logistique", key="btn_sync_secteurs", use_container_width=True, type="primary"):
+        # Mapping : Nom Client → Client, Région → Secteur
+        df_src = edited_clients.copy()
+        df_src = df_src.rename(columns={"Nom Client": "Client", "Région": "Secteur", "Téléphone": "Tel"})
+        
+        # On garde uniquement les colonnes compatibles avec Secteurs
+        df_src = df_src[["Client", "Secteur", "Tel"]].copy()
+        df_src["Ville"] = df_src["Secteur"]  # Ville = Région par défaut
+        
+        # Fusion avec la base Secteurs existante (sans doublons)
+        df_old_sec = load_gs_data("Secteurs", DATA_SECTEURS, COLS_SECTEURS)
+        df_merged = pd.concat([df_old_sec, df_src[COLS_SECTEURS]], ignore_index=True).drop_duplicates(subset=["Client"])
+        
+        save_gs_data(df_merged, "Secteurs", DATA_SECTEURS)
+        st.success(f"✅ {len(df_src)} clients transmis vers Secteurs Logistique ! (Région → Secteur)")
+        st.cache_data.clear()
 
 # ONGLET 2 : LIVREURS
 with tabs[2]:
