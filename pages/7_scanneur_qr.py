@@ -5,6 +5,7 @@ from tinydb import TinyDB, Query
 from datetime import datetime
 import os
 from utils_ia import ask_ai, is_ia_enabled
+from utils_gsheets import load_gs_data, save_gs_data
 
 # Configuration
 db = TinyDB('db_pharmaciel.json')
@@ -29,9 +30,50 @@ with st.container(border=True):
             
             if data:
                 st.success(f"✅ QR Code détecté !")
-                st.code(data)
-                if "Livreur:" in data:
-                    st.info("Informations de la tournée extraites avec succès.")
+                
+                # Parsing des données du QR
+                info = {}
+                try:
+                    for item in data.split('|'):
+                        k, v = item.split(':')
+                        info[k] = v
+                except:
+                    st.error("Format de QR Code non reconnu.")
+                    st.stop()
+                
+                mission_id = info.get('ID')
+                livreur = info.get('Livreur')
+                nb_factures = info.get('Nb', 0)
+                
+                st.write(f"**Livreur :** {livreur} | **Mission :** {mission_id}")
+                
+                # --- LOGIQUE DE POINTAGE ---
+                df_missions = load_gs_data("Missions_Livreurs", "data_expedition/missions.csv", ["ID", "Livreur", "Début", "Fin", "Nb Factures", "Durée"])
+                
+                if mission_id not in df_missions['ID'].values:
+                    if st.button(f"🏁 Démarrer la tournée ({livreur})", type="primary", use_container_width=True):
+                        new_row = pd.DataFrame([{
+                            "ID": mission_id, "Livreur": livreur, 
+                            "Début": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            "Fin": "", "Nb Factures": nb_factures, "Durée": ""
+                        }])
+                        save_gs_data(pd.concat([df_missions, new_row], ignore_index=True), "Missions_Livreurs", "data_expedition/missions.csv")
+                        st.success("Tournée démarrée ! Bonne route.")
+                else:
+                    # Mission existante, on vérifie si elle est déjà finie
+                    idx = df_missions[df_missions['ID'] == mission_id].index[0]
+                    if df_missions.at[idx, 'Fin'] == "":
+                        if st.button(f"🛑 Clôturer la tournée ({livreur})", type="secondary", use_container_width=True):
+                            fin_time = datetime.now()
+                            debut_time = datetime.strptime(df_missions.at[idx, 'Début'], "%Y-%m-%d %H:%M:%S")
+                            duree = fin_time - debut_time
+                            
+                            df_missions.at[idx, 'Fin'] = fin_time.strftime("%Y-%m-%d %H:%M:%S")
+                            df_missions.at[idx, 'Durée'] = str(duree).split('.')[0] # HH:MM:SS
+                            save_gs_data(df_missions, "Missions_Livreurs", "data_expedition/missions.csv")
+                            st.success(f"Tournée terminée ! Durée : {df_missions.at[idx, 'Durée']}")
+                    else:
+                        st.warning("Cette mission est déjà clôturée.")
             else:
                 st.warning("Aucun QR Code valide détecté. Assurez-vous qu'il soit bien visible.")
         except Exception as e:

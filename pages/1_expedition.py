@@ -316,13 +316,11 @@ with tab_exp:
         if not df_visible.empty:
             try:
                 # Génération du QR Code
-                qr = qrcode.QRCode(box_size=4, border=2)
-                qr_data = f"Livreur: {livreur_choisi}\nSecteur: {secteur_affichage}\nDate: {date_exp}"
-                qr.add_data(qr_data)
-                qr.make(fit=True)
-                img = qr.make_image(fill_color="black", back_color="white")
+                mission_id = f"M-{int(datetime.now().timestamp())}"
+                qr_data = f"ID:{mission_id}|Livreur:{livreur_choisi}|Secteur:{secteur_affichage}|Date:{datetime.now().strftime('%d/%m/%Y')}|Nb:{len(df_visible)}"
+                qr = qrcode.make(qr_data)
                 qr_path = "temp_qr.png"
-                img.save(qr_path)
+                qr.save(qr_path)
                 
                 pdf = FPDF()
                 pdf.add_page()
