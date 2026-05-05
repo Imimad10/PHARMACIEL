@@ -169,7 +169,7 @@ if st.session_state.current_user is None:
                 font-size: 24px;
                 line-height: 28px;
                 font-weight: normal;
-                color: inherit;
+                color: #4b4f56 !important;
                 margin-top: 15px;
                 max-width: 500px;
             }
@@ -241,7 +241,7 @@ if st.session_state.current_user is None:
         if os.path.exists("logo.png"):
             st.image("logo.png", width=220)
         st.markdown('<h1 class="fb-logo-text">DarPharm®Solutions</h1>', unsafe_allow_html=True)
-        st.markdown('<p class="fb-slogan" style="color: inherit;">DarPharm®Solutions vous aide à gérer vos stocks, vos expéditions et votre logistique en toute simplicité.</p>', unsafe_allow_html=True)
+        st.markdown('<p class="fb-slogan">DarPharm®Solutions vous aide à gérer vos stocks, vos expéditions et votre logistique en toute simplicité.</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
