@@ -478,12 +478,25 @@ with tabs[5]:
     if f_cli:
         df_cli_ex = pd.read_excel(f_cli)
         if st.button("📥 Fusionner la base"):
-            old_cli = load_data(DATA_CLIENTS, COLS_CLIENTS)
-            cols_ok = [c for c in COLS_CLIENTS if c in df_cli_ex.columns]
-            updated_cli = pd.concat([old_cli, df_cli_ex[cols_ok]], ignore_index=True).drop_duplicates(subset=["Nom Client"])
-            save_data(updated_cli, DATA_CLIENTS)
-            st.success("Base clients mise à jour.")
-            st.rerun()
+            # Mapping des colonnes courantes vers le format interne
+            mapping = {
+                "Raison sociale": "Nom Client",
+                "Raison Sociale": "Nom Client",
+                "Client": "Nom Client",
+                "Nom": "Nom Client"
+            }
+            df_cli_ex = df_cli_ex.rename(columns=mapping)
+            
+            if "Nom Client" not in df_cli_ex.columns:
+                st.error("Le fichier Excel doit contenir une colonne 'Nom Client' ou 'Raison sociale'.")
+            else:
+                old_cli = load_data(DATA_CLIENTS, COLS_CLIENTS)
+                # On ne garde que les colonnes qui existent dans notre COLS_CLIENTS
+                cols_ok = [c for c in COLS_CLIENTS if c in df_cli_ex.columns]
+                updated_cli = pd.concat([old_cli, df_cli_ex[cols_ok]], ignore_index=True).drop_duplicates(subset=["Nom Client"])
+                save_data(updated_cli, DATA_CLIENTS)
+                st.success(f"Base clients mise à jour : {len(df_cli_ex)} clients traités.")
+                st.rerun()
     
     base_actuelle = load_data(DATA_CLIENTS, COLS_CLIENTS)
     edited_base = st.data_editor(base_actuelle, use_container_width=True, num_rows="dynamic")
