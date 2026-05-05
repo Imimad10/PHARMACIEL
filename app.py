@@ -131,6 +131,13 @@ if len(db_users) <= 1: # Si seulement admin ou vide
 if "current_user" not in st.session_state:
     st.session_state.current_user = None
 
+# Rafraîchir les données de l'utilisateur depuis la DB à chaque chargement pour éviter les désync
+if st.session_state.current_user:
+    U = Query()
+    updated_user = db_users.get(U.username == st.session_state.current_user['username'])
+    if updated_user:
+        st.session_state.current_user = updated_user
+
 # --- 4. ÉCRAN DE CONNEXION ---
 if st.session_state.current_user is None:
     # Injection CSS spécifique pour l'écran de connexion Facebook-style
