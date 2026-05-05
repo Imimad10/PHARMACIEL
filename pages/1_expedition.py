@@ -490,24 +490,81 @@ with tab_livreurs:
 # 3. GESTION DES SECTEURS (Clients)
 with tab_secteurs:
     st.header("📍 Gestion des Clients")
-    with st.expander("➕ Ajouter un nouveau client"):
-        with st.form("ajout_client", clear_on_submit=True):
-            c1, c2 = st.columns(2)
-            new_nom = c1.text_input("Nom Client")
-            new_ville = c1.text_input("Ville")
-            new_tel = c2.text_input("Téléphone")
-            new_secteur = c2.text_input("Secteur")
-            if st.form_submit_button("Valider l'ajout"):
-                df_actuel = load_clients()
-                new_data = pd.DataFrame([{"Client": new_nom, "Ville": new_ville, "Tel": new_tel, "Secteur": new_secteur}])
-                save_clients(pd.concat([df_actuel, new_data], ignore_index=True))
-                st.rerun()
+    
+    c_m1, c_m2 = st.columns(2)
+    with c_m1:
+        with st.expander("➕ Ajouter un client manuellement"):
+            with st.form("ajout_client", clear_on_submit=True):
+                c1, c2 = st.columns(2)
+                new_nom = c1.text_input("Nom Client")
+                new_ville = c1.text_input("Ville")
+                new_tel = c2.text_input("Téléphone")
+                new_secteur = c2.text_input("Secteur")
+                if st.form_submit_button("Valider l'ajout"):
+                    if new_nom:
+                        df_actuel = load_clients()
+                        new_data = pd.DataFrame([{"Client": new_nom, "Ville": new_ville, "Tel": new_tel, "Secteur": new_secteur}])
+                        save_clients(pd.concat([df_actuel, new_data], ignore_index=True))
+                        st.success("Client ajouté !")
+                        st.rerun()
+                    else:
+                        st.error("Le nom du client est obligatoire.")
 
+    with c_m2:
+        with st.expander("📥 Importer depuis Excel (Drag & Drop)"):
+            st.info("Colonnes attendues : 'Raison sociale' (ou Client) et 'Région' (ou Secteur)")
+            file_clients = st.file_uploader("Déposer le fichier Excel des clients", type=['xlsx', 'xls'])
+            if file_clients:
+                try:
+                    df_c_ex = pd.read_excel(file_clients)
+                    # Mappage flexible des colonnes
+                    mapping = {
+                        'Raison sociale': 'Client',
+                        'Raison Sociale': 'Client',
+                        'Région': 'Secteur',
+                        'Region': 'Secteur',
+                        'nom client': 'Client',
+                        'VILLE': 'Ville',
+                        'tel': 'Tel'
+                    }
+                    df_c_ex = df_c_ex.rename(columns=mapping)
+                    
+                    if 'Client' in df_c_ex.columns:
+                        if st.button("🚀 Valider l'importation groupée"):
+                            df_base = load_clients()
+                            # On ne garde que les colonnes nécessaires et on enlève les doublons
+                            df_new = df_c_ex[['Client', 'Secteur', 'Ville', 'Tel']].copy() if 'Ville' in df_c_ex.columns else df_c_ex[['Client', 'Secteur']].copy()
+                            # S'assurer que les colonnes manquantes sont créées
+                            for col in ["Client", "Ville", "Tel", "Secteur"]:
+                                if col not in df_new.columns: df_new[col] = ""
+                            
+                            final_clients = pd.concat([df_base, df_new], ignore_index=True).drop_duplicates(subset=['Client'])
+                            save_clients(final_clients)
+                            st.success(f"Base mise à jour avec {len(df_new)} clients !")
+                            st.rerun()
+                    else:
+                        st.error("Colonne 'Raison sociale' ou 'Client' introuvable.")
+                except Exception as e:
+                    st.error(f"Erreur : {e}")
+
+    st.divider()
+    st.subheader("📋 Base de Données Clients")
     df_clients_edit = load_clients()
-    edited_clients = st.data_editor(df_clients_edit, use_container_width=True, num_rows="dynamic")
-    if st.button("💾 Sauvegarder les clients"):
-        save_clients(edited_clients)
-        st.success("Clients sauvegardés !")
+    edited_clients = st.data_editor(df_clients_edit, use_container_width=True, num_rows="dynamic", hide_index=True)
+    
+    c_b1, c_b2 = st.columns(2)
+    with c_b1:
+        if st.button("💾 Sauvegarder les modifications", use_container_width=True, type="primary"):
+            save_clients(edited_clients)
+            st.success("Clients sauvegardés !")
+            st.rerun()
+            
+    with c_b2:
+        if st.session_state.current_user.get('role') == 'Admin':
+            if st.button("🗑️ Supprimer toute la base", use_container_width=True):
+                save_clients(pd.DataFrame(columns=["Client", "Ville", "Tel", "Secteur"]))
+                st.warning("Base de clients vidée.")
+                st.rerun()
 
 # 4. ADMINISTRATION
 with tab_admin:
