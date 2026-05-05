@@ -20,7 +20,7 @@ chart_color = "#1a1c21" if st.session_state.theme == "Clair" else "#e0e6ed"
 # Bouton de rafraîchissement
 col_ref, col_empty = st.columns([1, 5])
 with col_ref:
-    if st.button("🔄 Actualiser", use_container_width=True):
+    if st.button("🔄 Actualiser", use_container_width=True, key="btn_refresh"):
         st.cache_data.clear()
         st.rerun()
 

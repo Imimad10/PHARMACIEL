@@ -61,6 +61,49 @@ st.markdown(f"""
         h1, h2, h3, h4, h5, h6, p, span {{
             color: {text_color};
         }}
+
+        /* BOUTON ACTUALISER (Bleu clair -> Gris) */
+        div[data-testid="stBaseButton-btn_refresh"] button {{
+            background-color: #e0f2fe !important;
+            color: #0369a1 !important;
+            border: 1px solid #bae6fd !important;
+            transition: all 0.3s ease !important;
+        }}
+        div[data-testid="stBaseButton-btn_refresh"] button:hover {{
+            background-color: #f3f4f6 !important;
+            color: #374151 !important;
+            border-color: #d1d5db !important;
+            transform: scale(1.02);
+        }}
+
+        /* BOUTON MOBILE (Clair -> Foncé) */
+        div[data-testid="stBaseButton-btn_mobile"] button {{
+            background-color: #f9fafb !important;
+            color: #374151 !important;
+            border: 1px solid #e5e7eb !important;
+            transition: all 0.3s ease !important;
+        }}
+        div[data-testid="stBaseButton-btn_mobile"] button:hover {{
+            background-color: #1f2937 !important;
+            color: #ffffff !important;
+            transform: translateY(-2px);
+        }}
+
+        /* BOUTON DÉCONNEXION (Rouge -> Bye Bye) */
+        div[data-testid="stBaseButton-btn_logout"] button {{
+            background-color: #fee2e2 !important;
+            color: #dc2626 !important;
+            border: 1px solid #fecaca !important;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+        }}
+        div[data-testid="stBaseButton-btn_logout"] button:hover {{
+            background-color: #ef4444 !important;
+            color: #ffffff !important;
+            border-color: #ef4444 !important;
+        }}
+        div[data-testid="stBaseButton-btn_logout"] button:hover div::after {{
+            content: " 👋";
+        }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -297,10 +340,10 @@ with st.sidebar:
         st.rerun()
     st.divider()
 
-    if st.button("📱 Mode Mobile", use_container_width=True):
+    if st.button("📱 Mode Mobile", use_container_width=True, key="btn_mobile"):
         st.switch_page("pages/12_mobile_scan.py")
         
-    if st.button("🚪 Déconnexion", use_container_width=True):
+    if st.button("🚪 Déconnexion", use_container_width=True, key="btn_logout"):
         st.session_state.current_user = None
         st.rerun()
 
