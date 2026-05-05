@@ -321,7 +321,7 @@ with tab_exp:
             try:
                 # Génération du QR Code
                 qr = qrcode.QRCode(box_size=4, border=2)
-                qr_data = f"Livreur: {livreur_choisi}\nSecteur: {secteur_livreur}\nDate: {date_exp}"
+                qr_data = f"Livreur: {livreur_choisi}\nSecteur: {secteur_affichage}\nDate: {date_exp}"
                 qr.add_data(qr_data)
                 qr.make(fit=True)
                 img = qr.make_image(fill_color="black", back_color="white")
@@ -333,7 +333,7 @@ with tab_exp:
                 pdf.set_font("Arial", 'B', 16)
                 pdf.cell(0, 10, f"FEUILLE DE ROUTE - {livreur_choisi}", 0, 1, 'C')
                 pdf.set_font("Arial", 'B', 12)
-                pdf.cell(0, 8, f"SECTEUR : {secteur_livreur.upper()}", 0, 1, 'C')
+                pdf.cell(0, 8, f"SECTEUR : {secteur_affichage.upper()}", 0, 1, 'C')
                 pdf.set_font("Arial", '', 11)
                 pdf.cell(0, 10, f"Date: {date_exp}   |   Total Clients: {len(df_visible)}", 0, 1, 'C')
                 
