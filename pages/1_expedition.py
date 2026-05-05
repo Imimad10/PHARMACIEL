@@ -163,10 +163,13 @@ with tab_exp:
                         
                         df_reclam.columns = [clean_col(c) for c in df_reclam.columns]
                         
-                        required = {'client', 'statut'}
-                        if required.issubset(df_reclam.columns):
-                            df_reclam['statut_clean'] = df_reclam['statut'].astype(str).str.strip().str.lower()
-                            df_to_add = df_reclam[df_reclam['statut_clean'].str.contains("en cours", na=False)].copy()
+                        if 'client' in df_reclam.columns:
+                            # Filtrage par statut si la colonne existe, sinon on prend tout
+                            if 'statut' in df_reclam.columns:
+                                df_reclam['statut_clean'] = df_reclam['statut'].astype(str).str.strip().str.lower()
+                                df_to_add = df_reclam[df_reclam['statut_clean'].str.contains("en cours", na=False)].copy()
+                            else:
+                                df_to_add = df_reclam.dropna(subset=['client']).copy()
                             
                             if not df_to_add.empty:
                                 df_clients = load_clients()
@@ -203,9 +206,9 @@ with tab_exp:
                                 else:
                                     st.error(f"❌ Aucune réclamation dans ce fichier ne correspond au secteur **{secteur_livreur.upper()}**.")
                             else:
-                                st.info("Aucune réclamation 'En cours' trouvée.")
+                                st.info("Aucune réclamation valide trouvée dans le fichier.")
                         else:
-                            st.error(f"Colonnes manquantes: client, statut. Trouvé: {list(df_reclam.columns)}")
+                            st.error(f"Colonne 'client' manquante. Trouvé: {list(df_reclam.columns)}")
                     except Exception as e:
                         st.error(f"Erreur : {e}")
 
