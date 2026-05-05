@@ -218,7 +218,7 @@ with tabs[1]:
                     new_line = pd.DataFrame([{
                         'designation': prod_sel, 'lot_master': str(lot_orig),
                         'lot': str(lot_f), 'qte_saisie': qte, 'ddp_saisi': ddp_f,
-                        'ppa_saisi': ppa_f
+                        'ppa_saisi': ppa_f, 'agent': user['username']
                     }])
                     if os.path.exists(st.session_state.SAISIE_PATH):
                         old = pd.read_csv(st.session_state.SAISIE_PATH, sep=';')

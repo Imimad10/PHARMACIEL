@@ -96,12 +96,14 @@ if selected_user == "Tous le personnel":
     
     # KPI 2 : Inventaires par Agent
     df_inv = rh_data['inventaire']
-    if not df_inv.empty and 'user_saisie' in df_inv.columns:
-        inv_counts = df_inv['user_saisie'].value_counts().reset_index()
-        inv_counts.columns = ['Agent', 'Nb Saisies']
-        fig_inv = px.bar(inv_counts, x='Agent', y='Nb Saisies', title="Productivité Inventaire",
-                         color='Nb Saisies', color_continuous_scale='Greens', template=plotly_template)
-        st.plotly_chart(fig_inv, use_container_width=True)
+    if not df_inv.empty:
+        if 'user_saisie' in df_inv.columns: df_inv.rename(columns={'user_saisie': 'agent'}, inplace=True)
+        if 'agent' in df_inv.columns:
+            inv_counts = df_inv['agent'].value_counts().reset_index()
+            inv_counts.columns = ['Agent', 'Nb Saisies']
+            fig_inv = px.bar(inv_counts, x='Agent', y='Nb Saisies', title="Productivité Inventaire",
+                             color='Nb Saisies', color_continuous_scale='Greens', template=plotly_template)
+            st.plotly_chart(fig_inv, use_container_width=True)
 
     # KPI 3 : Recouvrement par Livreur
     df_rec = rh_data['recouvrement']
@@ -139,7 +141,12 @@ else:
     
     # 2. Performance selon le rôle
     if role == "Saisie":
-        u_inv = rh_data['inventaire'][rh_data['inventaire']['user_saisie'] == selected_user] if not rh_data['inventaire'].empty else pd.DataFrame()
+        df_inv_full = rh_data['inventaire']
+        if not df_inv_full.empty:
+            if 'user_saisie' in df_inv_full.columns: df_inv_full.rename(columns={'user_saisie': 'agent'}, inplace=True)
+            u_inv = df_inv_full[df_inv_full['agent'] == selected_user] if 'agent' in df_inv_full.columns else pd.DataFrame()
+        else:
+            u_inv = pd.DataFrame()
         m2.metric("Articles Inventoriés", len(u_inv))
         
         u_temp = len([l for l in u_logs if "temperature" in str(l.get('action')).lower()])
