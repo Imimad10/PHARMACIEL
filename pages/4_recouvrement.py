@@ -132,8 +132,12 @@ with tabs[0]:
         with st.form("form_rec", clear_on_submit=True):
             if not df_clients.empty:
                 noms_valides = sorted([n for n in df_clients["Nom Client"].unique() if str(n).lower() != 'nan'])
-                nom_sel = st.selectbox("Client", noms_valides)
-                reg_auto = df_clients[df_clients["Nom Client"] == nom_sel]["Région"].values[0]
+                nom_sel = st.selectbox("Client", noms_valides, index=None, placeholder="Rechercher ou sélectionner un client...")
+                
+                if nom_sel:
+                    reg_auto = df_clients[df_clients["Nom Client"] == nom_sel]["Région"].values[0]
+                else:
+                    reg_auto = ""
             else:
                 nom_sel = st.text_input("Nom Client")
                 reg_auto = st.text_input("Région")
@@ -141,11 +145,14 @@ with tabs[0]:
             montant = st.number_input("Montant", min_value=0.0)
             mode = st.selectbox("Mode", ["CASH", "CHÈQUE", "VERSEMENT"])
             if st.form_submit_button("Enregistrer"):
-                db = load_data(DATA_RECOUV, COLS_RECOUV)
-                new_row = pd.DataFrame([{"Client": nom_sel, "Mode Paiement": mode, "Région": reg_auto, "Reste à payer": montant, "Livreur": get_livreur(reg_auto), "Date": str(datetime.now().date()), "Statut": "En attente"}])
-                save_data(pd.concat([db, new_row], ignore_index=True), DATA_RECOUV)
-                st.success("Enregistré !")
-                st.rerun()
+                if not nom_sel:
+                    st.error("Veuillez sélectionner un client.")
+                else:
+                    db = load_data(DATA_RECOUV, COLS_RECOUV)
+                    new_row = pd.DataFrame([{"Client": nom_sel, "Mode Paiement": mode, "Région": reg_auto, "Reste à payer": montant, "Livreur": get_livreur(reg_auto), "Date": str(datetime.now().date()), "Statut": "En attente"}])
+                    save_data(pd.concat([db, new_row], ignore_index=True), DATA_RECOUV)
+                    st.success("Enregistré !")
+                    st.rerun()
 
     with col2:
         st.subheader("Import Excel")
@@ -205,21 +212,26 @@ with tabs[2]:
         clients_impayes = df_global[df_global['Reste à payer'] > 0]['Client'].dropna().unique().tolist()
         
         if clients_impayes:
-            client_relance = st.selectbox("Sélectionner un client pour la relance", clients_impayes)
-            df_client_impayes = df_global[(df_global['Client'] == client_relance) & (df_global['Reste à payer'] > 0)]
-            total_client = df_client_impayes['Reste à payer'].sum()
+            client_relance = st.selectbox("Sélectionner un client pour la relance", clients_impayes, index=None, placeholder="Choisir un client pour la relance...")
             
-            st.write(f"Total dû par **{client_relance}** : {total_client:,.2f} DA")
-            
-            pdf_relance_bytes = generate_relance_pdf(client_relance, df_client_impayes, total_client)
-            
-            st.download_button(
-                label="📥 Télécharger Lettre de Relance (PDF)",
-                data=pdf_relance_bytes,
-                file_name=f"Relance_{client_relance.replace(' ', '_')}.pdf",
-                mime="application/pdf",
-                type="primary"
-            )
+            if client_relance:
+                df_client_impayes = df_global[(df_global['Client'] == client_relance) & (df_global['Reste à payer'] > 0)]
+                total_client = df_client_impayes['Reste à payer'].sum()
+                
+                st.write(f"Total dû par **{client_relance}** : {total_client:,.2f} DA")
+                
+                pdf_relance_bytes = generate_relance_pdf(client_relance, df_client_impayes, total_client)
+                
+                st.download_button(
+                    label="📥 Télécharger Lettre de Relance (PDF)",
+                    data=pdf_relance_bytes,
+                    file_name=f"Relance_{client_relance.replace(' ', '_')}.pdf",
+                    mime="application/pdf",
+                    type="primary"
+                )
+            else:
+                st.info("Veuillez sélectionner un client pour voir les options de relance.")
+                st.stop()
             
             # --- PHASE 5: WHATSAPP LINK ---
             st.write("---")

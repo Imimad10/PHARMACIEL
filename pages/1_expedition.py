@@ -210,10 +210,9 @@ with tab_exp:
                         st.error(f"Erreur : {e}")
 
     # Formulaire d'ajout manuel
-    with st.container():
         c1, c2, c3, c4 = st.columns([2, 1.5, 1.5, 1])
         with c1:
-            new_client = st.selectbox("Client", ["Sélectionnez..."] + client_list)
+            new_client = st.selectbox("Client", client_list, index=None, placeholder="Rechercher ou sélectionner un client...")
         with c2:
             ref_bon = st.text_input("Réf. Bon")
         with c3:
@@ -232,7 +231,7 @@ with tab_exp:
             btn_ajouter = st.button("➕ Ajouter")
 
     if btn_ajouter:
-        if new_client != "Sélectionnez..." and ref_bon:
+        if new_client and ref_bon:
             annee = datetime.now().strftime('%y')
             prefixe = "RC" if mode == "Réclamation" else "BL"
             full_ref = f"{annee}/{prefixe}/{ref_bon}"
@@ -240,6 +239,10 @@ with tab_exp:
             
             add_or_merge_row(new_client, ville, full_ref, val_info, "En cours", "", mode=mode, secteur=secteur_livreur)
             st.rerun()
+        elif not new_client:
+            st.error("Veuillez sélectionner un client.")
+        elif not ref_bon:
+            st.error("Veuillez saisir la référence du bon.")
 
     # --- OPTIMISATION IA ---
     if is_ia_enabled() and not st.session_state.rows.empty:
