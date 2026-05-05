@@ -453,17 +453,23 @@ with tabs[5]:
 
         c_mig3, c_mig4 = st.columns(2)
         if c_mig3.button("🚚 Migrer Livreurs", use_container_width=True):
-            from pages.1_expedition import LIVREURS_PATH, load_livreurs, save_livreurs
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("expedition", "pages/1_expedition.py")
+            exp_mod = importlib.util.module_with_annotations(spec)
+            spec.loader.exec_module(exp_mod)
             with st.spinner("Migration..."):
-                df = load_livreurs()
-                save_livreurs(df)
+                df = exp_mod.load_livreurs()
+                exp_mod.save_livreurs(df)
                 st.success("Livreurs migrés !")
 
         if c_mig4.button("🗺️ Migrer Secteurs/Clients Logistique", use_container_width=True):
-            from pages.1_expedition import SECTEURS_PATH, load_clients, save_clients
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("expedition", "pages/1_expedition.py")
+            exp_mod = importlib.util.module_with_annotations(spec)
+            spec.loader.exec_module(exp_mod)
             with st.spinner("Migration..."):
-                df = load_clients()
-                save_clients(df)
+                df = exp_mod.load_clients()
+                exp_mod.save_clients(df)
                 st.success("Secteurs migrés !")
 
     st.divider()
