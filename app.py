@@ -68,30 +68,171 @@ if "current_user" not in st.session_state:
 
 # --- 4. ÉCRAN DE CONNEXION ---
 if st.session_state.current_user is None:
+    # Injection CSS spécifique pour l'écran de connexion Facebook-style
     st.markdown("""
         <style>
+            /* Cacher la barre latérale et le header */
             [data-testid="stSidebar"], [data-testid="stSidebarNav"] {display: none;}
             section[data-testid="stSidebar"] {width: 0px;}
+            [data-testid="stHeader"] {display: none;}
+            
+            .stApp {
+                background-color: #f0f2f5 !important;
+            }
+            
+            .main .block-container {
+                max-width: 1000px;
+                padding-top: 100px;
+                margin: auto;
+            }
+            
+            /* Styles du contenu gauche */
+            .fb-left-container {
+                padding-top: 40px;
+            }
+            .fb-logo-text {
+                color: #1877f2;
+                font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                font-size: 60px;
+                font-weight: bold;
+                letter-spacing: -2px;
+                margin-bottom: 0px;
+                line-height: 1;
+            }
+            .fb-slogan {
+                font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                font-size: 24px;
+                line-height: 28px;
+                font-weight: normal;
+                color: #1c1e21;
+                margin-top: 10px;
+                max-width: 500px;
+            }
+            
+            /* Styles de la carte de connexion */
+            .login-card {
+                background-color: white;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, .1), 0 8px 16px rgba(0, 0, 0, .1);
+                text-align: center;
+            }
+            
+            /* Style des inputs Streamlit */
+            .stTextInput input {
+                height: 52px !important;
+                font-size: 17px !important;
+                padding: 14px 16px !important;
+                border: 1px solid #dddfe2 !important;
+                border-radius: 6px !important;
+                color: #1c1e21 !important;
+                background-color: white !important;
+            }
+            .stTextInput input:focus {
+                border-color: #1877f2 !important;
+                box-shadow: 0 0 0 2px #e7f3ff !important;
+            }
+            
+            /* Style du bouton de connexion */
+            .stButton > button {
+                background-color: #1877f2 !important;
+                color: white !important;
+                font-size: 20px !important;
+                font-weight: bold !important;
+                height: 48px !important;
+                border-radius: 6px !important;
+                border: none !important;
+                width: 100% !important;
+                margin-top: 10px !important;
+            }
+            .stButton > button:hover {
+                background-color: #166fe5 !important;
+            }
+            
+            /* Style du bouton "Créer compte" (en vert) */
+            div.stButton > button:contains("Créer") {
+                background-color: #42b72a !important;
+                font-size: 17px !important;
+                width: auto !important;
+                padding: 0 20px !important;
+                margin: 20px auto 10px auto !important;
+            }
+            div.stButton > button:contains("Créer"):hover {
+                background-color: #36a420 !important;
+            }
+
+            [data-testid="stForm"] {
+                border: none !important;
+                padding: 0 !important;
+            }
+            
+            .forgot-link {
+                color: #1877f2;
+                font-size: 14px;
+                font-family: Helvetica, Arial, sans-serif;
+                text-decoration: none;
+                margin-top: 15px;
+                display: block;
+            }
+            .forgot-link:hover {
+                text-decoration: underline;
+            }
+            
+            hr {
+                border: 0;
+                border-top: 1px solid #dadde1;
+                margin: 20px 0;
+            }
+            
+            .create-page-text {
+                margin-top: 28px;
+                font-size: 14px;
+                font-family: Helvetica, Arial, sans-serif;
+                color: #1c1e21;
+            }
+            .create-page-text b {
+                cursor: pointer;
+            }
+            .create-page-text b:hover {
+                text-decoration: underline;
+            }
         </style>
     """, unsafe_allow_html=True)
-    if os.path.exists("logo.png"):
-        st.image("logo.png", width=200)
-    st.title("🔐 Portail Darpharm Solution")
-    st.write("Veuillez vous connecter pour accéder à vos modules.")
-    
-    with st.form("login_form"):
-        u = st.text_input("Nom d'utilisateur")
-        p = st.text_input("Mot de passe", type="password")
-        submit = st.form_submit_button("Se connecter", use_container_width=True)
-        
-        if submit:
-            User = Query()
-            result = db_users.search((User.username == u) & (User.password == p))
-            if result:
-                st.session_state.current_user = result[0]
-                st.rerun()
-            else:
-                st.error("Identifiants incorrects.")
+
+    col1, col2 = st.columns([1.2, 1], gap="large")
+
+    with col1:
+        st.markdown('<div class="fb-left-container">', unsafe_allow_html=True)
+        # On affiche le logo textuel façon Facebook
+        st.markdown('<h1 class="fb-logo-text">darpharm</h1>', unsafe_allow_html=True)
+        st.markdown('<p class="fb-slogan">Darpharm Solution vous aide à gérer vos stocks, vos expéditions et votre logistique en toute simplicité.</p>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col2:
+        st.markdown('<div class="login-card">', unsafe_allow_html=True)
+        with st.form("login_form"):
+            u = st.text_input("Username", placeholder="Nom d'utilisateur", label_visibility="collapsed")
+            p = st.text_input("Password", type="password", placeholder="Mot de passe", label_visibility="collapsed")
+            submit = st.form_submit_button("Se connecter")
+            
+            if submit:
+                User = Query()
+                result = db_users.search((User.username == u) & (User.password == p))
+                if result:
+                    st.session_state.current_user = result[0]
+                    st.rerun()
+                else:
+                    st.error("Identifiants incorrects.")
+            
+            st.markdown('<a href="#" class="forgot-link">Mot de passe oublié ?</a>', unsafe_allow_html=True)
+            st.markdown('<hr>', unsafe_allow_html=True)
+            
+            # Un bouton bidon pour le style Facebook
+            st.form_submit_button("Créer nouveau compte")
+            
+        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<p class="create-page-text"><b>Créer une Page</b> pour une célébrité, une marque ou une entreprise.</p>', unsafe_allow_html=True)
+
     st.stop()
 
 # --- 5. DÉFINITION DES PAGES DISPONIBLES ---
