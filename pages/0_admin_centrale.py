@@ -108,16 +108,20 @@ with tabs[1]:
 
     if c2.button("🔄 Transmettre vers Secteurs Logistique", key="btn_sync_secteurs", use_container_width=True, type="primary"):
         df_src = edited_clients.copy()
-        df_src = df_src.rename(columns={"Nom Client": "Client", "Région": "Secteur", "Téléphone": "Tel"})
-        # Ville = Secteur (Région) par défaut — assigné AVANT de filtrer les colonnes
-        df_src["Ville"] = df_src.get("Secteur", "")
-        df_src = df_src.reindex(columns=COLS_SECTEURS, fill_value="")
-        
+        # Construction propre du DataFrame Secteurs depuis zéro
+        rows = []
+        for _, row in df_src.iterrows():
+            rows.append({
+                "Client": str(row.get("Nom Client", "")),
+                "Ville":  str(row.get("Région", "")),   # Ville = Région
+                "Tel":    str(row.get("Téléphone", "")),
+                "Secteur": str(row.get("Région", ""))   # Secteur = Région
+            })
+        df_new_sec = pd.DataFrame(rows, columns=COLS_SECTEURS)
         df_old_sec = load_gs_data("Secteurs", DATA_SECTEURS, COLS_SECTEURS)
-        df_merged = pd.concat([df_old_sec, df_src], ignore_index=True).drop_duplicates(subset=["Client"])
-        
+        df_merged = pd.concat([df_old_sec, df_new_sec], ignore_index=True).drop_duplicates(subset=["Client"])
         save_gs_data(df_merged, "Secteurs", DATA_SECTEURS)
-        st.success(f"✅ {len(df_src)} clients transmis vers Secteurs Logistique !")
+        st.success(f"✅ {len(df_new_sec)} clients transmis vers Secteurs Logistique !")
         st.cache_data.clear()
 
 # ONGLET 2 : LIVREURS
