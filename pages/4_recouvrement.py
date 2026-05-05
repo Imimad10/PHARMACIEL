@@ -279,7 +279,49 @@ with tabs[2]:
         if "En attente" in df_view["Statut"].values:
             st.info("💡 **Conseil :** Vous avez des dossiers 'En attente'. Pensez à générer une relance ou à envoyer un message WhatsApp ci-dessous.")
 
-        st.dataframe(df_view.sort_values("Date", ascending=False), use_container_width=True, hide_index=True)
+        # Tableau éditable avec liste déroulante Statut
+        edited_global = st.data_editor(
+            df_view.sort_values("Date", ascending=False),
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Statut": st.column_config.SelectboxColumn(
+                    "Statut",
+                    options=STATUS_OPTIONS,
+                    required=True,
+                    width="medium"
+                ),
+                "Commentaires": st.column_config.TextColumn("Commentaires", width="large")
+            },
+            key="editor_suivi_global"
+        )
+
+        if st.button("💾 Sauvegarder & Archiver les clôturés", type="primary", use_container_width=True):
+            # Recalcul du Reste à payer
+            edited_global["Reste à payer"] = (edited_global["Montant Initial"] - edited_global["Montant Réglé"]).clip(lower=0)
+
+            # Séparation : à archiver vs à garder actifs
+            to_archive = edited_global[edited_global["Statut"].isin(status_archived)].copy()
+            to_keep    = edited_global[~edited_global["Statut"].isin(status_archived)].copy()
+
+            if not to_archive.empty:
+                to_archive["Date Archivage"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                # Charger les archives existantes et fusionner
+                archive_path = "data_archive_recouvrement.csv"
+                archive_cols = COLS_RECOUV + ["Date Archivage"]
+                if os.path.exists(archive_path):
+                    df_arch_old = pd.read_csv(archive_path, sep=',', encoding='utf-8-sig')
+                else:
+                    df_arch_old = pd.DataFrame(columns=archive_cols)
+                df_arch_new = pd.concat([df_arch_old, to_archive.reindex(columns=archive_cols, fill_value="")], ignore_index=True)
+                df_arch_new.to_csv(archive_path, index=False, sep=',', encoding='utf-8-sig')
+                st.success(f"✅ {len(to_archive)} dossier(s) archivé(s) avec succès !")
+
+            # Reconstruire la base complète (actifs non touchés + édités actifs)
+            df_untouched = df_all[df_all["Statut"].isin(status_archived)]  # archives déjà existantes
+            df_final = pd.concat([df_untouched, df_global[~df_global.index.isin(df_view.index)], to_keep], ignore_index=True)
+            save_data(df_final, DATA_RECOUV)
+            st.rerun()
         
         st.divider()
         st.subheader("✉️ Génération de Lettres de Relance")
