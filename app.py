@@ -118,7 +118,7 @@ if not db_users.search(User.username == 'admin_imad'):
         'username': 'admin_imad',
         'password': 'admin_imad_pwd',
         'role': 'Admin',
-        'pages': ['Admin Centrale', 'Dashboard', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Suivi', 'Recouvrement', 'Pointage', 'Péremptions', 'Scanneur QR', 'Automatisation', 'Litiges Fournisseurs', 'Analyse Rotation', 'Scan Mobile']
+        'pages': ['Admin Centrale', 'Dashboard', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Suivi', 'Recouvrement', 'Pointage', 'Péremptions', 'Scanneur QR', 'Automatisation', 'Litiges Fournisseurs', 'Analyse Rotation', 'Scan Mobile', 'RH']
     })
 
 if len(db_users) <= 1: # Si seulement admin ou vide
@@ -284,7 +284,8 @@ ALL_PAGES = {
     "Scanneur QR": st.Page("pages/7_scanneur_qr.py", title="Scanneur QR", icon="📸"),
     "Litiges Fournisseurs": st.Page("pages/10_reclamations_fournisseurs.py", title="Litiges Fournisseurs", icon="🏢"),
     "Analyse Rotation": st.Page("pages/11_analyse_rotation.py", title="Analyse Rotation", icon="📈"),
-    "Scan Mobile": st.Page("pages/12_mobile_scan.py", title="Scan Mobile", icon="📱")
+    "Scan Mobile": st.Page("pages/12_mobile_scan.py", title="Scan Mobile", icon="📱"),
+    "RH": st.Page("pages/13_rh.py", title="RH & Performance", icon="👥")
 }
 
 if is_ia_enabled():
