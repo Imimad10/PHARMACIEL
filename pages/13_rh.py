@@ -105,13 +105,24 @@ if selected_user == "Tous le personnel":
 
     # KPI 3 : Recouvrement par Livreur
     df_rec = rh_data['recouvrement']
-    if not df_rec.empty and 'Livreur' in df_rec.columns and 'Montant Réglé' in df_rec.columns:
-        rec_val = df_rec.groupby('Livreur')['Montant Réglé'].sum().reset_index()
-        fig_rec = px.pie(rec_val, values='Montant Réglé', names='Livreur', title="Efficacité Recouvrement (DA encaissés)",
-                         hole=0.4, template=plotly_template)
-        st.plotly_chart(fig_rec, use_container_width=True)
-    else:
-        st.info("📊 Données de recouvrement insuffisantes pour le graphique.")
+    try:
+        if not df_rec.empty and 'Livreur' in df_rec.columns:
+            # S'assurer que Montant Réglé est numérique
+            if 'Montant Réglé' in df_rec.columns:
+                df_rec['Montant Réglé'] = pd.to_numeric(df_rec['Montant Réglé'], errors='coerce').fillna(0)
+                rec_val = df_rec.groupby('Livreur')['Montant Réglé'].sum().reset_index()
+                if not rec_val.empty and rec_val['Montant Réglé'].sum() > 0:
+                    fig_rec = px.pie(rec_val, values='Montant Réglé', names='Livreur', title="Efficacité Recouvrement (DA encaissés)",
+                                     hole=0.4, template=plotly_template)
+                    st.plotly_chart(fig_rec, use_container_width=True)
+                else:
+                    st.info("📊 Aucun encaissement enregistré pour le moment.")
+            else:
+                st.info("📊 Colonne 'Montant Réglé' non détectée.")
+        else:
+            st.info("📊 Données de recouvrement insuffisantes.")
+    except Exception as e:
+        st.error(f"Erreur graphique Recouvrement : {e}")
 
 else:
     # --- FOCUS INDIVIDUEL ---
