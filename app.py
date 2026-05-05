@@ -121,11 +121,16 @@ if not db_users.search(User.username == 'admin_imad'):
         'pages': ['Admin Centrale', 'Dashboard', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Suivi', 'Recouvrement', 'Pointage', 'Péremptions', 'Scanneur QR', 'Automatisation', 'Litiges Fournisseurs', 'Analyse Rotation', 'Scan Mobile', 'RH']
     })
 
-if len(db_users) <= 1: # Si seulement admin ou vide
-    # Quelques utilisateurs de test basés sur le code existant
-    db_users.insert({'username': 'Ayoub', 'password': 'ayoub2026', 'role': 'Saisie', 'pages': ['Logistique', 'Suivi']})
-    db_users.insert({'username': 'Islem', 'password': 'islem2026', 'role': 'Saisie', 'pages': ['Logistique', 'Suivi']})
-    db_users.insert({'username': 'Seif', 'password': 'seif2026', 'role': 'Saisie', 'pages': ['Inventaire']})
+# Liste des utilisateurs essentiels à maintenir
+essentials = [
+    {'username': 'Ayoub', 'password': 'ayoub2026', 'role': 'Saisie', 'pages': ['Logistique', 'Suivi', 'Inventaire Détail']},
+    {'username': 'Islem', 'password': 'islem2026', 'role': 'Saisie', 'pages': ['Logistique', 'Suivi', 'Inventaire Détail']},
+    {'username': 'Seif', 'password': 'seif2026', 'role': 'Saisie', 'pages': ['Inventaire', 'Inventaire Détail']}
+]
+
+for ess in essentials:
+    if not db_users.search(User.username == ess['username']):
+        db_users.insert(ess)
 
 # --- 3. GESTION DE SESSION ---
 if "current_user" not in st.session_state:

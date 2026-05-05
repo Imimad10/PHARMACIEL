@@ -40,7 +40,16 @@ def get_rh_data():
     # 3. Recouvrement
     try:
         if os.path.exists("data_recouvrement.csv"):
-            data['recouvrement'] = pd.read_csv("data_recouvrement.csv", sep=',', encoding='utf-8-sig')
+            df_rec = pd.read_csv("data_recouvrement.csv", sep=',', encoding='utf-8-sig')
+            # Nettoyage des colonnes et montants
+            cols_map = {c.lower(): c for c in df_rec.columns}
+            for target in ["Montant Réglé", "Montant Initial", "Reste à payer"]:
+                # Chercher une correspondance insensible à la casse
+                for k, v in cols_map.items():
+                    if target.lower() in k:
+                        df_rec[target] = pd.to_numeric(df_rec[v].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+                        break
+            data['recouvrement'] = df_rec
     except: pass
 
     # 4. Pointages & Réclamations (Logistique)
@@ -96,11 +105,13 @@ if selected_user == "Tous le personnel":
 
     # KPI 3 : Recouvrement par Livreur
     df_rec = rh_data['recouvrement']
-    if not df_rec.empty and 'Livreur' in df_rec.columns:
+    if not df_rec.empty and 'Livreur' in df_rec.columns and 'Montant Réglé' in df_rec.columns:
         rec_val = df_rec.groupby('Livreur')['Montant Réglé'].sum().reset_index()
         fig_rec = px.pie(rec_val, values='Montant Réglé', names='Livreur', title="Efficacité Recouvrement (DA encaissés)",
                          hole=0.4, template=plotly_template)
         st.plotly_chart(fig_rec, use_container_width=True)
+    else:
+        st.info("📊 Données de recouvrement insuffisantes pour le graphique.")
 
 else:
     # --- FOCUS INDIVIDUEL ---
