@@ -231,7 +231,6 @@ with tabs[2]:
                 )
             else:
                 st.info("Veuillez sélectionner un client pour voir les options de relance.")
-                st.stop()
             
             # --- PHASE 5: WHATSAPP LINK ---
             st.write("---")
