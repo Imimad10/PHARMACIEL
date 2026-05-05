@@ -38,62 +38,62 @@ with tabs[0]:
     f_up = st.file_uploader("Fichier Master Data (Excel)", type=["xlsx"])
     if f_up:
         df_up = pd.read_excel(f_up)
-        st.write("Aperçu des données détectées :")
-        # Détection automatique
-        cols = df_up.columns.tolist()
+        
+        # Détection automatique du type de données
+        cols = [str(c).strip() for c in df_up.columns.tolist()]
+        cols_lower = [c.lower() for c in cols]
         
         target = None
-        # Détection améliorée (inclut la gestion des en-têtes décalés)
-        is_livreur = "Prénom" in cols or "Prenom" in cols or "prenom" in cols or "livreurs" in cols
-        is_secteur = "Ville" in cols or "VILLE" in cols or "ville" in cols
-        
-        if is_livreur:
-            target = "Livreurs"
-            # Si "livreurs" est le nom de la colonne, les vrais en-têtes sont peut-être dans la première ligne
-            if "livreurs" in cols and df_up.iloc[0].tolist().count("prenom") > 0:
-                 # On décale tout
-                 df_up.columns = df_up.iloc[0]
-                 df_up = df_up[1:]
-                 cols = df_up.columns.tolist()
+        mapping = {}
 
-            mapping = {"Nom": "Nom", "nom": "Nom", "Prénom": "Prénom", "Prenom": "Prénom", "prenom": "Prénom", "Secteur": "Secteur", "secteur": "Secteur", "Téléphone": "Téléphone", "Tel": "Téléphone", "telephone": "Téléphone"}
-        elif is_secteur:
+        if "prenom" in cols_lower or "prénom" in cols_lower:
+            target = "Livreurs"
+            mapping = {c: "Prénom" for c in cols if c.lower() in ["prenom","prénom"]}
+            mapping.update({c: "Nom" for c in cols if c.lower() == "nom"})
+            mapping.update({c: "Secteur" for c in cols if c.lower() == "secteur"})
+            mapping.update({c: "Téléphone" for c in cols if c.lower() in ["téléphone","telephone","tel"]})
+        elif "ville" in cols_lower:
             target = "Secteurs"
-            mapping = {"Client": "Client", "Ville": "Ville", "Secteur": "Secteur", "Tel": "Tel", "tel": "Tel"}
-        elif any(c in cols for c in ["Raison sociale", "Nom Client", "Nom", "Raison Sociale"]):
+            mapping = {c: "Client" for c in cols if c.lower() in ["client","raison sociale","raison sociale","nom client"]}
+            mapping.update({c: "Ville" for c in cols if c.lower() == "ville"})
+            mapping.update({c: "Secteur" for c in cols if c.lower() == "secteur"})
+            mapping.update({c: "Tel" for c in cols if c.lower() in ["tel","téléphone","telephone"]})
+        elif any(c.lower() in ["raison sociale","nom client","nom"] for c in cols):
             target = "Base_Clients"
-            mapping = {"Raison sociale": "Nom Client", "Nom Client": "Nom Client", "Nom": "Nom Client", "Région": "Région", "Region": "Région", "Secteur": "Secteur", "Téléphone": "Téléphone", "Tel": "Téléphone"}
+            mapping = {c: "Nom Client" for c in cols if c.lower() in ["raison sociale","nom client","nom"]}
+            mapping.update({c: "Région" for c in cols if c.lower() in ["région","region"]})
+            mapping.update({c: "Secteur" for c in cols if c.lower() == "secteur"})
+            mapping.update({c: "Téléphone" for c in cols if c.lower() in ["téléphone","telephone","tel"]})
+        
+        st.write("**Aperçu des données :**")
+        st.dataframe(df_up.head(5), use_container_width=True)
+        
+        if target:
             st.success(f"🎯 Type détecté : **{target}**")
             if st.button(f"📥 Fusionner avec la base {target}", type="primary", use_container_width=True):
-                # Mapping et nettoyage
                 df_up = df_up.rename(columns=mapping)
                 
-                # Chargement de la base actuelle
                 if target == "Base_Clients":
-                    db_path, db_cols = DATA_CLIENTS, COLS_CLIENTS
-                    key = "Nom Client"
-                    # Duplication automatique Région -> Secteur
-                    if "Région" in df_up.columns:
-                        if "Secteur" not in df_up.columns or df_up["Secteur"].isnull().all():
-                            df_up["Secteur"] = df_up["Région"]
+                    db_path, db_cols, key = DATA_CLIENTS, COLS_CLIENTS, "Nom Client"
+                    # Région = Secteur si Secteur vide
+                    if "Région" in df_up.columns and ("Secteur" not in df_up.columns or df_up["Secteur"].isnull().all()):
+                        df_up["Secteur"] = df_up["Région"]
                 elif target == "Livreurs":
-                    db_path, db_cols = DATA_LIVREURS, COLS_LIVREURS
-                    key = "Nom"
+                    db_path, db_cols, key = DATA_LIVREURS, COLS_LIVREURS, "Nom"
                 else:
-                    db_path, db_cols = DATA_SECTEURS, COLS_SECTEURS
-                    key = "Client"
+                    db_path, db_cols, key = DATA_SECTEURS, COLS_SECTEURS, "Client"
                 
                 df_old = load_gs_data(target, db_path, db_cols)
                 cols_to_keep = [c for c in db_cols if c in df_up.columns]
-                df_new = pd.concat([df_old, df_up[cols_to_keep]], ignore_index=True).drop_duplicates(subset=[key])
+                df_merged = pd.concat([df_old, df_up[cols_to_keep]], ignore_index=True).drop_duplicates(subset=[key])
                 
-                save_gs_data(df_new, target, db_path)
-                st.success(f"✅ Migration réussie vers {target} ({len(df_up)} lignes traitées).")
-                log_action(st.session_state.current_user['username'], f"Importation Master Data : {target}", "Admin Centrale")
+                save_gs_data(df_merged, target, db_path)
+                st.success(f"✅ Migration réussie vers **{target}** — {len(df_up)} lignes traitées.")
+                log_action(st.session_state.current_user['username'], f"Import Master Data : {target}", "Admin Centrale")
                 st.cache_data.clear()
                 st.rerun()
         else:
-            st.warning("Impossible de détecter automatiquement le type de données. Assurez-vous que les colonnes sont correctement nommées.")
+            st.warning("⚠️ Type non reconnu. Vérifiez que vos colonnes sont nommées : 'Raison sociale', 'Prénom', ou 'Ville'.")
 
 # ONGLET 1 : BASE CLIENTS
 with tabs[1]:
