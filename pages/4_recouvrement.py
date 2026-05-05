@@ -495,6 +495,21 @@ with tabs[5]:
             st.success("URL enregistrée !")
             st.rerun()
 
+        st.write("---")
+        if st.button("🚀 Migrer les données locales vers Google Sheets", use_container_width=True):
+            gs_client = get_gs_client()
+            gs_url = get_gs_url()
+            if gs_client and gs_url:
+                with st.spinner("Migration en cours..."):
+                    df_local = load_data(DATA_RECOUV, COLS_RECOUV)
+                    if not df_local.empty:
+                        save_data(df_local, DATA_RECOUV) # save_data gère l'envoi vers GS si configuré
+                        st.success("🚀 Migration réussie ! Vos données locales sont maintenant sur le Cloud.")
+                    else:
+                        st.warning("Aucune donnée locale à migrer.")
+            else:
+                st.error("Veuillez d'abord configurer le fichier JSON et l'URL.")
+
     st.divider()
     st.subheader("Gestion de la Base Clients")
     f_cli = st.file_uploader("Importer base clients (Excel)", type=["xlsx"])
