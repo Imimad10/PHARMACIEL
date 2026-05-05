@@ -154,49 +154,81 @@ else:
         
     elif role == "Livreur" or role == "Superviseur":
         u_rec = rh_data['recouvrement'][rh_data['recouvrement']['Livreur'] == selected_user] if not rh_data['recouvrement'].empty else pd.DataFrame()
-        m2.metric("Dossiers Recouvrement", len(u_rec))
+        total_encaisse = u_rec['Montant Réglé'].sum() if not u_rec.empty and 'Montant Réglé' in u_rec.columns else 0
+        m2.metric("Total Encaissé", f"{total_encaisse:,.0f} DA")
         
         u_pts = len([p for p in rh_data['pointages'] if p.get('livreur') == selected_user])
         m3.metric("Factures Pointées", u_pts)
         
-        u_recs = len([r for r in rh_data['reclamations'] if r.get('livreur') == selected_user])
-        m4.metric("Réclamations Gérées", u_recs, delta=f"{u_recs} litiges", delta_color="inverse")
+        # Taux de succès recouvrement
+        if not u_rec.empty and 'Statut' in u_rec.columns:
+            success_rate = (len(u_rec[u_rec['Statut'] == 'Réglé']) / len(u_rec)) * 100
+            m4.metric("Taux de Succès", f"{success_rate:.1f}%")
+        else:
+            m4.metric("Taux de Succès", "0%")
 
     st.divider()
     
     col_left, col_right = st.columns(2)
     
-    with col_left:
-        st.subheader("📈 Chronologie d'Activité")
-        if u_logs:
-            df_u_logs = pd.DataFrame(u_logs)
-            df_u_logs['date'] = pd.to_datetime(df_u_logs['timestamp']).dt.date
-            daily_act = df_u_logs.groupby('date').size().reset_index(name='Actions')
-            fig_trend = px.line(daily_act, x='date', y='Actions', markers=True, template=plotly_template)
-            st.plotly_chart(fig_trend, use_container_width=True)
-        else:
-            st.info("Aucune donnée chronologique.")
+    if role == "Livreur":
+        with col_left:
+            st.subheader("🚩 Analyse des Réclamations (Qualité)")
+            u_recs_df = pd.DataFrame([r for r in rh_data['reclamations'] if r.get('livreur') == selected_user])
+            if not u_recs_df.empty and 'motif' in u_recs_df.columns:
+                fig_reclam = px.bar(u_recs_df['motif'].value_counts().reset_index(), x='motif', y='count', 
+                                    title="Motifs de litiges clients", template=plotly_template, color_discrete_sequence=['#ef4444'])
+                st.plotly_chart(fig_reclam, use_container_width=True)
+            else:
+                st.success("✅ Aucune réclamation client pour ce livreur.")
+        
+        with col_right:
+            st.subheader("💰 Répartition des Paiements")
+            if not u_rec.empty and 'Mode Paiement' in u_rec.columns:
+                fig_pay = px.pie(u_rec['Mode Paiement'].value_counts().reset_index(), values='count', names='Mode Paiement', 
+                                 hole=0.4, title="Modes de règlement encaissés", template=plotly_template)
+                st.plotly_chart(fig_pay, use_container_width=True)
+            else:
+                st.info("Données de paiement indisponibles.")
+    else:
+        with col_left:
+            st.subheader("📈 Chronologie d'Activité")
+            if u_logs:
+                df_u_logs = pd.DataFrame(u_logs)
+                df_u_logs['date'] = pd.to_datetime(df_u_logs['timestamp']).dt.date
+                daily_act = df_u_logs.groupby('date').size().reset_index(name='Actions')
+                fig_trend = px.line(daily_act, x='date', y='Actions', markers=True, template=plotly_template)
+                st.plotly_chart(fig_trend, use_container_width=True)
+            else:
+                st.info("Aucune donnée chronologique.")
 
-    with col_right:
-        st.subheader("🎯 Spécialisation")
-        if u_logs:
-            df_u_logs = pd.DataFrame(u_logs)
-            mod_dist = df_u_logs['module'].value_counts().reset_index()
-            fig_mod = px.pie(mod_dist, values='count', names='module', hole=0.5, template=plotly_template)
-            st.plotly_chart(fig_mod, use_container_width=True)
+        with col_right:
+            st.subheader("🎯 Spécialisation")
+            if u_logs:
+                df_u_logs = pd.DataFrame(u_logs)
+                mod_dist = df_u_logs['module'].value_counts().reset_index()
+                fig_mod = px.pie(mod_dist, values='count', names='module', hole=0.5, template=plotly_template)
+                st.plotly_chart(fig_mod, use_container_width=True)
 
     st.subheader("📜 Dernières actions significatives")
     if u_logs:
         st.table(pd.DataFrame(u_logs[::-1]).head(10)[['timestamp', 'module', 'action']])
 
-# --- SECTION SUGGESTIONS ---
-with st.expander("💡 Suggestions pour une cartographie RH complète"):
-    st.info("""
-    **Pour aller plus loin dans l'analyse de la qualité de travail :**
+# --- SECTION SUGGESTIONS AVANCÉES ---
+with st.expander("🚀 Suggestions Stratégiques pour la Cartographie du Personnel"):
+    st.markdown("""
+    ### 🛡️ Qualité & Rigueur
+    - **Taux de Litiges (Livreurs)** : Analyser le ratio de réclamations par rapport au nombre de BL livrés. Un livreur avec beaucoup de litiges peut nécessiter une formation sur la remise des colis.
+    - **Intégrité du Pointage** : Comparer les pointages faits par le livreur avec les validations finales en comptabilité pour détecter les écarts de caisse.
+    - **Précision Inventaire** : Calculer le pourcentage d'erreurs (écarts) trouvées lors de la confrontation pour chaque agent de saisie.
+
+    ### ⚡ Productivité & Vitesse
+    - **Temps de Livraison Moyen** : Calculer le temps entre le départ en mission et le retour du recouvrement.
+    - **Réactivité SAV** : Délai moyen de traitement d'une réclamation client par le personnel concerné.
+
+    ### 📊 Analyse Comportementale
+    - **Score d'Engagement Numérique** : Utilisation des outils d'IA pour l'analyse et la saisie mobile (plus l'agent utilise le scan, plus son score augmente).
+    - **Fiabilité Sanitaire** : Pour les agents de saisie, régularité des relevés de température (température oubliée = baisse du score).
     
-    1. **Taux d'Erreur (Qualité)** : Analyser combien de fois un inventaire a été corrigé par un superviseur après la saisie d'un agent.
-    2. **Respect des Délais (Vitesse)** : Calculer le temps moyen entre l'apparition d'un litige client et sa résolution par le livreur.
-    3. **Taux de Recouvrement (Efficacité)** : Ratio entre le montant total assigné à un livreur et le montant réellement encaissé.
-    4. **Assiduité Numérique** : Fréquence de connexion à l'application et utilisation des outils IA (Automatisation).
-    5. **Score de Fiabilité** : Un score calculé combinant la ponctualité des pointages et l'absence de réclamations sur les zones livrées.
+    **Idée :** Nous pourrions créer un **"Score de Performance Global (SPG)"** sur 100 pour chaque employé, basé sur ces critères !
     """)
