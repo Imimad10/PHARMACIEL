@@ -173,7 +173,13 @@ with tab_exp:
                             skipped_count = 0
                             for _, row in df_to_add.iterrows():
                                 client_name = str(row['client']).strip()
-                                client_secteur = sect_map.get(client_name, "")
+                                
+                                # Détermination du secteur : Priorité au fichier Excel, puis à la base locale
+                                file_secteur = ""
+                                if 'region' in row: file_secteur = str(row['region']).strip().lower()
+                                elif 'secteur' in row: file_secteur = str(row['secteur']).strip().lower()
+                                
+                                client_secteur = file_secteur if file_secteur else sect_map.get(client_name, "")
                                 
                                 # Filtrage selon le secteur d'affichage (si pas "Tous")
                                 if secteur_affichage != "Tous" and client_secteur != secteur_affichage:
@@ -181,8 +187,8 @@ with tab_exp:
                                     continue
                                 
                                 ref_val = str(row['reference']).strip() if 'reference' in df_reclam.columns and pd.notna(row['reference']) else "Réclamation non validée"
-                                ville = ville_map.get(client_name, "")
-                                telephone = tel_map.get(client_name, "")
+                                ville = str(row['ville']).strip() if 'ville' in row else ville_map.get(client_name, "")
+                                telephone = str(row['tel']).strip() if 'tel' in row else tel_map.get(client_name, "")
                                 info_str = f"Tel: {telephone}" if telephone else ""
                                 
                                 add_or_merge_row(client_name, ville, ref_val, "RÉCLAMATION IMPORTÉE", "En cours", info_str, mode="Réclamation", secteur=client_secteur)
@@ -191,7 +197,7 @@ with tab_exp:
                             if added_count > 0:
                                 st.success(f"✅ {added_count} réclamations ajoutées !")
                                 if skipped_count > 0:
-                                    st.info(f"ℹ️ {skipped_count} lignes ignorées (hors secteur {secteur_affichage}).")
+                                    st.info(f"ℹ️ {skipped_count} lignes ignorées (hors secteur {secteur_affichage.upper()}).")
                                 log_action(st.session_state.current_user['username'], f"Importation réclamations ({secteur_affichage})", "Expédition")
                             else:
                                 st.error(f"❌ Aucune donnée correspondant au secteur **{secteur_affichage.upper()}**.")
