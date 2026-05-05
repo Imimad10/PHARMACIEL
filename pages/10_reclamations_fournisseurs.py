@@ -23,16 +23,31 @@ def get_delay(start_date, end_date):
 st.title("📦 Suivi des Litiges Fournisseurs & Labos")
 st.write("Gérez les anomalies de réception (manquants, cassés, erreurs vignettes) et suivez les délais de résolution.")
 
-tab_new, tab_list, tab_stats = st.tabs(["➕ Nouvelle Réclamation", "📋 Liste des Litiges", "📊 Statistiques & Délais"])
+tab_new, tab_list, tab_stats, tab_admin = st.tabs(["➕ Nouvelle Réclamation", "📋 Liste des Litiges", "📊 Statistiques & Délais", "⚙️ Administration"])
+
+# --- CHARGEMENT DE LA BASE PRODUITS ---
+DB_PRODUITS = 'data/db_produits.json'
+db_p = TinyDB(DB_PRODUITS)
+
+def load_product_list():
+    prods = db_p.all()
+    return sorted([p['designation'] for p in prods]) if prods else []
 
 # --- ONGLET 1 : NOUVELLE RÉCLAMATION ---
 with tab_new:
+    product_list = load_product_list()
+    
     with st.form("form_new_reclam", clear_on_submit=True):
         col1, col2 = st.columns(2)
         
         with col1:
             fournisseur = st.text_input("Nom du Fournisseur / Laboratoire", placeholder="Ex: Sanofi, Biopharm...")
-            produit = st.text_input("Désignation du Produit")
+            
+            if product_list:
+                produit = st.selectbox("Désignation du Produit", product_list, index=None, placeholder="Rechercher un produit...")
+            else:
+                produit = st.text_input("Désignation du Produit (Base vide, saisie manuelle)")
+                
             lot = st.text_input("N° Lot")
             quantite = st.number_input("Quantité concernée", min_value=1, step=1)
             
@@ -122,7 +137,7 @@ with tab_list:
                     "date_resolution": str(res_date) if res_date else None,
                     "priorite": row['priorite'],
                     "commentaire": row['commentaire']
-                }, (Reclam.fournisse == row['fournisseur']) & (Reclam.produit == row['produit']) & (Reclam.date_lancement == row['date_lancement']))
+                }, (Reclam.fournisseur == row['fournisseur']) & (Reclam.produit == row['produit']) & (Reclam.date_lancement == row['date_lancement']))
             
             st.success("Mise à jour réussie !")
             st.rerun()
@@ -155,3 +170,32 @@ with tab_stats:
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("Pas assez de données pour les statistiques.")
+
+# --- ONGLET 4 : ADMINISTRATION ---
+with tab_admin:
+    st.header("⚙️ Maintenance & Base de Données")
+    st.write("Importez ici votre liste de produits pour faciliter la saisie des réclamations.")
+    
+    uploaded_file = st.file_uploader("Déposer le fichier Excel des produits (Colonnes : designation)", type=["xlsx"])
+    
+    if uploaded_file:
+        try:
+            df_p = pd.read_excel(uploaded_file)
+            if 'designation' in df_p.columns:
+                if st.button("🚀 Valider l'importation de la base produits"):
+                    db_p.truncate() # On remplace l'ancienne base
+                    records = df_p[['designation']].dropna().to_dict('records')
+                    db_p.insert_multiple(records)
+                    st.success(f"Base de données mise à jour : {len(records)} produits importés.")
+                    st.rerun()
+            else:
+                st.error("Le fichier doit contenir une colonne nommée 'designation'.")
+                st.write("Colonnes trouvées :", list(df_p.columns))
+        except Exception as e:
+            st.error(f"Erreur lors de l'import : {e}")
+
+    st.divider()
+    if st.button("🗑️ Vider la base produits actuelle"):
+        db_p.truncate()
+        st.success("Base de produits vidée.")
+        st.rerun()
