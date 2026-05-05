@@ -230,5 +230,12 @@ with st.expander("🚀 Suggestions Stratégiques pour la Cartographie du Personn
     - **Score d'Engagement Numérique** : Utilisation des outils d'IA pour l'analyse et la saisie mobile (plus l'agent utilise le scan, plus son score augmente).
     - **Fiabilité Sanitaire** : Pour les agents de saisie, régularité des relevés de température (température oubliée = baisse du score).
     
-    **Idée :** Nous pourrions créer un **"Score de Performance Global (SPG)"** sur 100 pour chaque employé, basé sur ces critères !
+    ### 🧠 Intelligence & Bien-être (Vision Futuriste)
+    - **Détection du Risque de Burnout** : Identifier les employés dont la charge de travail (nombre d'actions/jour) dépasse de 50% la moyenne de l'équipe sur une longue période.
+    - **Matrice de Polyvalence** : Cartographier qui sait tout faire (Inventaire + Logistique + Températures) pour identifier vos futurs superviseurs.
+    - **Analyse de Ponctualité Numérique** : Heure de première action vs heure de début théorique pour suivre l'assiduité sans badgeuse physique.
+    - **Prédiction de Performance (IA)** : Utiliser l'historique pour prédire si un livreur atteindra ses objectifs de recouvrement avant la fin du mois.
+    - **Score de Cohésion** : Analyser les binômes (Livreur + Aide livreur) qui ont le moins de litiges pour créer les meilleures équipes.
+    
+    **💡 Astuce :** Nous pourrions intégrer un petit bouton "Humeur du jour" sur l'app mobile pour suivre le climat social en temps réel !
     """)
