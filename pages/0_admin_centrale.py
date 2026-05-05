@@ -41,20 +41,17 @@ with tabs[0]:
         st.write("Aperçu des données détectées :")
         st.dataframe(df_up.head(5), use_container_width=True)
         
-        # Détection automatique
-        cols = df_up.columns.tolist()
-        
         target = None
-        if any(c in cols for c in ["Raison sociale", "Nom Client", "Nom"]):
-            if "Secteur" in cols and "Ville" in cols:
-                target = "Secteurs"
-                mapping = {"Client": "Client", "Ville": "Ville", "Secteur": "Secteur", "Tel": "Tel", "tel": "Tel"}
-            elif "Nom" in cols and "Prénom" in cols:
-                target = "Livreurs"
-                mapping = {"Nom": "Nom", "Prénom": "Prénom", "Secteur": "Secteur"}
-            else:
-                target = "Base_Clients"
-                mapping = {"Raison sociale": "Nom Client", "Nom Client": "Nom Client", "Région": "Région", "Téléphone": "Téléphone"}
+        # Détection améliorée
+        if "Prénom" in cols or "Prenom" in cols:
+            target = "Livreurs"
+            mapping = {"Nom": "Nom", "Prénom": "Prénom", "Prenom": "Prénom", "Secteur": "Secteur", "Téléphone": "Téléphone", "Tel": "Téléphone"}
+        elif "Ville" in cols or "VILLE" in cols:
+            target = "Secteurs"
+            mapping = {"Client": "Client", "Ville": "Ville", "Secteur": "Secteur", "Tel": "Tel", "tel": "Tel"}
+        elif any(c in cols for c in ["Raison sociale", "Nom Client", "Nom"]):
+            target = "Base_Clients"
+            mapping = {"Raison sociale": "Nom Client", "Nom Client": "Nom Client", "Nom": "Nom Client", "Région": "Région", "Region": "Région", "Secteur": "Secteur", "Téléphone": "Téléphone", "Tel": "Téléphone"}
         
         if target:
             st.success(f"🎯 Type détecté : **{target}**")
@@ -66,6 +63,10 @@ with tabs[0]:
                 if target == "Base_Clients":
                     db_path, db_cols = DATA_CLIENTS, COLS_CLIENTS
                     key = "Nom Client"
+                    # Duplication automatique Région -> Secteur
+                    if "Région" in df_up.columns:
+                        if "Secteur" not in df_up.columns or df_up["Secteur"].isnull().all():
+                            df_up["Secteur"] = df_up["Région"]
                 elif target == "Livreurs":
                     db_path, db_cols = DATA_LIVREURS, COLS_LIVREURS
                     key = "Nom"
@@ -80,6 +81,7 @@ with tabs[0]:
                 save_gs_data(df_new, target, db_path)
                 st.success(f"✅ Migration réussie vers {target} ({len(df_up)} lignes traitées).")
                 log_action(st.session_state.current_user['username'], f"Importation Master Data : {target}", "Admin Centrale")
+                st.cache_data.clear()
                 st.rerun()
         else:
             st.warning("Impossible de détecter automatiquement le type de données. Assurez-vous que les colonnes sont correctement nommées.")
