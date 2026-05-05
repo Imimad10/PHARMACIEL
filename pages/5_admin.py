@@ -45,7 +45,7 @@ else:
     # On désactive les autres onglets pour le superviseur
     tab_add = tab_del = tab_logs = tab_backup = tab_ia = None
 
-MODULES_DISPO = ["Dashboard", "Logistique", "Inventaire", "Inventaire Détail", "Suivi", "Recouvrement", "Pointage", "Péremptions", "Scanneur QR", "Automatisation", "Litiges Fournisseurs", "Analyse Rotation", "Scan Mobile"]
+MODULES_DISPO = ["Admin Centrale", "Dashboard", "Logistique", "Inventaire", "Inventaire Détail", "Suivi", "Recouvrement", "Pointage", "Péremptions", "Scanneur QR", "Automatisation", "Litiges Fournisseurs", "Analyse Rotation", "Scan Mobile"]
 
 if tab_add:
     with tab_add:

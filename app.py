@@ -243,6 +243,7 @@ if nav_list:
 if is_admin:
     # Page cachée ou dédiée à l'administration
     pages_to_show["Administration Centrale"] = [
+        st.Page("pages/0_admin_centrale.py", title="Admin Centrale (Data)", icon="🏛️"),
         st.Page("pages/5_admin.py", title="Gestion des Accès", icon="⚙️")
     ]
 
