@@ -1,1 +1,1 @@
-{"_default": {}}
+{"_default": {"1": {"username": "karim", "password": "karim123", "role": "Superviseur", "pages": ["Dashboard", "Recouvrement", "Pointage", "Logistique", "Scanneur QR"], "zone": "Aucune"}}}
