@@ -481,7 +481,7 @@ with tab_livreurs:
         }
     )
     
-    if st.button("💾 Sauvegarder les modifications", use_container_width=True, type="primary"):
+    if st.button("💾 Sauvegarder les modifications", use_container_width=True, type="primary", key="save_livreurs"):
         save_livreurs(edited_livreurs)
         st.success("✅ Les informations des livreurs et leurs affectations ont été mises à jour !")
         log_action(st.session_state.current_user['username'], "Mise à jour de la liste des livreurs", "Logistique")
@@ -554,14 +554,14 @@ with tab_secteurs:
     
     c_b1, c_b2 = st.columns(2)
     with c_b1:
-        if st.button("💾 Sauvegarder les modifications", use_container_width=True, type="primary"):
+        if st.button("💾 Sauvegarder les modifications", use_container_width=True, type="primary", key="save_clients_base"):
             save_clients(edited_clients)
             st.success("Clients sauvegardés !")
             st.rerun()
             
     with c_b2:
         if st.session_state.current_user.get('role') == 'Admin':
-            if st.button("🗑️ Supprimer toute la base", use_container_width=True):
+            if st.button("🗑️ Supprimer toute la base", use_container_width=True, key="delete_clients_base"):
                 save_clients(pd.DataFrame(columns=["Client", "Ville", "Tel", "Secteur"]))
                 st.warning("Base de clients vidée.")
                 st.rerun()
