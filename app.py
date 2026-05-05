@@ -5,35 +5,44 @@ import os
 from tinydb import TinyDB, Query
 from utils_ia import is_ia_enabled
 
-# --- 1. CONFIGURATION & DESIGN RESPONSIVE ---
+# --- 1. CONFIGURATION & THÈME ---
 st.set_page_config(page_title="Darpharm Solution - Portail", layout="wide", page_icon="💊")
 
-# Injection CSS pour l'adaptation mobile automatique
-st.markdown("""
+if "theme" not in st.session_state:
+    st.session_state.theme = "Sombre"
+
+# Définition des styles selon le thème
+if st.session_state.theme == "Sombre":
+    bg_style = "linear-gradient(135deg, #0e1117 0%, #161b22 100%)"
+    text_color = "#e0e6ed"
+    card_bg = "rgba(255, 255, 255, 0.05)"
+else:
+    bg_style = "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)"
+    text_color = "#1a1c21"
+    card_bg = "rgba(0, 0, 0, 0.02)"
+
+# Injection CSS
+st.markdown(f"""
     <style>
+        .stApp {{
+            background: {bg_style};
+            color: {text_color};
+        }}
+        [data-testid="stHeader"] {{
+            background: rgba(0,0,0,0);
+        }}
+        
         /* Optimisations mobiles globales */
-        @media (max-width: 768px) {
-            .stButton button {
+        @media (max-width: 768px) {{
+            .stButton button {{
                 width: 100% !important;
                 height: 50px !important;
                 margin-bottom: 10px;
-            }
-            [data-testid="stMetricValue"] {
+            }}
+            [data-testid="stMetricValue"] {{
                 font-size: 1.8rem !important;
-            }
-            .main .block-container {
-                padding-left: 1rem !important;
-                padding-right: 1rem !important;
-                padding-top: 1rem !important;
-            }
-            /* Cacher les éléments trop larges sur mobile si besoin */
-            .mobile-hide { display: none; }
-        }
-        
-        /* Style Premium */
-        .stApp {
-            background: linear-gradient(135deg, #0e1117 0%, #161b22 100%);
-        }
+            }}
+        }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -182,7 +191,16 @@ with st.sidebar:
         st.title("💊 Darpharm Solution")
     st.write(f"Connecté: **{user['username']}** ({user.get('role', 'Saisie')})")
     
-    if st.button("📱 Passer au Mode Mobile", use_container_width=True):
+    st.divider()
+    # Sélecteur de thème
+    new_theme = st.selectbox("🎨 Thème d'affichage", ["Sombre", "Clair"], 
+                              index=0 if st.session_state.theme == "Sombre" else 1)
+    if new_theme != st.session_state.theme:
+        st.session_state.theme = new_theme
+        st.rerun()
+    st.divider()
+
+    if st.button("📱 Mode Mobile", use_container_width=True):
         st.switch_page("pages/12_mobile_scan.py")
         
     if st.button("🚪 Déconnexion", use_container_width=True):
