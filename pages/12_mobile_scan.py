@@ -8,9 +8,19 @@ from utils import log_action
 st.set_page_config(page_title="Scan Mobile - Pharmaciel", layout="centered")
 
 # CSS pour le mode mobile "PWA"
-st.markdown("""
+theme = st.session_state.get('theme', 'Sombre')
+if theme == 'Sombre':
+    metric_bg = "#1e1e1e"
+    metric_border = "#333"
+    text_col = "white"
+else:
+    metric_bg = "#ffffff"
+    metric_border = "#ddd"
+    text_col = "#1a1c21"
+
+st.markdown(f"""
     <style>
-        .stButton button {
+        .stButton button {{
             width: 100%;
             height: 80px;
             font-size: 20px !important;
@@ -18,20 +28,21 @@ st.markdown("""
             background-color: #007bff;
             color: white;
             font-weight: bold;
-        }
-        .stMetric {
-            background-color: #1e1e1e;
+        }}
+        .stMetric {{
+            background-color: {metric_bg};
             padding: 15px;
             border-radius: 10px;
-            border: 1px solid #333;
-        }
-        @media (max-width: 640px) {
-            .main .block-container {
+            border: 1px solid {metric_border};
+            color: {text_col} !important;
+        }}
+        @media (max-width: 640px) {{
+            .main .block-container {{
                 padding-top: 10px;
                 padding-left: 10px;
                 padding-right: 10px;
-            }
-        }
+            }}
+        }}
     </style>
 """, unsafe_allow_html=True)
 

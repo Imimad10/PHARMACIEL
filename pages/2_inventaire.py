@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import os
 import unicodedata
+import shutil
+from datetime import datetime
 from utils_ia import ask_ai, is_ia_enabled
 
 # --- 1. CONFIGURATION & CHEMINS ---
@@ -31,6 +33,17 @@ def format_ddp(val):
         return dt.strftime('%m/%Y')
     except:
         return str(val)
+
+def robust_numeric(s):
+    if pd.isna(s) or s == "": return 0.0
+    if isinstance(s, str):
+        # Gérer les espaces insécables, les espaces et les virgules
+        s = s.replace('\xa0', '').replace(' ', '').replace(',', '.')
+    try:
+        val = pd.to_numeric(s, errors='coerce')
+        return float(val) if pd.notna(val) else 0.0
+    except:
+        return 0.0
 
 def clean_columns(df):
     mapping = {
@@ -117,7 +130,7 @@ with tabs[1]:
             with st.form("form_saisie_v7", clear_on_submit=True):
                 c1, c2 = st.columns(2)
                 ddp_m = str(info_m.get('ddp', ''))
-                ppa_m = float(info_m.get('ppa', 0)) if 'ppa' in info_m else 0.0
+                ppa_m = robust_numeric(info_m.get('ppa', 0))
                 
                 if mode == "🚀 Rapide":
                     qte = c1.number_input("Quantité", min_value=0.0, step=1.0)
@@ -154,13 +167,6 @@ with tabs[2]:
                 if q_theo_col and 'designation' in df_master.columns:
                     mode_conf = st.radio("Mode d'analyse :", ["⚡ Rapide (Global par produit)", "🔬 Détaillé (Par Lot & Métadonnées)"], horizontal=True)
                     
-                    # Fonction de nettoyage numérique robuste (gère '1 287,50')
-                    def robust_numeric(s):
-                        if pd.isna(s): return 0.0
-                        if isinstance(s, str):
-                            s = s.replace('\xa0', '').replace(' ', '').replace(',', '.')
-                        return pd.to_numeric(s, errors='coerce')
-
                     # Nettoyage numérique
                     saisie['qte_saisie'] = saisie['qte_saisie'].apply(robust_numeric).fillna(0)
                     df_master[q_theo_col] = df_master[q_theo_col].apply(robust_numeric).fillna(0)
@@ -281,3 +287,30 @@ with tabs[3]:
             os.remove(st.session_state.MASTER_PATH)
             st.success("Master supprimé.")
             st.rerun()
+
+    st.divider()
+    st.subheader("💾 Sauvegarde & Archivage")
+    col_bak1, col_bak2 = st.columns(2)
+
+    if col_bak1.button("📂 Créer un Backup", use_container_width=True):
+        if os.path.exists(st.session_state.SAISIE_PATH):
+            backup_dir = os.path.join(st.session_state.DATA_DIR, "backups")
+            os.makedirs(backup_dir, exist_ok=True)
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_path = os.path.join(backup_dir, f"saisie_backup_{ts}.csv")
+            shutil.copy(st.session_state.SAISIE_PATH, backup_path)
+            st.success(f"Sauvegarde créée : {backup_path}")
+        else:
+            st.warning("Aucune donnée de saisie à sauvegarder.")
+
+    if col_bak2.button("📦 Archiver la journée", use_container_width=True):
+        if os.path.exists(st.session_state.SAISIE_PATH):
+            archive_dir = os.path.join(st.session_state.DATA_DIR, "archives")
+            os.makedirs(archive_dir, exist_ok=True)
+            date_str = datetime.now().strftime("%Y-%m-%d")
+            archive_path = os.path.join(archive_dir, f"saisie_archive_{date_str}.csv")
+            shutil.move(st.session_state.SAISIE_PATH, archive_path)
+            st.success(f"Inventaire archivé et vidé : {archive_path}")
+            st.rerun()
+        else:
+            st.warning("Rien à archiver.")

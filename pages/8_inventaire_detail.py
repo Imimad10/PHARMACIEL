@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 import os
 import unicodedata
+import shutil
 from datetime import datetime
 from utils_ia import ask_ai, is_ia_enabled
 
@@ -18,6 +19,16 @@ os.makedirs(DATA_DIR, exist_ok=True)
 def normalize_text(text):
     if not isinstance(text, str): return str(text)
     return unicodedata.normalize('NFD', text).encode('ascii', 'ignore').decode('utf-8').lower().strip()
+
+def robust_num(s):
+    if pd.isna(s) or s == "": return 0.0
+    if isinstance(s, (int, float)): return float(s)
+    # Si c'est un objet (ex: datetime), on le convertit en string d'abord
+    s_str = str(s).replace('\xa0', '').replace(' ', '').replace(',', '.')
+    try:
+        val = pd.to_numeric(s_str, errors='coerce')
+        return float(val) if pd.notna(val) else 0.0
+    except: return 0.0
 
 def clean_cols_v5(df):
     mapping = {
@@ -141,7 +152,7 @@ with tabs[1]:
                 with st.form("form_saisie_det_v5", clear_on_submit=True):
                     c1, c2 = st.columns(2)
                     ddp_m = str(info.get('ddp', ''))
-                    ppa_m = float(info.get('ppa', 0)) if 'ppa' in info else 0.0
+                    ppa_m = robust_num(info.get('ppa', 0))
                     
                     if mode == "🚀 Rapide":
                         qte_vrac = c1.number_input("📦 Quantité Vrac", min_value=0.0, step=1.0)
@@ -193,17 +204,7 @@ with tabs[2]:
                 if df_s_f.empty:
                     st.warning(f"Aucune saisie trouvée pour la zone {z_ana}.")
                 else:
-                    def robust_num(s):
-                        if pd.isna(s): return 0.0
-                        if isinstance(s, (int, float)): return float(s)
-                        # Si c'est un objet (ex: datetime), on le convertit en string d'abord
-                        s_str = str(s).replace('\xa0', '').replace(' ', '').replace(',', '.')
-                        try:
-                            val = pd.to_numeric(s_str, errors='coerce')
-                            return float(val) if pd.notna(val) else 0.0
-                        except: return 0.0
-
-                    q_col = 'stock_theorique' if 'stock_theorique' in df_m_f.columns else None
+                    # Nettoyage numérique
                     
                     if q_col:
                         df_m_f[q_col] = df_m_f[q_col].apply(robust_num).fillna(0)
@@ -294,5 +295,32 @@ with tabs[3]:
             st.rerun()
         else:
             st.info("Aucun Master à supprimer.")
+
+    st.divider()
+    st.subheader("💾 Sauvegarde & Archivage")
+    col_b1, col_b2 = st.columns(2)
+
+    if col_b1.button("📂 Créer un Backup (Détail)", use_container_width=True):
+        if os.path.exists(SAISIE_PATH):
+            bak_dir = os.path.join(DATA_DIR, "backups")
+            os.makedirs(bak_dir, exist_ok=True)
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            bak_path = os.path.join(bak_dir, f"saisie_detail_backup_{ts}.csv")
+            shutil.copy(st.session_state.get('SAISIE_PATH', SAISIE_PATH), bak_path)
+            st.success(f"Sauvegarde créée : {bak_path}")
+        else:
+            st.warning("Aucune donnée à sauvegarder.")
+
+    if col_b2.button("📦 Archiver la journée (Détail)", use_container_width=True):
+        if os.path.exists(SAISIE_PATH):
+            arc_dir = os.path.join(DATA_DIR, "archives")
+            os.makedirs(arc_dir, exist_ok=True)
+            date_s = datetime.now().strftime("%Y-%m-%d")
+            arc_path = os.path.join(arc_dir, f"saisie_detail_archive_{date_s}.csv")
+            shutil.move(SAISIE_PATH, arc_path)
+            st.success(f"Archivé et vidé : {arc_path}")
+            st.rerun()
+        else:
+            st.warning("Rien à archiver.")
     else:
         st.warning("L'onglet Admin est réservé aux administrateurs système.")
