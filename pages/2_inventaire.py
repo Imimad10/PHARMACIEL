@@ -50,7 +50,8 @@ def clean_columns(df):
         'produit': 'designation', 'designation': 'designation',
         'n°lot': 'lot', 'nlot': 'lot', 'lot': 'lot', 
         'peremption': 'ddp', 'ddp': 'ddp', 'exp': 'ddp',
-        'ppa': 'ppa', 'shp': 'shp'
+        'ppa': 'ppa', 'shp': 'shp',
+        'labo': 'labo', 'laboratoire': 'labo', 'lab': 'labo', 'fabricant': 'labo', 'marque': 'labo'
     }
     stock_keywords = ['quantit', 'depot', 'stock', 'theorique', 'qte']
     new_cols = []
@@ -175,8 +176,23 @@ with tabs[0]:
 with tabs[1]:
     if df_master is not None:
         st.subheader("📝 Enregistrement")
+        
+        # --- FILTRE LABORATOIRE ---
+        df_filtered = df_master.copy()
+        if 'labo' in df_master.columns:
+            labos_dispo = sorted([str(l) for l in df_master['labo'].dropna().unique() if str(l).strip()])
+            if labos_dispo:
+                labo_choisi = st.selectbox(
+                    "🧪 Filtrer par Laboratoire",
+                    ["Tous les laboratoires"] + labos_dispo,
+                    key="labo_filter_saisie"
+                )
+                if labo_choisi != "Tous les laboratoires":
+                    df_filtered = df_master[df_master['labo'].astype(str) == labo_choisi]
+                    st.success(f"🏯 **{labo_choisi}** — {len(df_filtered)} produits")
+        
         mode = st.radio("Mode :", ["🚀 Rapide", "📋 Détaillé"], horizontal=True)
-        produits = sorted([str(p) for p in df_master['designation'].unique() if pd.notna(p)])
+        produits = sorted([str(p) for p in df_filtered['designation'].unique() if pd.notna(p)])
         prod_sel = st.selectbox("🔍 Choisir Produit :", [""] + produits)
         
         if prod_sel:
