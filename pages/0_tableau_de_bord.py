@@ -13,6 +13,10 @@ role = user.get('role', 'Saisie')
 st.title(f"📡 Supervision Temps Réel — Darpharm Solution")
 st.caption(f"Connecté : **{username}** ({role}) · Actualisé à {datetime.now().strftime('%H:%M:%S')}")
 
+# Choix du template Plotly selon le thème
+plotly_template = "plotly_white" if st.session_state.theme == "Clair" else "plotly_dark"
+chart_color = "#1a1c21" if st.session_state.theme == "Clair" else "#e0e6ed"
+
 # Bouton de rafraîchissement
 col_ref, col_empty = st.columns([1, 5])
 with col_ref:
@@ -126,7 +130,8 @@ with g1:
         colors = {'En attente': '#f59e0b', 'Partiel': '#3b82f6', 'Réglé': '#10b981',
                   'Clôturé': '#6b7280', 'Annulé': '#ef4444', 'Litige': '#8b5cf6'}
         fig = px.pie(df_status, values='Nb', names='Statut', hole=0.5,
-                     color='Statut', color_discrete_map=colors)
+                     color='Statut', color_discrete_map=colors,
+                     template=plotly_template)
         fig.update_layout(height=280, margin=dict(l=0,r=0,t=10,b=0), showlegend=True)
         st.plotly_chart(fig, use_container_width=True)
     else:
@@ -139,7 +144,7 @@ with g2:
         df_liv = df_liv.sort_values('Montant', ascending=True)
         fig2 = px.bar(df_liv, x='Montant', y='Livreur', orientation='h',
                       color='Montant', color_continuous_scale='Reds',
-                      text_auto='.2s')
+                      text_auto='.2s', template=plotly_template)
         fig2.update_layout(height=280, margin=dict(l=0,r=0,t=10,b=0), showlegend=False)
         st.plotly_chart(fig2, use_container_width=True)
     else:
@@ -160,7 +165,8 @@ with g3:
     if kpis.get('missions_by_livreur'):
         df_mis_liv = pd.DataFrame(list(kpis['missions_by_livreur'].items()), columns=['Livreur', 'Missions'])
         fig3 = px.bar(df_mis_liv, x='Livreur', y='Missions', color='Missions',
-                      color_continuous_scale='Blues', text_auto=True)
+                      color_continuous_scale='Blues', text_auto=True,
+                      template=plotly_template)
         fig3.update_layout(height=200, margin=dict(l=0,r=0,t=10,b=0), showlegend=False)
         st.plotly_chart(fig3, use_container_width=True)
 
@@ -175,7 +181,8 @@ with g4:
         if 'zone' in df_det_full.columns:
             df_zone = df_det_full.groupby('zone').size().reset_index(name='Saisies')
             fig4 = px.bar(df_zone, x='zone', y='Saisies', color='Saisies',
-                          color_continuous_scale='Greens', text_auto=True)
+                          color_continuous_scale='Greens', text_auto=True,
+                          template=plotly_template)
             fig4.update_layout(height=200, margin=dict(l=0,r=0,t=10,b=0), showlegend=False)
             st.plotly_chart(fig4, use_container_width=True)
     except: st.info("Aucune saisie d'inventaire détail.")

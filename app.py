@@ -26,7 +26,6 @@ st.markdown(f"""
     <style>
         .stApp {{
             background: {bg_style};
-            color: {text_color};
         }}
         [data-testid="stHeader"] {{
             background: rgba(0,0,0,0);
@@ -42,6 +41,20 @@ st.markdown(f"""
             [data-testid="stMetricValue"] {{
                 font-size: 1.8rem !important;
             }}
+        }}
+
+        /* Fix visibility for metrics and text */
+        [data-testid="stMetricLabel"] {{
+            color: {text_color} !important;
+            opacity: 0.9;
+            font-weight: 600 !important;
+        }}
+        [data-testid="stMetricValue"] {{
+            color: {text_color} !important;
+            font-weight: 800 !important;
+        }}
+        h1, h2, h3, h4, h5, h6, p, span {{
+            color: {text_color};
         }}
     </style>
 """, unsafe_allow_html=True)
