@@ -16,16 +16,21 @@ if st.session_state.theme == "Sombre":
     bg_style = "linear-gradient(135deg, #0e1117 0%, #161b22 100%)"
     text_color = "#e0e6ed"
     card_bg = "rgba(255, 255, 255, 0.05)"
+    sidebar_bg = "#0e1117"
 else:
     bg_style = "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)"
     text_color = "#1a1c21"
     card_bg = "rgba(0, 0, 0, 0.02)"
+    sidebar_bg = "#f0f2f5"
 
 # Injection CSS
 st.markdown(f"""
     <style>
         .stApp {{
             background: {bg_style};
+        }}
+        [data-testid="stSidebar"] {{
+            background-color: {sidebar_bg} !important;
         }}
         [data-testid="stHeader"] {{
             background: rgba(0,0,0,0);
