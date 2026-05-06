@@ -5,6 +5,7 @@ import os
 import unicodedata
 import shutil
 from datetime import datetime
+from tinydb import TinyDB, Query
 from utils_ia import ask_ai, is_ia_enabled
 
 st.set_page_config(page_title="Inventaire Détail", layout="wide")
@@ -205,6 +206,7 @@ with tabs[2]:
                     st.warning(f"Aucune saisie trouvée pour la zone {z_ana}.")
                 else:
                     # Nettoyage numérique
+                    q_col = 'stock_theorique' if 'stock_theorique' in df_m_f.columns else None
                     
                     if q_col:
                         df_m_f[q_col] = df_m_f[q_col].apply(robust_num).fillna(0)
