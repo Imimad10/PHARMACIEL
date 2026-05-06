@@ -156,29 +156,51 @@ with tabs[1]:
                     ppa_m = robust_num(info.get('ppa', 0))
                     
                     if mode == "🚀 Rapide":
-                        qte_vrac = c1.number_input("📦 Quantité Vrac", min_value=0.0, step=1.0)
-                        qte_colis = c2.number_input("📦 Colis Fermé", min_value=0.0, step=1.0, help="Saisir la qte des boites et pas le nombre des colis")
+                        st.markdown("##### 📍 Zone de Préparation")
+                        c_p1, c_p2 = st.columns(2)
+                        qte_vrac_p = c_p1.number_input("📦 Vrac (Prépa)", min_value=0.0, step=1.0)
+                        qte_colis_p = c_p2.number_input("📦 Colis Fermé (Prépa)", min_value=0.0, step=1.0)
+                        
+                        st.markdown("##### 🏢 Mini Stock (Fond de salle)")
+                        c_m1, c_m2 = st.columns(2)
+                        qte_vrac_m = c_m1.number_input("📦 Vrac (Mini Stock)", min_value=0.0, step=1.0)
+                        qte_colis_m = c_m2.number_input("📦 Colis Fermé (Mini Stock)", min_value=0.0, step=1.0)
+                        
                         st.warning("⚠️ **Remarque :** Veuillez saisir la qte des **BOITES** et pas le nombre des colis.")
                         lot_r, ddp_r, ppa_r = sel_lot, ddp_m, ppa_m
                     else:
+                        c1, c2 = st.columns(2)
                         lot_r = c1.text_input("🏷️ Lot Réel", value=str(sel_lot))
                         ddp_r = c2.text_input("📅 DDP (MM/AAAA)", value=ddp_m)
-                        qte_vrac = c1.number_input("📦 Quantité Vrac", min_value=0.0, step=1.0)
-                        qte_colis = c2.number_input("📦 Colis Fermé", min_value=0.0, step=1.0, help="Saisir la qte des boites et pas le nombre des colis")
                         ppa_r = c1.number_input("💰 PPA Saisi", value=ppa_m)
+                        
+                        st.markdown("##### 📍 Zone de Préparation")
+                        c_p1, c_p2 = st.columns(2)
+                        qte_vrac_p = c_p1.number_input("📦 Vrac (Prépa)", min_value=0.0, step=1.0)
+                        qte_colis_p = c_p2.number_input("📦 Colis Fermé (Prépa)", min_value=0.0, step=1.0)
+                        
+                        st.markdown("##### 🏢 Mini Stock (Fond de salle)")
+                        c_m1, c_m2 = st.columns(2)
+                        qte_vrac_m = c_m1.number_input("📦 Vrac (Mini Stock)", min_value=0.0, step=1.0)
+                        qte_colis_m = c_m2.number_input("📦 Colis Fermé (Mini Stock)", min_value=0.0, step=1.0)
+                        
                         st.warning("⚠️ **Remarque :** Veuillez saisir la qte des **BOITES** et pas le nombre des colis.")
                     
                     if st.form_submit_button("💾 Enregistrer"):
+                        qte_vrac = qte_vrac_p + qte_vrac_m
+                        qte_colis = qte_colis_p + qte_colis_m
                         total_qte = qte_vrac + qte_colis
                         new_line = pd.DataFrame([{
                             'designation': sel_prod, 'lot_master': sel_lot, 'lot': lot_r,
+                            'qte_vrac_prepa': qte_vrac_p, 'qte_colis_prepa': qte_colis_p,
+                            'qte_vrac_mini': qte_vrac_m, 'qte_colis_mini': qte_colis_m,
                             'qte_vrac': qte_vrac, 'qte_colis': qte_colis,
                             'qte_saisie': total_qte, 'ddp_saisi': ddp_r, 'ppa_saisi': ppa_r,
                             'zone': selected_zone, 'agent': user['username']
                         }])
                         h = not os.path.exists(SAISIE_PATH)
                         new_line.to_csv(SAISIE_PATH, mode='a', header=h, index=False, sep=';')
-                        st.success(f"Saisie OK : {sel_prod} (Total: {total_qte})")
+                        st.success(f"Saisie OK : {sel_prod} (Total: {total_qte} | Prépa: {qte_vrac_p+qte_colis_p} - Mini: {qte_vrac_m+qte_colis_m})")
     else: st.info("Master requis.")
 
 with tabs[2]:
@@ -228,7 +250,15 @@ with tabs[2]:
                         m_sub = df_m_f[['designation', 'lot', q_col, 'ddp', 'ppa', 'shp'] if 'shp' in df_m_f.columns else ['designation', 'lot', q_col, 'ddp', 'ppa']].copy()
                         m_sub.columns = [c + '_master' if c != 'designation' and c != 'lot' else ('lot_master' if c == 'lot' else c) for c in m_sub.columns]
                         
-                        comp_d = pd.merge(m_sub, df_s_f, on=['designation', 'lot_master'], how='outer')
+                        # Agréger les saisies par lot pour éviter les doublons lors du multi-pass
+                        df_s_g = df_s_f.groupby(['designation', 'lot_master']).agg({
+                            'lot': 'last',
+                            'ddp_saisi': 'last',
+                            'ppa_saisi': 'last',
+                            'qte_saisie': 'sum'
+                        }).reset_index()
+                        
+                        comp_d = pd.merge(m_sub, df_s_g, on=['designation', 'lot_master'], how='outer')
                         # Remplissage intelligent au lieu du .fillna(0) global qui corrompt les types
                         for c in comp_d.columns:
                             if any(k in c.lower() for k in ['qte', 'ppa', 'theorique', 'shp']):
