@@ -108,6 +108,10 @@ with tabs[0]:
             
         zones_dispo = sorted([str(z) for z in df_master['zone'].unique() if pd.notna(z)])
         
+        # Filtrer par zone si non admin
+        if user.get('role') not in ["Admin", "Superviseur"] and user_zone != "Aucune":
+            zones_dispo = [str(selected_zone)] if selected_zone in zones_dispo else []
+        
         for z in zones_dispo:
             # Produits totaux dans le master pour cette zone
             df_m_z = df_master[df_master['zone'] == z]

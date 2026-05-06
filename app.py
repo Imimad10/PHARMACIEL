@@ -135,6 +135,13 @@ for ess in essentials:
 # --- 3. GESTION DE SESSION ---
 if "current_user" not in st.session_state:
     st.session_state.current_user = None
+    # Auto-login via token (Rester connecté)
+    if "token" in st.query_params:
+        token_user = st.query_params["token"]
+        U = Query()
+        res = db_users.search(U.username == token_user)
+        if res:
+            st.session_state.current_user = res[0]
 
 # Rafraîchir les données de l'utilisateur depuis la DB à chaque chargement pour éviter les désync
 if st.session_state.current_user:
@@ -261,6 +268,7 @@ if st.session_state.current_user is None:
         with st.form("login_form"):
             u = st.text_input("Username", placeholder="Nom d'utilisateur", label_visibility="collapsed")
             p = st.text_input("Password", type="password", placeholder="Mot de passe", label_visibility="collapsed")
+            rester_connecte = st.checkbox("Rester connecté")
             submit = st.form_submit_button("Se connecter")
             
             if submit:
@@ -268,6 +276,8 @@ if st.session_state.current_user is None:
                 result = db_users.search((User.username == u) & (User.password == p))
                 if result:
                     st.session_state.current_user = result[0]
+                    if rester_connecte:
+                        st.query_params["token"] = result[0]['username']
                     st.rerun()
                 else:
                     st.error("Identifiants incorrects.")
@@ -280,8 +290,11 @@ user = st.session_state.current_user
 user_pages = user.get('pages', [])
 is_admin = user.get('role') == 'Admin'
 
-if is_admin and "Automatisation" not in user_pages:
-    user_pages.append("Automatisation")
+if is_admin:
+    if "Automatisation" not in user_pages:
+        user_pages.append("Automatisation")
+    if "Liste des Lots" not in user_pages:
+        user_pages.append("Liste des Lots")
 
 # Dictionnaire de toutes les pages possibles (Key: Nom, Value: Path)
 ALL_PAGES = {
@@ -297,7 +310,8 @@ ALL_PAGES = {
     "Litiges Fournisseurs": st.Page("pages/10_reclamations_fournisseurs.py", title="Litiges Fournisseurs", icon="🏢"),
     "Analyse Rotation": st.Page("pages/11_analyse_rotation.py", title="Analyse Rotation", icon="📈"),
     "Scan Mobile": st.Page("pages/12_mobile_scan.py", title="Scan Mobile", icon="📱"),
-    "RH": st.Page("pages/13_rh.py", title="RH & Performance", icon="👥")
+    "RH": st.Page("pages/13_rh.py", title="RH & Performance", icon="👥"),
+    "Liste des Lots": st.Page("pages/14_liste_des_lots.py", title="Liste des Lots", icon="📑")
 }
 
 if is_ia_enabled():
