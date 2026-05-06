@@ -539,8 +539,11 @@ with tabs[5]:
     st.divider()
     st.subheader("👥 Gestion de la Base Clients")
     st.info("La gestion des clients est désormais centralisée. Veuillez utiliser le module **Admin Centrale** pour modifier, ajouter ou importer des clients.")
-    if st.button("🚀 Aller à l'Administration Centrale", use_container_width=True):
-        st.switch_page("pages/0_admin_centrale.py")
+    if st.session_state.current_user.get('role') == 'Admin':
+        if st.button("🚀 Aller à l'Administration Centrale", use_container_width=True):
+            st.switch_page("pages/0_admin_centrale.py")
+    else:
+        st.warning("Accès à l'Administration Centrale réservé aux Administrateurs.")
 
     st.divider()
     if st.session_state.current_user.get('role') == 'Admin':
