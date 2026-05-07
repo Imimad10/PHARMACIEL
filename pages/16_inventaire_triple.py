@@ -121,11 +121,11 @@ def load_master():
 
 df_master = load_master()
 
-# --- 2.5 AUTO-RESET (One-time after Filter update) ---
-if 'it_fix_applied_v5_filters' not in st.session_state:
+# --- 2.5 AUTO-RESET (One-time after Stock Fix) ---
+if 'it_fix_applied_v6_stockfix' not in st.session_state:
     st.cache_data.clear()
     if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
-    st.session_state.it_fix_applied_v5_filters = True
+    st.session_state.it_fix_applied_v6_stockfix = True
     st.rerun()
 
 # Initialisation du DataFrame de travail (Merge Master + TinyDB)
@@ -169,7 +169,11 @@ else:
     with tabs[0]:
         # --- BLOC DE DIAGNOSTIC ET RÉINITIALISATION ---
         with st.expander("🛠️ Outils de vérification (Si le stock Theo est faux)", expanded=False):
-            st.write("L'application a identifié ces colonnes dans votre Excel :")
+            st.write("Aperçu des données chargées depuis votre Excel :")
+            if df_master is not None:
+                st.dataframe(df_master[['depot', 'produit', 'lot', 'shp']].head(10), use_container_width=True)
+            
+            st.write("État de l'identification des colonnes :")
             c1, c2, c3 = st.columns(3)
             if 'produit' in df_master.columns: c1.success("✅ Produit : OK")
             else: c1.error("❌ Produit : NON TROUVÉ")
@@ -177,8 +181,10 @@ else:
             if 'lot' in df_master.columns: c2.success("✅ Lot : OK")
             else: c2.error("❌ Lot : NON TROUVÉ")
             
-            if 'shp' in df_master.columns: c3.success("✅ Stock Theo : OK")
-            else: c3.error("❌ Stock Theo : NON TROUVÉ")
+            if 'shp' in df_master.columns: 
+                c3.success(f"✅ Stock Logi : OK")
+            else: 
+                c3.error("❌ Stock Logi : NON TROUVÉ")
             
             st.info("Si les colonnes sont 'NON TROUVÉES' ou si l'écart est faux, cliquez sur le bouton ci-dessous.")
             if st.button("♻️ RÉINITIALISER ET RECHARGER TOUTES LES DONNÉES", type="primary", use_container_width=True):
