@@ -217,19 +217,19 @@ else:
                 # On vide l'ancienne table pour ce master (ou on fait des updates intelligents)
                 # Ici on va simplement remplacer les entrées existantes pour ces produits/lots
                 for _, row in to_save.iterrows():
-                    table_inv.remove((Query().produit == row['produit']) & (Query().lot_master == row['lot']))
+                    table_inv.remove((Query().produit == str(row['produit'])) & (Query().lot_master == str(row['lot'])))
                     table_inv.insert({
                         "date": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                        "produit": row['produit'],
-                        "lot": row['lot'],
-                        "lot_master": row['lot'],
-                        "detail_terrain": row['Terrain (Vrac)'] + row['Terrain (Colis)'],
-                        "mini_stock": row['Mini (Vrac)'] + row['Mini (Colis)'],
-                        "total": row['Terrain (Vrac)'] + row['Terrain (Colis)'] + row['Mini (Vrac)'] + row['Mini (Colis)'],
-                        "ppa": row.get('ppa', 0.0),
-                        "shp": row.get('shp', 0.0),
-                        "ddp": row.get('ddp', ''),
-                        "agent": st.session_state.current_user.get('username', 'Inconnu')
+                        "produit": str(row['produit']),
+                        "lot": str(row['lot']),
+                        "lot_master": str(row['lot']),
+                        "detail_terrain": float(row['Terrain (Vrac)'] + row['Terrain (Colis)']),
+                        "mini_stock": float(row['Mini (Vrac)'] + row['Mini (Colis)']),
+                        "total": float(row['Terrain (Vrac)'] + row['Terrain (Colis)'] + row['Mini (Vrac)'] + row['Mini (Colis)']),
+                        "ppa": float(row.get('ppa', 0.0)),
+                        "shp": float(row.get('shp', 0.0)),
+                        "ddp": str(row.get('ddp', '')),
+                        "agent": str(st.session_state.current_user.get('username', 'Inconnu'))
                     })
                 st.success(f"✅ {len(to_save)} lignes sauvegardées avec succès !")
                 log_action(st.session_state.current_user['username'], f"Sauvegarde Triple Grille ({len(to_save)} items)", "Inventaire")
