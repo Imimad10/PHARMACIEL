@@ -137,6 +137,20 @@ if 'inv_work_df' not in st.session_state or st.sidebar.button("🔄 Actualiser D
 # --- 3. HEADER & DASHBOARD ---
 st.header("📋 Inventaire Triple & Confrontation Minutieuse", divider="orange")
 
+# Diagnostic des colonnes dans le sidebar pour transparence totale
+if df_master is not None:
+    with st.sidebar.expander("🔍 Diagnostic des colonnes Master", expanded=False):
+        st.write("Voici comment l'IA a identifié vos colonnes Excel :")
+        for target, patterns in {'produit': 'Produit', 'lot': 'Lot', 'shp': 'Stock Theo', 'ppa': 'PPA', 'ddp': 'DDP'}.items():
+            if target in df_master.columns:
+                st.success(f"**{patterns}** : Identifié")
+            else:
+                st.error(f"**{patterns}** : Non trouvé")
+        if st.button("♻️ Forcer la ré-initialisation complète"):
+            st.cache_data.clear()
+            if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
+            st.rerun()
+
 if df_master is None:
     st.warning("⚠️ Aucun fichier Master détecté. Veuillez l'importer dans l'onglet Administration.")
     tabs = st.tabs(["⚙️ Administration"])
