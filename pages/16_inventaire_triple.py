@@ -165,28 +165,36 @@ else:
             ]
 
         # Calcul des totaux pour affichage dans la grille (colonnes virtuelles non éditables)
-        display_df['Total Terrain'] = display_df['Terrain (Vrac)'] + display_df['Terrain (Colis)']
-        display_df['Total Mini'] = display_df['Mini (Vrac)'] + display_df['Mini (Colis)']
-        display_df['Total Global'] = display_df['Total Terrain'] + display_df['Total Mini']
+        display_df['Total Global'] = display_df['Terrain (Vrac)'] + display_df['Terrain (Colis)'] + display_df['Mini (Vrac)'] + display_df['Mini (Colis)']
         display_df['Écart (vs SHP)'] = display_df['Total Global'] - display_df['shp']
 
+        # ORDRE ET SÉLECTION DES COLONNES (Pour éviter la pollution visuelle)
+        # On ne garde que l'essentiel pour la saisie
+        main_cols = ['produit', 'lot', 'shp', 'Terrain (Vrac)', 'Terrain (Colis)', 'Mini (Vrac)', 'Mini (Colis)', 'Total Global', 'Écart (vs SHP)']
+        # On ajoute les autres colonnes à la fin au cas où, mais on va les cacher via le config
+        other_cols = [c for c in display_df.columns if c not in main_cols]
+        display_df = display_df[main_cols + other_cols]
+
         # Configuration de l'éditeur
+        # On définit explicitement les colonnes à CACHER (None)
+        col_config = {
+            "produit": st.column_config.TextColumn("📦 Produit", width="medium", disabled=True),
+            "lot": st.column_config.TextColumn("🏷️ Lot", width="small", disabled=True),
+            "shp": st.column_config.NumberColumn("📈 Stock Theo", format="%.0f", disabled=True),
+            "Terrain (Vrac)": st.column_config.NumberColumn("📍 Terrain Vrac", min_value=0, step=1, help="Saisissez la quantité en vrac sur le terrain"),
+            "Terrain (Colis)": st.column_config.NumberColumn("📍 Terrain Colis", min_value=0, step=1, help="Saisissez la quantité en colis sur le terrain"),
+            "Mini (Vrac)": st.column_config.NumberColumn("🏢 Mini Vrac", min_value=0, step=1, help="Saisissez la quantité en vrac au mini stock"),
+            "Mini (Colis)": st.column_config.NumberColumn("🏢 Mini Colis", min_value=0, step=1, help="Saisissez la quantité en colis au mini stock"),
+            "Total Global": st.column_config.NumberColumn("✅ Total Réel", format="%.0f", disabled=True),
+            "Écart (vs SHP)": st.column_config.NumberColumn("⚠️ Écart", format="%.0f", disabled=True),
+        }
+        # Masquage automatique de toutes les autres colonnes importées du Master
+        for col in other_cols:
+            col_config[col] = None
+
         edited_df = st.data_editor(
             display_df,
-            column_config={
-                "produit": st.column_config.TextColumn("Produit", width="medium", disabled=True),
-                "lot": st.column_config.TextColumn("Lot", width="small", disabled=True),
-                "shp": st.column_config.NumberColumn("Stock Theo", format="%.0f", disabled=True),
-                "Terrain (Vrac)": st.column_config.NumberColumn("📍 Terrain Vrac", min_value=0, step=1),
-                "Terrain (Colis)": st.column_config.NumberColumn("📍 Terrain Colis", min_value=0, step=1),
-                "Mini (Vrac)": st.column_config.NumberColumn("🏢 Mini Vrac", min_value=0, step=1),
-                "Mini (Colis)": st.column_config.NumberColumn("🏢 Mini Colis", min_value=0, step=1),
-                "Total Terrain": st.column_config.NumberColumn("Total Terrain", format="%.0f", disabled=True),
-                "Total Mini": st.column_config.NumberColumn("Total Mini", format="%.0f", disabled=True),
-                "Total Global": st.column_config.NumberColumn("Total Global", format="%.0f", disabled=True),
-                "Écart (vs SHP)": st.column_config.NumberColumn("Écart", format="%.0f", disabled=True),
-                "ppa": None, "ddp": None # On cache les colonnes moins utiles ici
-            },
+            column_config=col_config,
             hide_index=True,
             use_container_width=True,
             num_rows="fixed",
