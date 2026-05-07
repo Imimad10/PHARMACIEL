@@ -372,9 +372,38 @@ else:
                     st.error(f"Échec: {e}")
 
         st.divider()
+        st.subheader("🚨 Zone de Danger (Administration uniquement)")
         if st.session_state.current_user.get('role') == 'Admin':
-            if st.button("🗑️ Vider l'historique des saisies (Base de données)", type="primary"):
-                table_inv.truncate()
-                if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
-                st.success("Historique vidé.")
-                st.rerun()
+            st.warning("Attention : Ces actions sont irréversibles.")
+            
+            # --- RESET DATABASE ---
+            col_res1, col_res2 = st.columns([2, 1])
+            with col_res1:
+                st.write("**Vider la base de données de l'inventaire triple**")
+                st.caption("Cela supprimera toutes les saisies effectuées (Terrain et Mini Stock).")
+            with col_res2:
+                conf_reset = st.checkbox("Je confirme la suppression", key="conf_reset_db")
+                if st.button("🗑️ Vider la base", type="primary", disabled=not conf_reset, use_container_width=True):
+                    table_inv.truncate()
+                    if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
+                    st.success("✅ Base de données vidée avec succès.")
+                    st.rerun()
+            
+            st.divider()
+            
+            # --- RESET MASTER ---
+            col_m1, col_m2 = st.columns([2, 1])
+            with col_m1:
+                st.write("**Supprimer le fichier Master actuel**")
+                st.caption("Cela supprimera le fichier Excel importé. Vous devrez en importer un nouveau.")
+            with col_m2:
+                conf_master = st.checkbox("Je confirme la suppression", key="conf_reset_master")
+                if st.button("📁 Supprimer Master", type="secondary", disabled=not conf_master, use_container_width=True):
+                    if os.path.exists(MASTER_PATH):
+                        os.remove(MASTER_PATH)
+                    st.cache_data.clear()
+                    if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
+                    st.success("✅ Fichier Master supprimé.")
+                    st.rerun()
+        else:
+            st.info("Cette section est réservée aux administrateurs.")
