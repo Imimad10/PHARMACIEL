@@ -198,11 +198,19 @@ else:
         f_col1, f_col2, f_col3 = st.columns([1, 1, 1])
         
         # Filtre Dépôt
-        depot_list = ["Tous"] + sorted(st.session_state.inv_work_df['depot'].unique().tolist()) if 'depot' in st.session_state.inv_work_df.columns else ["Tous"]
+        if 'depot' in st.session_state.inv_work_df.columns:
+            depot_raw = st.session_state.inv_work_df['depot'].dropna().unique().tolist()
+            depot_list = ["Tous"] + sorted([str(x) for x in depot_raw])
+        else:
+            depot_list = ["Tous"]
         selected_depot = f_col1.selectbox("🏢 Filtrer par Dépôt", depot_list)
         
         # Filtre Zone
-        zone_list = ["Toutes"] + sorted(st.session_state.inv_work_df['zone'].unique().tolist()) if 'zone' in st.session_state.inv_work_df.columns else ["Toutes"]
+        if 'zone' in st.session_state.inv_work_df.columns:
+            zone_raw = st.session_state.inv_work_df['zone'].dropna().unique().tolist()
+            zone_list = ["Toutes"] + sorted([str(x) for x in zone_raw])
+        else:
+            zone_list = ["Toutes"]
         selected_zone = f_col2.selectbox("📍 Filtrer par Zone", zone_list)
         
         show_only_counted = f_col3.checkbox("🔍 Uniquement les saisies", value=False)
