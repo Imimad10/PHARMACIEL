@@ -314,26 +314,26 @@ if is_admin:
 
 # Dictionnaire de toutes les pages possibles (Key: Nom, Value: Path)
 ALL_PAGES = {
-    "Dashboard": st.Page("pages/0_tableau_de_bord.py", title="Tableau de Bord", icon="📊"),
-    "Logistique": st.Page("pages/1_expedition.py", title="Logistique", icon="🚛"),
-    "Inventaire": st.Page("pages/2_inventaire.py", title="Inventaire", icon="📦"),
-    "Inventaire Détail": st.Page("pages/8_inventaire_detail.py", title="Inventaire Détail", icon="🔍"),
-    "Inventaire Triple": st.Page("pages/16_inventaire_triple.py", title="Inventaire Triple", icon="📋"),
-    "Suivi": st.Page("pages/3_suivi.py", title="Suivi Frigo", icon="❄️"),
-    "Recouvrement": st.Page("pages/4_recouvrement.py", title="Recouvrement", icon="💰"),
-    "Pointage": st.Page("pages/5_pointage.py", title="Pointage Factures", icon="📝"),
-    "Pointage Expéditeur": st.Page("pages/15_pointage_expediteur.py", title="Pointage Expéditeur", icon="📦"),
-    "Péremptions": st.Page("pages/6_peremptions.py", title="Gestion des Péremptions", icon="⏳"),
-    "Scanneur QR": st.Page("pages/7_scanneur_qr.py", title="Scanneur QR", icon="📸"),
-    "Litiges Fournisseurs": st.Page("pages/10_reclamations_fournisseurs.py", title="Litiges Fournisseurs", icon="🏢"),
-    "Analyse Rotation": st.Page("pages/11_analyse_rotation.py", title="Analyse Rotation", icon="📈"),
-    "Scan Mobile": st.Page("pages/12_mobile_scan.py", title="Scan Mobile", icon="📱"),
-    "RH": st.Page("pages/13_rh.py", title="RH & Performance", icon="👥"),
-    "Liste des Lots": st.Page("pages/14_liste_des_lots.py", title="Liste des Lots", icon="📑")
+    "Dashboard": st.Page("modules/0_tableau_de_bord.py", title="Tableau de Bord", icon="📊"),
+    "Logistique": st.Page("modules/1_expedition.py", title="Logistique", icon="🚛"),
+    "Inventaire": st.Page("modules/2_inventaire.py", title="Inventaire", icon="📦"),
+    "Inventaire Détail": st.Page("modules/8_inventaire_detail.py", title="Inventaire Détail", icon="🔍"),
+    "Inventaire Triple": st.Page("modules/16_inventaire_triple.py", title="Inventaire Triple", icon="📋"),
+    "Suivi": st.Page("modules/3_suivi.py", title="Suivi Frigo", icon="❄️"),
+    "Recouvrement": st.Page("modules/4_recouvrement.py", title="Recouvrement", icon="💰"),
+    "Pointage": st.Page("modules/5_pointage.py", title="Pointage Factures", icon="📝"),
+    "Pointage Expéditeur": st.Page("modules/15_pointage_expediteur.py", title="Pointage Expéditeur", icon="📦"),
+    "Péremptions": st.Page("modules/6_peremptions.py", title="Gestion des Péremptions", icon="⏳"),
+    "Scanneur QR": st.Page("modules/7_scanneur_qr.py", title="Scanneur QR", icon="📸"),
+    "Litiges Fournisseurs": st.Page("modules/10_reclamations_fournisseurs.py", title="Litiges Fournisseurs", icon="🏢"),
+    "Analyse Rotation": st.Page("modules/11_analyse_rotation.py", title="Analyse Rotation", icon="📈"),
+    "Scan Mobile": st.Page("modules/12_mobile_scan.py", title="Scan Mobile", icon="📱"),
+    "RH": st.Page("modules/13_rh.py", title="RH & Performance", icon="👥"),
+    "Liste des Lots": st.Page("modules/14_liste_des_lots.py", title="Liste des Lots", icon="📑")
 }
 
 if is_ia_enabled():
-    ALL_PAGES["Automatisation"] = st.Page("pages/9_automatisation.py", title="Automatisation & IA", icon="🤖")
+    ALL_PAGES["Automatisation"] = st.Page("modules/9_automatisation.py", title="Automatisation & IA", icon="🤖")
 
 # Filtrer selon les privilèges
 pages_to_show = {}
@@ -355,8 +355,8 @@ if nav_list:
 if is_admin:
     # Page cachée ou dédiée à l'administration
     pages_to_show["Administration Centrale"] = [
-        st.Page("pages/0_admin_centrale.py", title="Admin Centrale (Data)", icon="🏛️"),
-        st.Page("pages/5_admin.py", title="Gestion des Accès", icon="⚙️")
+        st.Page("modules/0_admin_centrale.py", title="Admin Centrale (Data)", icon="🏛️"),
+        st.Page("modules/5_admin.py", title="Gestion des Accès", icon="⚙️")
     ]
 
 if not pages_to_show:
@@ -386,7 +386,7 @@ with st.sidebar:
     st.divider()
 
     if st.button("📱 Mode Mobile", use_container_width=True, key="btn_mobile"):
-        st.switch_page("pages/12_mobile_scan.py")
+        st.switch_page("modules/12_mobile_scan.py")
         
     if st.button("🚪 Déconnexion", use_container_width=True, key="btn_logout"):
         st.session_state.current_user = None
