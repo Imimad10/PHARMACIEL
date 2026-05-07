@@ -198,6 +198,16 @@ with tab_admin:
 # --- SAISIE ---
 if df_master is not None and tab_saisie:
     with tab_saisie:
+        # En-tête avec bouton de rafraîchissement
+        col_title, col_refresh = st.columns([3, 1])
+        with col_title:
+            st.markdown("### ⚡ Saisie Libre & Grille")
+        with col_refresh:
+            if st.button("♻️ Rafraîchir les données", use_container_width=True, help="Recharge les données depuis le fichier Master"):
+                st.cache_data.clear()
+                if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
+                st.rerun()
+
         # Diagnostic
         with st.expander("🔍 Diagnostic Colonnes"):
             st.write("Colonnes identifiées :", list(df_master.columns))
