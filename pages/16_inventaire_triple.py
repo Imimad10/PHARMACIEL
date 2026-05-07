@@ -94,6 +94,12 @@ def load_master():
         rename_dict = {v: k for k, v in source_mapping.items()}
         df = df.rename(columns=rename_dict)
         
+        # Initialisation par défaut pour les colonnes vitales manquantes (évite les crashs)
+        for target in ['produit', 'lot', 'shp', 'ppa', 'ddp']:
+            if target not in df.columns:
+                if target == 'shp' or target == 'ppa': df[target] = 0.0
+                else: df[target] = "NON TROUVÉ"
+
         # Nettoyage et conversion
         if 'produit' in df.columns: df['produit'] = df['produit'].astype(str).str.upper().str.strip()
         if 'lot' in df.columns: df['lot'] = df['lot'].astype(str).str.upper().str.strip()
