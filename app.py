@@ -118,7 +118,7 @@ if not db_users.search(User.username == 'admin_imad'):
         'username': 'admin_imad',
         'password': 'admin_imad_pwd',
         'role': 'Admin',
-        'pages': ['Admin Centrale', 'Dashboard', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Péremptions', 'Scanneur QR', 'Automatisation', 'Litiges Fournisseurs', 'Analyse Rotation', 'Scan Mobile', 'RH']
+        'pages': ['Admin Centrale', 'Dashboard', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Péremptions', 'Scanneur QR', 'Automatisation', 'Litiges Fournisseurs', 'Analyse Rotation', 'Scan Mobile', 'RH']
     })
 
 # Liste des utilisateurs essentiels à maintenir
@@ -304,6 +304,7 @@ ALL_PAGES = {
     "Logistique": st.Page("pages/1_expedition.py", title="Logistique", icon="🚛"),
     "Inventaire": st.Page("pages/2_inventaire.py", title="Inventaire", icon="📦"),
     "Inventaire Détail": st.Page("pages/8_inventaire_detail.py", title="Inventaire Détail", icon="🔍"),
+    "Inventaire Triple": st.Page("pages/16_inventaire_triple.py", title="Inventaire Triple", icon="📋"),
     "Suivi": st.Page("pages/3_suivi.py", title="Suivi Frigo", icon="❄️"),
     "Recouvrement": st.Page("pages/4_recouvrement.py", title="Recouvrement", icon="💰"),
     "Pointage": st.Page("pages/5_pointage.py", title="Pointage Factures", icon="📝"),
