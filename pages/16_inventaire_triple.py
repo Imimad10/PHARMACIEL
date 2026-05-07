@@ -174,6 +174,12 @@ else:
                 st.rerun()
 
         st.markdown("""
+        <div class='card'>
+            <h4>⚡ Mode Saisie Libre (Grille Interactive)</h4>
+            <p style='color: #636e72;'>Saisissez les quantités Terrain et Mini Stock directement dans le tableau. 
+            Utilisez la recherche (Ctrl+F) pour trouver un produit rapidement.</p>
+        </div>
+        """, unsafe_allow_html=True)
         
         # Filtres rapides
         col_f1, col_f2 = st.columns([2, 1])
