@@ -69,12 +69,12 @@ def load_master():
         df.columns = [str(c) for c in df.columns]
         
         # Définition des priorités de recherche pour chaque champ cible
-        search_patterns = {
             'produit': ['designation', 'produit', 'article', 'nom'],
-            'lot': ['lot', 'n°lot', 'batch', 'n° lot'],
-            'shp': ['shp', 'theorique', 'stock', 'qte logi', 'theorique logi'],
+            'lot': ['lot', 'n°lot', 'batch', 'n° lot', 'n lot'],
+            'shp': ['quantite depot', 'qte depot', 'shp', 'theorique', 'stock'],
             'ppa': ['ppa', 'prix', 'shv'],
-            'ddp': ['ddp', 'exp', 'peremption', 'date']
+            'ddp': ['ddp', 'exp', 'peremption', 'date'],
+            'colissage': ['colis', 'colissage', 'unit per box']
         }
         
         # On identifie les colonnes sources pour chaque cible
@@ -108,6 +108,7 @@ def load_master():
         if 'lot' in df.columns: df['lot'] = df['lot'].astype(str).str.upper().str.strip()
         if 'shp' in df.columns: df['shp'] = df['shp'].apply(robust_num)
         if 'ppa' in df.columns: df['ppa'] = df['ppa'].apply(robust_num)
+        if 'colissage' in df.columns: df['colissage'] = df['colissage'].apply(robust_num).replace(0, 1) # Évite division par zéro, défaut à 1
         return df
     except Exception as e: 
         st.error(f"Erreur Master: {e}")
@@ -131,6 +132,7 @@ if 'inv_work_df' not in st.session_state or st.sidebar.button("🔄 Actualiser D
         work_df['Terrain (Colis)'] = 0.0
         work_df['Mini (Vrac)'] = 0.0
         work_df['Mini (Colis)'] = 0.0
+        if 'colissage' not in work_df.columns: work_df['colissage'] = 1.0
         
         # On injecte les données déjà sauvées dans TinyDB pour ce lot/produit
         saved_data = table_inv.all()
@@ -206,8 +208,14 @@ else:
                 (display_df['Mini (Vrac)'] > 0) | (display_df['Mini (Colis)'] > 0)
             ]
 
-        # Calcul des totaux pour affichage dans la grille
-        display_df['Total Global'] = display_df['Terrain (Vrac)'] + display_df['Terrain (Colis)'] + display_df['Mini (Vrac)'] + display_df['Mini (Colis)']
+        # Calcul des totaux pour affichage dans la grille (en tenant compte du colissage Logipharm)
+        # Total = Vrac + (Nbr Colis * Unités par Colis)
+        colissage = display_df['colissage'] if 'colissage' in display_df.columns else 1.0
+        
+        display_df['Total Global'] = (
+            display_df['Terrain (Vrac)'] + (display_df['Terrain (Colis)'] * colissage) +
+            display_df['Mini (Vrac)'] + (display_df['Mini (Colis)'] * colissage)
+        )
         display_df['Écart'] = display_df['Total Global'] - display_df['shp']
 
         # ORDRE ET SÉLECTION DES COLONNES
@@ -219,11 +227,12 @@ else:
         col_config = {
             "produit": st.column_config.TextColumn("📦 Produit", width="medium", disabled=True),
             "lot": st.column_config.TextColumn("🏷️ Lot", width="small", disabled=True),
-            "shp": st.column_config.NumberColumn("📈 Stock Theo", format="%.0f", disabled=True),
+            "shp": st.column_config.NumberColumn("📈 Stock Logi", format="%.0f", disabled=True, help="Quantité Dépôt (Théorique)"),
+            "colissage": st.column_config.NumberColumn("📦 Unité/Colis", format="%.0f", disabled=True),
             "Terrain (Vrac)": st.column_config.NumberColumn("📍 Terrain Vrac", min_value=0, step=1),
-            "Terrain (Colis)": st.column_config.NumberColumn("📍 Terrain Colis", min_value=0, step=1),
+            "Terrain (Colis)": st.column_config.NumberColumn("📦 Terrain Colis", min_value=0, step=1, help="Nombre de cartons entiers"),
             "Mini (Vrac)": st.column_config.NumberColumn("🏢 Mini Vrac", min_value=0, step=1),
-            "Mini (Colis)": st.column_config.NumberColumn("🏢 Mini Colis", min_value=0, step=1),
+            "Mini (Colis)": st.column_config.NumberColumn("📦 Mini Colis", min_value=0, step=1, help="Nombre de cartons entiers"),
             "Total Global": st.column_config.NumberColumn("✅ Total Réel", format="%.0f", disabled=True),
             "Écart": st.column_config.NumberColumn("⚠️ Écart", format="%+.0f", disabled=True, help="Positif = Surplus, Négatif = Manquant"),
         }
@@ -286,7 +295,8 @@ else:
         st.subheader("📊 Confrontation Minutieuse & Analyse des Écarts")
         
         work = st.session_state.inv_work_df
-        work['Total Saisi'] = work['Terrain (Vrac)'] + work['Terrain (Colis)'] + work['Mini (Vrac)'] + work['Mini (Colis)']
+        c = work['colissage'] if 'colissage' in work.columns else 1.0
+        work['Total Saisi'] = work['Terrain (Vrac)'] + (work['Terrain (Colis)'] * c) + work['Mini (Vrac)'] + (work['Mini (Colis)'] * c)
         work['Ecart'] = work['Total Saisi'] - work['shp']
         
         # Statistiques Globales
