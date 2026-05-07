@@ -37,14 +37,26 @@ def load_master():
             'lot': 'lot', 'n°lot': 'lot', 'batch': 'lot',
             'ppa': 'ppa', 'shp': 'shp', 'stock': 'shp', 'ddp': 'ddp', 'exp': 'ddp'
         }
-        new_cols = []
+        # Attribution des nouveaux noms avec gestion des doublons
+        used_names = {}
+        final_cols = []
         for col in df.columns:
             norm = normalize_text(col)
-            found = False
+            mapped_name = norm
             for k, v in mapping.items():
-                if k in norm: new_cols.append(v); found = True; break
-            if not found: new_cols.append(norm)
-        df.columns = new_cols
+                if k in norm:
+                    mapped_name = v
+                    break
+            
+            # Gestion des doublons pour éviter que df['col'] devienne un DataFrame
+            if mapped_name in used_names:
+                used_names[mapped_name] += 1
+                mapped_name = f"{mapped_name}_{used_names[mapped_name]}"
+            else:
+                used_names[mapped_name] = 0
+            final_cols.append(mapped_name)
+            
+        df.columns = final_cols
         
         # Nettoyage types
         for col in ['produit', 'lot']:
