@@ -13,6 +13,10 @@ MASTER_PATH = os.path.join(MASTER_DIR, "master_detail.xlsx")
 DB_PATH = "db_pharmaciel.json"
 os.makedirs(MASTER_DIR, exist_ok=True)
 
+if 'current_user' not in st.session_state:
+    st.warning("⚠️ Veuillez vous connecter depuis la page d'accueil.")
+    st.stop()
+
 db = TinyDB(DB_PATH)
 table_inv = db.table('inventaire_triple')
 
@@ -182,7 +186,8 @@ def get_user_data():
         if not allowed_zones:
             # Si aucune zone assignée, on retourne un DF vide
             return df.iloc[0:0]
-        df = df[df['zone'].isin(allowed_zones)]
+        if 'zone' in df.columns:
+            df = df[df['zone'].isin(allowed_zones)]
     return df
 
 # --- TABLEAU DE BORD ---
@@ -304,10 +309,13 @@ if df_master is not None and tab_saisie:
             
             search = st.text_input("Recherche Produit / Lot")
             
-            # Filtrage
-            if sel_depot != "Tous": disp_df = disp_df[disp_df['depot'] == sel_depot]
-            if sel_zone != "Toutes": disp_df = disp_df[disp_df['zone'] == sel_zone]
-            if search: disp_df = disp_df[disp_df['produit'].str.contains(search, case=False) | disp_df['lot'].str.contains(search, case=False)]
+            # Filtrage sécurisé
+            if sel_depot != "Tous" and 'depot' in disp_df.columns: 
+                disp_df = disp_df[disp_df['depot'] == sel_depot]
+            if sel_zone != "Toutes" and 'zone' in disp_df.columns: 
+                disp_df = disp_df[disp_df['zone'] == sel_zone]
+            if search: 
+                disp_df = disp_df[disp_df['produit'].str.contains(search, case=False, na=False) | disp_df['lot'].str.contains(search, case=False, na=False)]
             
             # Calculs
             c = disp_df['colissage']
@@ -338,23 +346,47 @@ if df_master is not None and tab_saisie:
         )
         
         if st.button("💾 Enregistrer les modifications", type="primary"):
-            # Update session state
-            for idx, row in edited.iterrows():
-                st.session_state.inv_work_df.loc[idx, 'Terrain (Vrac)'] = row['Terrain (Vrac)']
-                st.session_state.inv_work_df.loc[idx, 'Terrain (Colis)'] = row['Terrain (Colis)']
-                st.session_state.inv_work_df.loc[idx, 'Mini (Vrac)'] = row['Mini (Vrac)']
-                st.session_state.inv_work_df.loc[idx, 'Mini (Colis)'] = row['Mini (Colis)']
-                st.session_state.inv_work_df.loc[idx, 'colissage'] = row['colissage']
+            # Comparaison pour ne sauvegarder que les lignes modifiées
+            try:
+                # pandas compare() faille si les types ne sont pas strictement identiques, on utilise un check manuel
+                # On compare edited et disp_df sur les colonnes modifiables
+                cols_to_check = ['Terrain (Vrac)', 'Terrain (Colis)', 'Mini (Vrac)', 'Mini (Colis)', 'colissage']
                 
-                # Update TinyDB
-                table_inv.upsert({
-                    'produit': row['produit'], 'lot': row['lot'],
-                    'tv': row['Terrain (Vrac)'], 'tc': row['Terrain (Colis)'],
-                    'mv': row['Mini (Vrac)'], 'mc': row['Mini (Colis)'],
-                    'col': row['colissage']
-                }, (Query().produit == row['produit']) & (Query().lot == row['lot']))
-            st.success("Modifications enregistrées !")
-            st.rerun()
+                # S'assurer que les index sont alignés
+                changed_indices = []
+                for idx in edited.index:
+                    if idx in disp_df.index:
+                        for col in cols_to_check:
+                            if col in edited.columns and col in disp_df.columns:
+                                if edited.loc[idx, col] != disp_df.loc[idx, col]:
+                                    changed_indices.append(idx)
+                                    break
+                                    
+                if not changed_indices:
+                    st.info("Aucune modification détectée.")
+                else:
+                    for idx in changed_indices:
+                        row = edited.loc[idx]
+                        # Update session state
+                        st.session_state.inv_work_df.loc[idx, 'Terrain (Vrac)'] = row['Terrain (Vrac)']
+                        st.session_state.inv_work_df.loc[idx, 'Terrain (Colis)'] = row['Terrain (Colis)']
+                        st.session_state.inv_work_df.loc[idx, 'Mini (Vrac)'] = row['Mini (Vrac)']
+                        st.session_state.inv_work_df.loc[idx, 'Mini (Colis)'] = row['Mini (Colis)']
+                        if 'colissage' in row:
+                            st.session_state.inv_work_df.loc[idx, 'colissage'] = row['colissage']
+                        
+                        # Update TinyDB
+                        table_inv.upsert({
+                            'produit': row['produit'], 'lot': row['lot'],
+                            'tv': float(row['Terrain (Vrac)']), 'tc': float(row['Terrain (Colis)']),
+                            'mv': float(row['Mini (Vrac)']), 'mc': float(row['Mini (Colis)']),
+                            'col': float(row['colissage']) if 'colissage' in row else 1.0
+                        }, (Query().produit == row['produit']) & (Query().lot == row['lot']))
+                    
+                    st.success(f"✅ {len(changed_indices)} modification(s) enregistrée(s) !")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Erreur lors de la sauvegarde: {e}")
 
 # --- ANALYSE ---
 if df_master is not None and tab_analyse:
