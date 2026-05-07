@@ -4,6 +4,7 @@ import os
 import json
 from tinydb import TinyDB, Query
 import unicodedata
+from utils_ia import ask_ai, is_ia_enabled
 
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Inventaire Triple - Pharmaciel", layout="wide")
@@ -420,3 +421,18 @@ if df_master is not None and tab_analyse:
             disp_diff = disp_diff[[col for col in disp_diff.columns if col in diff.columns]]
             
             st.dataframe(disp_diff.style.apply(highlight_ecart, axis=1), use_container_width=True)
+
+            # --- ANALYSE IA ---
+            if is_ia_enabled():
+                st.markdown("---")
+                st.container(border=True)
+                st.subheader("🤖 Assistant IA d'Analyse (BETA)")
+                st.info("L'Intelligence Artificielle peut analyser vos écarts pour détecter des anomalies récurrentes (vols, erreurs de lot, problèmes de colissage).")
+                if st.button("🧠 Générer un rapport d'analyse IA", use_container_width=True, type="primary"):
+                    with st.spinner("L'IA examine vos données (cela peut prendre quelques secondes)..."):
+                        # On limite à 20 écarts pour ne pas surcharger le prompt
+                        ecarts_json = diff[['produit', 'lot', 'qte_logi', 'Total', 'Ecart']].head(20).to_dict('records')
+                        prompt = f"Tu es un expert en logistique pharmaceutique. Voici les écarts de stock constatés aujourd'hui : {ecarts_json}. Identifie les causes probables (erreur de conversion unité/colis, erreur de saisie, péremption, etc.) et donne 3 conseils précis pour régler ces écarts."
+                        reponse = ask_ai(prompt)
+                        st.success("✅ Analyse terminée")
+                        st.write(reponse)

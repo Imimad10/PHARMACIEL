@@ -348,14 +348,18 @@ with tabs[2]:
 
                 # --- ANALYSE IA ---
                 if is_ia_enabled():
-                    st.divider()
-                    with st.expander("🤖 Assistant IA Inventaire"):
-                        if st.button("📊 Analyser les écarts", use_container_width=True):
-                            with st.spinner("L'IA analyse vos données..."):
-                                df_target = comp if "Rapide" in mode_conf else comp_det
-                                ecarts = df_target[df_target['écart'] != 0].head(20).to_dict('records')
-                                prompt = f"Voici un extrait des écarts d'inventaire : {ecarts}. Analyse les causes possibles et suggère des corrections."
-                                st.write(ask_ai(prompt))
+                    st.markdown("---")
+                    st.container(border=True)
+                    st.subheader("🤖 Assistant IA d'Analyse (BETA)")
+                    st.info("L'Intelligence Artificielle peut analyser vos écarts pour détecter des anomalies récurrentes.")
+                    if st.button("🧠 Générer un rapport d'analyse IA", use_container_width=True, type="primary"):
+                        with st.spinner("L'IA examine vos données..."):
+                            df_target = comp if "Rapide" in mode_conf else comp_det
+                            ecarts = df_target[df_target['écart'] != 0].head(20).to_dict('records')
+                            prompt = f"Tu es un expert en logistique. Voici les écarts constatés : {ecarts}. Analyse les causes probables et suggère des corrections."
+                            reponse = ask_ai(prompt)
+                            st.success("✅ Analyse terminée")
+                            st.write(reponse)
             except Exception as e:
                 st.error(f"Erreur d'analyse : {e}")
         else: st.info("Aucune donnée de saisie trouvée ou Master manquant.")
