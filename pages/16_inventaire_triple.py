@@ -75,7 +75,9 @@ def load_master():
             'shp': ['quantite depot', 'qte depot', 'shp', 'theorique', 'stock'],
             'ppa': ['ppa', 'prix', 'shv'],
             'ddp': ['ddp', 'exp', 'peremption', 'date'],
-            'colissage': ['colis', 'colissage', 'unit per box']
+            'colissage': ['colis', 'colissage', 'unit per box'],
+            'depot': ['depot', 'warehouse', 'magasin'],
+            'zone': ['zone produit', 'zone']
         }
         
         # On identifie les colonnes sources pour chaque cible
@@ -109,7 +111,9 @@ def load_master():
         if 'lot' in df.columns: df['lot'] = df['lot'].astype(str).str.upper().str.strip()
         if 'shp' in df.columns: df['shp'] = df['shp'].apply(robust_num)
         if 'ppa' in df.columns: df['ppa'] = df['ppa'].apply(robust_num)
-        if 'colissage' in df.columns: df['colissage'] = df['colissage'].apply(robust_num).replace(0, 1) # Évite division par zéro, défaut à 1
+        if 'colissage' in df.columns: df['colissage'] = df['colissage'].apply(robust_num).replace(0, 1)
+        if 'depot' in df.columns: df['depot'] = df['depot'].astype(str).str.strip()
+        if 'zone' in df.columns: df['zone'] = df['zone'].astype(str).str.strip()
         return df
     except Exception as e: 
         st.error(f"Erreur Master: {e}")
@@ -117,11 +121,11 @@ def load_master():
 
 df_master = load_master()
 
-# --- 2.5 AUTO-RESET (One-time after Logipharm update) ---
-if 'it_fix_applied_v4_logi' not in st.session_state:
+# --- 2.5 AUTO-RESET (One-time after Filter update) ---
+if 'it_fix_applied_v5_filters' not in st.session_state:
     st.cache_data.clear()
     if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
-    st.session_state.it_fix_applied_v4_logi = True
+    st.session_state.it_fix_applied_v5_filters = True
     st.rerun()
 
 # Initialisation du DataFrame de travail (Merge Master + TinyDB)
@@ -190,13 +194,31 @@ else:
         </div>
         """, unsafe_allow_html=True)
         
-        # Filtres rapides
-        col_f1, col_f2 = st.columns([2, 1])
-        search_query = col_f1.text_input("🔍 Rechercher un produit ou un lot...", placeholder="Ex: PARACETAMOL")
-        show_only_counted = col_f2.checkbox("Afficher uniquement les saisies en cours", value=False)
+        # --- FILTRES AVANCÉS ---
+        f_col1, f_col2, f_col3 = st.columns([1, 1, 1])
+        
+        # Filtre Dépôt
+        depot_list = ["Tous"] + sorted(st.session_state.inv_work_df['depot'].unique().tolist()) if 'depot' in st.session_state.inv_work_df.columns else ["Tous"]
+        selected_depot = f_col1.selectbox("🏢 Filtrer par Dépôt", depot_list)
+        
+        # Filtre Zone
+        zone_list = ["Toutes"] + sorted(st.session_state.inv_work_df['zone'].unique().tolist()) if 'zone' in st.session_state.inv_work_df.columns else ["Toutes"]
+        selected_zone = f_col2.selectbox("📍 Filtrer par Zone", zone_list)
+        
+        show_only_counted = f_col3.checkbox("🔍 Uniquement les saisies", value=False)
+        
+        # Filtre de recherche texte
+        search_query = st.text_input("🔎 Recherche rapide (Produit ou Lot)", placeholder="Tapez ici...")
         
         # Filtrage du dataframe
         display_df = st.session_state.inv_work_df.copy()
+        
+        if selected_depot != "Tous":
+            display_df = display_df[display_df['depot'] == selected_depot]
+        
+        if selected_zone != "Toutes":
+            display_df = display_df[display_df['zone'] == selected_zone]
+
         if search_query:
             display_df = display_df[
                 display_df['produit'].str.contains(search_query, case=False, na=False) |
@@ -220,12 +242,16 @@ else:
         display_df['Écart'] = display_df['Total Global'] - display_df['shp']
 
         # ORDRE ET SÉLECTION DES COLONNES
-        main_cols = ['produit', 'lot', 'shp', 'Terrain (Vrac)', 'Terrain (Colis)', 'Mini (Vrac)', 'Mini (Colis)', 'Total Global', 'Écart']
+        main_cols = ['depot', 'produit', 'lot', 'shp', 'colissage', 'Terrain (Vrac)', 'Terrain (Colis)', 'Mini (Vrac)', 'Mini (Colis)', 'Total Global', 'Écart']
+        if 'zone' in display_df.columns: main_cols.insert(1, 'zone')
+        
         other_cols = [c for c in display_df.columns if c not in main_cols]
         display_df = display_df[main_cols + other_cols]
 
         # Configuration de l'éditeur
         col_config = {
+            "depot": st.column_config.TextColumn("🏢 Dépôt", width="small", disabled=True),
+            "zone": st.column_config.TextColumn("📍 Zone", width="small", disabled=True),
             "produit": st.column_config.TextColumn("📦 Produit", width="medium", disabled=True),
             "lot": st.column_config.TextColumn("🏷️ Lot", width="small", disabled=True),
             "shp": st.column_config.NumberColumn("📈 Stock Logi", format="%.0f", disabled=True, help="Quantité Dépôt (Théorique)"),
