@@ -133,15 +133,19 @@ for ess in essentials:
         db_users.insert(ess)
 
 # --- 3. GESTION DE SESSION ---
-if "current_user" not in st.session_state:
-    st.session_state.current_user = None
+if "current_user" not in st.session_state or st.session_state.current_user is None:
     # Auto-login via token (Rester connecté)
-    if "token" in st.query_params:
-        token_user = st.query_params["token"]
+    token_user = st.query_params.get("token")
+    if token_user:
         U = Query()
         res = db_users.search(U.username == token_user)
         if res:
             st.session_state.current_user = res[0]
+        else:
+            # Token invalide, on le retire pour éviter les boucles
+            st.query_params.clear()
+    else:
+        st.session_state.current_user = None
 
 # Rafraîchir les données de l'utilisateur depuis la DB à chaque chargement pour éviter les désync
 if st.session_state.current_user:
@@ -378,6 +382,7 @@ with st.sidebar:
         
     if st.button("🚪 Déconnexion", use_container_width=True, key="btn_logout"):
         st.session_state.current_user = None
+        st.query_params.clear()
         st.rerun()
 
 pg.run()

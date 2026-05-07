@@ -64,7 +64,7 @@ if 'it_mini' not in st.session_state: st.session_state.it_mini = {"vrac": 0.0, "
 
 st.header("📋 Inventaire Triple & Confrontation", divider="orange")
 
-tabs = st.tabs(["📍 Saisie Terrain", "🏢 Saisie Mini Stock", "📊 Saisie Finale & Confrontation"])
+tabs = st.tabs(["📍 Saisie Terrain", "🏢 Saisie Mini Stock", "📊 Saisie Finale & Confrontation", "⚙️ Administration"])
 
 # --- ONGLET 1 : SAISIE TERRAIN ---
 with tabs[0]:
@@ -123,7 +123,7 @@ with tabs[0]:
                             }
                             st.success(f"Étape 1 validée pour {it_prod} ! Passez à l'onglet Mini Stock.")
     else:
-        st.error("Fichier Master introuvable. Veuillez l'importer dans l'onglet Admin de l'Inventaire Détail.")
+        st.error("⚠️ Fichier Master introuvable. Veuillez l'importer dans l'onglet **Administration** de ce module.")
 
 # --- ONGLET 2 : SAISIE MINI STOCK ---
 with tabs[1]:
@@ -250,3 +250,36 @@ with tabs[2]:
                 st.rerun()
     else:
         st.info("Aucune donnée enregistrée dans le tableau final pour le moment.")
+
+# --- ONGLET 4 : ADMINISTRATION ---
+with tabs[3]:
+    st.subheader("⚙️ Gestion des données Master")
+    st.write("Importez ici le fichier Master (Excel) contenant la liste des produits, lots et stocks théoriques.")
+    
+    up = st.file_uploader("📁 Importer Master (Excel)", type="xlsx", key="up_triple")
+    if up:
+        if st.button("🚀 Valider l'importation"):
+            # Création du dossier si inexistant
+            os.makedirs(DATA_DIR, exist_ok=True)
+            with open(MASTER_PATH, "wb") as f:
+                f.write(up.getbuffer())
+            st.cache_data.clear()
+            st.success("✅ Fichier Master importé avec succès !")
+            st.rerun()
+
+    st.divider()
+    if st.session_state.current_user.get('role') == 'Admin':
+        st.subheader("🗑️ Nettoyage des données")
+        if st.button("🔴 Supprimer le fichier Master"):
+            if os.path.exists(MASTER_PATH):
+                os.remove(MASTER_PATH)
+                st.cache_data.clear()
+                st.success("Fichier Master supprimé.")
+                st.rerun()
+            else:
+                st.info("Aucun Master à supprimer.")
+        
+        if st.button("🗑️ Vider toutes les confrontations enregistrées", type="primary"):
+            table_inv.truncate()
+            st.success("Historique vidé.")
+            st.rerun()
