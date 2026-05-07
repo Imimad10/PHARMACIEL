@@ -125,17 +125,16 @@ if 'inv_work_df' not in st.session_state or st.sidebar.button("🔄 Actualiser D
         
         # On injecte les données déjà sauvées dans TinyDB pour ce lot/produit
         saved_data = table_inv.all()
-        if saved_data:
+        if saved_data and 'produit' in work_df.columns and 'lot' in work_df.columns:
             df_s = pd.DataFrame(saved_data)
-            # Pour chaque ligne du master, on cherche si on a une saisie
-            # On utilise un dict pour l'indexation rapide
-            for i, row in work_df.iterrows():
-                match = df_s[(df_s['produit'] == row['produit']) & (df_s['lot_master'] == row['lot'])]
-                if not match.empty:
-                    # Note: Dans l'ancien format on stockait des totaux, ici on va essayer de restaurer ce qu'on peut
-                    # Mais le but est surtout d'avoir une grille de travail persistante
-                    work_df.at[i, 'Terrain (Vrac)'] = match.iloc[0].get('detail_terrain', 0.0)
-                    work_df.at[i, 'Mini (Vrac)'] = match.iloc[0].get('mini_stock', 0.0)
+            # On vérifie que les colonnes nécessaires existent dans les données sauvées
+            if not df_s.empty and 'produit' in df_s.columns and ('lot_master' in df_s.columns or 'lot' in df_s.columns):
+                col_lot_s = 'lot_master' if 'lot_master' in df_s.columns else 'lot'
+                for i, row in work_df.iterrows():
+                    match = df_s[(df_s['produit'] == row['produit']) & (df_s[col_lot_s] == row['lot'])]
+                    if not match.empty:
+                        work_df.at[i, 'Terrain (Vrac)'] = match.iloc[0].get('detail_terrain', 0.0)
+                        work_df.at[i, 'Mini (Vrac)'] = match.iloc[0].get('mini_stock', 0.0)
         
         st.session_state.inv_work_df = work_df
     else:
