@@ -65,6 +65,9 @@ def load_master():
     if not os.path.exists(MASTER_PATH): return None
     try:
         df = pd.read_excel(MASTER_PATH)
+        # SÉCURITÉ : On convertit tous les noms de colonnes en chaînes de caractères
+        df.columns = [str(c) for c in df.columns]
+        
         # Définition des priorités de recherche pour chaque champ cible
         search_patterns = {
             'produit': ['designation', 'produit', 'article', 'nom'],
