@@ -162,11 +162,74 @@ st.header("📋 Inventaire Triple & Confrontation Minutieuse", divider="orange")
 if df_master is None:
     st.warning("⚠️ Aucun fichier Master détecté. Veuillez l'importer dans l'onglet Administration.")
     tabs = st.tabs(["⚙️ Administration"])
+    tab_saisie = None
+    tab_analyse = None
+    tab_admin = tabs[0]
 else:
     tabs = st.tabs(["⚡ Saisie Libre & Grille", "📊 Analyse & Confrontation", "⚙️ Administration"])
+    tab_saisie = tabs[0]
+    tab_analyse = tabs[1]
+    tab_admin = tabs[2]
 
+# --- ONGLET : ADMINISTRATION (Toujours disponible) ---
+with tab_admin:
+    st.subheader("⚙️ Gestion des données Master")
+    st.write("Importez ici le fichier Master (Excel) contenant la liste des produits, lots et stocks théoriques.")
+    
+    up = st.file_uploader("📁 Choisir le fichier Master (Excel)", type="xlsx", key="up_triple")
+    if up:
+        if st.button("🚀 Valider l'importation et mettre à jour la base", type="primary", use_container_width=True):
+            try:
+                with open(MASTER_PATH, "wb") as f:
+                    f.write(up.getbuffer())
+                st.cache_data.clear()
+                if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
+                st.success(f"✅ Master importé avec succès !")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Échec: {e}")
+
+    st.divider()
+    st.subheader("🚨 Zone de Danger (Administration uniquement)")
+    if st.session_state.current_user.get('role') == 'Admin':
+        st.warning("Attention : Ces actions sont irréversibles.")
+        
+        # --- RESET DATABASE ---
+        col_res1, col_res2 = st.columns([2, 1])
+        with col_res1:
+            st.write("**Vider la base de données de l'inventaire triple**")
+            st.caption("Cela supprimera toutes les saisies effectuées (Terrain et Mini Stock).")
+        with col_res2:
+            conf_reset = st.checkbox("Je confirme la suppression", key="conf_reset_db")
+            if st.button("🗑️ Vider la base", type="primary", disabled=not conf_reset, use_container_width=True):
+                table_inv.truncate()
+                if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
+                st.success("✅ Base de données vidée avec succès.")
+                st.rerun()
+        
+        st.divider()
+        
+        # --- RESET MASTER ---
+        col_m1, col_m2 = st.columns([2, 1])
+        with col_m1:
+            st.write("**Supprimer le fichier Master actuel**")
+            st.caption("Cela supprimera le fichier Excel importé. Vous devrez en importer un nouveau.")
+        with col_m2:
+            conf_master = st.checkbox("Je confirme la suppression", key="conf_reset_master")
+            if st.button("📁 Supprimer Master", type="secondary", disabled=not conf_master, use_container_width=True):
+                if os.path.exists(MASTER_PATH):
+                    os.remove(MASTER_PATH)
+                st.cache_data.clear()
+                if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
+                st.success("✅ Fichier Master supprimé.")
+                st.rerun()
+    else:
+        st.info("Cette section est réservée aux administrateurs.")
+
+# --- ONGLETS DÉPENDANTS DU MASTER ---
+if df_master is not None:
     # --- ONGLET 1 : SAISIE LIBRE (GRID) ---
-    with tabs[0]:
+    with tab_saisie:
         # --- BLOC DE DIAGNOSTIC ET RÉINITIALISATION ---
         with st.expander("🛠️ Outils de vérification (Si le stock Theo est faux)", expanded=False):
             st.write("Aperçu des données chargées depuis votre Excel :")
@@ -393,57 +456,6 @@ else:
             csv = view_df.to_csv(index=False).encode('utf-8-sig')
             st.download_button("📥 Exporter cette confrontation (CSV)", csv, "confrontation_triple.csv", "text/csv")
 
-    # --- ONGLET 3 : ADMINISTRATION ---
-    with tabs[2]:
-        st.subheader("⚙️ Gestion des données Master")
-        st.write("Importez ici le fichier Master (Excel) contenant la liste des produits, lots et stocks théoriques.")
-        
-        up = st.file_uploader("📁 Choisir le fichier Master (Excel)", type="xlsx", key="up_triple")
-        if up:
-            if st.button("🚀 Valider l'importation et mettre à jour la base"):
-                try:
-                    with open(MASTER_PATH, "wb") as f:
-                        f.write(up.getbuffer())
-                    st.cache_data.clear()
-                    if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
-                    st.success(f"✅ Master importé avec succès !")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Échec: {e}")
-
-        st.divider()
-        st.subheader("🚨 Zone de Danger (Administration uniquement)")
-        if st.session_state.current_user.get('role') == 'Admin':
-            st.warning("Attention : Ces actions sont irréversibles.")
-            
-            # --- RESET DATABASE ---
-            col_res1, col_res2 = st.columns([2, 1])
-            with col_res1:
-                st.write("**Vider la base de données de l'inventaire triple**")
-                st.caption("Cela supprimera toutes les saisies effectuées (Terrain et Mini Stock).")
-            with col_res2:
-                conf_reset = st.checkbox("Je confirme la suppression", key="conf_reset_db")
-                if st.button("🗑️ Vider la base", type="primary", disabled=not conf_reset, use_container_width=True):
-                    table_inv.truncate()
-                    if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
-                    st.success("✅ Base de données vidée avec succès.")
-                    st.rerun()
-            
-            st.divider()
-            
-            # --- RESET MASTER ---
-            col_m1, col_m2 = st.columns([2, 1])
-            with col_m1:
-                st.write("**Supprimer le fichier Master actuel**")
-                st.caption("Cela supprimera le fichier Excel importé. Vous devrez en importer un nouveau.")
-            with col_m2:
-                conf_master = st.checkbox("Je confirme la suppression", key="conf_reset_master")
-                if st.button("📁 Supprimer Master", type="secondary", disabled=not conf_master, use_container_width=True):
-                    if os.path.exists(MASTER_PATH):
-                        os.remove(MASTER_PATH)
-                    st.cache_data.clear()
-                    if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
-                    st.success("✅ Fichier Master supprimé.")
-                    st.rerun()
-        else:
-            st.info("Cette section est réservée aux administrateurs.")
+            # Export
+            csv = view_df.to_csv(index=False).encode('utf-8-sig')
+            st.download_button("📥 Exporter cette confrontation (CSV)", csv, "confrontation_triple.csv", "text/csv")
