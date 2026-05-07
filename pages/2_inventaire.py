@@ -172,6 +172,33 @@ with tabs[0]:
         st.warning("⚠️ Aucun Master détecté. Veuillez importer un fichier Excel dans l'onglet **Admin**.")
         st.info("💡 Un Master est nécessaire pour calculer les taux de complétion et les écarts.")
 
+    if df_master is not None:
+        st.divider()
+        with st.expander("🖨️ Impression des Fiches Terrain"):
+            from utils_pdf import generate_blank_inventory_pdf
+            
+            c_p1, c_p2 = st.columns([2, 1])
+            with c_p1:
+                st.write("Générer une fiche d'inventaire vierge basée sur le Master.")
+            with c_p2:
+                # Filtrage par labo optionnel pour l'impression
+                labos = ["Tous"] + sorted(df_master['labo'].dropna().unique().tolist()) if 'labo' in df_master.columns else ["Tous"]
+                lab_sel = st.selectbox("Laboratoire :", labos, key="print_lab_inv")
+                
+                df_print = df_master if lab_sel == "Tous" else df_master[df_master['labo'] == lab_sel]
+                
+                cols_to_print = [('designation', 'Produit', 60), ('lot', 'Lot', 30)]
+                pdf_bytes = generate_blank_inventory_pdf(df_print, "Inventaire Global", cols_to_print)
+                
+                st.download_button(
+                    "📥 Télécharger la Fiche Vierge",
+                    pdf_bytes,
+                    f"Fiche_Vierge_Inventaire_{lab_sel}.pdf",
+                    "application/pdf",
+                    use_container_width=True
+                )
+
+
 # --- ONGLET 1 : SAISIE TERRAIN ---
 with tabs[1]:
     if df_master is not None:

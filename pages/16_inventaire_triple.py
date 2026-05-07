@@ -151,6 +151,23 @@ with tabs[1]:
 with tabs[2]:
     st.subheader("📊 Étape 3 : Saisie Finale & Confrontation")
     
+    if df_master is not None:
+        with st.expander("🖨️ Impression des Fiches Terrain (Triple)"):
+            from utils_pdf import generate_blank_inventory_pdf
+            st.write("Générer une fiche vierge avec colonnes pour Terrain et Mini Stock.")
+            
+            # On imprime tout le master par défaut, ou on peut filtrer par produit si besoin
+            # Mais une fiche vierge est généralement globale
+            cols_to_print = [('produit', 'Produit', 58), ('lot', 'Lot', 25)]
+            pdf_bytes = generate_blank_inventory_pdf(df_master, "Inventaire Triple", cols_to_print)
+            
+            st.download_button(
+                "📥 Télécharger la Fiche Vierge Triple",
+                pdf_bytes,
+                "Fiche_Vierge_Triple.pdf",
+                "application/pdf"
+            )
+        st.divider()
     # 1. Traitement de la saisie actuelle
     if st.session_state.it_prod and st.session_state.it_mini['vrac'] + st.session_state.it_mini['colis'] >= 0:
         st.markdown("### 📥 Validation de la saisie en cours")

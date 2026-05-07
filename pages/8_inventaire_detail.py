@@ -139,6 +139,33 @@ with tabs[0]:
     else:
         st.info("💡 Veuillez importer un fichier Master dans l'onglet Admin pour activer le suivi.")
 
+    if df_master is not None:
+        st.divider()
+        with st.expander("🖨️ Impression des Fiches Terrain (Zones)"):
+            from utils_pdf import generate_blank_inventory_pdf
+            
+            c_p1, c_p2 = st.columns([2, 1])
+            with c_p1:
+                st.write("Générer une fiche d'inventaire vierge filtrée par zone.")
+            with c_p2:
+                # Filtrage par zone pour l'impression
+                zones = ["Toutes"] + sorted([str(z) for z in df_master['zone'].unique() if pd.notna(z)])
+                z_sel = st.selectbox("Zone à imprimer :", zones, key="print_z_inv_det")
+                
+                df_print = df_master if z_sel == "Toutes" else df_master[df_master['zone'] == z_sel]
+                
+                cols_to_print = [('designation', 'Produit', 55), ('lot', 'Lot', 25), ('zone', 'Zone', 15)]
+                pdf_bytes = generate_blank_inventory_pdf(df_print, f"Inventaire Zone {z_sel}", cols_to_print)
+                
+                st.download_button(
+                    "📥 Télécharger la Fiche Vierge",
+                    pdf_bytes,
+                    f"Fiche_Vierge_Detail_Zone_{z_sel}.pdf",
+                    "application/pdf",
+                    use_container_width=True
+                )
+
+
 with tabs[1]:
     if df_master is not None:
         df_z = df_master[df_master['zone'] == selected_zone].copy()
