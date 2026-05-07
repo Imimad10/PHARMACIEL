@@ -118,7 +118,7 @@ if not db_users.search(User.username == 'admin_imad'):
         'username': 'admin_imad',
         'password': 'admin_imad_pwd',
         'role': 'Admin',
-        'pages': ['Admin Centrale', 'Dashboard', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Suivi', 'Recouvrement', 'Pointage', 'Péremptions', 'Scanneur QR', 'Automatisation', 'Litiges Fournisseurs', 'Analyse Rotation', 'Scan Mobile', 'RH']
+        'pages': ['Admin Centrale', 'Dashboard', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Péremptions', 'Scanneur QR', 'Automatisation', 'Litiges Fournisseurs', 'Analyse Rotation', 'Scan Mobile', 'RH']
     })
 
 # Liste des utilisateurs essentiels à maintenir
@@ -295,6 +295,8 @@ if is_admin:
         user_pages.append("Automatisation")
     if "Liste des Lots" not in user_pages:
         user_pages.append("Liste des Lots")
+    if "Pointage Expéditeur" not in user_pages:
+        user_pages.append("Pointage Expéditeur")
 
 # Dictionnaire de toutes les pages possibles (Key: Nom, Value: Path)
 ALL_PAGES = {
@@ -305,6 +307,7 @@ ALL_PAGES = {
     "Suivi": st.Page("pages/3_suivi.py", title="Suivi Frigo", icon="❄️"),
     "Recouvrement": st.Page("pages/4_recouvrement.py", title="Recouvrement", icon="💰"),
     "Pointage": st.Page("pages/5_pointage.py", title="Pointage Factures", icon="📝"),
+    "Pointage Expéditeur": st.Page("pages/15_pointage_expediteur.py", title="Pointage Expéditeur", icon="📦"),
     "Péremptions": st.Page("pages/6_peremptions.py", title="Gestion des Péremptions", icon="⏳"),
     "Scanneur QR": st.Page("pages/7_scanneur_qr.py", title="Scanneur QR", icon="📸"),
     "Litiges Fournisseurs": st.Page("pages/10_reclamations_fournisseurs.py", title="Litiges Fournisseurs", icon="🏢"),
