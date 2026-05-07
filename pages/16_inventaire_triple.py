@@ -44,9 +44,15 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+import re
+
 def normalize_text(text):
     if not isinstance(text, str): return str(text)
-    return unicodedata.normalize('NFD', text).encode('ascii', 'ignore').decode('utf-8').lower().strip()
+    # Enlever les accents
+    text = unicodedata.normalize('NFD', text).encode('ascii', 'ignore').decode('utf-8').lower()
+    # Remplacer les espaces multiples, retours à la ligne, etc. par un seul espace
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
 
 def robust_num(val):
     try:
@@ -68,7 +74,7 @@ def load_master():
         search_patterns = {
             'produit': ['designation', 'produit', 'article', 'nom'],
             'lot': ['lot', 'n°lot', 'batch', 'n lot'],
-            'qte_logi': ['quantite depot', 'qte depot'], # PRIORITÉ ABSOLUE
+            'qte_logi': ['quantite depot', 'qte depot', 'quantite globale', 'qte globale'], # PRIORITÉ ABSOLUE
             'colissage': ['colis', 'colissage', 'unit per box'],
             'depot': ['depot', 'warehouse', 'magasin'],
             'zone': ['zone produit', 'zone']
@@ -127,10 +133,10 @@ def load_master():
 df_master = load_master()
 
 # Reset forcé si changement de logique
-if 'it_v7_final' not in st.session_state:
+if 'it_v8_regex_fix' not in st.session_state:
     st.cache_data.clear()
     if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
-    st.session_state.it_v7_final = True
+    st.session_state.it_v8_regex_fix = True
     st.rerun()
 
 if "inv_work_df" not in st.session_state and df_master is not None:
