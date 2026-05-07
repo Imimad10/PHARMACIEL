@@ -68,27 +68,32 @@ def load_master():
         mapping = {
             'designation': 'produit', 'produit': 'produit', 'article': 'produit',
             'lot': 'lot', 'n°lot': 'lot', 'batch': 'lot',
-            'ppa': 'ppa', 'shp': 'shp', 'stock': 'shp', 'ddp': 'ddp', 'exp': 'ddp'
+            'ppa': 'ppa', 'shp': 'shp', 'stock': 'shp', 'theorique': 'shp',
+            'ddp': 'ddp', 'exp': 'ddp'
         }
-        used_names = {}
-        final_cols = []
+        
+        # Mapping intelligent : on ne mappe chaque cible qu'une seule fois
+        new_cols = []
+        mapped_targets = set()
+        
         for col in df.columns:
             norm = normalize_text(col)
-            mapped_name = norm
-            for k, v in mapping.items():
-                if k in norm:
-                    mapped_name = v
+            found = False
+            for pattern, target in mapping.items():
+                if pattern in norm and target not in mapped_targets:
+                    new_cols.append(target)
+                    mapped_targets.add(target)
+                    found = True
                     break
-            if mapped_name in used_names:
-                used_names[mapped_name] += 1
-                mapped_name = f"{mapped_name}_{used_names[mapped_name]}"
-            else:
-                used_names[mapped_name] = 0
-            final_cols.append(mapped_name)
-        df.columns = final_cols
+            if not found:
+                # On garde le nom original normalisé pour les colonnes non cibles
+                new_cols.append(norm)
         
-        for col in ['produit', 'lot']:
-            if col in df.columns: df[col] = df[col].astype(str).str.upper().str.strip()
+        df.columns = new_cols
+        
+        # Nettoyage et conversion
+        if 'produit' in df.columns: df['produit'] = df['produit'].astype(str).str.upper().str.strip()
+        if 'lot' in df.columns: df['lot'] = df['lot'].astype(str).str.upper().str.strip()
         if 'shp' in df.columns: df['shp'] = df['shp'].apply(robust_num)
         if 'ppa' in df.columns: df['ppa'] = df['ppa'].apply(robust_num)
         return df
@@ -164,29 +169,26 @@ else:
                 (display_df['Mini (Vrac)'] > 0) | (display_df['Mini (Colis)'] > 0)
             ]
 
-        # Calcul des totaux pour affichage dans la grille (colonnes virtuelles non éditables)
+        # Calcul des totaux pour affichage dans la grille
         display_df['Total Global'] = display_df['Terrain (Vrac)'] + display_df['Terrain (Colis)'] + display_df['Mini (Vrac)'] + display_df['Mini (Colis)']
-        display_df['Écart (vs SHP)'] = display_df['Total Global'] - display_df['shp']
+        display_df['Écart'] = display_df['Total Global'] - display_df['shp']
 
-        # ORDRE ET SÉLECTION DES COLONNES (Pour éviter la pollution visuelle)
-        # On ne garde que l'essentiel pour la saisie
-        main_cols = ['produit', 'lot', 'shp', 'Terrain (Vrac)', 'Terrain (Colis)', 'Mini (Vrac)', 'Mini (Colis)', 'Total Global', 'Écart (vs SHP)']
-        # On ajoute les autres colonnes à la fin au cas où, mais on va les cacher via le config
+        # ORDRE ET SÉLECTION DES COLONNES
+        main_cols = ['produit', 'lot', 'shp', 'Terrain (Vrac)', 'Terrain (Colis)', 'Mini (Vrac)', 'Mini (Colis)', 'Total Global', 'Écart']
         other_cols = [c for c in display_df.columns if c not in main_cols]
         display_df = display_df[main_cols + other_cols]
 
         # Configuration de l'éditeur
-        # On définit explicitement les colonnes à CACHER (None)
         col_config = {
             "produit": st.column_config.TextColumn("📦 Produit", width="medium", disabled=True),
             "lot": st.column_config.TextColumn("🏷️ Lot", width="small", disabled=True),
             "shp": st.column_config.NumberColumn("📈 Stock Theo", format="%.0f", disabled=True),
-            "Terrain (Vrac)": st.column_config.NumberColumn("📍 Terrain Vrac", min_value=0, step=1, help="Saisissez la quantité en vrac sur le terrain"),
-            "Terrain (Colis)": st.column_config.NumberColumn("📍 Terrain Colis", min_value=0, step=1, help="Saisissez la quantité en colis sur le terrain"),
-            "Mini (Vrac)": st.column_config.NumberColumn("🏢 Mini Vrac", min_value=0, step=1, help="Saisissez la quantité en vrac au mini stock"),
-            "Mini (Colis)": st.column_config.NumberColumn("🏢 Mini Colis", min_value=0, step=1, help="Saisissez la quantité en colis au mini stock"),
+            "Terrain (Vrac)": st.column_config.NumberColumn("📍 Terrain Vrac", min_value=0, step=1),
+            "Terrain (Colis)": st.column_config.NumberColumn("📍 Terrain Colis", min_value=0, step=1),
+            "Mini (Vrac)": st.column_config.NumberColumn("🏢 Mini Vrac", min_value=0, step=1),
+            "Mini (Colis)": st.column_config.NumberColumn("🏢 Mini Colis", min_value=0, step=1),
             "Total Global": st.column_config.NumberColumn("✅ Total Réel", format="%.0f", disabled=True),
-            "Écart (vs SHP)": st.column_config.NumberColumn("⚠️ Écart", format="%.0f", disabled=True),
+            "Écart": st.column_config.NumberColumn("⚠️ Écart", format="%+.0f", disabled=True, help="Positif = Surplus, Négatif = Manquant"),
         }
         # Masquage automatique de toutes les autres colonnes importées du Master
         for col in other_cols:
