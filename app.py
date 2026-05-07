@@ -297,6 +297,8 @@ if is_admin:
         user_pages.append("Liste des Lots")
     if "Pointage Expéditeur" not in user_pages:
         user_pages.append("Pointage Expéditeur")
+    if "Inventaire Triple" not in user_pages:
+        user_pages.append("Inventaire Triple")
 
 # Dictionnaire de toutes les pages possibles (Key: Nom, Value: Path)
 ALL_PAGES = {
