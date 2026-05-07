@@ -4,6 +4,7 @@ import json
 import os
 from tinydb import TinyDB, Query
 from utils_ia import is_ia_enabled
+from streamlit_cookies_controller import CookieController
 
 # --- 1. CONFIGURATION & THÈME ---
 st.set_page_config(page_title="Darpharm Solution - Portail", layout="wide", page_icon="💊")
@@ -132,29 +133,23 @@ for ess in essentials:
     if not db_users.search(User.username == ess['username']):
         db_users.insert(ess)
 
-# --- 3. GESTION DE SESSION ---
+# --- 3. GESTION DE SESSION ET COOKIES ---
 if "current_user" not in st.session_state:
     st.session_state.current_user = None
 
-# On récupère le token éventuel dans l'URL
-token_user = st.query_params.get("token")
+# Initialiser le contrôleur de cookies
+controller = CookieController()
 
+# On tente de récupérer le token depuis les cookies de façon transparente
+token_user = controller.get("user_token")
+
+# --- Auto-Login via Cookie ---
 if st.session_state.current_user is None and token_user:
-    # Tentative d'auto-login via token (Rester connecté)
     U = Query()
     res = db_users.search(U.username == token_user)
     if res:
         st.session_state.current_user = res[0]
-        st.session_state.remember_me = True # On active la persistance pour cette session
-    else:
-        # Token invalide ou utilisateur supprimé, on nettoie l'URL
-        st.query_params.clear()
-
-# Si l'utilisateur est connecté et qu'il a choisi de rester connecté, 
-# on s'assure que le token reste dans l'URL malgré les navigations
-if st.session_state.current_user and st.session_state.get('remember_me'):
-    if st.query_params.get("token") != st.session_state.current_user['username']:
-        st.query_params["token"] = st.session_state.current_user['username']
+        st.session_state.remember_me = True # On maintient l'état
 
 # Rafraîchir les données de l'utilisateur depuis la DB à chaque chargement pour éviter les désync
 if st.session_state.current_user:
@@ -291,12 +286,10 @@ if st.session_state.current_user is None:
                     st.session_state.current_user = result[0]
                     if rester_connecte:
                         st.session_state.remember_me = True
-                        st.query_params["token"] = result[0]['username']
+                        controller.set("user_token", result[0]['username'], max_age=86400 * 30) # Valide 30 jours
                     else:
                         st.session_state.remember_me = False
-                        # On s'assure de nettoyer d'anciens tokens si la case n'est pas cochée
-                        if "token" in st.query_params:
-                            st.query_params.clear()
+                        controller.remove("user_token")
                     st.rerun()
                 else:
                     st.error("Identifiants incorrects.")
@@ -397,7 +390,7 @@ with st.sidebar:
         
     if st.button("🚪 Déconnexion", use_container_width=True, key="btn_logout"):
         st.session_state.current_user = None
-        st.query_params.clear()
+        controller.remove("user_token")
         st.rerun()
 
 pg.run()
