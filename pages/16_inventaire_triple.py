@@ -106,6 +106,13 @@ def load_master():
 
 df_master = load_master()
 
+# --- 2.5 AUTO-RESET (One-time after fix) ---
+if 'it_fix_applied_v3' not in st.session_state:
+    st.cache_data.clear()
+    if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
+    st.session_state.it_fix_applied_v3 = True
+    st.rerun()
+
 # Initialisation du DataFrame de travail (Merge Master + TinyDB)
 if 'inv_work_df' not in st.session_state or st.sidebar.button("🔄 Actualiser Données"):
     if df_master is not None:
@@ -137,19 +144,7 @@ if 'inv_work_df' not in st.session_state or st.sidebar.button("🔄 Actualiser D
 # --- 3. HEADER & DASHBOARD ---
 st.header("📋 Inventaire Triple & Confrontation Minutieuse", divider="orange")
 
-# Diagnostic des colonnes dans le sidebar pour transparence totale
-if df_master is not None:
-    with st.sidebar.expander("🔍 Diagnostic des colonnes Master", expanded=False):
-        st.write("Voici comment l'IA a identifié vos colonnes Excel :")
-        for target, patterns in {'produit': 'Produit', 'lot': 'Lot', 'shp': 'Stock Theo', 'ppa': 'PPA', 'ddp': 'DDP'}.items():
-            if target in df_master.columns:
-                st.success(f"**{patterns}** : Identifié")
-            else:
-                st.error(f"**{patterns}** : Non trouvé")
-        if st.button("♻️ Forcer la ré-initialisation complète"):
-            st.cache_data.clear()
-            if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
-            st.rerun()
+if df_master is None:
 
 if df_master is None:
     st.warning("⚠️ Aucun fichier Master détecté. Veuillez l'importer dans l'onglet Administration.")
@@ -159,13 +154,26 @@ else:
 
     # --- ONGLET 1 : SAISIE LIBRE (GRID) ---
     with tabs[0]:
+        # --- BLOC DE DIAGNOSTIC ET RÉINITIALISATION ---
+        with st.expander("🛠️ Outils de vérification (Si le stock Theo est faux)", expanded=False):
+            st.write("L'application a identifié ces colonnes dans votre Excel :")
+            c1, c2, c3 = st.columns(3)
+            if 'produit' in df_master.columns: c1.success("✅ Produit : OK")
+            else: c1.error("❌ Produit : NON TROUVÉ")
+            
+            if 'lot' in df_master.columns: c2.success("✅ Lot : OK")
+            else: c2.error("❌ Lot : NON TROUVÉ")
+            
+            if 'shp' in df_master.columns: c3.success("✅ Stock Theo : OK")
+            else: c3.error("❌ Stock Theo : NON TROUVÉ")
+            
+            st.info("Si les colonnes sont 'NON TROUVÉES' ou si l'écart est faux, cliquez sur le bouton ci-dessous.")
+            if st.button("♻️ RÉINITIALISER ET RECHARGER TOUTES LES DONNÉES", type="primary", use_container_width=True):
+                st.cache_data.clear()
+                if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
+                st.rerun()
+
         st.markdown("""
-        <div class='card'>
-            <h4>⚡ Mode Saisie Libre (Grille Interactive)</h4>
-            <p style='color: #636e72;'>Saisissez les quantités Terrain et Mini Stock directement dans le tableau. 
-            Utilisez la recherche (Ctrl+F) pour trouver un produit rapidement.</p>
-        </div>
-        """, unsafe_allow_html=True)
         
         # Filtres rapides
         col_f1, col_f2 = st.columns([2, 1])
