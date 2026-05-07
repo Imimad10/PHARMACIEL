@@ -69,6 +69,7 @@ def load_master():
         df.columns = [str(c) for c in df.columns]
         
         # Définition des priorités de recherche pour chaque champ cible
+        search_patterns = {
             'produit': ['designation', 'produit', 'article', 'nom'],
             'lot': ['lot', 'n°lot', 'batch', 'n° lot', 'n lot'],
             'shp': ['quantite depot', 'qte depot', 'shp', 'theorique', 'stock'],
