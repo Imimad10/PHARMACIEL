@@ -69,16 +69,35 @@ def collect_all_kpis():
         kpis['inv_det_zones'] = df_det['zone'].nunique() if 'zone' in df_det.columns else 0
     except: kpis['inv_det_saisies'] = kpis['inv_det_zones'] = 0
 
-    # --- LOGISTIQUE (TinyDB) ---
+    # --- LOGISTIQUE & INVENTAIRE TRIPLE (TinyDB) ---
     try:
         db = TinyDB("db_pharmaciel.json")
         pointages = db.table('pointages').all()
         kpis['pointages_total'] = len(pointages)
         kpis['pointages_today'] = len([p for p in pointages if str(datetime.now().date()) in str(p.get('date_pointage',''))])
+        
         reclams = db.table('reclamations').all()
         kpis['reclams_total'] = len(reclams)
         kpis['reclams_encours'] = len([r for r in reclams if r.get('statut') == 'En cours'])
-    except: kpis['pointages_total'] = kpis['pointages_today'] = kpis['reclams_total'] = kpis['reclams_encours'] = 0
+        
+        inv_triple = db.table('inventaire_triple').all()
+        kpis['inv_triple_count'] = len(inv_triple)
+    except: kpis['pointages_total'] = kpis['pointages_today'] = kpis['reclams_total'] = kpis['reclams_encours'] = kpis['inv_triple_count'] = 0
+    
+    # --- PÉREMPTIONS ---
+    try:
+        df_per = pd.read_csv("data_inventaire/saisie.csv", sep=';', encoding='utf-8-sig')
+        now = datetime.now()
+        critiques = 0
+        if 'ddp_saisi' in df_per.columns:
+            for d in df_per['ddp_saisi'].dropna():
+                try:
+                    dt = pd.to_datetime(d, format='%m/%Y')
+                    if (dt.year - now.year)*12 + dt.month - now.month <= 3:
+                        critiques += 1
+                except: pass
+        kpis['peremptions_critiques'] = critiques
+    except: kpis['peremptions_critiques'] = 0
 
     # --- MISSIONS LIVREURS ---
     try:
@@ -104,17 +123,26 @@ kpis = collect_all_kpis()
 # 2. KPIs PRINCIPAUX
 # ═══════════════════════════════════════════
 st.subheader("📊 Indicateurs Clés")
-col1, col2, col3, col4, col5 = st.columns(5)
+col1, col2, col3, col4 = st.columns(4)
 col1.metric("💰 Total à Recouvrer", f"{kpis.get('rec_total_du',0):,.0f} DA",
             delta=f"{kpis.get('rec_en_attente',0)} en attente", delta_color="inverse")
 col2.metric("✅ Dossiers Archivés", kpis.get('arch_count', 0),
             delta=f"{kpis.get('arch_recouvre',0):,.0f} DA récupérés")
 col3.metric("📝 Saisies Inventaire", kpis.get('inv_saisies', 0),
             delta=f"{kpis.get('inv_produits_uniques',0)} produits uniques")
-col4.metric("🚚 Pointages", kpis.get('pointages_total', 0),
+col4.metric("📋 Inventaire Triple", kpis.get('inv_triple_count', 0),
+            delta="Lignes modifiées")
+
+st.markdown("<br>", unsafe_allow_html=True)
+col5, col6, col7, col8 = st.columns(4)
+col5.metric("🚚 Pointages Exp.", kpis.get('pointages_total', 0),
             delta=f"{kpis.get('pointages_today',0)} aujourd'hui")
-col5.metric("⚠️ Litiges SAV", kpis.get('reclams_total', 0),
+col6.metric("⚠️ Litiges SAV", kpis.get('reclams_total', 0),
             delta=f"{kpis.get('reclams_encours',0)} en cours", delta_color="inverse")
+col7.metric("⏳ Périmés / Critiques", kpis.get('peremptions_critiques', 0),
+            delta="Moins de 3 mois", delta_color="inverse")
+col8.metric("🚚 Missions Liv.", kpis.get('missions_total', 0),
+            delta=f"{kpis.get('missions_en_cours',0)} en cours")
 
 st.divider()
 
