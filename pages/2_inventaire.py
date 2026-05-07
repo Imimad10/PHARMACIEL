@@ -247,10 +247,8 @@ with tabs[1]:
                         'lot': str(lot_f), 'qte_saisie': qte, 'ddp_saisi': ddp_f,
                         'ppa_saisi': ppa_f, 'agent': user['username']
                     }])
-                    if os.path.exists(st.session_state.SAISIE_PATH):
-                        old = pd.read_csv(st.session_state.SAISIE_PATH, sep=';')
-                        new_line = pd.concat([old, new_line], ignore_index=True)
-                    new_line.to_csv(st.session_state.SAISIE_PATH, index=False, sep=';')
+                    write_header = not os.path.exists(st.session_state.SAISIE_PATH)
+                    new_line.to_csv(st.session_state.SAISIE_PATH, mode='a', header=write_header, index=False, sep=';')
                     st.success(f"Enregistré : {prod_sel}")
     else:
         st.info("En attente du Master...")
