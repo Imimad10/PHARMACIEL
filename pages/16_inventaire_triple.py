@@ -65,31 +65,34 @@ def load_master():
     if not os.path.exists(MASTER_PATH): return None
     try:
         df = pd.read_excel(MASTER_PATH)
-        mapping = {
-            'designation': 'produit', 'produit': 'produit', 'article': 'produit',
-            'lot': 'lot', 'n°lot': 'lot', 'batch': 'lot',
-            'ppa': 'ppa', 'shp': 'shp', 'stock': 'shp', 'theorique': 'shp',
-            'ddp': 'ddp', 'exp': 'ddp'
+        # Définition des priorités de recherche pour chaque champ cible
+        search_patterns = {
+            'produit': ['designation', 'produit', 'article', 'nom'],
+            'lot': ['lot', 'n°lot', 'batch', 'n° lot'],
+            'shp': ['shp', 'theorique', 'stock', 'qte logi', 'theorique logi'],
+            'ppa': ['ppa', 'prix', 'shv'],
+            'ddp': ['ddp', 'exp', 'peremption', 'date']
         }
         
-        # Mapping intelligent : on ne mappe chaque cible qu'une seule fois
-        new_cols = []
-        mapped_targets = set()
+        # On identifie les colonnes sources pour chaque cible
+        source_mapping = {}
+        used_source_cols = set()
         
-        for col in df.columns:
-            norm = normalize_text(col)
-            found = False
-            for pattern, target in mapping.items():
-                if pattern in norm and target not in mapped_targets:
-                    new_cols.append(target)
-                    mapped_targets.add(target)
-                    found = True
-                    break
-            if not found:
-                # On garde le nom original normalisé pour les colonnes non cibles
-                new_cols.append(norm)
+        for target, patterns in search_patterns.items():
+            for pattern in patterns:
+                for col in df.columns:
+                    if col not in used_source_cols:
+                        norm = normalize_text(col)
+                        if pattern in norm:
+                            source_mapping[target] = col
+                            used_source_cols.add(col)
+                            break
+                if target in source_mapping: break
         
-        df.columns = new_cols
+        # On renomme uniquement les colonnes trouvées
+        # Et on préserve les autres colonnes pour ne pas perdre de données
+        rename_dict = {v: k for k, v in source_mapping.items()}
+        df = df.rename(columns=rename_dict)
         
         # Nettoyage et conversion
         if 'produit' in df.columns: df['produit'] = df['produit'].astype(str).str.upper().str.strip()
