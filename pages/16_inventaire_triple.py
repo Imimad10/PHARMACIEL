@@ -155,6 +155,8 @@ if "inv_work_df" not in st.session_state and df_master is not None:
             work_df.loc[mask, 'Terrain (Colis)'] = entry.get('tc', 0.0)
             work_df.loc[mask, 'Mini (Vrac)'] = entry.get('mv', 0.0)
             work_df.loc[mask, 'Mini (Colis)'] = entry.get('mc', 0.0)
+            if 'col' in entry:
+                work_df.loc[mask, 'colissage'] = entry.get('col')
     
     st.session_state.inv_work_df = work_df
 
@@ -241,7 +243,7 @@ if df_master is not None and tab_saisie:
                 "produit": st.column_config.TextColumn("Produit", disabled=True),
                 "lot": st.column_config.TextColumn("Lot", disabled=True),
                 "qte_logi": st.column_config.NumberColumn("Stock Logi", disabled=True, help="Quantité Dépôt du Master"),
-                "colissage": st.column_config.NumberColumn("U/Colis", disabled=True),
+                "colissage": st.column_config.NumberColumn("U/Colis ✏️", disabled=False, min_value=1, help="Modifiable si l'export Logipharm est faux"),
                 "Total Réel": st.column_config.NumberColumn("Total", disabled=True),
                 "Écart": st.column_config.NumberColumn("Écart", disabled=True, format="%+.0f"),
             },
@@ -257,12 +259,14 @@ if df_master is not None and tab_saisie:
                 st.session_state.inv_work_df.loc[idx, 'Terrain (Colis)'] = row['Terrain (Colis)']
                 st.session_state.inv_work_df.loc[idx, 'Mini (Vrac)'] = row['Mini (Vrac)']
                 st.session_state.inv_work_df.loc[idx, 'Mini (Colis)'] = row['Mini (Colis)']
+                st.session_state.inv_work_df.loc[idx, 'colissage'] = row['colissage']
                 
                 # Update TinyDB
                 table_inv.upsert({
                     'produit': row['produit'], 'lot': row['lot'],
                     'tv': row['Terrain (Vrac)'], 'tc': row['Terrain (Colis)'],
-                    'mv': row['Mini (Vrac)'], 'mc': row['Mini (Colis)']
+                    'mv': row['Mini (Vrac)'], 'mc': row['Mini (Colis)'],
+                    'col': row['colissage']
                 }, (Query().produit == row['produit']) & (Query().lot == row['lot']))
             st.success("Modifications enregistrées !")
             st.rerun()
@@ -276,6 +280,19 @@ if df_master is not None and tab_analyse:
         res_df['Total'] = res_df['Terrain (Vrac)'] + (res_df['Terrain (Colis)'] * c) + res_df['Mini (Vrac)'] + (res_df['Mini (Colis)'] * c)
         res_df['Ecart'] = res_df['Total'] - res_df['qte_logi']
         
-        diff = res_df[res_df['Ecart'] != 0]
-        st.metric("Nombre d'écarts détectés", len(diff))
-        st.dataframe(diff[['depot', 'produit', 'lot', 'qte_logi', 'Total', 'Ecart']], use_container_width=True)
+        diff = res_df[res_df['Ecart'] != 0].copy()
+        
+        col_m1, col_m2, col_m3 = st.columns(3)
+        col_m1.metric("📦 Nombre d'écarts", len(diff))
+        col_m2.metric("🔴 Manquants (Valeur négative)", len(diff[diff['Ecart'] < 0]))
+        col_m3.metric("🟢 Excédents (Valeur positive)", len(diff[diff['Ecart'] > 0]))
+        
+        st.write("Détail des écarts (Surligné en rouge = Manquant, Vert = Surplus) :")
+        
+        def highlight_ecart(row):
+            if row['Ecart'] < 0: return ['background-color: rgba(255, 99, 132, 0.2)'] * len(row)
+            elif row['Ecart'] > 0: return ['background-color: rgba(75, 192, 192, 0.2)'] * len(row)
+            return [''] * len(row)
+            
+        disp_diff = diff[['depot', 'produit', 'lot', 'qte_logi', 'colissage', 'Total', 'Ecart']]
+        st.dataframe(disp_diff.style.apply(highlight_ecart, axis=1), use_container_width=True)
