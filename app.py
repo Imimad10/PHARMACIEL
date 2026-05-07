@@ -133,19 +133,28 @@ for ess in essentials:
         db_users.insert(ess)
 
 # --- 3. GESTION DE SESSION ---
-if "current_user" not in st.session_state or st.session_state.current_user is None:
-    # Auto-login via token (Rester connecté)
-    token_user = st.query_params.get("token")
-    if token_user:
-        U = Query()
-        res = db_users.search(U.username == token_user)
-        if res:
-            st.session_state.current_user = res[0]
-        else:
-            # Token invalide, on le retire pour éviter les boucles
-            st.query_params.clear()
+if "current_user" not in st.session_state:
+    st.session_state.current_user = None
+
+# On récupère le token éventuel dans l'URL
+token_user = st.query_params.get("token")
+
+if st.session_state.current_user is None and token_user:
+    # Tentative d'auto-login via token (Rester connecté)
+    U = Query()
+    res = db_users.search(U.username == token_user)
+    if res:
+        st.session_state.current_user = res[0]
+        st.session_state.remember_me = True # On active la persistance pour cette session
     else:
-        st.session_state.current_user = None
+        # Token invalide ou utilisateur supprimé, on nettoie l'URL
+        st.query_params.clear()
+
+# Si l'utilisateur est connecté et qu'il a choisi de rester connecté, 
+# on s'assure que le token reste dans l'URL malgré les navigations
+if st.session_state.current_user and st.session_state.get('remember_me'):
+    if st.query_params.get("token") != st.session_state.current_user['username']:
+        st.query_params["token"] = st.session_state.current_user['username']
 
 # Rafraîchir les données de l'utilisateur depuis la DB à chaque chargement pour éviter les désync
 if st.session_state.current_user:
@@ -281,7 +290,13 @@ if st.session_state.current_user is None:
                 if result:
                     st.session_state.current_user = result[0]
                     if rester_connecte:
+                        st.session_state.remember_me = True
                         st.query_params["token"] = result[0]['username']
+                    else:
+                        st.session_state.remember_me = False
+                        # On s'assure de nettoyer d'anciens tokens si la case n'est pas cochée
+                        if "token" in st.query_params:
+                            st.query_params.clear()
                     st.rerun()
                 else:
                     st.error("Identifiants incorrects.")
