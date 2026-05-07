@@ -145,8 +145,6 @@ if 'inv_work_df' not in st.session_state or st.sidebar.button("🔄 Actualiser D
 st.header("📋 Inventaire Triple & Confrontation Minutieuse", divider="orange")
 
 if df_master is None:
-
-if df_master is None:
     st.warning("⚠️ Aucun fichier Master détecté. Veuillez l'importer dans l'onglet Administration.")
     tabs = st.tabs(["⚙️ Administration"])
 else:
