@@ -10,3 +10,4 @@ st-gsheets-connection
 google-generativeai
 anthropic
 openai
+streamlit-cookies-controller
