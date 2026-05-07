@@ -52,7 +52,9 @@ def load_master():
         if 'shp' in df.columns: df['shp'] = df['shp'].apply(robust_num)
         if 'ppa' in df.columns: df['ppa'] = df['ppa'].apply(robust_num)
         return df
-    except: return None
+    except Exception as e: 
+        st.error(f"Erreur technique lors de la lecture de l'Excel : {e}")
+        return None
 
 df_master = load_master()
 
@@ -256,16 +258,26 @@ with tabs[3]:
     st.subheader("⚙️ Gestion des données Master")
     st.write("Importez ici le fichier Master (Excel) contenant la liste des produits, lots et stocks théoriques.")
     
-    up = st.file_uploader("📁 Importer Master (Excel)", type="xlsx", key="up_triple")
+    up = st.file_uploader("📁 Choisir le fichier Master (Excel)", type="xlsx", key="up_triple")
     if up:
-        if st.button("🚀 Valider l'importation"):
-            # Création du dossier si inexistant
-            os.makedirs(DATA_DIR, exist_ok=True)
-            with open(MASTER_PATH, "wb") as f:
-                f.write(up.getbuffer())
-            st.cache_data.clear()
-            st.success("✅ Fichier Master importé avec succès !")
-            st.rerun()
+        st.warning("⚠️ Le fichier est chargé mais pas encore enregistré. Cliquez sur le bouton ci-dessous pour valider.")
+        if st.button("🚀 Valider l'importation et mettre à jour la base"):
+            try:
+                # Création du dossier si inexistant
+                os.makedirs(DATA_DIR, exist_ok=True)
+                with open(MASTER_PATH, "wb") as f:
+                    f.write(up.getbuffer())
+                
+                # Test de lecture immédiat
+                test_df = pd.read_excel(MASTER_PATH)
+                if not test_df.empty:
+                    st.cache_data.clear()
+                    st.success(f"✅ Fichier '{up.name}' importé avec succès ! ({len(test_df)} lignes détectées)")
+                    st.rerun()
+                else:
+                    st.error("Le fichier semble vide.")
+            except Exception as e:
+                st.error(f"Échec de l'importation : {e}")
 
     st.divider()
     if st.session_state.current_user.get('role') == 'Admin':
