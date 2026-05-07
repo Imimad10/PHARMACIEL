@@ -117,11 +117,11 @@ def load_master():
 
 df_master = load_master()
 
-# --- 2.5 AUTO-RESET (One-time after fix) ---
-if 'it_fix_applied_v3' not in st.session_state:
+# --- 2.5 AUTO-RESET (One-time after Logipharm update) ---
+if 'it_fix_applied_v4_logi' not in st.session_state:
     st.cache_data.clear()
     if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
-    st.session_state.it_fix_applied_v3 = True
+    st.session_state.it_fix_applied_v4_logi = True
     st.rerun()
 
 # Initialisation du DataFrame de travail (Merge Master + TinyDB)
