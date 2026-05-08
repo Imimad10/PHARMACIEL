@@ -81,7 +81,9 @@ def generer_pdf(df, chambre_name):
         pdf.cell(w[4], 6, str(row['Type'])[:35], border=1)
         pdf.cell(w[5], 6, str(row['Agent'])[:25], border=1, ln=1)
     raw = pdf.output()
-    return raw if isinstance(raw, bytes) else raw.encode('latin-1', 'replace')
+    if isinstance(raw, (bytes, bytearray)):
+        return bytes(raw)
+    return raw.encode('latin-1', 'replace')
 
 def get_data():
     df = pd.DataFrame()
@@ -237,7 +239,7 @@ with tabs[4]:
             for _ in range(6): pdf_f.cell(w_sub, h_cell, "", border=1) # Matin + Soir
             pdf_f.cell(w_rem, h_cell, "", border=1, ln=1)
         _raw_f = pdf_f.output()
-        _pdf_bytes_f = _raw_f if isinstance(_raw_f, bytes) else _raw_f.encode('latin-1')
+        _pdf_bytes_f = bytes(_raw_f) if isinstance(_raw_f, (bytes, bytearray)) else _raw_f.encode('latin-1')
         st.download_button("📥 Télécharger la fiche PDF", data=_pdf_bytes_f, file_name=f"Fiche_{mois_noms[mois_sel-1]}.pdf", type="primary")
 
 # --- ADMIN ---
