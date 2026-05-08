@@ -551,6 +551,27 @@ with st.sidebar:
         st.rerun()
     st.divider()
 
+    with st.expander("🔐 Sécurité (Mot de passe)"):
+        with st.form("change_pwd_form", clear_on_submit=True):
+            new_p = st.text_input("Nouveau mot de passe", type="password")
+            confirm_p = st.text_input("Confirmer le mot de passe", type="password")
+            if st.form_submit_button("Mettre à jour"):
+                if new_p and new_p == confirm_p:
+                    # Charger les dernières données depuis GSheets
+                    df_all = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "password", "role", "pages"])
+                    mask = df_all['username'] == user['username']
+                    if mask.any():
+                        df_all.loc[mask, 'password'] = new_p
+                        save_gs_data(df_all, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+                        st.success("Mot de passe mis à jour !")
+                        # Mettre à jour la session
+                        st.session_state.current_user['password'] = new_p
+                    else:
+                        st.error("Erreur : Utilisateur introuvable dans la base.")
+                else:
+                    st.error("Les mots de passe ne correspondent pas ou sont vides.")
+
+    st.divider()
     if st.button("📱 Mode Mobile", use_container_width=True, key="btn_mobile"):
         st.switch_page("modules/12_mobile_scan.py")
         
