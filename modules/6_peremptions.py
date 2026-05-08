@@ -6,13 +6,18 @@ from utils import log_action
 from utils_ia import ask_ai, is_ia_enabled
 
 # --- CONFIGURATION ---
+from utils_gsheets import load_gs_data
+# --- CONFIGURATION ---
 DATA_DIR = "data_inventaire"
-SAISIE_PATH = os.path.join(DATA_DIR, "saisie.csv")
+SAISIE_WORKSHEET = "Saisie_Inventaire"
+SAISIE_FALLBACK = os.path.join(DATA_DIR, "saisie.csv")
+COLS_SAISIE = ["designation", "lot_master", "lot", "qte_saisie", "ddp_saisi", "ppa_saisi", "agent"]
 
 def parse_ddp(ddp_str):
     if pd.isna(ddp_str) or ddp_str == "": return None
     ddp_str = str(ddp_str).strip()
     try:
+        # Gérer format MM/AAAA
         if '/' in ddp_str:
             parts = ddp_str.split('/')
             if len(parts) == 2:
@@ -24,7 +29,12 @@ def parse_ddp(ddp_str):
 
 def analyze_peremptions(df, date_col='ddp'):
     now = datetime.now()
-    df['expiry_date'] = df[date_col].apply(parse_ddp)
+    # Si la colonne s'appelle ddp_saisi (format Inventaire)
+    target_col = date_col
+    if date_col not in df.columns and 'ddp_saisi' in df.columns:
+        target_col = 'ddp_saisi'
+        
+    df['expiry_date'] = df[target_col].apply(parse_ddp)
     df_valid = df.dropna(subset=['expiry_date']).copy()
     if not df_valid.empty:
         df_valid['mois_restants'] = df_valid['expiry_date'].apply(lambda d: (d.year - now.year) * 12 + d.month - now.month)
@@ -43,21 +53,20 @@ tab1, tab2 = st.tabs(["📋 Inventaire Terrain", "🏢 Analyse Multi-Dépôts"])
 
 with tab1:
     st.subheader("Analyse de l'inventaire manuel")
-    if os.path.exists(SAISIE_PATH):
-        df_inv = pd.read_csv(SAISIE_PATH, sep=';', encoding='utf-8-sig')
-        if 'ddp' in df_inv.columns:
-            df_res = analyze_peremptions(df_inv)
-            if not df_res.empty:
-                stats = df_res['Statut'].value_counts()
-                c1, c2, c3, c4 = st.columns(4)
-                c1.metric("Périmés", stats.get("❌ Périmé", 0))
-                c2.metric("Critiques", stats.get("⚠️ Critique (< 3 mois)", 0))
-                c3.metric("Vigilance", stats.get("🟠 Vigilance (3-6 mois)", 0))
-                c4.metric("Sains", stats.get("✅ OK (> 6 mois)", 0))
-                st.dataframe(df_res.sort_values('expiry_date'), use_container_width=True)
-            else: st.info("Aucune donnée valide.")
-        else: st.warning("Colonne 'ddp' manquante.")
-    else: st.info("Aucun inventaire terrain trouvé.")
+    df_inv = load_gs_data(SAISIE_WORKSHEET, SAISIE_FALLBACK, COLS_SAISIE)
+    if not df_inv.empty:
+        # L'inventaire utilise 'ddp_saisi'
+        df_res = analyze_peremptions(df_inv, date_col='ddp_saisi')
+        if not df_res.empty:
+            stats = df_res['Statut'].value_counts()
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Périmés", stats.get("❌ Périmé", 0))
+            c2.metric("Critiques", stats.get("⚠️ Critique (< 3 mois)", 0))
+            c3.metric("Vigilance", stats.get("🟠 Vigilance (3-6 mois)", 0))
+            c4.metric("Sains", stats.get("✅ OK (> 6 mois)", 0))
+            st.dataframe(df_res[['designation', 'lot', 'ddp_saisi', 'Statut', 'mois_restants']].sort_values('expiry_date'), use_container_width=True)
+        else: st.info("Aucune donnée de péremption valide trouvée dans la saisie.")
+    else: st.info("Aucun inventaire terrain trouvé sur GSheets.")
 
 with tab2:
     st.subheader("🔄 Analyse Stratégique FEFO (Vente vs Stockage)")

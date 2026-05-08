@@ -7,12 +7,17 @@ import os
 from utils import log_action
 
 # --- CONFIGURATION ET BASE DE DONNÉES ---
-db = TinyDB('db_pharmaciel.json')
-table_expedition = db.table('pointages_expediteur')
-DATA_FILE = "data_pointage/current_export.xlsx"
+from utils_gsheets import load_gs_data, save_gs_data
+# --- CONFIGURATION ET BASE DE DONNÉES ---
+DATA_DIR = "data_pointage"
+LOGIPHARM_WORKSHEET = "Logipharm_Export"
+LOGIPHARM_FALLBACK = os.path.join(DATA_DIR, "current_export.csv")
+HISTORIQUE_WORKSHEET = "Historique_Pointage"
+HISTORIQUE_FALLBACK = "data/db_pointage_hist.csv"
 
 # Assurer l'existence du dossier data
-os.makedirs("data_pointage", exist_ok=True)
+os.makedirs(DATA_DIR, exist_ok=True)
+COLS_HIST = ['date_dispatch', 'valide_par', 'reference', 'client', 'region', 'colis', 'statut']
 
 st.header("📦 Pointage Expéditeur", divider="blue")
 
@@ -27,14 +32,11 @@ def clean_col(c):
 
 # --- CHARGEMENT DES DONNÉES PERSISTANTES ---
 def load_current_data():
-    if os.path.exists(DATA_FILE):
-        try:
-            df = pd.read_excel(DATA_FILE)
-            df.columns = [clean_col(c) for c in df.columns]
-            return df
-        except Exception as e:
-            st.error(f"Erreur chargement données : {e}")
-            return None
+    # On définit les colonnes qu'on s'attend à trouver (flexibilité)
+    df = load_gs_data(LOGIPHARM_WORKSHEET, LOGIPHARM_FALLBACK, [])
+    if not df.empty:
+        df.columns = [clean_col(c) for c in df.columns]
+        return df
     return None
 
 # --- ONGLET ADMINISTRATION (UPLOAD) ---
@@ -52,16 +54,16 @@ with tab_admin:
     if is_user_admin:
         uploaded_file = st.file_uploader("📤 Mettre à jour la base LogiPharm (Excel)", type=['xlsx', 'xls'])
         if uploaded_file:
-            with open(DATA_FILE, "wb") as f:
-                f.write(uploaded_file.getbuffer())
-            st.success("✅ Fichier LogiPharm mis à jour avec succès !")
-            log_action(st.session_state.current_user['username'], "Mise à jour fichier LogiPharm", "Pointage Expéditeur")
+            df_up = pd.read_excel(uploaded_file)
+            save_gs_data(df_up, LOGIPHARM_WORKSHEET, LOGIPHARM_FALLBACK)
+            st.success("✅ Base LogiPharm synchronisée sur GSheets !")
+            log_action(st.session_state.current_user['username'], "Mise à jour GSheets LogiPharm", "Pointage Expéditeur")
             st.rerun()
         
         st.divider()
-        if st.button("🗑️ Vider l'historique complet (Action irréversible)", type="primary"):
-            table_expedition.truncate()
-            st.success("Historique vidé.")
+        if st.button("🗑️ Vider l'historique complet (GSheets)", type="primary"):
+            save_gs_data(pd.DataFrame(columns=COLS_HIST), HISTORIQUE_WORKSHEET, HISTORIQUE_FALLBACK)
+            st.success("Historique vidé sur GSheets.")
             st.rerun()
     else:
         st.warning("🔒 L'importation de fichiers est réservée aux administrateurs.")
@@ -107,9 +109,11 @@ with tab_pointage:
             region_sel = st.selectbox("📍 Choisir la zone d'expédition pour commencer", liste_regions)
 
             # --- LOGIQUE DE DÉTECTION DES DOUBLONS AVEC HORAIRE ---
-            # Récupérer l'historique pour le mapping
-            history_data = table_expedition.all()
-            hist_map = {str(item['reference']): item for item in history_data}
+            # Récupérer l'historique
+            df_history = load_gs_data(HISTORIQUE_WORKSHEET, HISTORIQUE_FALLBACK, COLS_HIST)
+            hist_map = {}
+            if not df_history.empty:
+                hist_map = {str(row['reference']): row.to_dict() for _, row in df_history.iterrows()}
 
             def get_status_info(ref):
                 ref_str = str(ref)
@@ -170,8 +174,9 @@ with tab_pointage:
                     current_user = st.session_state.current_user.get('username', 'Inconnu')
                     now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
                     
+                    new_entries = []
                     for _, row in factures_to_validate.iterrows():
-                        table_expedition.insert({
+                        new_entries.append({
                             'date_dispatch': now_str,
                             'valide_par': current_user,
                             'reference': str(row['Référence']),
@@ -181,8 +186,11 @@ with tab_pointage:
                             'statut': "Dispatché"
                         })
                     
+                    df_history = pd.concat([df_history, pd.DataFrame(new_entries)], ignore_index=True)
+                    save_gs_data(df_history, HISTORIQUE_WORKSHEET, HISTORIQUE_FALLBACK)
+                    
                     st.success(f"✅ {len(factures_to_validate)} colis validés !")
-                    log_action(current_user, f"Dispatching de {len(factures_to_validate)} commandes", "Pointage Expéditeur")
+                    log_action(current_user, f"Dispatching de {len(factures_to_validate)} commandes sur GSheets", "Pointage Expéditeur")
                     st.balloons()
                     st.rerun()
                 else:
@@ -205,9 +213,8 @@ with tab_pointage:
 # --- HISTORIQUE ---
 with tab_historique:
     st.subheader("📊 Historique des validations")
-    data_hist = table_expedition.all()
-    if data_hist:
-        df_hist = pd.DataFrame(data_hist)
-        st.dataframe(df_hist.sort_values('date_dispatch', ascending=False), use_container_width=True)
+    df_hist_view = load_gs_data(HISTORIQUE_WORKSHEET, HISTORIQUE_FALLBACK, COLS_HIST)
+    if not df_hist_view.empty:
+        st.dataframe(df_hist_view.sort_values('date_dispatch', ascending=False), use_container_width=True, hide_index=True)
     else:
-        st.write("Aucune donnée enregistrée.")
+        st.write("Aucune donnée enregistrée sur GSheets.")

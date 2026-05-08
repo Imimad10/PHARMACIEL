@@ -7,12 +7,18 @@ from datetime import datetime
 from utils_ia import ask_ai, is_ia_enabled
 
 # --- 1. CONFIGURATION & CHEMINS ---
+from utils_gsheets import load_gs_data, save_gs_data
+# --- 1. CONFIGURATION & CHEMINS ---
 if "DATA_DIR" not in st.session_state:
     st.session_state.DATA_DIR = "data_inventaire"
-    st.session_state.MASTER_PATH = os.path.join(st.session_state.DATA_DIR, "master.xlsx")
-    st.session_state.SAISIE_PATH = os.path.join(st.session_state.DATA_DIR, "saisie.csv")
+    st.session_state.MASTER_WORKSHEET = "Master_Inventaire"
+    st.session_state.MASTER_FALLBACK = os.path.join(st.session_state.DATA_DIR, "master.csv")
+    st.session_state.SAISIE_WORKSHEET = "Saisie_Inventaire"
+    st.session_state.SAISIE_FALLBACK = os.path.join(st.session_state.DATA_DIR, "saisie.csv")
 
 os.makedirs(st.session_state.DATA_DIR, exist_ok=True)
+COLS_MASTER = ["designation", "lot", "ddp", "ppa", "shp", "labo", "stock_theorique"]
+COLS_SAISIE = ["designation", "lot_master", "lot", "qte_saisie", "ddp_saisi", "ppa_saisi", "agent"]
 
 # --- 2. FONCTIONS TECHNIQUES ---
 def normalize_text(text):
@@ -70,38 +76,22 @@ def clean_columns(df):
     df.columns = new_cols
     return df
 
-# --- 3. CHARGEMENT DES DONNÉES (OPTIMISÉ AVEC CACHE) ---
+# --- 3. CHARGEMENT DES DONNÉES (OPTIMISÉ) ---
 if "current_user" not in st.session_state or st.session_state.current_user is None:
     st.warning("Veuillez vous connecter depuis la page principale.")
     st.stop()
 
 user = st.session_state.current_user
 
-@st.cache_data(ttl=3600)
-def load_and_clean_master(file_path, mtime):
-    try:
-        df = pd.read_excel(file_path)
-        # Nettoyage des colonnes
-        df = clean_columns(df)
-        
-        # Vectorisation du formatage DDP (beaucoup plus rapide que .apply)
-        if 'ddp' in df.columns:
-            # Conversion en datetime (coerce gère les erreurs en NaT)
-            dates = pd.to_datetime(df['ddp'], errors='coerce')
-            # Formater uniquement les dates valides
-            mask = dates.notna()
-            df['ddp'] = df['ddp'].astype(str) # Par défaut on garde le texte
-            df.loc[mask, 'ddp'] = dates[mask].dt.strftime('%m/%Y')
-            
-        return df
-    except Exception as e:
-        st.error(f"Erreur chargement Master : {e}")
-        return None
+# Chargement du Master
+df_master = load_gs_data(st.session_state.MASTER_WORKSHEET, st.session_state.MASTER_FALLBACK, COLS_MASTER)
+if not df_master.empty:
+    df_master = clean_columns(df_master)
+else:
+    df_master = None
 
-df_master = None
-if os.path.exists(st.session_state.MASTER_PATH):
-    mtime = os.path.getmtime(st.session_state.MASTER_PATH)
-    df_master = load_and_clean_master(st.session_state.MASTER_PATH, mtime)
+# Chargement de la Saisie
+df_saisie = load_gs_data(st.session_state.SAISIE_WORKSHEET, st.session_state.SAISIE_FALLBACK, COLS_SAISIE)
 
 # --- 4. INTERFACE (DÉFINITION DES TABS) ---
 # CRITIQUE : Cette ligne doit être AVANT l'utilisation de tabs[x]
@@ -112,8 +102,8 @@ with tabs[0]:
     st.markdown("### 📊 Tableau de Bord Inventaire")
     
     if df_master is not None:
-        # Chargement de la saisie pour calculs
-        saisie = pd.read_csv(st.session_state.SAISIE_PATH, sep=';', encoding='utf-8-sig') if os.path.exists(st.session_state.SAISIE_PATH) else pd.DataFrame()
+        # Métriques basées sur df_saisie déjà chargé
+        saisie = df_saisie
         
         # Calculs des métriques
         total_master = len(df_master)
@@ -247,9 +237,10 @@ with tabs[1]:
                         'lot': str(lot_f), 'qte_saisie': qte, 'ddp_saisi': ddp_f,
                         'ppa_saisi': ppa_f, 'agent': user['username']
                     }])
-                    write_header = not os.path.exists(st.session_state.SAISIE_PATH)
-                    new_line.to_csv(st.session_state.SAISIE_PATH, mode='a', header=write_header, index=False, sep=';')
+                    df_saisie = pd.concat([df_saisie, new_line], ignore_index=True)
+                    save_gs_data(df_saisie, st.session_state.SAISIE_WORKSHEET, st.session_state.SAISIE_FALLBACK)
                     st.success(f"Enregistré : {prod_sel}")
+                    st.rerun()
     else:
         st.info("En attente du Master...")
 
@@ -257,9 +248,9 @@ with tabs[1]:
 with tabs[2]:
     st.subheader("🔍 Analyse des écarts")
     if user['role'] == "Admin":
-        if os.path.exists(st.session_state.SAISIE_PATH) and df_master is not None:
+        if not df_saisie.empty and df_master is not None:
             try:
-                saisie = pd.read_csv(st.session_state.SAISIE_PATH, sep=';', encoding='utf-8-sig')
+                saisie = df_saisie
                 q_theo_col = find_quantity_col(df_master)
                 
                 if q_theo_col and 'designation' in df_master.columns:
@@ -370,25 +361,24 @@ with tabs[3]:
     st.subheader("⚙️ Gestion des fichiers")
     up = st.file_uploader("Importer Master (Excel)", type="xlsx")
     if up:
-        with open(st.session_state.MASTER_PATH, "wb") as f:
-            f.write(up.getbuffer())
-        st.success("Master mis à jour !")
+        df_up = pd.read_excel(up)
+        df_up = clean_columns(df_up)
+        save_gs_data(df_up, st.session_state.MASTER_WORKSHEET, st.session_state.MASTER_FALLBACK)
+        st.success("Master synchronisé sur GSheets !")
         st.rerun()
     
     st.divider()
     col_del1, col_del2 = st.columns(2)
     
     if col_del1.button("🗑️ Vider Inventaire (Saisie)", type="secondary", use_container_width=True):
-        if os.path.exists(st.session_state.SAISIE_PATH):
-            os.remove(st.session_state.SAISIE_PATH)
-            st.success("Saisies effacées.")
-            st.rerun()
+        save_gs_data(pd.DataFrame(columns=COLS_SAISIE), st.session_state.SAISIE_WORKSHEET, st.session_state.SAISIE_FALLBACK)
+        st.success("Saisies effacées sur GSheets.")
+        st.rerun()
             
     if col_del2.button("🔴 Supprimer Master", type="primary", use_container_width=True):
-        if os.path.exists(st.session_state.MASTER_PATH):
-            os.remove(st.session_state.MASTER_PATH)
-            st.success("Master supprimé.")
-            st.rerun()
+        save_gs_data(pd.DataFrame(columns=COLS_MASTER), st.session_state.MASTER_WORKSHEET, st.session_state.MASTER_FALLBACK)
+        st.success("Master vidé sur GSheets.")
+        st.rerun()
 
     st.divider()
     st.subheader("💾 Sauvegarde & Archivage")

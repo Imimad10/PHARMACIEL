@@ -11,10 +11,16 @@ from utils_ia import ask_ai, is_ia_enabled
 st.set_page_config(page_title="Inventaire Détail", layout="wide")
 
 # --- 1. CONFIGURATION ---
+from utils_gsheets import load_gs_data, save_gs_data
+# --- 1. CONFIGURATION ---
 DATA_DIR = "data_inventaire_detail"
-MASTER_PATH = os.path.join(DATA_DIR, "master_detail.xlsx")
-SAISIE_PATH = os.path.join(DATA_DIR, "saisie_detail.csv")
+MASTER_WORKSHEET = "Master_Inventaire_Zone"
+MASTER_FALLBACK = os.path.join(DATA_DIR, "master_detail.csv")
+SAISIE_WORKSHEET = "Saisie_Inventaire_Zone"
+SAISIE_FALLBACK = os.path.join(DATA_DIR, "saisie_detail.csv")
 os.makedirs(DATA_DIR, exist_ok=True)
+COLS_MASTER = ["designation", "lot", "zone", "ddp", "ppa", "shp", "stock_theorique"]
+COLS_SAISIE = ['designation', 'lot_master', 'lot', 'qte_vrac_prepa', 'qte_colis_prepa', 'qte_vrac_mini', 'qte_colis_mini', 'qte_vrac', 'qte_colis', 'qte_saisie', 'ddp_saisi', 'ppa_saisi', 'zone', 'agent']
 
 # --- 2. FONCTIONS TECHNIQUES ---
 def normalize_text(text):
@@ -81,11 +87,15 @@ if "current_user" not in st.session_state or st.session_state.current_user is No
 user = st.session_state.current_user
 user_zone = user.get('zone', 'Aucune')
 
-df_master = None
-if os.path.exists(MASTER_PATH):
-    res = load_master_v5(MASTER_PATH, os.path.getmtime(MASTER_PATH))
-    if isinstance(res, str): st.error(res)
-    else: df_master = res
+# Chargement du Master
+df_master = load_gs_data(MASTER_WORKSHEET, MASTER_FALLBACK, COLS_MASTER)
+if not df_master.empty:
+    df_master = clean_cols_v5(df_master)
+else:
+    df_master = None
+
+# Chargement de la Saisie
+df_saisie_global = load_gs_data(SAISIE_WORKSHEET, SAISIE_FALLBACK, COLS_SAISIE)
 
 if user_zone == "Aucune":
     selected_zone = st.sidebar.selectbox("📍 Zone de travail :", ["A", "B", "C", "D", "Frigo"])
@@ -99,12 +109,8 @@ with tabs[0]:
     if df_master is not None:
         st.subheader("📈 Progression de l'Inventaire par Zone")
         
-        # Charger les saisies pour calculer l'avancement
-        df_saisie_prog = pd.DataFrame()
-        if os.path.exists(SAISIE_PATH):
-            try:
-                df_saisie_prog = pd.read_csv(SAISIE_PATH, sep=';', on_bad_lines='skip')
-            except: pass
+        # Utiliser les saisies déjà chargées
+        df_saisie_prog = df_saisie_global
             
         zones_dispo = sorted([str(z) for z in df_master['zone'].unique() if pd.notna(z)])
         
@@ -229,16 +235,17 @@ with tabs[1]:
                             'qte_saisie': total_qte, 'ddp_saisi': ddp_r, 'ppa_saisi': ppa_r,
                             'zone': selected_zone, 'agent': user['username']
                         }])
-                        h = not os.path.exists(SAISIE_PATH)
-                        new_line.to_csv(SAISIE_PATH, mode='a', header=h, index=False, sep=';')
-                        st.success(f"Saisie OK : {sel_prod} (Total: {total_qte} | Prépa: {qte_vrac_p+qte_colis_p} - Mini: {qte_vrac_m+qte_colis_m})")
+                        df_saisie_global = pd.concat([df_saisie_global, new_line], ignore_index=True)
+                        save_gs_data(df_saisie_global, SAISIE_WORKSHEET, SAISIE_FALLBACK)
+                        st.success(f"Saisie OK : {sel_prod} (Total: {total_qte})")
+                        st.rerun()
     else: st.info("Master requis.")
 
 with tabs[2]:
     st.subheader("🔍 Analyse des écarts")
-    if user['role'] in ["Admin", "Superviseur"] and os.path.exists(SAISIE_PATH) and df_master is not None:
+    if user['role'] in ["Admin", "Superviseur"] and not df_saisie_global.empty and df_master is not None:
         try:
-            saisie = pd.read_csv(SAISIE_PATH, sep=';', on_bad_lines='skip')
+            saisie = df_saisie_global
             
             st.write(f"📊 **Statut :** {len(saisie)} saisies totales détectées dans le journal.")
             
@@ -331,17 +338,17 @@ with tabs[2]:
 with tabs[3]:
     if user['role'] in ["Admin", "Superviseur"]:
         st.subheader("👥 Gestion des Équipes & Zones")
-        # Charger les utilisateurs
-        db_u = TinyDB('data/db_users.json')
-        all_u = db_u.all()
-        saisie_users = [u['username'] for u in all_u if 'Inventaire Détail' in u.get('pages', [])]
+        # Charger les utilisateurs via GSheets (Utilisateurs worksheet)
+        from app import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+        df_users_inv = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "password", "role", "pages", "zone"])
+        saisie_users = df_users_inv[df_users_inv['pages'].str.contains('Inventaire Détail', na=False)]['username'].tolist()
         
         col_u1, col_u2, col_u3 = st.columns([2, 1, 1])
         target_user = col_u1.selectbox("Sélectionner un agent de saisie :", saisie_users)
         
         # Trouver la zone actuelle
-        u_record = next((u for u in all_u if u['username'] == target_user), {})
-        current_z = u_record.get('zone', 'Aucune')
+        match_u = df_users_inv[df_users_inv['username'] == target_user]
+        current_z = match_u['zone'].values[0] if not match_u.empty else "Aucune"
         
         # Liste des zones possibles du Master
         z_list = ["Aucune"]
@@ -353,8 +360,8 @@ with tabs[3]:
         new_z = col_u2.selectbox(f"Assigner Zone (Actuelle: {current_z})", z_list, index=z_list.index(current_z) if current_z in z_list else 0)
         
         if col_u3.button("✅ Confirmer l'affectation", use_container_width=True):
-            U = Query()
-            db_u.update({'zone': new_z}, U.username == target_user)
+            df_users_inv.loc[df_users_inv['username'] == target_user, 'zone'] = new_z
+            save_gs_data(df_users_inv, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
             st.success(f"Zone de **{target_user}** mise à jour : **{new_z}**")
             st.rerun()
 
@@ -362,29 +369,24 @@ with tabs[3]:
         st.subheader("⚙️ Gestion des fichiers")
         up = st.file_uploader("Importer Master Détail (XLSX)", type="xlsx")
         if up:
-            if st.button("🚀 Confirmer l'importation"):
-                with open(MASTER_PATH, "wb") as f: f.write(up.getbuffer())
-                st.cache_data.clear()
-                st.success("Master Détail importé avec succès !")
-                st.rerun()
+            df_up = pd.read_excel(up)
+            df_up = clean_cols_v5(df_up)
+            save_gs_data(df_up, MASTER_WORKSHEET, MASTER_FALLBACK)
+            st.success("Master Détail synchronisé sur GSheets !")
+            st.rerun()
                 
         st.divider()
         c1, c2 = st.columns(2)
         
         if c1.button("🗑️ Vider Inventaire (Saisie)", use_container_width=True):
-            if os.path.exists(SAISIE_PATH):
-                os.remove(SAISIE_PATH)
-                st.success("Toutes les saisies terrain ont été effacées.")
-                st.rerun()
-            else:
-                st.info("Le fichier de saisie est déjà vide.")
+            save_gs_data(pd.DataFrame(columns=COLS_SAISIE), SAISIE_WORKSHEET, SAISIE_FALLBACK)
+            st.success("Toutes les saisies terrain ont été effacées sur GSheets.")
+            st.rerun()
                 
         if c2.button("🔴 Supprimer Master", use_container_width=True):
-            if os.path.exists(MASTER_PATH):
-                os.remove(MASTER_PATH)
-                st.cache_data.clear()
-                st.success("Fichier Master supprimé.")
-                st.rerun()
+            save_gs_data(pd.DataFrame(columns=COLS_MASTER), MASTER_WORKSHEET, MASTER_FALLBACK)
+            st.success("Fichier Master vidé sur GSheets.")
+            st.rerun()
             else:
                 st.info("Aucun Master à supprimer.")
 

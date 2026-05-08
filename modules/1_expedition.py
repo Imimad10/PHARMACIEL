@@ -19,8 +19,7 @@ LIVREURS_PATH = os.path.join(DATA_DIR, "livreurs.csv")
 MOTIFS_PATH = os.path.join(DATA_DIR, "motifs.csv")
 COLS_CLIENTS = ["Client", "Ville", "Tel", "Secteur"]
 COLS_LIVREURS = ["Nom", "Secteur"]
-db_global = TinyDB('db_pharmaciel.json')
-table_reclam = db_global.table('reclamations')
+COLS_SAV = ["client", "ville", "ref", "motif", "date_crea", "statut", "signature"]
 
 # --- FONCTIONS DE CHARGEMENT ---
 def load_clients():
@@ -39,16 +38,14 @@ def save_livreurs(df):
     save_gs_data(df, "Livreurs", LIVREURS_PATH)
 
 def load_motifs():
-    if not os.path.exists(MOTIFS_PATH):
-        # Motifs par défaut
+    df = load_gs_data("Motifs_SAV", MOTIFS_PATH, ["Motif"])
+    if df.empty:
         return ["RETOUR", "DEPOSER COLI", "ECHANGE"]
-    try:
-        return pd.read_csv(MOTIFS_PATH)['Motif'].tolist()
-    except:
-        return ["RETOUR", "DEPOSER COLI", "ECHANGE"]
+    return df['Motif'].tolist()
 
 def save_motifs(motifs):
-    pd.DataFrame({"Motif": motifs}).to_csv(MOTIFS_PATH, index=False)
+    df = pd.DataFrame({"Motif": motifs})
+    save_gs_data(df, "Motifs_SAV", MOTIFS_PATH)
 
 # --- INITIALISATION ÉTAT ---
 if "rows" not in st.session_state:
@@ -66,9 +63,9 @@ def add_or_merge_row(client, ville, ref, info, statut, signature, mode, secteur=
 
     # Pour les réclamations, on enregistre en base persistante si pas déjà présent
     if mode == "Réclamation":
-        Existing = Query()
-        if not table_reclam.search(Existing.ref == ref):
-            table_reclam.insert({
+        df_sav = load_gs_data("Litiges_SAV", "data/db_sav.csv", COLS_SAV)
+        if df_sav.empty or ref not in df_sav['ref'].astype(str).values:
+            new_sav = pd.DataFrame([{
                 "client": client,
                 "ville": ville,
                 "ref": ref,
@@ -76,7 +73,9 @@ def add_or_merge_row(client, ville, ref, info, statut, signature, mode, secteur=
                 "date_crea": datetime.now().strftime("%Y-%m-%d %H:%M"),
                 "statut": "En cours",
                 "signature": signature
-            })
+            }])
+            df_sav = pd.concat([df_sav, new_sav], ignore_index=True)
+            save_gs_data(df_sav, "Litiges_SAV", "data/db_sav.csv")
 
     # Ajout à l'état de session
     new_row = pd.DataFrame([{
@@ -388,11 +387,10 @@ with tab_exp:
 with tab_suivi_sav:
     st.header("📊 Historique et Suivi des Réclamations")
     
-    reclams_all = table_reclam.all()
-    if not reclams_all:
+    df_sav = load_gs_data("Litiges_SAV", "data/db_sav.csv", COLS_SAV)
+    if df_sav.empty:
         st.info("Aucun litige enregistré dans l'historique.")
     else:
-        df_sav = pd.DataFrame(reclams_all)
         df_sav['date_crea'] = pd.to_datetime(df_sav['date_crea'])
         
         # Alerte retard (> 48h)
@@ -427,20 +425,17 @@ with tab_suivi_sav:
             column_config={
                 "statut": st.column_config.SelectboxColumn("Statut", options=["En cours", "Livré", "Annulé"]),
                 "retard": None # On cache la colonne technique
-            }
+            },
+            hide_index=True
         )
         
         if st.button("💾 Mettre à jour l'historique"):
-            # Pour chaque ligne modifiée, mettre à jour la TinyDB
-            # (Note: une implémentation plus complexe utiliserait l'ID TinyDB, 
-            # ici on écrase tout le tableau pour faire simple dans ce contexte)
-            table_reclam.truncate()
             # On retire la colonne technique 'retard' avant sauvegarde
             df_to_save = edited_sav.drop(columns=['retard'])
-            # Conversion date en string pour JSON
+            # Conversion date en string pour GSheets
             df_to_save['date_crea'] = df_to_save['date_crea'].dt.strftime("%Y-%m-%d %H:%M")
-            table_reclam.insert_multiple(df_to_save.to_dict('records'))
-            st.success("Historique mis à jour !")
+            save_gs_data(df_to_save, "Litiges_SAV", "data/db_sav.csv")
+            st.success("Historique mis à jour sur GSheets !")
             st.rerun()
 
 # --- LES AUTRES ONGLETS SONT SUPPRIMÉS POUR CENTRALISATION ---

@@ -255,19 +255,25 @@ st.markdown("""
     <meta name="theme-color" content="#1877f2">
 """, unsafe_allow_html=True)
 
-# --- 2. INITIALISATION DE LA BASE UTILISATEURS ---
-os.makedirs("data", exist_ok=True)
-db_users = TinyDB('data/db_users.json')
+# --- 2. CONFIGURATION BASE DE DONNÉES ---
+from utils_gsheets import load_gs_data, save_gs_data
+DB_USERS_WORKSHEET = "Utilisateurs"
+DB_USERS_FALLBACK = "data/db_users.json"
 User = Query()
 
+# Chargement initial des utilisateurs
+df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "password", "role", "pages"])
+
 # Toujours s'assurer que l'admin principal existe
-if not db_users.search(User.username == 'admin_imad'):
-    db_users.insert({
+if 'admin_imad' not in df_users['username'].values:
+    admin_data = {
         'username': 'admin_imad',
         'password': 'admin_imad_pwd',
         'role': 'Admin',
         'pages': ['Admin Centrale', 'Dashboard', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Péremptions', 'Scanneur QR', 'Automatisation', 'Litiges Fournisseurs', 'Analyse Rotation', 'Scan Mobile', 'RH']
-    })
+    }
+    df_users = pd.concat([df_users, pd.DataFrame([admin_data])], ignore_index=True)
+    save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
 
 # Liste des utilisateurs essentiels à maintenir
 essentials = [
@@ -276,9 +282,15 @@ essentials = [
     {'username': 'Seif', 'password': 'seif2026', 'role': 'Saisie', 'pages': ['Inventaire', 'Inventaire Détail']}
 ]
 
+# Synchronisation des essentiels
+changes_made = False
 for ess in essentials:
-    if not db_users.search(User.username == ess['username']):
-        db_users.insert(ess)
+    if df_users.empty or ess['username'] not in df_users['username'].values:
+        df_users = pd.concat([df_users, pd.DataFrame([ess])], ignore_index=True)
+        changes_made = True
+
+if changes_made:
+    save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
 
 # --- 3. GESTION DE SESSION ET COOKIES ---
 if "current_user" not in st.session_state:
@@ -296,19 +308,17 @@ except Exception:
 # --- Auto-Login via Cookie ---
 # Si on a un cookie mais pas encore de session, on tente la reconnexion automatique
 if st.session_state.current_user is None and token_user:
-    U = Query()
-    res = db_users.search(U.username == token_user)
-    if res:
-        st.session_state.current_user = res[0]
+    res = df_users[df_users['username'] == token_user]
+    if not res.empty:
+        st.session_state.current_user = res.iloc[0].to_dict()
         st.session_state.remember_me = True
         st.rerun() # On force un rafraîchissement pour charger les modules
 
 # Rafraîchir les données de l'utilisateur depuis la DB à chaque chargement pour éviter les désync
 if st.session_state.current_user:
-    U = Query()
-    updated_user = db_users.get(U.username == st.session_state.current_user['username'])
-    if updated_user:
-        st.session_state.current_user = updated_user
+    res = df_users[df_users['username'] == st.session_state.current_user['username']]
+    if not res.empty:
+        st.session_state.current_user = res.iloc[0].to_dict()
 
 # --- 4. ÉCRAN DE CONNEXION ---
 if st.session_state.current_user is None:
@@ -432,13 +442,13 @@ if st.session_state.current_user is None:
             submit = st.form_submit_button("Se connecter")
             
             if submit:
-                User = Query()
-                result = db_users.search((User.username == u) & (User.password == p))
-                if result:
-                    st.session_state.current_user = result[0]
+                res = df_users[(df_users['username'] == u) & (df_users['password'] == p)]
+                if not res.empty:
+                    user_data = res.iloc[0].to_dict()
+                    st.session_state.current_user = user_data
                     if rester_connecte:
                         st.session_state.remember_me = True
-                        controller.set("user_token", result[0]['username'], max_age=86400 * 30) # Valide 30 jours
+                        controller.set("user_token", user_data['username'], max_age=86400 * 30) # Valide 30 jours
                     else:
                         st.session_state.remember_me = False
                         try:

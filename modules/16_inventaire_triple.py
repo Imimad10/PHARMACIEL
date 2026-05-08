@@ -9,17 +9,23 @@ from utils_ia import ask_ai, is_ia_enabled
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Inventaire Triple - Pharmaciel", layout="wide")
 
+from utils_gsheets import load_gs_data, save_gs_data
+# --- CONFIGURATION ---
+st.set_page_config(page_title="Inventaire Triple - Pharmaciel", layout="wide")
+
 MASTER_DIR = "data_inventaire_detail"
-MASTER_PATH = os.path.join(MASTER_DIR, "master_detail.xlsx")
-DB_PATH = "db_pharmaciel.json"
+MASTER_WORKSHEET = "Master_Inventaire_Zone"
+MASTER_FALLBACK = os.path.join(MASTER_DIR, "master_detail.csv")
+INV_TRIPLE_WORKSHEET = "Inventaire_Triple"
+INV_TRIPLE_FALLBACK = "data/db_inv_triple.csv"
 os.makedirs(MASTER_DIR, exist_ok=True)
 
 if 'current_user' not in st.session_state:
     st.warning("⚠️ Veuillez vous connecter depuis la page d'accueil.")
     st.stop()
 
-db = TinyDB(DB_PATH)
-table_inv = db.table('inventaire_triple')
+COLS_MASTER = ["depot", "zone", "produit", "lot", "qte_logi", "colissage"]
+COLS_INV_TRIPLE = ["produit", "lot", "tv", "tc", "mv", "mc", "col"]
 
 # --- STYLE CSS ---
 st.markdown("""
@@ -66,77 +72,18 @@ def robust_num(val):
     except: return 0.0
 
 @st.cache_data(ttl=3600)
-def load_master():
-    if not os.path.exists(MASTER_PATH): return None
-    try:
-        # On lit toutes les feuilles pour aider au diagnostic
-        xl = pd.ExcelFile(MASTER_PATH)
-        df = xl.parse(xl.sheet_names[-1]) # On prend la DERNIÈRE feuille par défaut (souvent l'export le plus récent)
-        
-        df.columns = [str(c) for c in df.columns]
-        
-        # MAPPING STRICT LOGIPHARM
-        search_patterns = {
-            'produit': ['designation', 'produit', 'article', 'nom'],
-            'lot': ['lot', 'n°lot', 'batch', 'n lot'],
-            'qte_logi': ['quantite depot', 'qte depot', 'quantite globale', 'qte globale'], # PRIORITÉ ABSOLUE
-            'colissage': ['colis', 'colissage', 'unit per box'],
-            'depot': ['depot', 'warehouse', 'magasin'],
-            'zone': ['zone produit', 'zone']
-        }
-        
-        # Secours si 'quantite depot' est absent
-        fallback_shp = ['shp', 'theorique', 'stock']
-        
-        source_mapping = {}
-        used_cols = set()
-        
-        # 1. Mapping des champs critiques
-        for target, patterns in search_patterns.items():
-            for p in patterns:
-                for col in df.columns:
-                    if col not in used_cols:
-                        norm = normalize_text(col)
-                        if p == norm or p in norm:
-                            source_mapping[target] = col
-                            used_cols.add(col)
-                            break
-                if target in source_mapping: break
-        
-        # 2. Fallback pour le stock si toujours pas trouvé
-        if 'qte_logi' not in source_mapping:
-            for p in fallback_shp:
-                for col in df.columns:
-                    if col not in used_cols:
-                        if p in normalize_text(col):
-                            source_mapping['qte_logi'] = col
-                            used_cols.add(col)
-                            break
-                if 'qte_logi' in source_mapping: break
-
-        # Renommage
-        rename_dict = {v: k for k, v in source_mapping.items()}
-        df = df.rename(columns=rename_dict)
-        
-        # Nettoyage
-        if 'produit' not in df.columns: df['produit'] = "SANS NOM"
-        if 'lot' not in df.columns: df['lot'] = "SANS LOT"
-        if 'qte_logi' not in df.columns: df['qte_logi'] = 0.0
-        if 'colissage' not in df.columns: df['colissage'] = 1.0
-        
-        df['produit'] = df['produit'].astype(str).str.upper()
-        df['lot'] = df['lot'].astype(str).str.upper()
-        df['qte_logi'] = df['qte_logi'].apply(robust_num)
-        df['colissage'] = df['colissage'].apply(robust_num).replace(0, 1)
-        
-        return df
-    except Exception as e:
-        st.error(f"Erreur Lecture Excel: {e}")
-        return None
+def get_master_df():
+    df = load_gs_data(MASTER_WORKSHEET, MASTER_FALLBACK, COLS_MASTER)
+    if df.empty: return None
+    df['produit'] = df['produit'].astype(str).str.upper()
+    df['lot'] = df['lot'].astype(str).str.upper()
+    df['qte_logi'] = df['qte_logi'].apply(robust_num)
+    df['colissage'] = df['colissage'].apply(robust_num).replace(0, 1)
+    return df
 
 # --- INITIALISATION ---
-db_users = TinyDB('data/db_users.json')
-df_master = load_master()
+df_master = get_master_df()
+df_inv_triple = load_gs_data(INV_TRIPLE_WORKSHEET, INV_TRIPLE_FALLBACK, COLS_INV_TRIPLE)
 
 # Reset forcé si changement de logique
 if 'it_v9_zones' not in st.session_state:
@@ -152,17 +99,17 @@ if "inv_work_df" not in st.session_state and df_master is not None:
     work_df['Mini (Vrac)'] = 0.0
     work_df['Mini (Colis)'] = 0.0
     
-    # Fusion avec TinyDB
-    saved = table_inv.all()
-    for entry in saved:
-        mask = (work_df['produit'] == entry.get('produit')) & (work_df['lot'] == entry.get('lot'))
-        if mask.any():
-            work_df.loc[mask, 'Terrain (Vrac)'] = entry.get('tv', 0.0)
-            work_df.loc[mask, 'Terrain (Colis)'] = entry.get('tc', 0.0)
-            work_df.loc[mask, 'Mini (Vrac)'] = entry.get('mv', 0.0)
-            work_df.loc[mask, 'Mini (Colis)'] = entry.get('mc', 0.0)
-            if 'col' in entry:
-                work_df.loc[mask, 'colissage'] = entry.get('col')
+    # Fusion avec GSheets data
+    if not df_inv_triple.empty:
+        for _, entry in df_inv_triple.iterrows():
+            mask = (work_df['produit'] == entry.get('produit')) & (work_df['lot'] == entry.get('lot'))
+            if mask.any():
+                work_df.loc[mask, 'Terrain (Vrac)'] = entry.get('tv', 0.0)
+                work_df.loc[mask, 'Terrain (Colis)'] = entry.get('tc', 0.0)
+                work_df.loc[mask, 'Mini (Vrac)'] = entry.get('mv', 0.0)
+                work_df.loc[mask, 'Mini (Colis)'] = entry.get('mc', 0.0)
+                if 'col' in entry:
+                    work_df.loc[mask, 'colissage'] = entry.get('col')
     
     st.session_state.inv_work_df = work_df
 
@@ -227,18 +174,22 @@ with tab_admin:
     up = st.file_uploader("Fichier Excel Export Logipharm", type="xlsx", key="up_v7")
     if up:
         if st.button("🚀 Importer ce fichier", type="primary"):
-            with open(MASTER_PATH, "wb") as f: f.write(up.getbuffer())
+            df_up = pd.read_excel(up)
+            # Normalisation et nettoyage avant envoi
+            # (Ici on pourrait rajouter la logique de mapping si besoin)
+            save_gs_data(df_up, MASTER_WORKSHEET, MASTER_FALLBACK)
             st.cache_data.clear()
             if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
-            st.success("Fichier importé !")
+            st.success("Master synchronisé sur GSheets !")
             st.rerun()
     
-    if st.session_state.current_user.get('role') in ['Admin', 'Superviseur']:
+        if st.session_state.current_user.get('role') in ['Admin', 'Superviseur']:
         st.divider()
         st.subheader("👥 Affectation des Zones")
-        st.write("Assignez les zones de préparation (A, B, C...) à vos préparateurs.")
         
-        all_users = db_users.all()
+        from app import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+        df_users_it = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "password", "role", "pages", "inv_zones"])
+        
         # Liste des zones uniques du master
         avail_zones = []
         if df_master is not None and 'zone' in df_master.columns:
@@ -247,32 +198,34 @@ with tab_admin:
         if not avail_zones:
             st.warning("Aucune zone trouvée dans le fichier Master.")
         else:
-            with st.form("form_zones"):
-                user_zones_updates = {}
-                for u in all_users:
+            with st.form("form_zones_triple"):
+                # On filtre les utilisateurs qui ont accès à cette page
+                for idx, u in df_users_it.iterrows():
                     if u.get('role') not in ['Admin', 'Superviseur']:
+                        # inv_zones peut être stocké comme une chaîne JSON dans GSheets
                         curr = u.get('inv_zones', [])
+                        if isinstance(curr, str):
+                            try: curr = json.loads(curr.replace("'", '"'))
+                            except: curr = []
+                        
                         valid_curr = [z for z in curr if z in avail_zones]
                         sel = st.multiselect(f"Zones pour {u['username']}", avail_zones, default=valid_curr)
-                        user_zones_updates[u['username']] = sel
+                        df_users_it.at[idx, 'inv_zones'] = str(sel)
                 
                 if st.form_submit_button("💾 Sauvegarder les affectations", type="primary"):
-                    for uname, zones in user_zones_updates.items():
-                        db_users.update({'inv_zones': zones}, Query().username == uname)
-                        if st.session_state.current_user['username'] == uname:
-                            st.session_state.current_user['inv_zones'] = zones
-                    st.success("Affectations mises à jour !")
+                    save_gs_data(df_users_it, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+                    st.success("Affectations mises à jour sur GSheets !")
                     st.rerun()
 
         st.divider()
         st.subheader("🚨 Danger Zone")
         c1, c2 = st.columns(2)
-        if c1.button("🗑️ Vider TOUTES les saisies (DB)", use_container_width=True):
-            table_inv.truncate()
+        if c1.button("🗑️ Vider TOUTES les saisies (GSheets)", use_container_width=True):
+            save_gs_data(pd.DataFrame(columns=COLS_INV_TRIPLE), INV_TRIPLE_WORKSHEET, INV_TRIPLE_FALLBACK)
             if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
             st.rerun()
-        if c2.button("📁 Supprimer le fichier Master", use_container_width=True):
-            if os.path.exists(MASTER_PATH): os.remove(MASTER_PATH)
+        if c2.button("📁 Vider le Master sur GSheets", use_container_width=True):
+            save_gs_data(pd.DataFrame(columns=COLS_MASTER), MASTER_WORKSHEET, MASTER_FALLBACK)
             st.cache_data.clear()
             if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
             st.rerun()
@@ -376,15 +329,24 @@ if df_master is not None and tab_saisie:
                         if 'colissage' in row:
                             st.session_state.inv_work_df.loc[idx, 'colissage'] = row['colissage']
                         
-                        # Update TinyDB
-                        table_inv.upsert({
+                        # Update df_inv_triple for saving
+                        new_entry = {
                             'produit': row['produit'], 'lot': row['lot'],
                             'tv': float(row['Terrain (Vrac)']), 'tc': float(row['Terrain (Colis)']),
                             'mv': float(row['Mini (Vrac)']), 'mc': float(row['Mini (Colis)']),
                             'col': float(row['colissage']) if 'colissage' in row else 1.0
-                        }, (Query().produit == row['produit']) & (Query().lot == row['lot']))
+                        }
+                        
+                        # Upsert in df_inv_triple
+                        mask = (df_inv_triple['produit'] == row['produit']) & (df_inv_triple['lot'] == row['lot'])
+                        if mask.any():
+                            for k, v in new_entry.items():
+                                df_inv_triple.loc[mask, k] = v
+                        else:
+                            df_inv_triple = pd.concat([df_inv_triple, pd.DataFrame([new_entry])], ignore_index=True)
                     
-                    st.success(f"✅ {len(changed_indices)} modification(s) enregistrée(s) !")
+                    save_gs_data(df_inv_triple, INV_TRIPLE_WORKSHEET, INV_TRIPLE_FALLBACK)
+                    st.success(f"✅ {len(changed_indices)} modification(s) enregistrée(s) sur GSheets !")
                     st.rerun()
             except Exception as e:
                 st.error(f"Erreur lors de la sauvegarde: {e}")
