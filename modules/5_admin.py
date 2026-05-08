@@ -24,12 +24,25 @@ st.write("Gérez les utilisateurs et leurs zones d'affectation pour l'inventaire
 # Chargement des utilisateurs via GSheets
 df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "password", "role", "pages", "zone"])
 
+# Conversion sécurisée des pages pour tout le dataframe
+def parse_pages(p):
+    if isinstance(p, list): return p
+    if not isinstance(p, str) or not p.strip(): return []
+    import ast
+    try: return ast.literal_eval(p)
+    except: return [x.strip() for x in p.replace('[','').replace(']','').replace("'","").split(',') if x.strip()]
+
+if not df_users.empty:
+    df_users['pages'] = df_users['pages'].apply(parse_pages)
+
 st.subheader("👥 Liste des Utilisateurs")
 
 # Affichage des utilisateurs avec un mot de passe masqué
 if not df_users.empty:
     df_display = df_users.copy()
     df_display['password'] = "********"
+    # Convertir les listes en strings lisibles pour le st.dataframe
+    df_display['pages'] = df_display['pages'].apply(lambda x: ", ".join(x) if isinstance(x, list) else str(x))
     # S'assurer que les colonnes existent
     needed = ['username', 'role', 'pages', 'password']
     cols_avail = [c for c in needed if c in df_display.columns]
