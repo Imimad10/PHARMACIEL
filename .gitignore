@@ -1,1 +1,26 @@
-﻿.streamlit/secrets.toml
+# Secrets - NE JAMAIS POUSSER SUR GIT
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+
+# Data locale (sera sur le serveur)
+data/
+*.db
+*.json
+
+# Fichiers temporaires
+*.log
+.DS_Store
+Thumbs.db
+
+# Environnements virtuels
+venv/
+env/
+.env/

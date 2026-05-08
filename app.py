@@ -40,14 +40,6 @@ st.markdown(f"""
         /* Optimisations mobiles globales */
         @media (max-width: 768px) {{
             .stButton button {{
-                width: 100% !important;
-                height: 50px !important;
-                margin-bottom: 10px;
-            }}
-            [data-testid="stMetricValue"] {{
-                font-size: 1.8rem !important;
-            }}
-        }}
 
         /* Fix visibility for metrics and text */
         [data-testid="stMetricLabel"] {{
@@ -63,7 +55,7 @@ st.markdown(f"""
             color: {text_color};
         }}
 
-        /* BOUTON ACTUALISER (Bleu clair -> Gris) */
+        /* BOUTON ACTUALISER */
         div[data-testid="stBaseButton-btn_refresh"] button {{
             background-color: #e0f2fe !important;
             color: #0369a1 !important;
@@ -77,7 +69,7 @@ st.markdown(f"""
             transform: scale(1.02);
         }}
 
-        /* BOUTON MOBILE (Clair -> Foncé) */
+        /* BOUTON MOBILE */
         div[data-testid="stBaseButton-btn_mobile"] button {{
             background-color: #f9fafb !important;
             color: #374151 !important;
@@ -90,7 +82,7 @@ st.markdown(f"""
             transform: translateY(-2px);
         }}
 
-        /* BOUTON DÉCONNEXION (Rouge -> Bye Bye) */
+        /* BOUTON DÉCONNEXION */
         div[data-testid="stBaseButton-btn_logout"] button {{
             background-color: #fee2e2 !important;
             color: #dc2626 !important;
@@ -102,10 +94,165 @@ st.markdown(f"""
             color: #ffffff !important;
             border-color: #ef4444 !important;
         }}
-        div[data-testid="stBaseButton-btn_logout"] button:hover div::after {{
-            content: " 👋";
+
+        /* ==========================================
+           MOBILE-FIRST RESPONSIVE DESIGN
+           ========================================== */
+
+        /* Tablettes (768px et moins) */
+        @media (max-width: 768px) {{
+
+            /* Padding réduit pour maximiser l'espace */
+            .main .block-container {{
+                padding: 1rem 0.75rem 5rem 0.75rem !important;
+                max-width: 100% !important;
+            }}
+
+            /* Boutons pleine largeur et plus grands (touch-friendly) */
+            .stButton button {{
+                width: 100% !important;
+                min-height: 52px !important;
+                font-size: 16px !important;
+                margin-bottom: 8px !important;
+                border-radius: 12px !important;
+                touch-action: manipulation;
+            }}
+
+            /* Métriques plus lisibles */
+            [data-testid="stMetricValue"] {{
+                font-size: 2rem !important;
+            }}
+            [data-testid="stMetricLabel"] {{
+                font-size: 0.85rem !important;
+            }}
+
+            /* Colonnes empilées sur mobile */
+            [data-testid="column"] {{
+                width: 100% !important;
+                flex: none !important;
+            }}
+
+            /* Tableaux scrollables horizontalement */
+            [data-testid="stDataFrame"], .stDataFrame {{
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+            }}
+
+            /* Inputs plus grands pour les doigts */
+            .stTextInput input,
+            .stSelectbox select,
+            .stNumberInput input {{
+                min-height: 48px !important;
+                font-size: 16px !important; /* Évite le zoom auto sur iOS */
+                border-radius: 10px !important;
+            }}
+
+            /* Titre de la page */
+            h1 {{
+                font-size: 1.5rem !important;
+                margin-bottom: 0.5rem !important;
+            }}
+            h2 {{
+                font-size: 1.25rem !important;
+            }}
+            h3 {{
+                font-size: 1.1rem !important;
+            }}
+
+            /* Sidebar se comporte comme un panneau glissant */
+            [data-testid="stSidebar"] {{
+                width: 85vw !important;
+                max-width: 320px !important;
+            }}
+
+            /* Header plus compact */
+            [data-testid="stHeader"] {{
+                height: 3rem !important;
+            }}
+
+            /* Expanders plus faciles à tapper */
+            [data-testid="stExpander"] summary {{
+                min-height: 48px !important;
+                font-size: 15px !important;
+                align-items: center !important;
+            }}
+
+            /* Tabs touch-friendly */
+            [data-testid="stTabs"] [role="tab"] {{
+                min-height: 44px !important;
+                font-size: 14px !important;
+                padding: 0 12px !important;
+            }}
+
+            /* Upload zone simplifiée */
+            [data-testid="stFileUploader"] {{
+                border-radius: 12px !important;
+                padding: 1rem !important;
+            }}
+
+            /* Checkbox et radio plus grands */
+            [data-testid="stCheckbox"] label,
+            [data-testid="stRadio"] label {{
+                min-height: 44px !important;
+                font-size: 16px !important;
+                display: flex !important;
+                align-items: center !important;
+            }}
+
+            /* Form submit pleine largeur */
+            div[data-testid="stFormSubmitButton"] button {{
+                width: 100% !important;
+                min-height: 52px !important;
+                font-size: 18px !important;
+                border-radius: 12px !important;
+            }}
+
+            /* Sliders plus larges */
+            [data-testid="stSlider"] {{
+                padding: 1rem 0 !important;
+            }}
+
+            /* Ajouter de l'espace en bas pour la zone safe area (iOS) */
+            .main {{
+                padding-bottom: env(safe-area-inset-bottom, 20px) !important;
+            }}
         }}
+
+        /* Très petits écrans (moins de 400px) */
+        @media (max-width: 400px) {{
+            .main .block-container {{
+                padding: 0.75rem 0.5rem 5rem 0.5rem !important;
+            }}
+            [data-testid="stMetricValue"] {{
+                font-size: 1.6rem !important;
+            }}
+            h1 {{ font-size: 1.3rem !important; }}
+        }}
+
+        /* Empêcher le zoom iOS sur double-tap */
+        * {{
+            touch-action: manipulation;
+        }}
+
+        /* Scrollbar invisible sur mobile mais fonctionnelle */
+        @media (max-width: 768px) {{
+            ::-webkit-scrollbar {{
+                width: 0px;
+                background: transparent;
+            }}
+        }}
+
     </style>
+""", unsafe_allow_html=True)
+
+# Meta tags PWA pour l'installation sur l'écran d'accueil
+st.markdown("""
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="DarPharm">
+    <meta name="theme-color" content="#1877f2">
 """, unsafe_allow_html=True)
 
 # --- 2. INITIALISATION DE LA BASE UTILISATEURS ---
