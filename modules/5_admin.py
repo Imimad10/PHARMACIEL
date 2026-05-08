@@ -77,6 +77,9 @@ if tab_add:
             u_name = st.text_input("Nom d'utilisateur")
             u_pwd = st.text_input("Mot de passe")
             u_role = st.selectbox("Rôle", ["Saisie", "Superviseur", "Admin"])
+            c1, c2 = st.columns(2)
+            u_nom = c1.text_input("Nom de famille")
+            u_prenom = c2.text_input("Prénom")
             
             # Suggestion automatique de pages selon le rôle
             default_p = []
@@ -96,6 +99,8 @@ if tab_add:
                         'username': u_name,
                         'password': u_pwd,
                         'role': u_role,
+                        'nom': u_nom,
+                        'prenom': u_prenom,
                         'pages': str(u_pages),
                         'zone': u_zone
                     }
@@ -129,12 +134,18 @@ if tab_edit:
                     new_role = st.selectbox("Nouveau rôle", role_list, index=role_list.index(current_role) if current_role in role_list else 0)
                     current_pages = [p for p in target_data.get('pages', []) if p in MODULES_DISPO]
                     new_pages = st.multiselect("Accès aux modules", MODULES_DISPO, default=current_pages)
+                    
+                    ce1, ce2 = st.columns(2)
+                    new_nom = ce1.text_input("Nom de famille", value=target_data.get('nom', ''))
+                    new_prenom = ce2.text_input("Prénom", value=target_data.get('prenom', ''))
                 else:
                     # Superviseur : lecture seule sur les infos sensibles
                     st.info(f"Rôle actuel : {target_data.get('role')}")
                     new_pwd = target_data.get('password')
                     new_role = target_data.get('role')
                     new_pages = target_data.get('pages')
+                    new_nom = target_data.get('nom', '')
+                    new_prenom = target_data.get('prenom', '')
 
                 zones_list = ["Aucune", "A", "B", "C", "D", "Frigo"]
                 current_zone = target_data.get('zone', 'Aucune')
@@ -146,6 +157,8 @@ if tab_edit:
                     df_users.loc[mask, 'role'] = new_role
                     df_users.loc[mask, 'pages'] = str(new_pages)
                     df_users.loc[mask, 'zone'] = new_zone
+                    df_users.loc[mask, 'nom'] = new_nom
+                    df_users.loc[mask, 'prenom'] = new_prenom
                     save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
                     st.success("Mise à jour réussie sur GSheets !")
                     st.rerun()

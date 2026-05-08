@@ -258,7 +258,7 @@ st.markdown("""
 from utils_gsheets import load_gs_data, save_gs_data, DB_USERS_WORKSHEET, DB_USERS_FALLBACK
 
 # Chargement initial des utilisateurs
-df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "password", "role", "pages"])
+df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "password", "role", "pages", "nom", "prenom", "zone"])
 
 # Toujours s'assurer que l'admin principal existe
 if 'admin_imad' not in df_users['username'].values:
@@ -266,7 +266,10 @@ if 'admin_imad' not in df_users['username'].values:
         'username': 'admin_imad',
         'password': 'admin_imad_pwd',
         'role': 'Admin',
-        'pages': ['Admin Centrale', 'Dashboard', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Péremptions', 'Scanneur QR', 'Automatisation', 'Litiges Fournisseurs', 'Analyse Rotation', 'Scan Mobile', 'RH']
+        'nom': 'Administrateur',
+        'prenom': 'Imad',
+        'pages': ['Profil', 'Admin Centrale', 'Dashboard', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Péremptions', 'Scanneur QR', 'Automatisation', 'Litiges Fournisseurs', 'Analyse Rotation', 'Scan Mobile', 'RH'],
+        'zone': 'Aucune'
     }
     df_users = pd.concat([df_users, pd.DataFrame([admin_data])], ignore_index=True)
     save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
@@ -500,7 +503,8 @@ ALL_PAGES = {
     "Analyse Rotation": st.Page("modules/11_analyse_rotation.py", title="Analyse Rotation", icon="📈"),
     "Scan Mobile": st.Page("modules/12_mobile_scan.py", title="Scan Mobile", icon="📱"),
     "RH": st.Page("modules/13_rh.py", title="RH & Performance", icon="👥"),
-    "Liste des Lots": st.Page("modules/14_liste_des_lots.py", title="Liste des Lots", icon="📑")
+    "Liste des Lots": st.Page("modules/14_liste_des_lots.py", title="Liste des Lots", icon="📑"),
+    "Profil": st.Page("modules/17_profil.py", title="Mon Profil", icon="👤")
 }
 
 if is_ia_enabled():
@@ -556,25 +560,6 @@ with st.sidebar:
         st.rerun()
     st.divider()
 
-    with st.expander("🔐 Sécurité (Mot de passe)"):
-        with st.form("change_pwd_form", clear_on_submit=True):
-            new_p = st.text_input("Nouveau mot de passe", type="password")
-            confirm_p = st.text_input("Confirmer le mot de passe", type="password")
-            if st.form_submit_button("Mettre à jour"):
-                if new_p and new_p == confirm_p:
-                    # Charger les dernières données depuis GSheets
-                    df_all = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "password", "role", "pages"])
-                    mask = df_all['username'] == user['username']
-                    if mask.any():
-                        df_all.loc[mask, 'password'] = new_p
-                        save_gs_data(df_all, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
-                        st.success("Mot de passe mis à jour !")
-                        # Mettre à jour la session
-                        st.session_state.current_user['password'] = new_p
-                    else:
-                        st.error("Erreur : Utilisateur introuvable dans la base.")
-                else:
-                    st.error("Les mots de passe ne correspondent pas ou sont vides.")
 
     st.divider()
     if st.button("📱 Mode Mobile", use_container_width=True, key="btn_mobile"):
