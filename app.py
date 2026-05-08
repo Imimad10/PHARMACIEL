@@ -285,7 +285,7 @@ if "current_user" not in st.session_state:
     st.session_state.current_user = None
 
 # Initialiser le contrôleur de cookies
-controller = CookieController()
+controller = CookieController(key="main_cookie_controller")
 
 # On tente de récupérer le token depuis les cookies de façon transparente
 try:
@@ -294,12 +294,14 @@ except Exception:
     token_user = None
 
 # --- Auto-Login via Cookie ---
+# Si on a un cookie mais pas encore de session, on tente la reconnexion automatique
 if st.session_state.current_user is None and token_user:
     U = Query()
     res = db_users.search(U.username == token_user)
     if res:
         st.session_state.current_user = res[0]
-        st.session_state.remember_me = True # On maintient l'état
+        st.session_state.remember_me = True
+        st.rerun() # On force un rafraîchissement pour charger les modules
 
 # Rafraîchir les données de l'utilisateur depuis la DB à chaque chargement pour éviter les désync
 if st.session_state.current_user:
@@ -426,7 +428,7 @@ if st.session_state.current_user is None:
         with st.form("login_form"):
             u = st.text_input("Username", placeholder="Nom d'utilisateur", label_visibility="collapsed")
             p = st.text_input("Password", type="password", placeholder="Mot de passe", label_visibility="collapsed")
-            rester_connecte = st.checkbox("Rester connecté")
+            rester_connecte = st.checkbox("Rester connecté", value=True)
             submit = st.form_submit_button("Se connecter")
             
             if submit:
