@@ -150,7 +150,14 @@ with tabs[1]: render_saisie(CHAMBRES[1])
 
 # --- DASHBOARD ---
 def render_dashboard(chambre_name, df_all):
-    df = df_all[df_all['Chambre'] == chambre_name].copy()
+    if df_all.empty:
+        st.info(f"Aucune donnée globale disponible.")
+        return
+
+    # Nettoyage préventif pour le filtrage
+    df_all['Chambre'] = df_all['Chambre'].astype(str).str.strip()
+    df = df_all[df_all['Chambre'] == chambre_name.strip()].copy()
+    
     if not df.empty:
         df['Timestamp'] = pd.to_datetime(df['Date'] + ' ' + df['Heure'], format="%d/%m/%Y %H:%M", errors='coerce')
         last_entry = df.iloc[-1]
