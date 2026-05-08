@@ -7,6 +7,10 @@ import streamlit as st
 GS_CREDS_PATH = "google_creds.json"
 GS_CONFIG_PATH = "gs_config.txt"
 
+# Configuration Centralisée des Utilisateurs
+DB_USERS_WORKSHEET = "Utilisateurs"
+DB_USERS_FALLBACK = "data/db_users.json"
+
 def get_gs_client():
     # 1. Tenter via st.secrets (Meilleure pratique pour Cloud)
     if "gsheets" in st.secrets:

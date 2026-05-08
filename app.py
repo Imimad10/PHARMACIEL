@@ -256,9 +256,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- 2. CONFIGURATION BASE DE DONNÉES ---
-from utils_gsheets import load_gs_data, save_gs_data
-DB_USERS_WORKSHEET = "Utilisateurs"
-DB_USERS_FALLBACK = "data/db_users.json"
+from utils_gsheets import load_gs_data, save_gs_data, DB_USERS_WORKSHEET, DB_USERS_FALLBACK
 User = Query()
 
 # Chargement initial des utilisateurs

@@ -339,7 +339,7 @@ with tabs[3]:
     if user['role'] in ["Admin", "Superviseur"]:
         st.subheader("👥 Gestion des Équipes & Zones")
         # Charger les utilisateurs via GSheets (Utilisateurs worksheet)
-        from app import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+        from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
         df_users_inv = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "password", "role", "pages", "zone"])
         saisie_users = df_users_inv[df_users_inv['pages'].str.contains('Inventaire Détail', na=False)]['username'].tolist()
         

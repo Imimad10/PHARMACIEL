@@ -1,5 +1,4 @@
-from utils_gsheets import load_gs_data, save_gs_data
-from app import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+from utils_gsheets import load_gs_data, save_gs_data, DB_USERS_WORKSHEET, DB_USERS_FALLBACK
 
 # Configuration GSheets pour Admin
 DB_LOGS_WORKSHEET = "Logs"

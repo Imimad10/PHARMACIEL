@@ -6,7 +6,6 @@ from fpdf import FPDF
 import qrcode
 import plotly.express as px
 from utils import log_action
-from tinydb import TinyDB, Query
 from utils_ia import ask_ai, is_ia_enabled
 from utils_gsheets import load_gs_data, save_gs_data
 

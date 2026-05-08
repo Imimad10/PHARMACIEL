@@ -187,7 +187,7 @@ with tab_admin:
             st.divider()
             st.subheader("👥 Affectation des Zones")
         
-        from app import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+        from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
         df_users_it = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "password", "role", "pages", "inv_zones"])
         
         # Liste des zones uniques du master

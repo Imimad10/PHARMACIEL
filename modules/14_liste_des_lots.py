@@ -7,8 +7,7 @@ import os
 st.set_page_config(page_title="Liste des Lots", layout="wide")
 
 # --- 1. CONFIGURATION ---
-from utils_gsheets import load_gs_data, save_gs_data
-from app import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+from utils_gsheets import load_gs_data, save_gs_data, DB_USERS_WORKSHEET, DB_USERS_FALLBACK
 
 # --- 1. CONFIGURATION ---
 DATA_DIR = "data_inventaire_detail"

@@ -13,8 +13,7 @@ chart_color = "#1a1c21" if st.session_state.get("theme", "Clair") == "Clair" els
 st.title("👥 Ressources Humaines & Performance")
 st.markdown("### Cartographie et Qualité de Travail du Personnel")
 
-from utils_gsheets import load_gs_data
-from app import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+from utils_gsheets import load_gs_data, DB_USERS_WORKSHEET, DB_USERS_FALLBACK
 
 # Configuration GSheets pour RH
 LOGS_WORKSHEET = "Logs"
