@@ -1,9 +1,14 @@
-import streamlit as st
-import pandas as pd
-from tinydb import TinyDB, Query
-import os
-import shutil
-from utils import log_action
+from utils_gsheets import load_gs_data, save_gs_data
+from app import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+
+# Configuration GSheets pour Admin
+DB_LOGS_WORKSHEET = "Logs"
+DB_LOGS_FALLBACK = "data/db_logs.csv"
+COLS_LOGS = ["timestamp", "user", "module", "action"]
+
+DB_SETTINGS_WORKSHEET = "Settings"
+DB_SETTINGS_FALLBACK = "data/db_settings.csv"
+COLS_SETTINGS = ["name", "value"]
 
 # Sécurité
 user = st.session_state.get('current_user')
@@ -16,17 +21,19 @@ is_admin = user.get('role') == 'Admin'
 st.title("👥 Gestion d'Équipe & Zones")
 st.write("Gérez les utilisateurs et leurs zones d'affectation pour l'inventaire détail.")
 
-db_users = TinyDB('data/db_users.json')
-users = db_users.all()
+# Chargement des utilisateurs via GSheets
+df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "password", "role", "pages", "zone"])
 
 st.subheader("👥 Liste des Utilisateurs")
 
 # Affichage des utilisateurs avec un mot de passe masqué
-df_users = pd.DataFrame(users)
 if not df_users.empty:
     df_display = df_users.copy()
     df_display['password'] = "********"
-    st.dataframe(df_display[['username', 'role', 'pages', 'password']], use_container_width=True)
+    # S'assurer que les colonnes existent
+    needed = ['username', 'role', 'pages', 'password']
+    cols_avail = [c for c in needed if c in df_display.columns]
+    st.dataframe(df_display[cols_avail], use_container_width=True)
 
 st.divider()
 
@@ -66,18 +73,20 @@ if tab_add:
             u_zone = st.selectbox("Zone Attribuée (Inventaire Détail)", ["Aucune", "A", "B", "C", "D", "Frigo"])
             
             if st.form_submit_button("Créer l'utilisateur"):
-                User = Query()
-                if db_users.search(User.username == u_name):
+                if not df_users.empty and u_name in df_users['username'].values:
                     st.error("Ce nom d'utilisateur existe déjà !")
                 elif u_name and u_pwd:
-                    db_users.insert({
+                    new_user = {
                         'username': u_name,
                         'password': u_pwd,
                         'role': u_role,
-                        'pages': u_pages,
+                        'pages': str(u_pages),
                         'zone': u_zone
-                    })
+                    }
+                    df_users = pd.concat([df_users, pd.DataFrame([new_user])], ignore_index=True)
+                    save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
                     st.success(f"Utilisateur {u_name} créé !")
+                    from utils import log_action
                     log_action(st.session_state.current_user['username'], f"Création de l'utilisateur {u_name}", "Administration")
                     st.rerun()
                 else:
@@ -88,10 +97,11 @@ if tab_edit:
         st.subheader("Modifier les accès ou le mot de passe" if is_admin else "Affecter une zone de préparation")
         
         # Sélection de l'utilisateur à modifier
-        edit_target = st.selectbox("Sélectionner l'utilisateur", [u['username'] for u in users])
+        user_list = df_users['username'].tolist() if not df_users.empty else []
+        edit_target = st.selectbox("Sélectionner l'utilisateur", user_list)
         
         if edit_target:
-            target_data = next((u for u in users if u['username'] == edit_target), None)
+            target_data = df_users[df_users['username'] == edit_target].iloc[0]
             
             with st.form("form_edit_user"):
                 st.write(f"Modifications pour : **{edit_target}**")
@@ -115,14 +125,13 @@ if tab_edit:
                 new_zone = st.selectbox("Nouvelle zone d'inventaire", zones_list, index=zones_list.index(current_zone) if current_zone in zones_list else 0)
                 
                 if st.form_submit_button("Valider l'affectation" if not is_admin else "Mettre à jour"):
-                    User = Query()
-                    db_users.update({
-                        'password': new_pwd,
-                        'role': new_role,
-                        'pages': new_pages,
-                        'zone': new_zone
-                    }, User.username == edit_target)
-                    st.success("Mise à jour réussie !")
+                    mask = df_users['username'] == edit_target
+                    df_users.loc[mask, 'password'] = new_pwd
+                    df_users.loc[mask, 'role'] = new_role
+                    df_users.loc[mask, 'pages'] = str(new_pages)
+                    df_users.loc[mask, 'zone'] = new_zone
+                    save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+                    st.success("Mise à jour réussie sur GSheets !")
                     st.rerun()
 
 
@@ -130,7 +139,7 @@ if tab_edit:
 if tab_del:
     with tab_del:
         st.subheader("Supprimer définitivement un utilisateur")
-        del_options = [u['username'] for u in users if u['username'] != st.session_state.current_user['username']]
+        del_options = [u for u in df_users['username'].tolist() if u != st.session_state.current_user['username']] if not df_users.empty else []
         if not del_options:
             st.info("Aucun autre utilisateur à supprimer.")
         else:
@@ -138,27 +147,26 @@ if tab_del:
                 u_del = st.selectbox("Sélectionner l'utilisateur à supprimer", del_options)
                 st.warning("⚠️ Cette action est irréversible.")
                 if st.form_submit_button("Confirmer la suppression"):
-                    User = Query()
-                    db_users.remove(User.username == u_del)
-                    st.success(f"Utilisateur {u_del} supprimé.")
+                    df_users = df_users[df_users['username'] != u_del]
+                    save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+                    st.success(f"Utilisateur {u_del} supprimé sur GSheets.")
+                    from utils import log_action
                     log_action(st.session_state.current_user['username'], f"Suppression de l'utilisateur {u_del}", "Administration")
                     st.rerun()
 
 if tab_logs:
     with tab_logs:
         st.subheader("📝 Historique des actions (Logs)")
-        if os.path.exists('data/db_logs.json'):
-            db_logs = TinyDB('data/db_logs.json')
-            logs = db_logs.all()
-            if logs:
-                df_logs = pd.DataFrame(logs)
-                st.dataframe(df_logs.sort_values(by='timestamp', ascending=False), use_container_width=True)
-            else:
-                st.info("Aucun log disponible.")
-            if st.button("🗑️ Nettoyer tout l'historique"):
-                db_logs.truncate()
-                st.success("Historique vidé !")
-                st.rerun()
+        df_logs = load_gs_data(DB_LOGS_WORKSHEET, DB_LOGS_FALLBACK, COLS_LOGS)
+        if not df_logs.empty:
+            st.dataframe(df_logs.sort_values(by='timestamp', ascending=False), use_container_width=True)
+        else:
+            st.info("Aucun log disponible sur GSheets.")
+        
+        if st.button("🗑️ Nettoyer tout l'historique sur GSheets"):
+            save_gs_data(pd.DataFrame(columns=COLS_LOGS), DB_LOGS_WORKSHEET, DB_LOGS_FALLBACK)
+            st.success("Historique vidé !")
+            st.rerun()
 
 if tab_backup:
     with tab_backup:
@@ -184,11 +192,12 @@ if tab_ia:
     with tab_ia:
         if is_admin:
             st.subheader("🤖 Configuration de l'Intelligence Artificielle")
-            db_settings = TinyDB('data/db_settings.json')
-            Setting = Query()
+            df_settings = load_gs_data(DB_SETTINGS_WORKSHEET, DB_SETTINGS_FALLBACK, COLS_SETTINGS)
+            
             def get_setting(name, default=""):
-                res = db_settings.search(Setting.name == name)
-                return res[0]['value'] if res else default
+                if df_settings.empty: return default
+                res = df_settings[df_settings['name'] == name]
+                return str(res['value'].values[0]) if not res.empty else default
                 
             with st.form("form_ia_config_admin"):
                 ia_en = st.checkbox("🚀 Activer l'IA globalement", value=get_setting('ia_global_enabled', 'True') == 'True')
@@ -201,15 +210,21 @@ if tab_ia:
                 new_openai = st.text_input("Clé API ChatGPT (OpenAI)", value=get_setting('openai_api_key'), type="password")
                 
                 if st.form_submit_button("💾 Sauvegarder la configuration IA", use_container_width=True):
-                    def save_set(name, val):
-                        if db_settings.search(Setting.name == name): db_settings.update({'value': val}, Setting.name == name)
-                        else: db_settings.insert({'name': name, 'value': val})
-                    save_set('gemini_api_key', new_gemini)
-                    save_set('anthropic_api_key', new_claude)
-                    save_set('openai_api_key', new_openai)
-                    save_set('active_ai_provider', active_p)
-                    save_set('ia_global_enabled', str(ia_en))
-                    st.success("✅ Configuration IA mise à jour avec succès !")
+                    def update_setting(name, val):
+                        nonlocal df_settings
+                        if not df_settings.empty and name in df_settings['name'].values:
+                            df_settings.loc[df_settings['name'] == name, 'value'] = str(val)
+                        else:
+                            df_settings = pd.concat([df_settings, pd.DataFrame([{'name': name, 'value': str(val)}])], ignore_index=True)
+                    
+                    update_setting('gemini_api_key', new_gemini)
+                    update_setting('anthropic_api_key', new_claude)
+                    update_setting('openai_api_key', new_openai)
+                    update_setting('active_ai_provider', active_p)
+                    update_setting('ia_global_enabled', ia_en)
+                    
+                    save_gs_data(df_settings, DB_SETTINGS_WORKSHEET, DB_SETTINGS_FALLBACK)
+                    st.success("✅ Configuration IA mise à jour sur GSheets !")
                     st.rerun()
         else:
             st.warning("⚠️ Accès restreint. Seuls les administrateurs peuvent configurer l'IA.")

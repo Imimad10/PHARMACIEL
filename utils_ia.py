@@ -3,16 +3,17 @@ import anthropic
 from openai import OpenAI
 import streamlit as st
 import os
-from tinydb import TinyDB, Query
+from utils_gsheets import load_gs_data
 
 def get_setting(name):
-    """Récupère un paramètre depuis la base de données."""
-    if os.path.exists('data/db_settings.json'):
-        db_settings = TinyDB('data/db_settings.json')
-        Setting = Query()
-        res = db_settings.search(Setting.name == name)
-        if res and res[0]['value']:
-            return res[0]['value']
+    """Récupère un paramètre depuis la base de données GSheets."""
+    WORKSHEET = "Settings"
+    FALLBACK = "data/db_settings.csv"
+    df = load_gs_data(WORKSHEET, FALLBACK, ["name", "value"])
+    if not df.empty:
+        res = df[df['name'] == name]
+        if not res.empty:
+            return str(res['value'].values[0])
     return None
 
 def is_ia_enabled():

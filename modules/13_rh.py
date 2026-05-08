@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import plotly.express as px
 import plotly.graph_objects as go
-from tinydb import TinyDB, Query
+import os
 from datetime import datetime
 
 # Configuration du template Plotly selon le thème global
@@ -13,62 +13,44 @@ chart_color = "#1a1c21" if st.session_state.get("theme", "Clair") == "Clair" els
 st.title("👥 Ressources Humaines & Performance")
 st.markdown("### Cartographie et Qualité de Travail du Personnel")
 
+from utils_gsheets import load_gs_data
+from app import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+
+# Configuration GSheets pour RH
+LOGS_WORKSHEET = "Logs"
+LOGS_FALLBACK = "data/db_logs.csv"
+INV_WORKSHEET = "Saisie_Inventaire"
+INV_FALLBACK = "data_inventaire/saisie.csv"
+RECOUV_WORKSHEET = "Recouvrement"
+RECOUV_FALLBACK = "data_recouvrement.csv"
+POINTAGES_WORKSHEET = "Pointages"
+POINTAGES_FALLBACK = "data/db_pointages.csv"
+RECLAM_WORKSHEET = "Litiges_SAV"
+RECLAM_FALLBACK = "data/db_reclamations.csv"
+
 # --- CHARGEMENT DES DONNÉES MULTI-SOURCES ---
 @st.cache_data(ttl=60)
 def get_rh_data():
     data = {
-        'logs': [],
-        'inventaire': pd.DataFrame(),
-        'recouvrement': pd.DataFrame(),
-        'pointages': [],
-        'reclamations': [],
-        'users': []
+        'logs': load_gs_data(LOGS_WORKSHEET, LOGS_FALLBACK, ["timestamp", "user", "module", "action"]),
+        'inventaire': load_gs_data(INV_WORKSHEET, INV_FALLBACK, ['designation', 'qte_saisie', 'agent']),
+        'recouvrement': load_gs_data(RECOUV_WORKSHEET, RECOUV_FALLBACK, ["Client", "Montant Réglé", "Livreur", "Statut", "Mode Paiement"]),
+        'pointages': load_gs_data(POINTAGES_WORKSHEET, POINTAGES_FALLBACK, ['livreur', 'reference']),
+        'reclamations': load_gs_data(RECLAM_WORKSHEET, RECLAM_FALLBACK, ['livreur', 'motif']),
+        'users': load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "role"])
     }
     
-    # 1. Logs d'activité
-    try:
-        db_logs = TinyDB('data/db_logs.json')
-        data['logs'] = db_logs.all()
-    except: pass
-
-    # 2. Inventaires
-    try:
-        if os.path.exists("data_inventaire/saisie.csv"):
-            data['inventaire'] = pd.read_csv("data_inventaire/saisie.csv", sep=';', encoding='utf-8-sig')
-    except: pass
-
-    # 3. Recouvrement
-    try:
-        if os.path.exists("data_recouvrement.csv"):
-            df_rec = pd.read_csv("data_recouvrement.csv", sep=',', encoding='utf-8-sig')
-            # Nettoyage des colonnes et montants
-            cols_map = {c.lower(): c for c in df_rec.columns}
-            for target in ["Montant Réglé", "Montant Initial", "Reste à payer"]:
-                # Chercher une correspondance insensible à la casse
-                for k, v in cols_map.items():
-                    if target.lower() in k:
-                        df_rec[target] = pd.to_numeric(df_rec[v].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
-                        break
-            data['recouvrement'] = df_rec
-    except: pass
-
-    # 4. Pointages & Réclamations (Logistique)
-    try:
-        db_pharma = TinyDB("db_pharmaciel.json")
-        data['pointages'] = db_pharma.table('pointages').all()
-        data['reclamations'] = db_pharma.table('reclamations').all()
-    except: pass
-
-    # 5. Liste des utilisateurs
-    try:
-        db_users = TinyDB('data/db_users.json')
-        data['users'] = db_users.all()
-    except: pass
-
+    # Nettoyage spécifique pour le recouvrement
+    if not data['recouvrement'].empty:
+        df_rec = data['recouvrement']
+        if 'Montant Réglé' in df_rec.columns:
+            df_rec['Montant Réglé'] = pd.to_numeric(df_rec['Montant Réglé'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+        data['recouvrement'] = df_rec
+        
     return data
 
 rh_data = get_rh_data()
-users_list = [u['username'] for u in rh_data['users']]
+users_list = rh_data['users']['username'].tolist() if not rh_data['users'].empty else []
 
 # --- FILTRES ---
 col_f1, col_f2 = st.columns([1, 2])
@@ -86,7 +68,7 @@ if selected_user == "Tous le personnel":
     c1, c2, c3 = st.columns(3)
     
     # KPI 1 : Activité (Logs)
-    df_logs = pd.DataFrame(rh_data['logs'])
+    df_logs = rh_data['logs']
     if not df_logs.empty and 'user' in df_logs.columns:
         act_counts = df_logs['user'].value_counts().reset_index()
         act_counts.columns = ['Employé', 'Nb Actions']
@@ -128,7 +110,7 @@ if selected_user == "Tous le personnel":
 
 else:
     # --- FOCUS INDIVIDUEL ---
-    user_info = next((u for u in rh_data['users'] if u['username'] == selected_user), {})
+    user_info = rh_data['users'][rh_data['users']['username'] == selected_user].iloc[0] if not rh_data['users'].empty else {}
     role = user_info.get('role', 'N/A')
     
     st.markdown(f"## {selected_user} <span style='font-size: 15px; color: grey;'>({role})</span>", unsafe_allow_html=True)
@@ -136,8 +118,8 @@ else:
     m1, m2, m3, m4 = st.columns(4)
     
     # 1. Activité Logs
-    u_logs = [l for l in rh_data['logs'] if l.get('user') == selected_user]
-    m1.metric("Actions Système", len(u_logs))
+    u_logs_df = rh_data['logs'][rh_data['logs']['user'] == selected_user] if not rh_data['logs'].empty else pd.DataFrame()
+    m1.metric("Actions Système", len(u_logs_df))
     
     # 2. Performance selon le rôle
     if role == "Saisie":
@@ -157,8 +139,8 @@ else:
         total_encaisse = u_rec['Montant Réglé'].sum() if not u_rec.empty and 'Montant Réglé' in u_rec.columns else 0
         m2.metric("Total Encaissé", f"{total_encaisse:,.0f} DA")
         
-        u_pts = len([p for p in rh_data['pointages'] if p.get('livreur') == selected_user])
-        m3.metric("Factures Pointées", u_pts)
+        u_pts = rh_data['pointages'][rh_data['pointages']['livreur'] == selected_user] if not rh_data['pointages'].empty else pd.DataFrame()
+        m3.metric("Factures Pointées", len(u_pts))
         
         # Taux de succès recouvrement
         if not u_rec.empty and 'Statut' in u_rec.columns:
@@ -174,7 +156,7 @@ else:
     if role == "Livreur":
         with col_left:
             st.subheader("🚩 Analyse des Réclamations (Qualité)")
-            u_recs_df = pd.DataFrame([r for r in rh_data['reclamations'] if r.get('livreur') == selected_user])
+            u_recs_df = rh_data['reclamations'][rh_data['reclamations']['livreur'] == selected_user] if not rh_data['reclamations'].empty else pd.DataFrame()
             if not u_recs_df.empty and 'motif' in u_recs_df.columns:
                 fig_reclam = px.bar(u_recs_df['motif'].value_counts().reset_index(), x='motif', y='count', 
                                     title="Motifs de litiges clients", template=plotly_template, color_discrete_sequence=['#ef4444'])
@@ -193,8 +175,8 @@ else:
     else:
         with col_left:
             st.subheader("📈 Chronologie d'Activité")
-            if u_logs:
-                df_u_logs = pd.DataFrame(u_logs)
+            if not u_logs_df.empty:
+                df_u_logs = u_logs_df.copy()
                 df_u_logs['date'] = pd.to_datetime(df_u_logs['timestamp']).dt.date
                 daily_act = df_u_logs.groupby('date').size().reset_index(name='Actions')
                 fig_trend = px.line(daily_act, x='date', y='Actions', markers=True, template=plotly_template)
@@ -211,8 +193,8 @@ else:
                 st.plotly_chart(fig_mod, use_container_width=True)
 
     st.subheader("📜 Dernières actions significatives")
-    if u_logs:
-        st.table(pd.DataFrame(u_logs[::-1]).head(10)[['timestamp', 'module', 'action']])
+    if not u_logs_df.empty:
+        st.table(u_logs_df.sort_values('timestamp', ascending=False).head(10)[['timestamp', 'module', 'action']])
 
 # --- SECTION SUGGESTIONS AVANCÉES ---
 with st.expander("🚀 Suggestions Stratégiques pour la Cartographie du Personnel"):

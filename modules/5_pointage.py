@@ -9,56 +9,37 @@ from utils import log_action
 # st.set_page_config(page_title="Darpharm Solution - Pointage", layout="wide", page_icon="🚚")
 
 # Initialisation de la base de données locale
-db = TinyDB('db_pharmaciel.json')
-table_livreurs = db.table('livreurs')
-table_pointage = db.table('pointages')
+from utils_gsheets import load_gs_data, save_gs_data
+# --- CONFIGURATION ET BASE DE DONNÉES ---
+LIVREURS_WORKSHEET = "Livreurs"
+LIVREURS_FALLBACK = "data/db_livreurs.csv"
+POINTAGES_WORKSHEET = "Pointages"
+POINTAGES_FALLBACK = "data/db_pointages.csv"
+RECOUV_WORKSHEET = "Recouvrement"
+RECOUV_FALLBACK = "data_recouvrement.csv"
+
+COLS_LIVREURS = ["nom"]
+COLS_POINTAGES = ['date_pointage', 'date_feuille', 'livreur', 'rotation', 'reference', 'client', 'region', 'statut_karim']
+COLS_RECOUV = ["Client", "Facture", "Mode Paiement", "Région", "Reste à payer", "Livreur", "Date", "Statut"]
 
 # --- FONCTIONS DE GESTION ---
 def ajouter_livreur(nom):
-    if not table_livreurs.search(Query().nom == nom):
-        table_livreurs.insert({'nom': nom})
+    df_l = load_gs_data(LIVREURS_WORKSHEET, LIVREURS_FALLBACK, COLS_LIVREURS)
+    if df_l.empty or nom not in df_l['nom'].values:
+        new_l = pd.DataFrame([{'nom': nom}])
+        df_l = pd.concat([df_l, new_l], ignore_index=True)
+        save_gs_data(df_l, LIVREURS_WORKSHEET, LIVREURS_FALLBACK)
         return True
     return False
 
 def get_livreurs():
-    return [item['nom'] for item in table_livreurs.all()]
+    df_l = load_gs_data(LIVREURS_WORKSHEET, LIVREURS_FALLBACK, COLS_LIVREURS)
+    return df_l['nom'].tolist() if not df_l.empty else []
 
 def archive_pointages_mensuel():
-    """Archive les pointages des mois précédents vers un dossier archive."""
-    now = datetime.now()
-    all_data = table_pointage.all()
-    if not all_data: return
-    
-    archive_dir = "data_archive"
-    os.makedirs(archive_dir, exist_ok=True)
-    
-    data_to_archive = {}
-    data_to_keep = []
-    
-    for item in all_data:
-        try:
-            dt = datetime.strptime(item['date_pointage'], "%d/%m/%Y %H:%M")
-            if dt.month != now.month or dt.year != now.year:
-                key = dt.strftime("%Y_%m")
-                if key not in data_to_archive: data_to_archive[key] = []
-                data_to_archive[key].append(item)
-            else:
-                data_to_keep.append(item)
-        except:
-            data_to_keep.append(item)
-            
-    if data_to_archive:
-        import json
-        for key, data in data_to_archive.items():
-            archive_file = os.path.join(archive_dir, f"pointage_archive_{key}.json")
-            with open(archive_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=4)
-        
-        table_pointage.truncate()
-        if data_to_keep:
-            table_pointage.insert_multiple(data_to_keep)
-        return True
-    return False
+    # Sur GSheets, l'archivage pourrait être géré différemment ou pas du tout pour garder l'historique
+    # On laisse la fonction vide ou on l'adapte si nécessaire plus tard.
+    pass
 
 # Exécution de l'archivage automatique au chargement
 archive_pointages_mensuel()
@@ -93,9 +74,9 @@ with tab_admin:
                 st.text(f"• {l}")
             
             st.divider()
-            if st.button("🗑️ Vider tout l'historique de pointage", type="primary"):
-                table_pointage.truncate()
-                st.success("Historique vidé !")
+            if st.button("🗑️ Vider tout l'historique de pointage (GSheets)", type="primary"):
+                save_gs_data(pd.DataFrame(columns=COLS_POINTAGES), POINTAGES_WORKSHEET, POINTAGES_FALLBACK)
+                st.success("Historique vidé sur GSheets !")
                 st.rerun()
         else:
             st.info("Aucun livreur enregistré.")
@@ -192,9 +173,10 @@ with tab_pointage:
                             (df_filtre['dt_creation'].dt.time <= t_end)
                         ]
                     
-                    # --- DETECTION DES DOUBLONS (Factures déjà pointées) ---
-                    existing_refs = {item['reference'] for item in table_pointage.all()}
-                    df_filtre['deja_pointe'] = df_filtre['reference'].isin(existing_refs)
+                    # --- DETECTION DES DOUBLONS ---
+                    df_pointages = load_gs_data(POINTAGES_WORKSHEET, POINTAGES_FALLBACK, COLS_POINTAGES)
+                    existing_refs = set(df_pointages['reference'].astype(str).tolist()) if not df_pointages.empty else set()
+                    df_filtre['deja_pointe'] = df_filtre['reference'].astype(str).isin(existing_refs)
 
                     # --- ACTIONS DE MASSE ET PDF ---
                     st.divider()
@@ -285,42 +267,42 @@ with tab_pointage:
                         factures_ok = edited_df[edited_df['Validé'] == True]
                         
                         if not factures_ok.empty:
+                            new_points = []
                             new_recouv_rows = []
+                            now_p = datetime.now().strftime("%d/%m/%Y %H:%M")
+                            now_r = datetime.now().strftime("%d/%m/%Y")
+                            
                             for _, row in factures_ok.iterrows():
-                                table_pointage.insert({
-                                    'date_pointage': datetime.now().strftime("%d/%m/%Y %H:%M"),
+                                new_points.append({
+                                    'date_pointage': now_p,
                                     'date_feuille': str(d_sel),
                                     'livreur': livreur_sel,
                                     'rotation': rotation_sel,
-                                    'reference': row['reference'],
-                                    'client': row['client'],
-                                    'region': row['region'],
+                                    'reference': str(row['reference']),
+                                    'client': str(row['client']),
+                                    'region': str(row['region']),
                                     'statut_karim': "Archivé"
                                 })
                                 
-                                # Préparation des données pour le module Recouvrement
                                 new_recouv_rows.append({
-                                    "Client": row['client'],
-                                    "Facture": row['reference'],
+                                    "Client": str(row['client']),
+                                    "Facture": str(row['reference']),
                                     "Mode Paiement": "À Définir",
-                                    "Région": row['region'],
+                                    "Région": str(row['region']),
                                     "Reste à payer": 0.0,
                                     "Livreur": livreur_sel,
-                                    "Date": datetime.now().strftime("%d/%m/%Y"),
+                                    "Date": now_r,
                                     "Statut": "Non Payé"
                                 })
                             
-                            # Insertion dans Recouvrement (CSV)
-                            recouv_file = "data_recouvrement.csv"
-                            if os.path.exists(recouv_file):
-                                df_recouv = pd.read_csv(recouv_file)
-                                if "Facture" not in df_recouv.columns: df_recouv["Facture"] = ""
-                            else:
-                                df_recouv = pd.DataFrame(columns=["Client", "Facture", "Mode Paiement", "Région", "Reste à payer", "Livreur", "Date", "Statut"])
-                                
-                            df_new_recouv = pd.DataFrame(new_recouv_rows)
-                            df_recouv = pd.concat([df_recouv, df_new_recouv], ignore_index=True)
-                            df_recouv.to_csv(recouv_file, index=False)
+                            # Mise à jour Pointages
+                            df_p_all = pd.concat([df_pointages, pd.DataFrame(new_points)], ignore_index=True)
+                            save_gs_data(df_p_all, POINTAGES_WORKSHEET, POINTAGES_FALLBACK)
+                            
+                            # Mise à jour Recouvrement
+                            df_rec = load_gs_data(RECOUV_WORKSHEET, RECOUV_FALLBACK, COLS_RECOUV)
+                            df_rec = pd.concat([df_rec, pd.DataFrame(new_recouv_rows)], ignore_index=True)
+                            save_gs_data(df_rec, RECOUV_WORKSHEET, RECOUV_FALLBACK)
                             
                             log_action(st.session_state.current_user['username'], f"Archivage pointage {len(factures_ok)} factures ({livreur_sel})", "Pointage")
                             st.success(f"✅ {len(factures_ok)} factures archivées avec succès !")
@@ -337,10 +319,9 @@ with tab_pointage:
 # --- ONGLET HISTORIQUE ---
 with tab_historique:
     st.subheader("📊 Historique des derniers pointages")
-    data_hist = table_pointage.all()
-    if data_hist:
-        df_hist = pd.DataFrame(data_hist)
-        st.dataframe(df_hist.sort_values('date_pointage', ascending=False).head(50), use_container_width=True)
+    df_h = load_gs_data(POINTAGES_WORKSHEET, POINTAGES_FALLBACK, COLS_POINTAGES)
+    if not df_h.empty:
+        st.dataframe(df_h.sort_values('date_pointage', ascending=False).head(50), use_container_width=True, hide_index=True)
     else:
-        st.write("Aucun historique pour le moment.")
+        st.write("Aucun historique sur GSheets pour le moment.")
 

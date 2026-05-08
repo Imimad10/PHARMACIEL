@@ -2,13 +2,19 @@ import streamlit as st
 import pandas as pd
 import os
 import unicodedata
-from tinydb import TinyDB, Query
+import os
 
 st.set_page_config(page_title="Liste des Lots", layout="wide")
 
 # --- 1. CONFIGURATION ---
+from utils_gsheets import load_gs_data, save_gs_data
+from app import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+
+# --- 1. CONFIGURATION ---
 DATA_DIR = "data_inventaire_detail"
-MASTER_PATH = os.path.join(DATA_DIR, "master_detail.xlsx")
+MASTER_WORKSHEET = "Master_Inventaire_Zone"
+MASTER_FALLBACK = os.path.join(DATA_DIR, "master_detail.csv")
+COLS_MASTER = ["designation", "lot", "zone", "ddp", "ppa", "shp", "stock_theorique"]
 
 # --- 2. FONCTIONS TECHNIQUES ---
 def normalize_text(text):
@@ -65,14 +71,14 @@ user = st.session_state.current_user
 user_zone = user.get('zone', 'Aucune')
 is_admin = user.get('role') in ["Admin", "Superviseur"]
 
-df_master = None
-if os.path.exists(MASTER_PATH):
-    res = load_master_v5(MASTER_PATH, os.path.getmtime(MASTER_PATH))
-    if isinstance(res, str): st.error(res)
-    else: df_master = res
+df_master = load_gs_data(MASTER_WORKSHEET, MASTER_FALLBACK, COLS_MASTER)
+if not df_master.empty:
+    df_master = clean_cols_v5(df_master)
+else:
+    df_master = None
 
 if df_master is None:
-    st.info("Aucun Master Détail trouvé. Veuillez l'importer depuis l'onglet Admin de 'Inventaire Détail'.")
+    st.info("Aucun Master Détail trouvé sur GSheets. Veuillez l'importer depuis l'onglet Admin de 'Inventaire Détail'.")
     st.stop()
 
 # Filtrer par zone si non-admin
@@ -135,27 +141,26 @@ with tabs[1]:
 with tabs[2]:
     if is_admin:
         st.subheader("👥 Affectation des Zones aux Utilisateurs")
-        db_u = TinyDB('data/db_users.json')
-        all_u = db_u.all()
+        df_u = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "role", "pages", "zone"])
         
         # Filtrer les utilisateurs qui ont accès à "Liste des Lots" ou "Inventaire Détail"
-        target_users = [u['username'] for u in all_u if 'Liste des Lots' in u.get('pages', []) or 'Inventaire Détail' in u.get('pages', [])]
+        target_users = df_u['username'].tolist() if not df_u.empty else []
         
         col_u1, col_u2, col_u3 = st.columns([2, 1, 1])
         target_user = col_u1.selectbox("Sélectionner un utilisateur :", target_users)
         
-        u_record = next((u for u in all_u if u['username'] == target_user), {})
-        current_z = u_record.get('zone', 'Aucune')
-        
-        z_list = ["Aucune"] + sorted([str(z) for z in df_master['zone'].unique() if pd.notna(z)])
-        new_z = col_u2.selectbox(f"Assigner Zone (Actuelle: {current_z})", z_list, index=z_list.index(current_z) if current_z in z_list else 0)
-        
-        if col_u3.button("✅ Confirmer l'affectation", use_container_width=True):
-            U = Query()
-            db_u.update({'zone': new_z}, U.username == target_user)
-            st.success(f"Zone de **{target_user}** mise à jour : **{new_z}**")
-            # Clear cache si besoin ou simplement refresh
-            st.rerun()
+        if target_user:
+            u_record = df_u[df_u['username'] == target_user].iloc[0]
+            current_z = u_record.get('zone', 'Aucune')
+            
+            z_list = ["Aucune"] + sorted([str(z) for z in df_master['zone'].unique() if pd.notna(z)])
+            new_z = col_u2.selectbox(f"Assigner Zone (Actuelle: {current_z})", z_list, index=z_list.index(current_z) if current_z in z_list else 0)
+            
+            if col_u3.button("✅ Confirmer l'affectation", use_container_width=True):
+                df_u.loc[df_u['username'] == target_user, 'zone'] = new_z
+                save_gs_data(df_u, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+                st.success(f"Zone de **{target_user}** mise à jour : **{new_z}**")
+                st.rerun()
             
         st.divider()
         st.info("Pour importer ou gérer le fichier Master, veuillez vous rendre dans l'onglet Admin du module **Inventaire Détail**.")

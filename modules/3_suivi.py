@@ -5,12 +5,13 @@ import os
 import plotly.express as px
 from fpdf import FPDF
 from utils import log_action
-from streamlit_gsheets import GSheetsConnection
 from utils_ia import ask_ai, is_ia_enabled
-
+from utils_gsheets import load_gs_data, save_gs_data
 # --- CONFIGURATION ---
-DATA_FILE = "suivi_data.csv"
+WORKSHEET_SUIVI = "Suivi_Frigo"
+FALLBACK_SUIVI = "suivi_data.csv"
 CHAMBRES = ["Chambre Froide 1", "Chambre Froide 2"]
+COLS_SUIVI = ["Date", "Heure", "Température", "Agent", "Statut", "Commentaire", "Type", "Chambre"]
 
 # Initialisation du fuseau horaire dans le session_state
 if "tz_offset" not in st.session_state:
@@ -86,34 +87,19 @@ def generer_pdf(df, chambre_name):
     return raw.encode('latin-1', 'replace')
 
 def get_data():
-    df = pd.DataFrame()
-    conn_status = "red"
-    error_msg = None
-    try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        df = conn.read(worksheet="Suivi_Frigo", ttl=0).dropna(how="all")
-        conn_status = "green"
-    except Exception as e:
-        error_msg = str(e)
-        conn_status = "orange"
-        if os.path.isfile(DATA_FILE):
-            df = pd.read_csv(DATA_FILE)
+    df = load_gs_data(WORKSHEET_SUIVI, FALLBACK_SUIVI, COLS_SUIVI)
     if not df.empty:
         df = clean_frigo_data(df)
-    return df, conn_status, error_msg
+        conn_status = "green"
+    else:
+        conn_status = "orange"
+    return df, conn_status, None
 
 def save_data(data):
-    df_new = pd.DataFrame([data])
-    try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        try:
-            existing = conn.read(worksheet="Suivi_Frigo", ttl=0).dropna(how="all")
-            updated = pd.concat([existing, df_new], ignore_index=True)
-        except: updated = df_new
-        conn.update(worksheet="Suivi_Frigo", data=updated)
-    except: pass
-    file_exists = os.path.isfile(DATA_FILE)
-    df_new.to_csv(DATA_FILE, mode='a', header=not file_exists, index=False)
+    df_old = load_gs_data(WORKSHEET_SUIVI, FALLBACK_SUIVI, COLS_SUIVI)
+    df_new = pd.concat([df_old, pd.DataFrame([data])], ignore_index=True)
+    save_gs_data(df_new, WORKSHEET_SUIVI, FALLBACK_SUIVI)
+    
     log_action(data['Agent'], f"T° {data['Chambre']}: {data['Température']}°C", "Suivi Frigo")
     if data['Statut'] == "ALERTE":
         st.error(f"🚨 ALERTE {data['Chambre']} : {data['Température']}°C !")
@@ -253,11 +239,8 @@ with tabs[5]:
         df_edit = st.data_editor(df_all, use_container_width=True, num_rows="dynamic")
         if st.button("💾 Sauvegarder"):
             try:
-                if conn_status == "green":
-                    conn = st.connection("gsheets", type=GSheetsConnection)
-                    conn.update(worksheet="Suivi_Frigo", data=df_edit)
-                df_edit.to_csv(DATA_FILE, index=False)
-                st.success("Base de données mise à jour !")
+                save_gs_data(df_edit, WORKSHEET_SUIVI, FALLBACK_SUIVI)
+                st.success("Base de données mise à jour sur GSheets !")
                 st.rerun()
             except Exception as e: st.error(f"Erreur: {e}")
         if st.button("🚀 Migrer vers GSheets"):
@@ -272,12 +255,9 @@ with tabs[5]:
         st.subheader("🗑️ Nettoyage des Données (Admin)")
         st.error("⚠️ Cette action supprimera définitivement tout l'historique des relevés de température.")
         confirm_suivi = st.checkbox("Confirmer la suppression du Suivi Global")
-        if st.button("🔴 Réinitialiser le Suivi Global", disabled=not confirm_suivi, use_container_width=True):
-            if os.path.exists(DATA_FILE):
-                os.remove(DATA_FILE)
-            # Créer un fichier vide avec les colonnes attendues
-            pd.DataFrame(columns=["Date", "Heure", "Température", "Agent", "Statut", "Commentaire", "Type", "Chambre"]).to_csv(DATA_FILE, index=False)
-            st.success("Historique des températures supprimé.")
+        if st.button("🔴 Réinitialiser le Suivi Global (GSheets)", disabled=not confirm_suivi, use_container_width=True):
+            save_gs_data(pd.DataFrame(columns=COLS_SUIVI), WORKSHEET_SUIVI, FALLBACK_SUIVI)
+            st.success("Historique des températures supprimé sur GSheets.")
             st.rerun()
     else:
         st.warning("Accès restreint.")

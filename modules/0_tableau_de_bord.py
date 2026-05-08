@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import plotly.express as px
 import plotly.graph_objects as go
-from tinydb import TinyDB
+from utils_gsheets import load_gs_data
 from datetime import datetime, timedelta
 
 user = st.session_state.get('current_user', {'username': 'Utilisateur', 'role': 'Saisie'})
@@ -34,9 +34,9 @@ def collect_all_kpis():
     kpis = {}
 
     # --- RECOUVREMENT ---
-    try:
-        df_rec = pd.read_csv("data_recouvrement.csv", sep=',', encoding='utf-8-sig')
-        for col in ["Montant Initial", "Montant Réglé", "Reste à payer"]:
+    df_rec = load_gs_data("Recouvrement", "data_recouvrement.csv", ["Reste à payer", "Statut", "Livreur"])
+    if not df_rec.empty:
+        for col in ["Reste à payer"]:
             if col in df_rec.columns:
                 df_rec[col] = pd.to_numeric(df_rec[col].astype(str).str.replace(',','.'), errors='coerce').fillna(0)
         kpis['rec_total_du'] = df_rec['Reste à payer'].sum() if 'Reste à payer' in df_rec.columns else 0
@@ -45,75 +45,76 @@ def collect_all_kpis():
         kpis['rec_regle'] = len(df_rec[df_rec['Statut'] == 'Réglé']) if 'Statut' in df_rec.columns else 0
         kpis['rec_by_status'] = df_rec['Statut'].value_counts().to_dict() if 'Statut' in df_rec.columns else {}
         kpis['rec_by_livreur'] = df_rec.groupby('Livreur')['Reste à payer'].sum().to_dict() if 'Livreur' in df_rec.columns else {}
-    except: kpis['rec_total_du'] = kpis['rec_dossiers'] = kpis['rec_en_attente'] = kpis['rec_regle'] = 0
+    else: kpis['rec_total_du'] = kpis['rec_dossiers'] = kpis['rec_en_attente'] = kpis['rec_regle'] = 0
 
     # --- ARCHIVES RECOUVREMENT ---
-    try:
-        df_arch = pd.read_csv("data_archive_recouvrement.csv", sep=',', encoding='utf-8-sig')
+    df_arch = load_gs_data("Archives_Recouvrement", "data_archive_recouvrement.csv", ["Montant Initial"])
+    if not df_arch.empty:
         kpis['arch_count'] = len(df_arch)
-        kpis['arch_recouvre'] = pd.to_numeric(df_arch.get('Montant Initial', pd.Series()), errors='coerce').fillna(0).sum()
-    except: kpis['arch_count'] = kpis['arch_recouvre'] = 0
+        kpis['arch_recouvre'] = pd.to_numeric(df_arch['Montant Initial'], errors='coerce').fillna(0).sum()
+    else: kpis['arch_count'] = kpis['arch_recouvre'] = 0
 
     # --- INVENTAIRE MASTER ---
-    try:
-        import unicodedata
-        df_inv = pd.read_csv("data_inventaire/saisie.csv", sep=';', encoding='utf-8-sig')
+    df_inv = load_gs_data("Saisie_Inventaire", "data_inventaire/saisie.csv", ["designation", "ddp_saisi"])
+    if not df_inv.empty:
         kpis['inv_saisies'] = len(df_inv)
         kpis['inv_produits_uniques'] = df_inv['designation'].nunique() if 'designation' in df_inv.columns else 0
-    except: kpis['inv_saisies'] = kpis['inv_produits_uniques'] = 0
+    else: kpis['inv_saisies'] = kpis['inv_produits_uniques'] = 0
 
     # --- INVENTAIRE DÉTAIL ---
-    try:
-        df_det = pd.read_csv("data_inventaire_detail/saisie_detail.csv", sep=';', encoding='utf-8-sig')
+    df_det = load_gs_data("Saisie_Inventaire_Zone", "data_inventaire_detail/saisie_detail.csv", ["zone"])
+    if not df_det.empty:
         kpis['inv_det_saisies'] = len(df_det)
         kpis['inv_det_zones'] = df_det['zone'].nunique() if 'zone' in df_det.columns else 0
-    except: kpis['inv_det_saisies'] = kpis['inv_det_zones'] = 0
+    else: kpis['inv_det_saisies'] = kpis['inv_det_zones'] = 0
 
-    # --- LOGISTIQUE & INVENTAIRE TRIPLE (TinyDB) ---
-    try:
-        db = TinyDB("db_pharmaciel.json")
-        pointages = db.table('pointages').all()
-        kpis['pointages_total'] = len(pointages)
-        kpis['pointages_today'] = len([p for p in pointages if str(datetime.now().date()) in str(p.get('date_pointage',''))])
-        
-        reclams = db.table('reclamations').all()
-        kpis['reclams_total'] = len(reclams)
-        kpis['reclams_encours'] = len([r for r in reclams if r.get('statut') == 'En cours'])
-        
-        inv_triple = db.table('inventaire_triple').all()
-        kpis['inv_triple_count'] = len(inv_triple)
-    except: kpis['pointages_total'] = kpis['pointages_today'] = kpis['reclams_total'] = kpis['reclams_encours'] = kpis['inv_triple_count'] = 0
+    # --- POINTAGES ---
+    df_p = load_gs_data("Pointages", "data/db_pointages.csv", ["date_pointage"])
+    if not df_p.empty:
+        kpis['pointages_total'] = len(df_p)
+        today_s = datetime.now().strftime("%d/%m/%Y")
+        kpis['pointages_today'] = len(df_p[df_p['date_pointage'].str.contains(today_s, na=False)])
+    else: kpis['pointages_total'] = kpis['pointages_today'] = 0
+
+    # --- LITIGES SAV ---
+    df_r = load_gs_data("Litiges_SAV", "data/db_reclamations.csv", ["statut"])
+    if not df_r.empty:
+        kpis['reclams_total'] = len(df_r)
+        kpis['reclams_encours'] = len(df_r[df_r['statut'] == 'En cours'])
+    else: kpis['reclams_total'] = kpis['reclams_encours'] = 0
     
-    # --- PÉREMPTIONS ---
-    try:
-        df_per = pd.read_csv("data_inventaire/saisie.csv", sep=';', encoding='utf-8-sig')
+    # --- INVENTAIRE TRIPLE ---
+    df_triple = load_gs_data("Inventaire_Triple", "data/db_inv_triple.csv", ["produit"])
+    kpis['inv_triple_count'] = len(df_triple) if not df_triple.empty else 0
+    
+    # --- PÉREMPTIONS (Basé sur Saisie_Inventaire) ---
+    if not df_inv.empty and 'ddp_saisi' in df_inv.columns:
         now = datetime.now()
         critiques = 0
-        if 'ddp_saisi' in df_per.columns:
-            for d in df_per['ddp_saisi'].dropna():
-                try:
-                    dt = pd.to_datetime(d, format='%m/%Y')
-                    if (dt.year - now.year)*12 + dt.month - now.month <= 3:
-                        critiques += 1
-                except: pass
+        for d in df_inv['ddp_saisi'].dropna():
+            try:
+                dt = pd.to_datetime(d, format='%m/%Y')
+                if (dt.year - now.year)*12 + dt.month - now.month <= 3:
+                    critiques += 1
+            except: pass
         kpis['peremptions_critiques'] = critiques
-    except: kpis['peremptions_critiques'] = 0
+    else: kpis['peremptions_critiques'] = 0
 
     # --- MISSIONS LIVREURS ---
-    try:
-        df_mis = pd.read_csv("data_expedition/missions.csv", sep=',', encoding='utf-8-sig')
+    df_mis = load_gs_data("Missions", "data_expedition/missions.csv", ["Fin", "Livreur"])
+    if not df_mis.empty:
         kpis['missions_total'] = len(df_mis)
-        kpis['missions_en_cours'] = len(df_mis[df_mis['Fin'] == '']) if 'Fin' in df_mis.columns else 0
-        kpis['missions_by_livreur'] = df_mis['Livreur'].value_counts().to_dict() if 'Livreur' in df_mis.columns else {}
-    except: kpis['missions_total'] = kpis['missions_en_cours'] = 0
+        kpis['missions_en_cours'] = len(df_mis[df_mis['Fin'].isna() | (df_mis['Fin'] == '')])
+        kpis['missions_by_livreur'] = df_mis['Livreur'].value_counts().to_dict()
+    else: kpis['missions_total'] = kpis['missions_en_cours'] = 0
 
     # --- LOGS ---
-    try:
-        db_logs = TinyDB('data/db_logs.json')
-        logs = db_logs.all()
-        kpis['logs_today'] = len([l for l in logs if str(datetime.now().date()) in str(l.get('timestamp',''))])
-        kpis['logs_all'] = logs[-20:]  # 20 dernières actions
-    except: kpis['logs_today'] = 0; kpis['logs_all'] = []
+    df_logs = load_gs_data("Logs", "data/db_logs.csv", ["timestamp", "user", "action", "module"])
+    if not df_logs.empty:
+        today_s = datetime.now().strftime("%Y-%m-%d")
+        kpis['logs_today'] = len(df_logs[df_logs['timestamp'].str.contains(today_s, na=False)])
+        kpis['logs_all'] = df_logs.tail(20).to_dict('records')
+    else: kpis['logs_today'] = 0; kpis['logs_all'] = []
 
     return kpis
 
@@ -205,15 +206,15 @@ with g4:
     i2.metric("Zones Actives", kpis.get('inv_det_zones', 0))
 
     try:
-        df_det_full = pd.read_csv("data_inventaire_detail/saisie_detail.csv", sep=';', encoding='utf-8-sig')
-        if 'zone' in df_det_full.columns:
+        df_det_full = load_gs_data("Saisie_Inventaire_Zone", "data_inventaire_detail/saisie_detail.csv", ["zone"])
+        if not df_det_full.empty and 'zone' in df_det_full.columns:
             df_zone = df_det_full.groupby('zone').size().reset_index(name='Saisies')
             fig4 = px.bar(df_zone, x='zone', y='Saisies', color='Saisies',
                           color_continuous_scale='Greens', text_auto=True,
                           template=plotly_template)
             fig4.update_layout(height=200, margin=dict(l=0,r=0,t=10,b=0), showlegend=False)
             st.plotly_chart(fig4, use_container_width=True)
-    except: st.info("Aucune saisie d'inventaire détail.")
+    except: st.info("Aucune saisie d'inventaire détail sur GSheets.")
 
 st.divider()
 

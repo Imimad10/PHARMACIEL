@@ -19,27 +19,10 @@ st.title("🤖 Automatisation & IA - Scanner de Factures")
 
 st.info("Ce module utilise l'Intelligence Artificielle de Google (Gemini) pour lire vos factures fournisseurs (Photos ou PDF) et extraire automatiquement les informations structurées des produits.")
 
-from tinydb import TinyDB, Query
-
-# ...
+from utils_ia import get_setting
 
 # Récupération de la clé API
-api_key = None
-
-# 1. Vérifier la configuration Administrateur (Base de données)
-if os.path.exists('data/db_settings.json'):
-    db_settings = TinyDB('data/db_settings.json')
-    Setting = Query()
-    ia_setting = db_settings.search(Setting.name == 'gemini_api_key')
-    if ia_setting and ia_setting[0]['value']:
-        api_key = ia_setting[0]['value']
-
-# 2. Secours : Vérifier les secrets Streamlit
-if not api_key:
-    try:
-        api_key = st.secrets.get("GEMINI_API_KEY")
-    except:
-        pass
+api_key = get_setting('gemini_api_key') or st.secrets.get("GEMINI_API_KEY")
 
 if not api_key:
     st.error("⚠️ Clé API Gemini introuvable.")

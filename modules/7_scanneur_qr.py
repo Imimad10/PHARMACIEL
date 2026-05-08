@@ -7,9 +7,13 @@ import os
 from utils_ia import ask_ai, is_ia_enabled
 from utils_gsheets import load_gs_data, save_gs_data
 
-# Configuration
-db = TinyDB('db_pharmaciel.json')
-table_pointage = db.table('pointages')
+# Configuration GSheets
+POINTAGES_WORKSHEET = "Pointages"
+POINTAGES_FALLBACK = "data/db_pointages.csv"
+MISSIONS_WORKSHEET = "Missions"
+MISSIONS_FALLBACK = "data_expedition/missions.csv"
+COLS_MISSIONS = ["ID", "Livreur", "Début", "Fin", "Nb Factures", "Durée"]
+COLS_POINTAGES = ['date_pointage', 'date_feuille', 'livreur', 'rotation', 'reference', 'client', 'region', 'statut_karim']
 
 st.title("🔍 Scanneur QR & Performance")
 
@@ -48,7 +52,7 @@ with st.container(border=True):
                 st.write(f"**Livreur :** {livreur} | **Mission :** {mission_id}")
                 
                 # --- LOGIQUE DE POINTAGE ---
-                df_missions = load_gs_data("Missions_Livreurs", "data_expedition/missions.csv", ["ID", "Livreur", "Début", "Fin", "Nb Factures", "Durée"])
+                df_missions = load_gs_data(MISSIONS_WORKSHEET, MISSIONS_FALLBACK, COLS_MISSIONS)
                 
                 if mission_id not in df_missions['ID'].values:
                     if st.button(f"🏁 Démarrer la tournée ({livreur})", type="primary", use_container_width=True):
@@ -57,7 +61,7 @@ with st.container(border=True):
                             "Début": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                             "Fin": "", "Nb Factures": nb_factures, "Durée": ""
                         }])
-                        save_gs_data(pd.concat([df_missions, new_row], ignore_index=True), "Missions_Livreurs", "data_expedition/missions.csv")
+                        save_gs_data(pd.concat([df_missions, new_row], ignore_index=True), MISSIONS_WORKSHEET, MISSIONS_FALLBACK)
                         st.success("Tournée démarrée ! Bonne route.")
                 else:
                     # Mission existante, on vérifie si elle est déjà finie
@@ -70,7 +74,7 @@ with st.container(border=True):
                             
                             df_missions.at[idx, 'Fin'] = fin_time.strftime("%Y-%m-%d %H:%M:%S")
                             df_missions.at[idx, 'Durée'] = str(duree).split('.')[0] # HH:MM:SS
-                            save_gs_data(df_missions, "Missions_Livreurs", "data_expedition/missions.csv")
+                            save_gs_data(df_missions, MISSIONS_WORKSHEET, MISSIONS_FALLBACK)
                             st.success(f"Tournée terminée ! Durée : {df_missions.at[idx, 'Durée']}")
                     else:
                         st.warning("Cette mission est déjà clôturée.")
@@ -80,12 +84,10 @@ with st.container(border=True):
             st.error(f"Erreur lors du scan : {e}")
 
 # --- 1. CHARGEMENT DES DONNÉES ---
-data_p = table_pointage.all()
-if not data_p:
+df_p = load_gs_data(POINTAGES_WORKSHEET, POINTAGES_FALLBACK, COLS_POINTAGES)
+if df_p.empty:
     st.info("En attente de données de pointage pour l'analyse de performance.")
     st.stop()
-
-df_p = pd.DataFrame(data_p)
 df_p['date_dt'] = pd.to_datetime(df_p['date_pointage'], format="%d/%m/%Y %H:%M", errors='coerce')
 
 # --- 2. FILTRES ---
