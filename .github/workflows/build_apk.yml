@@ -1,0 +1,33 @@
+name: Flutter APK Build
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+          channel: 'stable'
+          
+      - name: Install Dependencies
+        run: |
+          cd mobile_app
+          flutter pub get
+          
+      - name: Build APK
+        run: |
+          cd mobile_app
+          flutter build apk --release
+          
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: darpharm-release-apk
+          path: mobile_app/build/app/outputs/flutter-apk/app-release.apk
