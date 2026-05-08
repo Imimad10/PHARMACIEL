@@ -1,201 +1,163 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from tinydb import TinyDB, Query
 import os
+import io
+from PIL import Image
 from utils import log_action
+from utils_gsheets import load_gs_data, save_gs_data
+from generator_pdf import generate_reclam_pdf
 
 # --- CONFIGURATION ---
-DB_PATH = 'data/db_reclam_fourn.json'
-os.makedirs('data', exist_ok=True)
-db = TinyDB(DB_PATH)
-Reclam = Query()
+WORKSHEET_NAME = "Litiges"
+FALLBACK_PATH = 'data/data_litiges.csv'
+PHOTO_DIR = 'data/photos_litiges/'
+os.makedirs(PHOTO_DIR, exist_ok=True)
 
-st.set_page_config(page_title="Litiges Fournisseurs", layout="wide")
+COLUMNS = ["Date", "Heure", "Facture", "Fournisseur", "Agent", "Produit", "Lot", "Quantite", "Type", "Priorite", "Statut", "Commentaire", "Photo_Path", "Date_Resolution"]
+
+st.set_page_config(page_title="Litiges Fournisseurs", layout="wide", page_icon="📦")
+
+# --- CHARGEMENT DES DONNÉES ---
+df_litiges = load_gs_data(WORKSHEET_NAME, FALLBACK_PATH, COLUMNS)
 
 def get_delay(start_date, end_date):
-    if not end_date:
-        end_date = datetime.now().strftime("%Y-%m-%d")
-    d1 = datetime.strptime(start_date, "%Y-%m-%d")
-    d2 = datetime.strptime(end_date, "%Y-%m-%d")
-    return (d2 - d1).days
+    try:
+        if not end_date or end_date == "None":
+            end_date = datetime.now().strftime("%Y-%m-%d")
+        d1 = datetime.strptime(str(start_date), "%Y-%m-%d")
+        d2 = datetime.strptime(str(end_date), "%Y-%m-%d")
+        return (d2 - d1).days
+    except: return 0
 
-st.title("📦 Suivi des Litiges Fournisseurs & Labos")
-st.write("Gérez les anomalies de réception (manquants, cassés, erreurs vignettes) et suivez les délais de résolution.")
+st.title("📦 DARPHARM - Gestion des Litiges & Réclamations")
+st.write("Système synchronisé pour le suivi des anomalies de réception et litiges fournisseurs.")
 
-tab_new, tab_list, tab_stats, tab_admin = st.tabs(["➕ Nouvelle Réclamation", "📋 Liste des Litiges", "📊 Statistiques & Délais", "⚙️ Administration"])
-
-# --- CHARGEMENT DE LA BASE PRODUITS ---
-DB_PRODUITS = 'data/db_produits.json'
-db_p = TinyDB(DB_PRODUITS)
-
-def load_product_list():
-    prods = db_p.all()
-    return sorted([p['designation'] for p in prods]) if prods else []
+tab_new, tab_list, tab_stats = st.tabs(["➕ Nouveau Rapport", "📋 Suivi des Litiges", "📊 Statistiques"])
 
 # --- ONGLET 1 : NOUVELLE RÉCLAMATION ---
 with tab_new:
-    product_list = load_product_list()
-    
     with st.form("form_new_reclam", clear_on_submit=True):
         col1, col2 = st.columns(2)
         
         with col1:
-            fournisseur = st.text_input("Nom du Fournisseur / Laboratoire", placeholder="Ex: Sanofi, Biopharm...")
-            
-            if product_list:
-                produit = st.selectbox("Désignation du Produit", product_list, index=None, placeholder="Rechercher un produit...")
-            else:
-                produit = st.text_input("Désignation du Produit (Base vide, saisie manuelle)")
-                
+            fournisseur = st.text_input("Fournisseur / Laboratoire", placeholder="Ex: Sanofi, Biopharm...")
+            num_facture = st.text_input("N° Facture / BL")
+            produit = st.text_input("Désignation du Produit")
             lot = st.text_input("N° Lot")
             quantite = st.number_input("Quantité concernée", min_value=1, step=1)
             
         with col2:
-            type_litige = st.selectbox("Type d'anomalie", [
-                "Produit Manquant", 
-                "Produit Abîmé / Cassé", 
-                "Vignette Abîmée", 
-                "Sans Vignette", 
-                "Erreur N° Lot", 
-                "Erreur PPA / Prix",
-                "Date de Péremption Courte",
-                "Autre"
+            type_litige = st.selectbox("Motif de réclamation", [
+                "Manquant", "Produit Cassé", "Périmé / Date courte", 
+                "Erreur Prix", "Vignette Abîmée", "Erreur Livraison", "Autre"
             ])
-            date_lancement = st.date_input("Date de lancement de la réclamation", value=datetime.now())
-            priorite = st.select_slider("Niveau d'Urgence", options=["Normal", "Important", "Critique"])
-            commentaire = st.text_area("Détails supplémentaires")
+            priorite = st.select_slider("Urgence", options=["Normal", "Important", "Critique"])
+            uploaded_photo = st.file_uploader("📸 Photo de preuve (Optionnel)", type=["jpg", "jpeg", "png"])
+            commentaire = st.text_area("Observations détaillées")
 
-        if st.form_submit_button("🚀 Enregistrer la Réclamation"):
+        if st.form_submit_button("🚀 Enregistrer & Synchroniser"):
             if fournisseur and produit:
-                db.insert({
-                    "fournisseur": fournisseur.upper(),
-                    "produit": produit.upper(),
-                    "lot": lot,
-                    "quantite": quantite,
-                    "type": type_litige,
-                    "date_lancement": str(date_lancement),
-                    "date_resolution": None,
-                    "priorite": priorite,
-                    "statut": "En cours",
-                    "commentaire": commentaire,
-                    "agent": st.session_state.current_user['username']
-                })
-                st.success(f"Réclamation enregistrée pour {fournisseur} !")
-                log_action(st.session_state.current_user['username'], f"Litige Fournisseur : {fournisseur} - {produit}", "Réclamations")
+                now = datetime.now()
+                photo_path = ""
+                
+                # Sauvegarde de la photo si présente
+                if uploaded_photo:
+                    photo_filename = f"reclam_{now.strftime('%Y%m%d_%H%M%S')}.jpg"
+                    photo_path = os.path.join(PHOTO_DIR, photo_filename)
+                    img = Image.open(uploaded_photo)
+                    img = img.convert('RGB')
+                    img.save(photo_path, quality=80)
+                
+                new_row = {
+                    "Date": now.strftime("%Y-%m-%d"),
+                    "Heure": now.strftime("%H:%M"),
+                    "Facture": num_facture,
+                    "Fournisseur": fournisseur.upper(),
+                    "Agent": st.session_state.current_user['username'],
+                    "Produit": produit.upper(),
+                    "Lot": lot,
+                    "Quantite": quantite,
+                    "Type": type_litige,
+                    "Priorite": priorite,
+                    "Statut": "En cours",
+                    "Commentaire": commentaire,
+                    "Photo_Path": photo_path,
+                    "Date_Resolution": ""
+                }
+                
+                df_litiges = pd.concat([df_litiges, pd.DataFrame([new_row])], ignore_index=True)
+                save_gs_data(df_litiges, WORKSHEET_NAME, FALLBACK_PATH)
+                
+                st.success(f"✅ Réclamation enregistrée et synchronisée !")
+                log_action(st.session_state.current_user['username'], f"Nouveau Litige: {fournisseur} - {produit}", "Litiges")
                 st.rerun()
             else:
-                st.error("Veuillez remplir au moins le nom du fournisseur et du produit.")
+                st.error("Veuillez remplir les champs obligatoires (Fournisseur & Produit).")
 
-# --- ONGLET 2 : LISTE DES LITIGES ---
+# --- ONGLET 2 : LISTE ET PDF ---
 with tab_list:
-    reclams = db.all()
-    if not reclams:
-        st.info("Aucune réclamation enregistrée pour le moment.")
+    if df_litiges.empty:
+        st.info("Aucun litige enregistré.")
     else:
-        df = pd.DataFrame(reclams)
-        
-        # Filtres
-        c1, c2 = st.columns(2)
-        f_statut = c1.selectbox("Filtrer par statut", ["Tous", "En cours", "Réglée"])
-        f_fourn = c2.text_input("Rechercher un fournisseur")
-        
-        if f_statut != "Tous":
-            df = df[df['statut'] == f_statut]
+        # Filtres rapides
+        f_fourn = st.text_input("🔍 Rechercher par Fournisseur ou Produit").upper()
+        df_view = df_litiges.copy()
         if f_fourn:
-            df = df[df['fournisseur'].str.contains(f_fourn.upper())]
-            
-        st.write(f"Affichage de **{len(df)}** litiges.")
+            df_view = df_view[df_view['Fournisseur'].str.contains(f_fourn) | df_view['Produit'].str.contains(f_fourn)]
         
-        # Calcul du délai actuel pour l'affichage
-        df['Délai (jours)'] = df.apply(lambda row: get_delay(row['date_lancement'], row['date_resolution']), axis=1)
+        st.write(f"Affichage de **{len(df_view)}** dossiers.")
         
-        # Édition du statut
-        edited_df = st.data_editor(
-            df,
-            use_container_width=True,
-            column_config={
-                "statut": st.column_config.SelectboxColumn("Statut", options=["En cours", "Réglée"]),
-                "date_resolution": st.column_config.DateColumn("Date de Résolution"),
-                "date_lancement": st.column_config.DateColumn("Date Lancement", disabled=True),
-                "priorite": st.column_config.SelectboxColumn("Urgence", options=["Normal", "Important", "Critique"])
-            },
-            hide_index=True
-        )
-        
-        if st.button("💾 Mettre à jour les litiges"):
-            # On met à jour la base
-            for _, row in edited_df.iterrows():
-                # Si le statut passe à réglée et que la date n'est pas mise, on met la date du jour
-                new_statut = row['statut']
-                res_date = row['date_resolution']
-                if new_statut == "Réglée" and not res_date:
-                    res_date = datetime.now().strftime("%Y-%m-%d")
-                
-                db.update({
-                    "statut": new_statut,
-                    "date_resolution": str(res_date) if res_date else None,
-                    "priorite": row['priorite'],
-                    "commentaire": row['commentaire']
-                }, (Reclam.fournisseur == row['fournisseur']) & (Reclam.produit == row['produit']) & (Reclam.date_lancement == row['date_lancement']))
-            
-            st.success("Mise à jour réussie !")
-            st.rerun()
+        for i, row in df_view.iterrows():
+            with st.expander(f"📄 {row['Date']} - {row['Fournisseur']} - {row['Produit']} ({row['Statut']})"):
+                c1, c2, c3 = st.columns([2, 2, 1])
+                with c1:
+                    st.write(f"**Motif:** {row['Type']}")
+                    st.write(f"**Facture:** {row['Facture']}")
+                    st.write(f"**Lot/Qte:** {row['Lot']} / {row['Quantite']}")
+                with c2:
+                    st.write(f"**Agent:** {row['Agent']}")
+                    st.write(f"**Priorité:** {row['Priorite']}")
+                    if row['Photo_Path'] and os.path.exists(row['Photo_Path']):
+                        st.image(row['Photo_Path'], width=150)
+                with c3:
+                    # Bouton Génération PDF
+                    pdf_data = {
+                        "date": row['Date'],
+                        "fournisseur": row['Fournisseur'],
+                        "produit": row['Produit'],
+                        "lot": row['Lot'],
+                        "quantite": row['Quantite'],
+                        "type": row['Type'],
+                        "agent": row['Agent'],
+                        "commentaire": row['Commentaire']
+                    }
+                    pdf_bytes = generate_reclam_pdf(pdf_data, row['Photo_Path'])
+                    st.download_button(
+                        label="📥 Télécharger PDF",
+                        data=pdf_bytes,
+                        file_name=f"Reclam_{row['Fournisseur']}_{row['Date']}.pdf",
+                        mime="application/pdf",
+                        key=f"btn_pdf_{i}"
+                    )
+                    
+                    if row['Statut'] == "En cours":
+                        if st.button("✅ Régler", key=f"btn_regler_{i}"):
+                            df_litiges.at[i, 'Statut'] = "Réglée"
+                            df_litiges.at[i, 'Date_Resolution'] = datetime.now().strftime("%Y-%m-%d")
+                            save_gs_data(df_litiges, WORKSHEET_NAME, FALLBACK_PATH)
+                            st.success("Dossier clôturé.")
+                            st.rerun()
 
-# --- ONGLET 3 : STATISTIQUES ---
+# --- ONGLET 3 : STATS ---
 with tab_stats:
-    if reclams:
-        df_stats = pd.DataFrame(reclams)
-        df_stats['Délai'] = df_stats.apply(lambda row: get_delay(row['date_lancement'], row['date_resolution']), axis=1)
+    if not df_litiges.empty:
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Total Litiges", len(df_litiges))
+        c2.metric("En cours", len(df_litiges[df_litiges['Statut'] == "En cours"]))
+        c3.metric("Résolus", len(df_litiges[df_litiges['Statut'] == "Réglée"]))
         
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            avg_delay = df_stats[df_stats['statut'] == 'Réglée']['Délai'].mean()
-            st.metric("Délai Moyen de Résolution", f"{avg_delay:.1f} Jours" if pd.notna(avg_delay) else "N/A")
-            
-        with col2:
-            top_fourn = df_stats['fournisseur'].value_counts().idxmax()
-            st.metric("Fournisseur le plus litigieux", top_fourn)
-            
-        with col3:
-            en_cours = len(df_stats[df_stats['statut'] == 'En cours'])
-            st.metric("Litiges en attente", en_cours)
-            
         st.divider()
-        st.subheader("📊 Répartition par Type d'Anomalie")
-        df_type = df_stats['type'].value_counts().reset_index()
-        import plotly.express as px
-        fig = px.pie(df_type, values='count', names='type', hole=0.3, template="plotly_dark")
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("Pas assez de données pour les statistiques.")
-
-# --- ONGLET 4 : ADMINISTRATION ---
-with tab_admin:
-    st.header("⚙️ Maintenance & Base de Données")
-    st.write("Importez ici votre liste de produits pour faciliter la saisie des réclamations.")
-    
-    uploaded_file = st.file_uploader("Déposer le fichier Excel des produits (Colonnes : designation)", type=["xlsx"])
-    
-    if uploaded_file:
-        try:
-            df_p = pd.read_excel(uploaded_file)
-            if 'designation' in df_p.columns:
-                if st.button("🚀 Valider l'importation de la base produits"):
-                    db_p.truncate() # On remplace l'ancienne base
-                    records = df_p[['designation']].dropna().to_dict('records')
-                    db_p.insert_multiple(records)
-                    st.success(f"Base de données mise à jour : {len(records)} produits importés.")
-                    st.rerun()
-            else:
-                st.error("Le fichier doit contenir une colonne nommée 'designation'.")
-                st.write("Colonnes trouvées :", list(df_p.columns))
-        except Exception as e:
-            st.error(f"Erreur lors de l'import : {e}")
-
-    st.divider()
-    if st.button("🗑️ Vider la base produits actuelle"):
-        db_p.truncate()
-        st.success("Base de produits vidée.")
-        st.rerun()
+        st.subheader("Répartition par Motif")
+        df_motif = df_litiges['Type'].value_counts().reset_index()
+        st.bar_chart(df_motif, x='Type', y='count')
