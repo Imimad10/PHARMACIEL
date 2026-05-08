@@ -30,6 +30,13 @@ def load_data(path, columns):
     for col in ["Montant Initial", "Montant Réglé", "Reste à payer"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', '.'), errors='coerce').fillna(0.0)
+    
+    # Assurer que les colonnes de texte sont bien de type string (pour éviter les erreurs st.data_editor avec des NaNs)
+    text_cols = ["Statut", "Commentaires", "Client", "Facture", "Date", "Mode Paiement", "Livreur", "Région", "Nom Client", "Téléphone", "Secteur"]
+    for col in text_cols:
+        if col in df.columns:
+            df[col] = df[col].fillna("").astype(str)
+            
     return df
 
 def save_data(df, path):
