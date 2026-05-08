@@ -99,10 +99,19 @@ with tab_pointage:
             
             df.columns = [clean_col(c) for c in df.columns]
             
-            cols_attendues = ['client', 'reference', 'region', 'date creation']
+            # Colonnes obligatoires vs optionnelles
+            cols_obligatoires = ['client', 'reference', 'region']
+            cols_optionnelles = ['date creation']
             
-            if all(c in df.columns for c in cols_attendues):
-                df_clean = df[cols_attendues].copy()
+            missing = [c for c in cols_obligatoires if c not in df.columns]
+            
+            if not missing:
+                # Ajouter la colonne date creation si absente
+                if 'date creation' not in df.columns:
+                    df['date creation'] = datetime.now().strftime("%d/%m/%Y %H:%M")
+                
+                cols_to_use = cols_obligatoires + ['date creation']
+                df_clean = df[cols_to_use].copy()
                 
                 # --- FILTRES ---
                 col_a, col_b, col_c = st.columns(3)
@@ -310,8 +319,9 @@ with tab_pointage:
                         else:
                             st.warning("Veuillez cocher les factures reçues avant d'archiver.")
             else:
-                st.error(f"Erreur de colonnes. Votre fichier contient : {list(df.columns)}")
-                st.info("Le fichier doit contenir exactement : Client, Référence, Région")
+                st.error(f"❌ Colonnes manquantes : {', '.join(missing).upper()}")
+                st.info("Le fichier doit contenir au minimum les colonnes : Client, Référence, Région")
+                st.write(f"Colonnes détectées dans votre fichier : {list(df.columns)}")
                 
         except Exception as e:
             st.error(f"Erreur lors de la lecture du fichier : {e}")
