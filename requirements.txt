@@ -10,6 +10,7 @@ st-gsheets-connection
 google-generativeai
 anthropic
 openai
-streamlit-cookies-controller
+streamlit-cookies-controller==0.0.2
 Pillow
 requests
+watchdog
