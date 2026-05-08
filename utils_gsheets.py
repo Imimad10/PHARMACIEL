@@ -8,6 +8,18 @@ GS_CREDS_PATH = "google_creds.json"
 GS_CONFIG_PATH = "gs_config.txt"
 
 def get_gs_client():
+    # 1. Tenter via st.secrets (Meilleure pratique pour Cloud)
+    if "gsheets" in st.secrets:
+        try:
+            scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+            # On peut passer le dictionnaire de credentials directement
+            creds_dict = st.secrets["gsheets"]
+            creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+            return gspread.authorize(creds)
+        except Exception:
+            pass
+
+    # 2. Tenter via fichier local (Développement)
     if os.path.exists(GS_CREDS_PATH):
         try:
             scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -18,6 +30,11 @@ def get_gs_client():
     return None
 
 def get_gs_url():
+    # 1. Via Secrets
+    if "GS_URL" in st.secrets:
+        return st.secrets["GS_URL"]
+    
+    # 2. Via fichier config
     if os.path.exists(GS_CONFIG_PATH):
         with open(GS_CONFIG_PATH, "r") as f:
             return f.read().strip()
