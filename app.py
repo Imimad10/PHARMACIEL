@@ -436,7 +436,8 @@ if st.session_state.current_user is None:
                         controller.set("user_token", result[0]['username'], max_age=86400 * 30) # Valide 30 jours
                     else:
                         st.session_state.remember_me = False
-                        controller.remove("user_token")
+                        if controller.get("user_token"):
+                            controller.remove("user_token")
                     st.rerun()
                 else:
                     st.error("Identifiants incorrects.")
@@ -537,7 +538,8 @@ with st.sidebar:
         
     if st.button("🚪 Déconnexion", use_container_width=True, key="btn_logout"):
         st.session_state.current_user = None
-        controller.remove("user_token")
+        if controller.get("user_token"):
+            controller.remove("user_token")
         st.rerun()
 
 pg.run()
