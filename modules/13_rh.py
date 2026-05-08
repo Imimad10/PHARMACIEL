@@ -118,6 +118,7 @@ else:
     
     # 1. Activité Logs
     u_logs_df = rh_data['logs'][rh_data['logs']['user'] == selected_user] if not rh_data['logs'].empty else pd.DataFrame()
+    u_logs = u_logs_df.to_dict('records')
     m1.metric("Actions Système", len(u_logs_df))
     
     # 2. Performance selon le rôle

@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import json
 import os
-from tinydb import TinyDB, Query
 from utils_ia import is_ia_enabled
 from streamlit_cookies_controller import CookieController
 
@@ -257,7 +256,6 @@ st.markdown("""
 
 # --- 2. CONFIGURATION BASE DE DONNÉES ---
 from utils_gsheets import load_gs_data, save_gs_data, DB_USERS_WORKSHEET, DB_USERS_FALLBACK
-User = Query()
 
 # Chargement initial des utilisateurs
 df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "password", "role", "pages"])

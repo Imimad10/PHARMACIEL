@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from tinydb import TinyDB, Query
 from datetime import datetime
 import os
 from utils_ia import ask_ai, is_ia_enabled

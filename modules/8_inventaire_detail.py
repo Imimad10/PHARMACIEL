@@ -5,7 +5,6 @@ import os
 import unicodedata
 import shutil
 from datetime import datetime
-from tinydb import TinyDB, Query
 from utils_ia import ask_ai, is_ia_enabled
 
 st.set_page_config(page_title="Inventaire Détail", layout="wide")

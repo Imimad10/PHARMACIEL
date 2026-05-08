@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import os
 import json
-from tinydb import TinyDB, Query
 import unicodedata
 from utils_ia import ask_ai, is_ia_enabled
 
