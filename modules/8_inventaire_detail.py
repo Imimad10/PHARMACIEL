@@ -387,8 +387,6 @@ with tabs[3]:
             save_gs_data(pd.DataFrame(columns=COLS_MASTER), MASTER_WORKSHEET, MASTER_FALLBACK)
             st.success("Fichier Master vidé sur GSheets.")
             st.rerun()
-            else:
-                st.info("Aucun Master à supprimer.")
 
         st.divider()
         st.subheader("💾 Sauvegarde & Archivage")
