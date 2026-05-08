@@ -288,7 +288,10 @@ if "current_user" not in st.session_state:
 controller = CookieController()
 
 # On tente de récupérer le token depuis les cookies de façon transparente
-token_user = controller.get("user_token")
+try:
+    token_user = controller.get("user_token")
+except Exception:
+    token_user = None
 
 # --- Auto-Login via Cookie ---
 if st.session_state.current_user is None and token_user:
@@ -436,8 +439,11 @@ if st.session_state.current_user is None:
                         controller.set("user_token", result[0]['username'], max_age=86400 * 30) # Valide 30 jours
                     else:
                         st.session_state.remember_me = False
-                        if controller.get("user_token"):
-                            controller.remove("user_token")
+                        try:
+                            if controller.get("user_token"):
+                                controller.remove("user_token")
+                        except Exception:
+                            pass
                     st.rerun()
                 else:
                     st.error("Identifiants incorrects.")
@@ -538,8 +544,11 @@ with st.sidebar:
         
     if st.button("🚪 Déconnexion", use_container_width=True, key="btn_logout"):
         st.session_state.current_user = None
-        if controller.get("user_token"):
-            controller.remove("user_token")
+        try:
+            if controller.get("user_token"):
+                controller.remove("user_token")
+        except Exception:
+            pass
         st.rerun()
 
 pg.run()
