@@ -371,6 +371,11 @@ with tabs[3]:
         st.subheader("⚙️ Gestion de la base de données")
         st.info("💡 **Centralisation activée** : L'importation et la gestion du fichier Master se font désormais exclusivement depuis le module **Admin Centrale** (Onglet Importateur Universel).")
         
+        if st.button("🔄 Synchroniser avec Admin Centrale", type="primary", use_container_width=True):
+            st.cache_data.clear()
+            st.success("Synchronisation effectuée avec succès !")
+            st.rerun()
+        
         st.divider()
         
         if st.button("🗑️ Vider Inventaire (Saisie)", use_container_width=True, type="secondary"):
