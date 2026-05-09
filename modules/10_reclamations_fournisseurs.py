@@ -149,11 +149,27 @@ with tab_list:
                         data=pdf_bytes,
                         file_name=f"Reclam_{row['Fournisseur']}_{row['Date']}.pdf",
                         mime="application/pdf",
-                        key=f"btn_pdf_{i}"
+                        key=f"btn_pdf_{i}",
+                        use_container_width=True
                     )
                     
+                    # Partage WhatsApp et Viber
+                    import urllib.parse
+                    msg = f"📦 *RÉCLAMATION DARPHARM*\n\n"
+                    msg += f"Bonjour, nous vous signalons une anomalie :\n"
+                    msg += f"▪️ *Facture:* {row['Facture']}\n"
+                    msg += f"▪️ *Produit:* {row['Produit']} (Lot: {row['Lot']})\n"
+                    msg += f"▪️ *Qté:* {row['Quantite']}\n"
+                    msg += f"▪️ *Motif:* {row['Type']}\n\n"
+                    msg += f"Merci de traiter cette réclamation. (Rapport PDF à suivre)"
+                    msg_encoded = urllib.parse.quote(msg)
+                    
+                    c_wa, c_vi = st.columns(2)
+                    c_wa.link_button("💬 WA", f"https://wa.me/?text={msg_encoded}", use_container_width=True)
+                    c_vi.link_button("💜 Viber", f"viber://forward?text={msg_encoded}", use_container_width=True)
+                    
                     if row['Statut'] == "En cours":
-                        if st.button("✅ Régler", key=f"btn_regler_{i}"):
+                        if st.button("✅ Régler", key=f"btn_regler_{i}", use_container_width=True):
                             df_litiges.at[i, 'Statut'] = "Réglée"
                             df_litiges.at[i, 'Date_Resolution'] = datetime.now().strftime("%Y-%m-%d")
                             save_gs_data(df_litiges, WORKSHEET_NAME, FALLBACK_PATH)
