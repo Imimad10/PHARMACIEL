@@ -357,7 +357,11 @@ with tab_exp:
                     pdf.cell(30, 8, "", 1)
                     pdf.ln()
                     
-                pdf_bytes = pdf.output(dest='S').encode('latin-1', 'replace')
+                raw = pdf.output(dest='S')
+                if isinstance(raw, (bytes, bytearray)):
+                    pdf_bytes = bytes(raw)
+                else:
+                    pdf_bytes = raw.encode('latin-1', 'replace')
                 if os.path.exists(qr_path):
                     os.remove(qr_path)
                     

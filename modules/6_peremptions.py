@@ -141,7 +141,9 @@ with tab2:
                             for _, row in anomalies.iterrows():
                                 pdf.cell(85, 8, str(row['produit'])[:40].encode('latin-1','replace').decode('latin-1'), 1)
                                 pdf.cell(25, 8, row['DDP Vente'], 1); pdf.cell(25, 8, row['DDP Stock'], 1); pdf.cell(55, 8, "TRANSFERT URGENT", 1, ln=1)
-                            st.download_button("📥 Télécharger le Bon PDF", pdf.output(dest='S').encode('latin-1'), "Transfert_FEFO.pdf", type="primary")
+                            raw = pdf.output(dest='S')
+                            pdf_bytes = bytes(raw) if isinstance(raw, (bytes, bytearray)) else raw.encode('latin-1')
+                            st.download_button("📥 Télécharger le Bon PDF", pdf_bytes, "Transfert_FEFO.pdf", type="primary")
                     else:
                         st.success("✅ Logique FEFO respectée : tous les produits en réserve périment après ceux en vente.")
                     

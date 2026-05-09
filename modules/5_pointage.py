@@ -224,7 +224,10 @@ with tab_pointage:
                                 pdf.cell(15, 8, "[  ]", 1, 0, 'C')
                                 pdf.cell(50, 8, str(r['reference']), 1)
                                 pdf.cell(125, 8, str(r['client'])[:55], 1, 1)
-                            return pdf.output(dest='S').encode('latin-1', 'ignore')
+                            raw = pdf.output(dest='S')
+                            if isinstance(raw, (bytes, bytearray)):
+                                return bytes(raw)
+                            return raw.encode('latin-1', 'ignore')
 
                         if not df_filtre.empty:
                             pdf_bytes = create_pdf_bytes(livreur_sel, region_sel, rotation_sel, d_sel, df_filtre)

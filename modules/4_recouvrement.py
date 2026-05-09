@@ -94,7 +94,12 @@ def generate_pdf(df, livreur_name):
         pdf.cell(25, 10, str(row['Mode Paiement']), 1, 0, 'C')
         pdf.cell(35, 10, "", 1, 1)
     
-    result = pdf.output(dest='S').encode('latin-1', 'replace')
+    raw = pdf.output(dest='S')
+    if isinstance(raw, (bytes, bytearray)):
+        result = bytes(raw)
+    else:
+        result = raw.encode('latin-1', 'replace')
+    
     if os.path.exists(qr_path): os.remove(qr_path)
     return result
 
@@ -144,7 +149,10 @@ def generate_relance_pdf(client_name, df_client, total_du):
     footer = "Nous vous remercions de bien vouloir regulariser cette situation dans les plus brefs delais.\n\nCordialement,\nLe Service Recouvrement"
     pdf.multi_cell(0, 8, footer.encode('latin-1', 'replace').decode('latin-1'))
     
-    return pdf.output(dest='S').encode('latin-1', 'replace')
+    raw = pdf.output(dest='S')
+    if isinstance(raw, (bytes, bytearray)):
+        return bytes(raw)
+    return raw.encode('latin-1', 'replace')
 
 # --- INTERFACE UTILISATEUR ---
 st.title("💰 Système de Recouvrement")
