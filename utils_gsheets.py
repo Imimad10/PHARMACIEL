@@ -68,7 +68,22 @@ def load_gs_data(worksheet_name, fallback_path, columns):
             data = worksheet.get_all_records()
             df = pd.DataFrame(data)
             if df.empty: return pd.DataFrame(columns=columns)
-            return df.reindex(columns=columns)
+            
+            # Reindexation
+            df = df.reindex(columns=columns)
+            
+            # Parsing automatique des colonnes qui contiennent des listes (ex: ["Page1", "Page2"])
+            import ast
+            def safe_parse(val):
+                if isinstance(val, str) and val.startswith("[") and val.endswith("]"):
+                    try: return ast.literal_eval(val)
+                    except: return val
+                return val
+            
+            for col in df.columns:
+                df[col] = df[col].apply(safe_parse)
+                
+            return df
         except Exception as e:
             st.warning(f"Erreur GSheets ({worksheet_name}), repli local : {e}")
             
@@ -113,6 +128,9 @@ def save_gs_data(df, worksheet_name, fallback_path):
             for col in df_gs.columns:
                 if pd.api.types.is_datetime64_any_dtype(df_gs[col]):
                     df_gs[col] = df_gs[col].dt.strftime('%Y-%m-%d')
+                
+                # Correction du bug 400 : Les listes (ex: pages) doivent être stringifiées pour GSheets
+                df_gs[col] = df_gs[col].apply(lambda x: str(x) if isinstance(x, (list, dict)) else x)
             
             # Conversion en liste de listes pour gspread
             data_to_save = [df_gs.columns.values.tolist()] + df_gs.values.tolist()
