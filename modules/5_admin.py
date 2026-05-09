@@ -68,7 +68,27 @@ else:
     # On désactive les autres onglets pour le superviseur
     tab_add = tab_del = tab_logs = tab_backup = tab_ia = None
 
-MODULES_DISPO = ["Admin Centrale", "Dashboard", "Logistique", "Inventaire", "Inventaire Détail", "Suivi", "Recouvrement", "Pointage", "Péremptions", "Scanneur QR", "Automatisation", "Litiges Fournisseurs", "Analyse Rotation", "Scan Mobile"]
+def get_available_modules():
+    import re
+    modules = ["Admin Centrale"]
+    try:
+        with open("app.py", "r", encoding="utf-8") as f:
+            content = f.read()
+            match = re.search(r'ALL_PAGES\s*=\s*\{(.*?)\}', content, re.DOTALL)
+            if match:
+                dict_content = match.group(1)
+                keys = re.findall(r'"([^"]+)"\s*:\s*st\.Page', dict_content)
+                for k in keys:
+                    if k not in modules:
+                        modules.append(k)
+            
+            if 'ALL_PAGES["Automatisation"]' in content and "Automatisation" not in modules:
+                modules.append("Automatisation")
+    except:
+        modules = ["Admin Centrale", "Dashboard", "Logistique", "Inventaire", "Inventaire Détail", "Suivi", "Recouvrement", "Pointage", "Péremptions", "Scanneur QR", "Automatisation", "Litiges Fournisseurs", "Analyse Rotation", "Scan Mobile", "Liste des Lots", "Pointage Expéditeur", "Inventaire Triple", "Profil", "RH"]
+    return modules
+
+MODULES_DISPO = get_available_modules()
 
 if tab_add:
     with tab_add:
