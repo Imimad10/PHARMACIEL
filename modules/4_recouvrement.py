@@ -257,34 +257,52 @@ with tabs[0]:
 with tabs[1]:
     df_main = load_data(DATA_RECOUV, COLS_RECOUV)
     
-    # 1. Chargement de la liste des livreurs depuis la base centrale
+    # 1. Chargement des bases centrales
     from utils_gsheets import load_gs_data
     df_livreurs_db = load_gs_data("Livreurs", "data_expedition/livreurs.csv", ["Nom", "Prénom", "Téléphone", "Secteur"])
+    df_clients_db = load_gs_data("Base_Clients", DATA_CLIENTS, COLS_CLIENTS)
     
-    livs_options = ["NON ASSIGNÉ"]
-    if not df_livreurs_db.empty:
-        noms = sorted([str(n).upper().strip() for n in df_livreurs_db["Nom"].unique() if pd.notna(n) and str(n).strip() != ""])
-        livs_options = noms + ["NON ASSIGNÉ"]
-        
-    sel_liv = st.selectbox("Sélectionner Livreur", livs_options)
-    
-    # 2. Identifier le secteur du livreur sélectionné
-    sel_secteur = ""
-    if sel_liv != "NON ASSIGNÉ" and not df_livreurs_db.empty:
-        match_liv = df_livreurs_db[df_livreurs_db["Nom"].str.upper() == sel_liv]
-        if not match_liv.empty:
-            sel_secteur = str(match_liv.iloc[0]["Secteur"]).upper().strip()
-            st.caption(f"📍 Secteur centralisé : **{sel_secteur}**")
-            
     if not df_main.empty:
-        # 3. Filtrage automatique (par livreur ou par secteur correspondant)
-        if sel_secteur:
-            # Inclure si le livreur est déjà bon OU si la région correspond au secteur du livreur
-            mask = (df_main["Livreur"].astype(str).str.upper() == sel_liv) | \
-                   (df_main["Région"].astype(str).str.upper().str.contains(sel_secteur, na=False))
-        else:
-            mask = df_main["Livreur"].astype(str).str.upper() == sel_liv
+        # 2. Mise à jour dynamique des Régions et Livreurs selon la base centrale
+        if not df_clients_db.empty:
+            client_to_region = dict(zip(df_clients_db["Nom Client"].astype(str).str.strip().str.upper(), df_clients_db["Région"].astype(str).str.strip().str.upper()))
+            for idx, row in df_main.iterrows():
+                c_name = str(row["Client"]).strip().upper()
+                if c_name in client_to_region and pd.notna(client_to_region[c_name]) and client_to_region[c_name] != "":
+                    df_main.at[idx, "Région"] = client_to_region[c_name]
+                    
+        if not df_livreurs_db.empty:
+            region_to_livreur = {}
+            for _, row in df_livreurs_db.iterrows():
+                sec = str(row["Secteur"]).strip().upper()
+                nom = str(row["Nom"]).strip().upper()
+                if sec and nom: region_to_livreur[sec] = nom
+                
+            for idx, row in df_main.iterrows():
+                reg = str(row["Région"]).strip().upper()
+                assigned = "NON ASSIGNÉ"
+                for sec, liv in region_to_livreur.items():
+                    if sec in reg or reg == sec:
+                        assigned = liv
+                        break
+                df_main.at[idx, "Livreur"] = assigned
+
+        # 3. Liste déroulante : Uniquement les livreurs ayant des clients
+        livs_actifs = sorted([str(l).upper() for l in df_main["Livreur"].unique() if str(l).strip() != "" and str(l).upper() != "NAN"])
+        if "NON ASSIGNÉ" not in livs_actifs: livs_actifs.append("NON ASSIGNÉ")
             
+        sel_liv = st.selectbox("Sélectionner Livreur", livs_actifs)
+        
+        # 4. Identifier le secteur du livreur sélectionné
+        sel_secteur = ""
+        if sel_liv != "NON ASSIGNÉ" and not df_livreurs_db.empty:
+            match_liv = df_livreurs_db[df_livreurs_db["Nom"].str.upper() == sel_liv]
+            if not match_liv.empty:
+                sel_secteur = str(match_liv.iloc[0]["Secteur"]).upper().strip()
+                st.caption(f"📍 Secteur centralisé : **{sel_secteur}**")
+            
+        # 5. Filtrage automatique
+        mask = df_main["Livreur"].astype(str).str.upper() == sel_liv
         df_display = df_main[mask].drop_duplicates(subset=["Client", "Reste à payer"], keep='first').copy()
         
         col_btns = st.columns([1, 1, 2])
