@@ -556,12 +556,23 @@ with tabs[5]:
 
     st.divider()
     st.subheader("👥 Gestion de la Base Clients")
-    st.info("La gestion des clients est désormais centralisée. Veuillez utiliser le module **Admin Centrale** pour modifier, ajouter ou importer des clients.")
-    if st.session_state.current_user.get('role') == 'Admin':
-        if st.button("🚀 Aller à l'Administration Centrale", use_container_width=True):
-            st.switch_page("pages/0_admin_centrale.py")
-    else:
-        st.warning("Accès à l'Administration Centrale réservé aux Administrateurs.")
+    st.info("La gestion des clients est centralisée. Vous pouvez synchroniser ici les données depuis le Cloud ou aller dans l'Admin Centrale pour des modifications plus poussées.")
+    
+    col_sync1, col_sync2 = st.columns(2)
+    with col_sync1:
+        if st.button("🔄 Synchroniser les Clients (Cloud)", use_container_width=True, help="Force le rechargement immédiat de la base client depuis Google Sheets"):
+            with st.spinner("Synchronisation..."):
+                st.cache_data.clear() # Vider le cache pour forcer le reload
+                df_sync = load_data(DATA_CLIENTS, COLS_CLIENTS) # load_data utilise load_gs_data qui est protégé ALWAYS_CLOUD
+                st.success(f"✅ {len(df_sync)} clients synchronisés !")
+                st.rerun()
+    
+    with col_sync2:
+        if st.session_state.current_user.get('role') == 'Admin':
+            if st.button("🚀 Aller à l'Administration Centrale", use_container_width=True):
+                st.switch_page("pages/0_admin_centrale.py")
+        else:
+            st.warning("Accès Admin Centrale restreint.")
 
     st.divider()
     if st.session_state.current_user.get('role') == 'Admin':
