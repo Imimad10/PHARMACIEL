@@ -139,6 +139,16 @@ def load_gs_data(worksheet_name, fallback_path, columns, force_cloud=False):
             return df.reindex(columns=columns)
         except: pass
     
+    # 3. Restauration de sécurité pour les Utilisateurs
+    if worksheet_name == DB_USERS_WORKSHEET:
+        try:
+            from config_users import DEFAULT_USERS
+            st.info("⚠️ Base utilisateurs vide détectée. Restauration automatique depuis la sauvegarde de sécurité...")
+            df = pd.DataFrame(DEFAULT_USERS)
+            # On ne sauvegarde pas forcément ici pour éviter les boucles, mais on retourne les données par défaut
+            return df.reindex(columns=columns)
+        except: pass
+
     return pd.DataFrame(columns=columns)
 
 def save_gs_data(df, worksheet_name, fallback_path, force_cloud=False):
@@ -238,3 +248,14 @@ def create_archive_spreadsheet(name, df):
     except Exception as e:
         st.error(f"Erreur archive : {e}")
         return None
+
+def restore_users_from_config():
+    """Force la restauration de la base utilisateurs depuis le fichier config_users.py."""
+    try:
+        from config_users import DEFAULT_USERS
+        cols = ["username", "password", "role", "pages", "nom", "prenom", "zone"]
+        df_new = pd.DataFrame(DEFAULT_USERS)
+        save_gs_data(df_new, DB_USERS_WORKSHEET, DB_USERS_FALLBACK, force_cloud=True)
+        return True, f"✅ {len(df_new)} utilisateurs restaurés avec succès !"
+    except Exception as e:
+        return False, f"❌ Erreur de restauration : {str(e)}"

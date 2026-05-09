@@ -237,6 +237,19 @@ if tab_backup:
                 log_action(user['username'], "Génération Sauvegarde ZIP", "Admin")
             except Exception as e: st.error(f"Erreur : {e}")
 
+        st.divider()
+        st.subheader("🛡️ Restauration de Sécurité")
+        st.info("Si vous perdez vos utilisateurs sur Google Sheets, vous pouvez les restaurer ici à partir de la sauvegarde statique du code.")
+        
+        if st.button("🔄 Restaurer les Utilisateurs par défaut", type="primary", use_container_width=True):
+            from utils_gsheets import restore_users_from_config
+            success, msg = restore_users_from_config()
+            if success:
+                st.success(msg)
+                st.rerun()
+            else:
+                st.error(msg)
+
 if tab_ia:
     with tab_ia:
         if is_admin:
