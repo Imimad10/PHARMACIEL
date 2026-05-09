@@ -42,7 +42,11 @@ def get_gs_client():
         except: return None
     return None
 
-def get_gs_url():
+def get_gs_url(worksheet_name=None):
+    # Base dédiée uniquement pour les Utilisateurs
+    if worksheet_name == DB_USERS_WORKSHEET:
+        return "https://docs.google.com/spreadsheets/d/1tJDJCtk7cCNSBIfQLKS9J2oH95VcaNMoCVPX8V_cDc/edit"
+        
     if "GS_URL" in st.secrets: return st.secrets["GS_URL"]
     if os.path.exists(GS_CONFIG_PATH):
         with open(GS_CONFIG_PATH, "r") as f: return f.read().strip()
@@ -60,7 +64,7 @@ def load_gs_data(worksheet_name, fallback_path, columns, force_cloud=False):
     # 1. Tenter le Cloud si mode Cloud, ou si protégé, ou si forcé
     if force_cloud or is_protected or mode == "Cloud":
         client = get_gs_client()
-        url = get_gs_url()
+        url = get_gs_url(worksheet_name)
         if client and url:
             try:
                 sh = client.open_by_url(url)
@@ -136,7 +140,7 @@ def save_gs_data(df, worksheet_name, fallback_path, force_cloud=False):
     # 1. Cloud
     if force_cloud or is_protected or mode == "Cloud":
         client = get_gs_client()
-        url = get_gs_url()
+        url = get_gs_url(worksheet_name)
         if client and url:
             try:
                 sh = client.open_by_url(url)
