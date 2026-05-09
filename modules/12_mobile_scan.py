@@ -77,12 +77,42 @@ if mode == "📦 Inventaire":
 
 elif mode == "🚛 Livraison":
     st.subheader("Validation Livraison")
-    qr_cam = st.camera_input("📷 Scannez le QR Code du Bon")
+    qr_cam = st.camera_input("📷 Scannez le QR Code de la Feuille de Route")
     if qr_cam:
-        st.success("QR Code identifié !")
-        st.write("Bon N° : 24/BL/1234")
-        if st.button("📍 Marquer comme LIVRÉ"):
-            st.balloons()
+        try:
+            import cv2
+            import numpy as np
+            from utils_gsheets import load_gs_data, save_gs_data
+            
+            file_bytes = np.asarray(bytearray(qr_cam.read()), dtype=np.uint8)
+            opencv_image = cv2.imdecode(file_bytes, 1)
+            detector = cv2.QRCodeDetector()
+            data, bbox, _ = detector.detectAndDecode(opencv_image)
+            
+            if data:
+                st.success("✅ QR Code détecté !")
+                # Parsing
+                info = {}
+                for item in data.split('|'):
+                    if ':' in item:
+                        k, v = item.split(':', 1)
+                        info[k] = v
+                
+                mission_id = info.get('ID', 'Inconnu')
+                livreur = info.get('Livreur', 'Inconnu')
+                nb = info.get('Nb', '?')
+                
+                st.metric("Livreur", livreur)
+                st.write(f"**Mission :** {mission_id} ({nb} clients)")
+                
+                if st.button("📍 Marquer la tournée comme TERMINÉE"):
+                    st.balloons()
+                    log_action(st.session_state.current_user['username'], f"Tournée {mission_id} finie via Mobile", "Mobile")
+                    st.success("Statut mis à jour !")
+            else:
+                st.warning("Aucun QR Code détecté sur l'image. Approchez-vous du code et assurez-vous qu'il soit bien net.")
+        except Exception as e:
+            st.error(f"Erreur de lecture : {e}")
 
 elif mode == "💰 Recouvrement":
     st.subheader("Encaissement Terrain")
