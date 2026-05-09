@@ -45,19 +45,66 @@ with col2:
 st.divider()
 
 # --- SECTION 2 : EXPLOITS & PERFORMANCE ---
-st.header("🏆 Mes Exploits")
-total_act, best_mod = get_user_exploits(username)
+st.header("🏆 Mes Exploits & Trophées")
 
+def get_trophies(username):
+    df_logs = load_gs_data(LOGS_WORKSHEET, LOGS_FALLBACK, ["timestamp", "user", "module", "action"])
+    if df_logs.empty:
+        return []
+    
+    u_logs = df_logs[df_logs['user'] == username]
+    counts = u_logs['module'].value_counts()
+    total = len(u_logs)
+    
+    trophies = []
+    
+    # Définition des trophées (Nom, Emoji, Condition, Description)
+    trophy_defs = [
+        ("Maître de l'Inventaire", "📦", counts.get("Inventaire Détail", 0) + counts.get("Inventaire", 0) >= 50, "50+ actions d'inventaire"),
+        ("Champion Logistique", "🚚", counts.get("Logistique", 0) >= 30, "30+ expéditions gérées"),
+        ("As du Recouvrement", "💰", counts.get("Recouvrement", 0) >= 20, "20+ pointages de factures"),
+        ("Gardien du Froid", "❄️", counts.get("Suivi Frigo", 0) >= 10, "10+ relevés de température"),
+        ("Scanneur Fou", "📱", counts.get("Scanneur QR", 0) + counts.get("Scan Mobile", 0) >= 15, "15+ scans effectués"),
+        ("Vétéran Darpharm", "🎖️", total >= 200, "Plus de 200 actions au total"),
+        ("Pionnier", "🚀", total >= 1, "Première action réalisée")
+    ]
+    
+    return trophy_defs, total
+
+trophy_list, total_act = get_trophies(username)
+
+# Affichage des métriques de base
 c1, c2 = st.columns(2)
 c1.metric("Total Actions", total_act)
-c2.metric("Module de Prédilection", best_mod)
+if total_act > 0:
+    # On recalcule best_mod ici
+    df_logs = load_gs_data(LOGS_WORKSHEET, LOGS_FALLBACK, ["timestamp", "user", "module", "action"])
+    best_mod = df_logs[df_logs['user'] == username]['module'].value_counts().idxmax()
+    c2.metric("Module de Prédilection", best_mod)
 
-if total_act > 100:
-    st.success("🌟 Vous êtes un utilisateur expert ! Plus de 100 actions enregistrées.")
-elif total_act > 50:
-    st.info("📈 Bel effort ! Vous êtes très actif sur la plateforme.")
-else:
-    st.write("Continuez à utiliser les modules pour débloquer de nouveaux exploits !")
+st.write("---")
+st.subheader("🏅 Galerie des Trophées")
+
+# Affichage en grille
+cols_t = st.columns(4)
+for i, (name, emoji, earned, desc) in enumerate(trophy_list):
+    with cols_t[i % 4]:
+        if earned:
+            st.markdown(f"""
+                <div style="text-align: center; padding: 15px; border-radius: 10px; background-color: #d4edda; border: 2px solid #28a745; margin-bottom: 10px;">
+                    <div style="font-size: 2.5rem;">{emoji}</div>
+                    <div style="font-weight: bold; color: #155724; font-size: 0.9rem;">{name}</div>
+                    <div style="font-size: 0.7rem; color: #155724;">{desc}</div>
+                </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+                <div style="text-align: center; padding: 15px; border-radius: 10px; background-color: #f8f9fa; border: 2px dotted #ced4da; opacity: 0.5; margin-bottom: 10px;">
+                    <div style="font-size: 2.5rem; filter: grayscale(100%);">🔒</div>
+                    <div style="font-weight: bold; color: #6c757d; font-size: 0.9rem;">{name}</div>
+                    <div style="font-size: 0.7rem; color: #6c757d;">{desc}</div>
+                </div>
+            """, unsafe_allow_html=True)
 
 st.divider()
 
