@@ -96,8 +96,14 @@ def load_gs_data(worksheet_name, fallback_path, columns, force_cloud=False):
                     for col in df.columns: df[col] = df[col].apply(safe_parse)
                     return df
             except Exception as e:
-                if is_protected: st.warning(f"⚠️ Connexion Cloud impossible ({worksheet_name}) : {e}")
-
+                err_str = str(e)
+                if "429" in err_str or "Quota exceeded" in err_str:
+                    # Message plus discret pour le Rate Limit de Google
+                    if "rate_limit_warned" not in st.session_state:
+                        st.warning(f"⚠️ Google Sheets est très sollicité. Utilisation du cache local pour accélérer.")
+                        st.session_state.rate_limit_warned = True
+                else:
+                    if is_protected: st.warning(f"⚠️ Connexion Cloud impossible ({worksheet_name}) : {err_str[:100]}...")
     # 2. Repli Local
     if os.path.exists(fallback_path):
         try:
@@ -161,7 +167,12 @@ def save_gs_data(df, worksheet_name, fallback_path, force_cloud=False):
                 st.cache_data.clear()
                 if force_cloud: st.success(f"✅ Synchronisation Cloud réussie ({worksheet_name})")
             except Exception as e:
-                st.error(f"❌ Erreur Cloud ({worksheet_name}) : {e}")
+                err_str = str(e)
+                if "429" in err_str or "Quota exceeded" in err_str:
+                    # Message silencieux car on sauvegarde en local de toute façon
+                    pass 
+                else:
+                    st.error(f"❌ Erreur Cloud ({worksheet_name}) : {err_str[:100]}...")
 
     # 2. Local
     try:
@@ -170,7 +181,7 @@ def save_gs_data(df, worksheet_name, fallback_path, force_cloud=False):
         if mode == "Local" and not is_protected and not force_cloud:
             st.info(f"💾 Sauvegarde locale effectuée ({worksheet_name})")
     except Exception as e:
-        st.error(f"Erreur sauvegarde locale : {e}")
+        st.error(f"Erreur sauvegarde locale : {str(e)[:100]}")
 
 def show_sync_ui(worksheet_name, fallback_path, columns):
     """Affiche les boutons de synchronisation si on est en mode Local."""
