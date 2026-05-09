@@ -153,14 +153,16 @@ else:
 def get_user_data():
     df = st.session_state.inv_work_df.copy()
     user_role = st.session_state.current_user.get('role', 'Saisie')
-    allowed_zones = st.session_state.current_user.get('inv_zones', [])
+    user_zone = str(st.session_state.current_user.get('zone', 'Aucune')).strip().upper()
     
     if user_role not in ['Admin', 'Superviseur']:
-        if not allowed_zones:
+        if user_zone == 'AUCUNE' or not user_zone:
             # Si aucune zone assignée, on retourne un DF vide
             return df.iloc[0:0]
+            
         if 'zone' in df.columns:
-            df = df[df['zone'].isin(allowed_zones)]
+            # Filtre robuste : si la zone assignée (ex: "A") est contenue dans la zone Excel (ex: "1 a", "a")
+            df = df[df['zone'].astype(str).str.upper().str.contains(user_zone, na=False, regex=False)]
     return df
 
 # --- TABLEAU DE BORD ---
