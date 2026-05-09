@@ -126,10 +126,13 @@ def save_gs_data(df, worksheet_name, fallback_path):
             df_gs = df.copy().fillna("") # On remplace les NaN par du vide pour JSON
             # Nettoyage types pour Sheets
             for col in df_gs.columns:
+                # 1. Conversion robuste des dates (Pandas et Python natif)
                 if pd.api.types.is_datetime64_any_dtype(df_gs[col]):
-                    df_gs[col] = df_gs[col].dt.strftime('%Y-%m-%d')
+                    df_gs[col] = df_gs[col].dt.strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    df_gs[col] = df_gs[col].apply(lambda x: x.strftime('%Y-%m-%d %H:%M:%S') if hasattr(x, 'strftime') else x)
                 
-                # Correction du bug 400 : Les listes (ex: pages) doivent être stringifiées pour GSheets
+                # 2. Correction du bug 400 : Les listes (ex: pages) doivent être stringifiées pour GSheets
                 df_gs[col] = df_gs[col].apply(lambda x: str(x) if isinstance(x, (list, dict)) else x)
             
             # Conversion en liste de listes pour gspread
