@@ -8,7 +8,7 @@ from utils_ia import ask_ai, is_ia_enabled
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Inventaire Triple - Pharmaciel", layout="wide")
 
-from utils_gsheets import load_gs_data, save_gs_data
+from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Inventaire Triple - Pharmaciel", layout="wide")
 
@@ -25,6 +25,9 @@ if 'current_user' not in st.session_state:
 
 COLS_MASTER = ["depot", "zone", "produit", "lot", "qte_logi", "colissage"]
 COLS_INV_TRIPLE = ["produit", "lot", "tv", "tc", "mv", "mc", "col"]
+
+show_sync_ui(MASTER_WORKSHEET, MASTER_FALLBACK, COLS_MASTER)
+show_sync_ui(INV_TRIPLE_WORKSHEET, INV_TRIPLE_FALLBACK, COLS_INV_TRIPLE)
 
 # --- STYLE CSS ---
 st.markdown("""

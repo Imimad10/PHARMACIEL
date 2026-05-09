@@ -25,7 +25,7 @@ st.title("👥 Gestion d'Équipe & Zones")
 st.write("Gérez les utilisateurs et leurs zones d'affectation pour l'inventaire détail.")
 
 # Chargement des utilisateurs via GSheets
-df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "password", "role", "pages", "zone"])
+df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "password", "role", "pages", "nom", "prenom", "zone"])
 
 # Conversion sécurisée des pages pour tout le dataframe
 def parse_pages(p):

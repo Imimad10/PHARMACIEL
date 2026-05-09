@@ -7,13 +7,14 @@ import os
 st.set_page_config(page_title="Liste des Lots", layout="wide")
 
 # --- 1. CONFIGURATION ---
-from utils_gsheets import load_gs_data, save_gs_data, DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui
 
 # --- 1. CONFIGURATION ---
 DATA_DIR = "data_inventaire_detail"
 MASTER_WORKSHEET = "Master_Inventaire_Zone"
 MASTER_FALLBACK = os.path.join(DATA_DIR, "master_detail.csv")
 COLS_MASTER = ["designation", "lot", "zone", "ddp", "ppa", "shp", "stock_theorique"]
+show_sync_ui(MASTER_WORKSHEET, MASTER_FALLBACK, COLS_MASTER)
 
 # --- 2. FONCTIONS TECHNIQUES ---
 def normalize_text(text):

@@ -10,7 +10,7 @@ from utils_ia import ask_ai, is_ia_enabled
 st.set_page_config(page_title="Inventaire Détail", layout="wide")
 
 # --- 1. CONFIGURATION ---
-from utils_gsheets import load_gs_data, save_gs_data
+from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui
 # --- 1. CONFIGURATION ---
 DATA_DIR = "data_inventaire_detail"
 MASTER_WORKSHEET = "Master_Inventaire_Zone"
@@ -18,6 +18,9 @@ MASTER_FALLBACK = os.path.join(DATA_DIR, "master_detail.csv")
 SAISIE_WORKSHEET = "Saisie_Inventaire_Zone"
 SAISIE_FALLBACK = os.path.join(DATA_DIR, "saisie_detail.csv")
 os.makedirs(DATA_DIR, exist_ok=True)
+
+show_sync_ui(MASTER_WORKSHEET, MASTER_FALLBACK, ["designation", "lot", "ddp", "ppa", "shp", "labo", "stock_theorique"])
+show_sync_ui(SAISIE_WORKSHEET, SAISIE_FALLBACK, ["designation", "lot_master", "lot", "qte_saisie", "ddp_saisi", "ppa_saisi", "agent"])
 COLS_MASTER = ["designation", "lot", "zone", "ddp", "ppa", "shp", "stock_theorique"]
 COLS_SAISIE = ['designation', 'lot_master', 'lot', 'qte_vrac_prepa', 'qte_colis_prepa', 'qte_vrac_mini', 'qte_colis_mini', 'qte_vrac', 'qte_colis', 'qte_saisie', 'ddp_saisi', 'ppa_saisi', 'zone', 'agent']
 
