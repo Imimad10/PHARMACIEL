@@ -427,8 +427,10 @@ with tabs[2]:
             st.subheader("📲 Relance Rapide via WhatsApp")
             
             # Recherche sécurisée du téléphone
-            match_phone = df_clients[df_clients["Nom Client"] == client_relance]["Téléphone"] if not df_clients.empty else pd.Series()
-            client_phone = match_phone.values[0] if not match_phone.empty else ""
+            client_phone = ""
+            if not df_clients.empty and "Téléphone" in df_clients.columns:
+                match_phone = df_clients[df_clients["Nom Client"] == client_relance]["Téléphone"]
+                client_phone = match_phone.values[0] if not match_phone.empty else ""
             
             if pd.notna(client_phone) and str(client_phone) != "":
                 # Nettoyage du numéro (garder uniquement les chiffres)
