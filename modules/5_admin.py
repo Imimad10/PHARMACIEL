@@ -37,6 +37,9 @@ def parse_pages(p):
     except: return [x.strip() for x in p.replace('[','').replace(']','').replace("'","").split(',') if x.strip()]
 
 if not df_users.empty:
+    for col in USER_COLUMNS:
+        if col in df_users.columns:
+            df_users[col] = df_users[col].fillna("").astype(str)
     df_users['pages'] = df_users['pages'].apply(parse_pages)
 
 st.subheader("👥 Liste des Utilisateurs")
