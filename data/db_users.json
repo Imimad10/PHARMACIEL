@@ -1,1 +1,21 @@
-{"_default": {"1": {"username": "karim", "password": "karim123", "role": "Superviseur", "pages": ["Dashboard", "Recouvrement", "Pointage", "Logistique", "Scanneur QR"], "zone": "Aucune"}, "2": {"username": "admin_imad", "password": "admin_imad_pwd", "role": "Admin", "pages": ["Admin Centrale", "Dashboard", "Logistique", "Inventaire", "Inventaire D\u00e9tail", "Suivi", "Recouvrement", "Pointage", "P\u00e9remptions", "Scanneur QR", "Automatisation", "Litiges Fournisseurs", "Analyse Rotation", "Scan Mobile", "RH"]}, "3": {"username": "aymen", "password": "aymen123", "role": "Saisie", "pages": ["Inventaire D\u00e9tail"], "zone": "Aucune"}, "4": {"username": "khero", "password": "khero123", "role": "Saisie", "pages": ["Inventaire D\u00e9tail"], "zone": "Aucune"}, "5": {"username": "rabah", "password": "rabah123", "role": "Saisie", "pages": ["Inventaire D\u00e9tail"], "zone": "Aucune"}, "6": {"username": "yacine", "password": "yacine123", "role": "Saisie", "pages": ["Inventaire D\u00e9tail"], "zone": "Aucune"}, "7": {"username": "idriss", "password": "idriss123", "role": "Saisie", "pages": ["Inventaire D\u00e9tail"], "zone": "Aucune"}, "8": {"username": "kader", "password": "kader123", "role": "Saisie", "pages": ["Inventaire D\u00e9tail"], "zone": "Aucune"}, "9": {"username": "mus", "password": "mus123", "role": "Saisie", "pages": ["Inventaire D\u00e9tail"], "zone": "Aucune"}, "10": {"username": "aym", "password": "aym123", "role": "Saisie", "pages": ["Inventaire D\u00e9tail"], "zone": "Aucune"}, "11": {"username": "rami", "password": "rami321", "role": "Superviseur", "pages": ["Inventaire D\u00e9tail", "Suivi"], "zone": "Aucune"}, "12": {"username": "Ayoub", "password": "ayoub2026", "role": "Saisie", "pages": ["Logistique", "Suivi", "Inventaire D\u00e9tail"]}, "13": {"username": "Islem", "password": "islem2026", "role": "Saisie", "pages": ["Logistique", "Suivi", "Inventaire D\u00e9tail"]}, "14": {"username": "Seif", "password": "seif2026", "role": "Saisie", "pages": ["Inventaire", "Inventaire D\u00e9tail"]}}}
+﻿username,password,role,pages,nom,prenom,zone
+karim,karim123,Superviseur,"['Dashboard', 'Recouvrement', 'Pointage', 'Logistique', 'Scanneur QR']",,,Aucune
+admin_imad,admin_imad_pwd,Admin,"['Admin Centrale', 'Dashboard', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Suivi', 'Recouvrement', 'Pointage', 'Péremptions', 'Scanneur QR', 'Automatisation', 'Litiges Fournisseurs', 'Analyse Rotation', 'Scan Mobile', 'RH']",,,
+aymen,aymen123,Saisie,['Inventaire Détail'],,,Aucune
+khero,khero123,Saisie,['Inventaire Détail'],,,Aucune
+rabah,rabah123,Saisie,['Inventaire Détail'],,,Aucune
+yacine,yacine123,Saisie,['Inventaire Détail'],,,Aucune
+idriss,idriss123,Saisie,['Inventaire Détail'],,,Aucune
+kader,kader123,Saisie,['Inventaire Détail'],,,Aucune
+mus,mus123,Saisie,['Inventaire Détail'],,,Aucune
+aym,aym123,Saisie,['Inventaire Détail'],,,Aucune
+rami,rami321,Superviseur,"['Inventaire Détail', 'Suivi']",,,Aucune
+Ayoub,ayoub2026,Saisie,"['Logistique', 'Suivi', 'Inventaire Détail']",,,
+Islem,islem2026,Saisie,"['Logistique', 'Suivi', 'Inventaire Détail']",,,
+Seif,seif2026,Saisie,"['Inventaire', 'Inventaire Détail']",,,
+Idris,123,Saisie,"['Logistique', 'Suivi', 'Inventaire Détail']",Idris,,Aucune
+Yacine,123,Saisie,"['Logistique', 'Suivi', 'Inventaire Détail']",Yacine,,Aucune
+Sidali,123,Saisie,"['Logistique', 'Suivi', 'Inventaire Détail']",Sidali,,Aucune
+Bilel,123,Saisie,"['Logistique', 'Suivi', 'Inventaire Détail']",Bilel,,Aucune
+Mahdi,123,Saisie,"['Logistique', 'Suivi', 'Inventaire Détail']",Mahdi,,Aucune
+Kader,123,Saisie,"['Logistique', 'Suivi', 'Inventaire Détail']",Kader,,Aucune
