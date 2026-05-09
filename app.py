@@ -261,37 +261,41 @@ from utils_gsheets import load_gs_data, save_gs_data, DB_USERS_WORKSHEET, DB_USE
 USER_COLUMNS = ["username", "password", "role", "pages", "nom", "prenom", "zone", "depot"]
 df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, USER_COLUMNS)
 
-# Toujours s'assurer que l'admin principal existe
-if 'admin_imad' not in df_users['username'].values:
-    admin_data = {
-        'username': 'admin_imad',
-        'password': 'admin_imad_pwd',
-        'role': 'Admin',
-        'nom': 'Administrateur',
-        'prenom': 'Imad',
-        'pages': ['Profil', 'Admin Centrale', 'Dashboard', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Péremptions', 'Scanneur QR', 'Automatisation', 'Litiges Fournisseurs', 'Analyse Rotation', 'Scan Mobile', 'RH'],
-        'zone': 'Aucune',
-        'depot': 'Administration'
-    }
-    df_users = pd.concat([df_users, pd.DataFrame([admin_data])], ignore_index=True)
-    save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
-
-# Liste des utilisateurs essentiels à maintenir
-essentials = [
-    {'username': 'Ayoub', 'password': 'ayoub2026', 'role': 'Saisie', 'pages': ['Logistique', 'Suivi', 'Inventaire Détail'], 'depot': 'Expédition'},
-    {'username': 'Islem', 'password': 'islem2026', 'role': 'Saisie', 'pages': ['Logistique', 'Suivi', 'Inventaire Détail'], 'depot': 'Expédition'},
-    {'username': 'Seif', 'password': 'seif2026', 'role': 'Saisie', 'pages': ['Inventaire', 'Inventaire Détail'], 'depot': 'Préparation'}
-]
-
-# Synchronisation des essentiels
-changes_made = False
-for ess in essentials:
-    if df_users.empty or ess['username'] not in df_users['username'].values:
-        df_users = pd.concat([df_users, pd.DataFrame([ess])], ignore_index=True)
+# Synchronisation des essentiels (Uniquement une fois par session pour la rapidité)
+if "setup_done" not in st.session_state:
+    changes_made = False
+    
+    # Toujours s'assurer que l'admin principal existe
+    if 'admin_imad' not in df_users['username'].values:
+        admin_data = {
+            'username': 'admin_imad',
+            'password': 'admin_imad_pwd',
+            'role': 'Admin',
+            'nom': 'Administrateur',
+            'prenom': 'Imad',
+            'pages': str(['Profil', 'Admin Centrale', 'Dashboard', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Péremptions', 'Scanneur QR', 'Automatisation', 'Litiges Fournisseurs', 'Analyse Rotation', 'Scan Mobile', 'RH']),
+            'zone': 'Aucune',
+            'depot': 'Administration'
+        }
+        df_users = pd.concat([df_users, pd.DataFrame([admin_data])], ignore_index=True)
         changes_made = True
 
-if changes_made:
-    save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+    # Liste des utilisateurs essentiels à maintenir
+    essentials = [
+        {'username': 'Ayoub', 'password': 'ayoub2026', 'role': 'Saisie', 'pages': str(['Logistique', 'Suivi', 'Inventaire Détail']), 'depot': 'Expédition'},
+        {'username': 'Islem', 'password': 'islem2026', 'role': 'Saisie', 'pages': str(['Logistique', 'Suivi', 'Inventaire Détail']), 'depot': 'Expédition'},
+        {'username': 'Seif', 'password': 'seif2026', 'role': 'Saisie', 'pages': str(['Inventaire', 'Inventaire Détail']), 'depot': 'Préparation'}
+    ]
+
+    for ess in essentials:
+        if df_users.empty or ess['username'] not in df_users['username'].values:
+            df_users = pd.concat([df_users, pd.DataFrame([ess])], ignore_index=True)
+            changes_made = True
+
+    if changes_made:
+        save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+    
+    st.session_state.setup_done = True
 
 # --- 3. GESTION DE SESSION ET COOKIES ---
 if "current_user" not in st.session_state:

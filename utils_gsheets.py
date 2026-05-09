@@ -19,6 +19,7 @@ def get_storage_mode():
     """Récupère le mode de stockage actuel (Cloud ou Local)."""
     return st.session_state.get("storage_mode", "Cloud")
 
+@st.cache_resource
 def get_gs_client():
     creds_dict = None
     if "gsheets" in st.secrets:
@@ -60,7 +61,7 @@ def get_gs_url(worksheet_name=None):
         with open(GS_CONFIG_PATH, "r") as f: return f.read().strip()
     return None
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=600)
 def load_gs_data(worksheet_name, fallback_path, columns, force_cloud=False):
     """
     Charge les données selon le mode choisi.
