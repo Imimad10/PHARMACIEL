@@ -69,4 +69,7 @@ def generate_blank_inventory_pdf(df, module_name, columns_to_print):
             pdf.cell(width, 7, "", 1)
         pdf.ln()
 
-    return pdf.output(dest='S').encode('latin-1', 'replace')
+    raw = pdf.output(dest='S')
+    if isinstance(raw, (bytes, bytearray)):
+        return bytes(raw)
+    return raw.encode('latin-1', 'replace')

@@ -135,6 +135,18 @@ def save_gs_data(df, worksheet_name, fallback_path):
                 # 2. Correction du bug 400 : Les listes (ex: pages) doivent être stringifiées pour GSheets
                 df_gs[col] = df_gs[col].apply(lambda x: str(x) if isinstance(x, (list, dict)) else x)
             
+            # 3. Sanification des entêtes (GSheets exige des colonnes uniques)
+            new_cols = []
+            c_counts = {}
+            for c in df_gs.columns:
+                if c in c_counts:
+                    c_counts[c] += 1
+                    new_cols.append(f"{c}_{c_counts[c]}")
+                else:
+                    c_counts[c] = 1
+                    new_cols.append(c)
+            df_gs.columns = new_cols
+
             # Conversion en liste de listes pour gspread
             data_to_save = [df_gs.columns.values.tolist()] + df_gs.values.tolist()
             worksheet.update(data_to_save)
