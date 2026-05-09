@@ -49,10 +49,25 @@ def save_data(df, path):
 
 def get_livreur(region_val):
     reg = str(region_val).strip().upper() if pd.notna(region_val) else ""
-    mapping = {"ALGER 1": "FETHI", "ALGER 2": "FARES", "ALGER EST": "MAIDI", "TIPAZA": "HAROUN", "BLIDA": "HAROUN"}
-    hamid_list = ["MEDEA", "CHLEF", "DJELFA", "AIN-DEFLA", "RELIZANE", "LAGHOUAT", "ORAN"]
-    if reg in mapping: return mapping[reg]
-    if any(h in reg for h in hamid_list): return "HAMID"
+    if not reg: return "NON ASSIGNÉ"
+    
+    try:
+        from utils_gsheets import load_gs_data
+        df_livreurs = load_gs_data("Livreurs", "data_expedition/livreurs.csv", ["Nom", "Prénom", "Téléphone", "Secteur"])
+        if not df_livreurs.empty:
+            # Recherche exacte
+            match = df_livreurs[df_livreurs["Secteur"].astype(str).str.strip().str.upper() == reg]
+            if not match.empty:
+                return str(match.iloc[0]["Nom"]).strip().upper()
+            
+            # Recherche partielle (si la région contient le secteur)
+            for _, row in df_livreurs.iterrows():
+                secteur = str(row["Secteur"]).strip().upper()
+                if secteur and secteur in reg:
+                    return str(row["Nom"]).strip().upper()
+    except Exception as e:
+        pass # Fallback silencieux en cas d'erreur de chargement
+    
     return "NON ASSIGNÉ"
 
 def generate_pdf(df, livreur_name):
@@ -555,16 +570,18 @@ with tabs[5]:
                 st.success("Secteurs migrés !")
 
     st.divider()
-    st.subheader("👥 Gestion de la Base Clients")
-    st.info("La gestion des clients est centralisée. Vous pouvez synchroniser ici les données depuis le Cloud ou aller dans l'Admin Centrale pour des modifications plus poussées.")
+    st.subheader("👥 Synchronisation Centralisée")
+    st.info("La gestion des clients et l'affectation régionale des livreurs sont centralisées. Vous pouvez forcer la mise à jour immédiate depuis le Cloud ici.")
     
     col_sync1, col_sync2 = st.columns(2)
     with col_sync1:
-        if st.button("🔄 Synchroniser les Clients (Cloud)", use_container_width=True, help="Force le rechargement immédiat de la base client depuis Google Sheets"):
+        if st.button("🔄 Synchroniser Clients & Livreurs", use_container_width=True, help="Force le rechargement des bases clients et livreurs depuis Google Sheets"):
             with st.spinner("Synchronisation..."):
-                st.cache_data.clear() # Vider le cache pour forcer le reload
-                df_sync = load_data(DATA_CLIENTS, COLS_CLIENTS) # load_data utilise load_gs_data qui est protégé ALWAYS_CLOUD
-                st.success(f"✅ {len(df_sync)} clients synchronisés !")
+                st.cache_data.clear() # Vider le cache pour forcer le reload global
+                df_sync = load_data(DATA_CLIENTS, COLS_CLIENTS)
+                from utils_gsheets import load_gs_data
+                df_liv = load_gs_data("Livreurs", "data_expedition/livreurs.csv", ["Nom", "Prénom", "Téléphone", "Secteur"])
+                st.success(f"✅ Synchronisation réussie : {len(df_sync)} clients et {len(df_liv)} livreurs à jour !")
                 st.rerun()
     
     with col_sync2:

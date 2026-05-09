@@ -148,12 +148,30 @@ with tabs[1]:
     df_clients = load_gs_data("Base_Clients", DATA_CLIENTS, COLS_CLIENTS)
     edited_clients = st.data_editor(df_clients, use_container_width=True, num_rows="dynamic", key="editor_clients")
     
-    c1, c2 = st.columns(2)
-    if c1.button("💾 Sauvegarder Clients", key="btn_save_clients", use_container_width=True):
+    c1, c2, c3 = st.columns(3)
+    if c1.button("💾 Sauvegarder", key="btn_save_clients", use_container_width=True):
         save_gs_data(edited_clients, "Base_Clients", DATA_CLIENTS)
         st.success("Base Clients mise à jour !")
 
-    if c2.button("🔄 Transmettre vers Secteurs Logistique", key="btn_sync_secteurs", use_container_width=True, type="primary"):
+    if c2.button("📥 Importer depuis Secteurs", key="btn_import_secteurs", use_container_width=True):
+        df_sec = load_gs_data("Secteurs", DATA_SECTEURS, COLS_SECTEURS)
+        rows = []
+        for _, row in df_sec.iterrows():
+            rows.append({
+                "Nom Client": str(row.get("Client", "")),
+                "Région":     str(row.get("Ville", "")),
+                "Téléphone":  str(row.get("Tel", "")),
+                "Secteur":    str(row.get("Secteur", ""))
+            })
+        df_new_clients = pd.DataFrame(rows, columns=COLS_CLIENTS)
+        df_old_clients = load_gs_data("Base_Clients", DATA_CLIENTS, COLS_CLIENTS)
+        df_merged = pd.concat([df_old_clients, df_new_clients], ignore_index=True).drop_duplicates(subset=["Nom Client"])
+        save_gs_data(df_merged, "Base_Clients", DATA_CLIENTS)
+        st.success(f"✅ Clients importés depuis Secteurs Logistique !")
+        st.cache_data.clear()
+        st.rerun()
+
+    if c3.button("🔄 Transmettre vers Secteurs", key="btn_sync_secteurs", use_container_width=True, type="primary"):
         df_src = edited_clients.copy()
         # Construction propre du DataFrame Secteurs depuis zéro
         rows = []
