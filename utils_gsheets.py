@@ -94,7 +94,8 @@ def load_gs_data(worksheet_name, fallback_path, columns, force_cloud=False):
                             sanitized_h.append(h)
                     
                     df = pd.DataFrame(rows, columns=sanitized_h)
-                    df = df.reindex(columns=columns)
+                    if columns:
+                        df = df.reindex(columns=columns)
                     
                     # Types et Parsing
                     for col in df.columns:
