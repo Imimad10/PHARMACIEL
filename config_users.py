@@ -8,7 +8,8 @@ DEFAULT_USERS = [
         "pages": "['Profil', 'Admin Centrale', 'Logistique', 'Inventaire', 'Recouvrement', 'RH & Performance']",
         "nom": "Bousserouel",
         "prenom": "Imad",
-        "zone": "Aucune"
+        "zone": "Aucune",
+        "depot": "Administration"
     },
     {
         "username": "Ayoub",
@@ -17,7 +18,8 @@ DEFAULT_USERS = [
         "pages": "['Logistique', 'Suivi Frigo', 'Inventaire Détail']",
         "nom": "",
         "prenom": "Ayoub",
-        "zone": "Aucune"
+        "zone": "Aucune",
+        "depot": "Expédition"
     },
     {
         "username": "Islem",
@@ -26,7 +28,8 @@ DEFAULT_USERS = [
         "pages": "['Logistique', 'Suivi Frigo', 'Inventaire Détail']",
         "nom": "",
         "prenom": "Islem",
-        "zone": "Aucune"
+        "zone": "Aucune",
+        "depot": "Expédition"
     },
     {
         "username": "Seif",
@@ -35,7 +38,8 @@ DEFAULT_USERS = [
         "pages": "['Inventaire', 'Inventaire Détail']",
         "nom": "",
         "prenom": "Seif",
-        "zone": "Aucune"
+        "zone": "Aucune",
+        "depot": "Préparation"
     },
     {
         "username": "idris",
@@ -44,7 +48,8 @@ DEFAULT_USERS = [
         "pages": "['Inventaire Détail']",
         "nom": "BERGHOUT",
         "prenom": "IDRIS",
-        "zone": "C"
+        "zone": "C",
+        "depot": "Stock"
     },
     {
         "username": "aymen",
@@ -53,7 +58,8 @@ DEFAULT_USERS = [
         "pages": "['Inventaire Détail']",
         "nom": "LEFKIR",
         "prenom": "AYMEN",
-        "zone": "A"
+        "zone": "A",
+        "depot": "Stock"
     },
     {
         "username": "khero",
@@ -62,7 +68,8 @@ DEFAULT_USERS = [
         "pages": "['Inventaire Détail']",
         "nom": "KADOUCH",
         "prenom": "KHIREDDINE",
-        "zone": "A"
+        "zone": "A",
+        "depot": "Stock"
     },
     {
         "username": "rabeh",
@@ -71,7 +78,8 @@ DEFAULT_USERS = [
         "pages": "['Inventaire Détail']",
         "nom": "EN ATTENTE",
         "prenom": "RABAH",
-        "zone": "B"
+        "zone": "B",
+        "depot": "Stock"
     },
     {
         "username": "yacine",
@@ -80,7 +88,8 @@ DEFAULT_USERS = [
         "pages": "['Inventaire Détail']",
         "nom": "ELI ADJ MOUAL",
         "prenom": "YACINE",
-        "zone": "B"
+        "zone": "B",
+        "depot": "Stock"
     },
     {
         "username": "aek",
@@ -89,7 +98,8 @@ DEFAULT_USERS = [
         "pages": "['Inventaire Détail']",
         "nom": "belheddad",
         "prenom": "abdelkader",
-        "zone": "D"
+        "zone": "D",
+        "depot": "Stock"
     },
     {
         "username": "aymenk",
@@ -98,7 +108,8 @@ DEFAULT_USERS = [
         "pages": "['Inventaire Détail']",
         "nom": "koulai",
         "prenom": "aymen",
-        "zone": "D"
+        "zone": "D",
+        "depot": "Stock"
     },
     {
         "username": "mustapha",
@@ -107,7 +118,8 @@ DEFAULT_USERS = [
         "pages": "['Inventaire Détail']",
         "nom": "ouali",
         "prenom": "mustapha",
-        "zone": "C"
+        "zone": "C",
+        "depot": "Stock"
     },
     {
         "username": "rami",
@@ -116,7 +128,8 @@ DEFAULT_USERS = [
         "pages": "['Inventaire Détail', 'Inventaire Triple']",
         "nom": "rami",
         "prenom": "",
-        "zone": "Aucune"
+        "zone": "Aucune",
+        "depot": "Stock"
     },
     {
         "username": "karim",
@@ -125,6 +138,7 @@ DEFAULT_USERS = [
         "pages": "['Dashboard', 'Suivi Frigo']",
         "nom": "benmesrouk",
         "prenom": "karim",
-        "zone": "Aucune"
+        "zone": "Aucune",
+        "depot": "Expédition"
     }
 ]

@@ -25,7 +25,8 @@ st.title("👥 Gestion d'Équipe & Zones")
 st.write("Gérez les utilisateurs et leurs zones d'affectation pour l'inventaire détail.")
 
 # Chargement des utilisateurs via GSheets
-df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "password", "role", "pages", "nom", "prenom", "zone"])
+USER_COLUMNS = ["username", "password", "role", "pages", "nom", "prenom", "zone", "depot"]
+df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, USER_COLUMNS)
 
 # Conversion sécurisée des pages pour tout le dataframe
 def parse_pages(p):
@@ -107,15 +108,35 @@ if tab_add:
                 default_p = ["Dashboard", "Logistique", "Inventaire Détail", "Scanneur QR", "Suivi"]
             elif u_role == "Saisie":
                 default_p = ["Logistique", "Inventaire", "Inventaire Détail"]
-                
+            
+            u_depot = st.selectbox("Lieu de travail / Dépôt", ["Stock", "Préparation", "Expédition", "Administration"])
+            
+            # PROFIL TYPE POUR ACCÈS RAPIDE
+            st.write("---")
+            profil_type = st.selectbox("📦 Profil Type (pour configurer les accès rapidement)", 
+                                     ["Sur mesure", "Préparateur", "Livreur / Recouvrement", "Vendeur / Commercial", "Administrateur Complet"])
+            
+            # Mapping des profils
+            profil_map = {
+                "Préparateur": ["Inventaire Détail", "Gestion des Péremptions", "Scan Mobile", "Profil"],
+                "Livreur / Recouvrement": ["Logistique", "Recouvrement", "Pointage Expéditeur", "Scan Mobile", "Profil"],
+                "Vendeur / Commercial": ["Catalogue Produits", "Analyse Rotation", "Profil"],
+                "Administrateur Complet": MODULES_DISPO
+            }
+            
+            target_p = profil_map.get(profil_type, default_p)
+
             with st.expander("🔑 Droits d'accès aux modules", expanded=True):
-                st.write("Cochez les modules auxquels l'utilisateur peut accéder :")
+                st.write(f"Accès pour le profil : **{profil_type}**")
                 u_pages = []
                 cols_p = st.columns(3)
                 for i, m in enumerate(MODULES_DISPO):
                     with cols_p[i % 3]:
-                        if st.checkbox(m, value=(m in default_p), key=f"add_p_{m}"):
+                        # Si profil_type != Sur mesure, on force les valeurs du profil
+                        default_val = m in target_p
+                        if st.checkbox(m, value=default_val, key=f"add_p_{m}_{profil_type}"):
                             u_pages.append(m)
+            
             u_zone = st.selectbox("Zone Attribuée (Inventaire Détail)", ["Aucune", "A", "B", "C", "D", "Frigo"])
             
             if st.form_submit_button("Créer l'utilisateur"):
@@ -129,7 +150,8 @@ if tab_add:
                         'nom': u_nom,
                         'prenom': u_prenom,
                         'pages': str(u_pages),
-                        'zone': u_zone
+                        'zone': u_zone,
+                        'depot': u_depot
                     }
                     df_users = pd.concat([df_users, pd.DataFrame([new_user])], ignore_index=True)
                     save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
@@ -159,14 +181,31 @@ if tab_edit:
                     role_list = ["Saisie", "Superviseur", "Admin"]
                     current_role = target_data.get('role', 'Saisie')
                     new_role = st.selectbox("Nouveau rôle", role_list, index=role_list.index(current_role) if current_role in role_list else 0)
+                    new_prenom = ce2.text_input("Prénom", value=target_data.get('prenom', ''))
+
+                    # PROFIL TYPE POUR MODIFICATION RAPIDE
+                    st.write("---")
+                    profil_type_edit = st.selectbox("📦 Changer pour un Profil Type", 
+                                             ["Conserver actuel", "Préparateur", "Livreur / Recouvrement", "Vendeur / Commercial", "Administrateur Complet"])
+                    
+                    profil_map = {
+                        "Préparateur": ["Inventaire Détail", "Gestion des Péremptions", "Scan Mobile", "Profil"],
+                        "Livreur / Recouvrement": ["Logistique", "Recouvrement", "Pointage Expéditeur", "Scan Mobile", "Profil"],
+                        "Vendeur / Commercial": ["Catalogue Produits", "Analyse Rotation", "Profil"],
+                        "Administrateur Complet": MODULES_DISPO
+                    }
+                    
+                    current_p_list = target_data.get('pages', [])
+                    if profil_type_edit != "Conserver actuel":
+                        current_p_list = profil_map.get(profil_type_edit, [])
+
                     with st.expander("🔑 Droits d'accès aux modules", expanded=True):
-                        st.write("Modifier les accès :")
+                        st.write(f"Configuration : **{profil_type_edit}**")
                         new_pages = []
                         cols_ep = st.columns(3)
-                        current_p_list = target_data.get('pages', [])
                         for i, m in enumerate(MODULES_DISPO):
                             with cols_ep[i % 3]:
-                                if st.checkbox(m, value=(m in current_p_list), key=f"edit_p_{m}"):
+                                if st.checkbox(m, value=(m in current_p_list), key=f"edit_p_{m}_{profil_type_edit}"):
                                     new_pages.append(m)
                     
                     ce1, ce2 = st.columns(2)
@@ -185,6 +224,10 @@ if tab_edit:
                 current_zone = target_data.get('zone', 'Aucune')
                 new_zone = st.selectbox("Nouvelle zone d'inventaire", zones_list, index=zones_list.index(current_zone) if current_zone in zones_list else 0)
                 
+                depots_list = ["Stock", "Préparation", "Expédition", "Administration"]
+                current_depot = target_data.get('depot', 'Stock')
+                new_depot = st.selectbox("Nouveau Lieu de travail / Dépôt", depots_list, index=depots_list.index(current_depot) if current_depot in depots_list else 0)
+
                 if st.form_submit_button("Valider l'affectation" if not is_admin else "Mettre à jour"):
                     mask = df_users['username'] == edit_target
                     df_users.loc[mask, 'password'] = new_pwd
@@ -193,6 +236,7 @@ if tab_edit:
                     df_users.loc[mask, 'zone'] = new_zone
                     df_users.loc[mask, 'nom'] = new_nom
                     df_users.loc[mask, 'prenom'] = new_prenom
+                    df_users.loc[mask, 'depot'] = new_depot
                     save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
                     st.success("Mise à jour réussie sur GSheets !")
                     st.rerun()
