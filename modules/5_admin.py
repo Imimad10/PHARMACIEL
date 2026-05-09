@@ -108,7 +108,14 @@ if tab_add:
             elif u_role == "Saisie":
                 default_p = ["Logistique", "Inventaire", "Inventaire Détail"]
                 
-            u_pages = st.multiselect("Accès aux modules", MODULES_DISPO, default=default_p)
+            with st.expander("🔑 Droits d'accès aux modules", expanded=True):
+                st.write("Cochez les modules auxquels l'utilisateur peut accéder :")
+                u_pages = []
+                cols_p = st.columns(3)
+                for i, m in enumerate(MODULES_DISPO):
+                    with cols_p[i % 3]:
+                        if st.checkbox(m, value=(m in default_p), key=f"add_p_{m}"):
+                            u_pages.append(m)
             u_zone = st.selectbox("Zone Attribuée (Inventaire Détail)", ["Aucune", "A", "B", "C", "D", "Frigo"])
             
             if st.form_submit_button("Créer l'utilisateur"):
@@ -152,8 +159,15 @@ if tab_edit:
                     role_list = ["Saisie", "Superviseur", "Admin"]
                     current_role = target_data.get('role', 'Saisie')
                     new_role = st.selectbox("Nouveau rôle", role_list, index=role_list.index(current_role) if current_role in role_list else 0)
-                    current_pages = [p for p in target_data.get('pages', []) if p in MODULES_DISPO]
-                    new_pages = st.multiselect("Accès aux modules", MODULES_DISPO, default=current_pages)
+                    with st.expander("🔑 Droits d'accès aux modules", expanded=True):
+                        st.write("Modifier les accès :")
+                        new_pages = []
+                        cols_ep = st.columns(3)
+                        current_p_list = target_data.get('pages', [])
+                        for i, m in enumerate(MODULES_DISPO):
+                            with cols_ep[i % 3]:
+                                if st.checkbox(m, value=(m in current_p_list), key=f"edit_p_{m}"):
+                                    new_pages.append(m)
                     
                     ce1, ce2 = st.columns(2)
                     new_nom = ce1.text_input("Nom de famille", value=target_data.get('nom', ''))
