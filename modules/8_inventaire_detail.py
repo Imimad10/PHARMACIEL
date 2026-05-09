@@ -368,26 +368,14 @@ with tabs[3]:
             st.rerun()
 
         st.divider()
-        st.subheader("⚙️ Gestion des fichiers")
-        up = st.file_uploader("Importer Master Détail (XLSX)", type="xlsx")
-        if up:
-            df_up = pd.read_excel(up)
-            df_up = clean_cols_v5(df_up)
-            save_gs_data(df_up, MASTER_WORKSHEET, MASTER_FALLBACK)
-            st.success("Master Détail synchronisé sur GSheets !")
-            st.rerun()
-                
-        st.divider()
-        c1, c2 = st.columns(2)
+        st.subheader("⚙️ Gestion de la base de données")
+        st.info("💡 **Centralisation activée** : L'importation et la gestion du fichier Master se font désormais exclusivement depuis le module **Admin Centrale** (Onglet Importateur Universel).")
         
-        if c1.button("🗑️ Vider Inventaire (Saisie)", use_container_width=True):
+        st.divider()
+        
+        if st.button("🗑️ Vider Inventaire (Saisie)", use_container_width=True, type="secondary"):
             save_gs_data(pd.DataFrame(columns=COLS_SAISIE), SAISIE_WORKSHEET, SAISIE_FALLBACK)
             st.success("Toutes les saisies terrain ont été effacées sur GSheets.")
-            st.rerun()
-                
-        if c2.button("🔴 Supprimer Master", use_container_width=True):
-            save_gs_data(pd.DataFrame(columns=COLS_MASTER), MASTER_WORKSHEET, MASTER_FALLBACK)
-            st.success("Fichier Master vidé sur GSheets.")
             st.rerun()
 
         st.divider()
