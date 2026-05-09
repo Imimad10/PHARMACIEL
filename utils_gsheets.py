@@ -101,7 +101,13 @@ def load_gs_data(worksheet_name, fallback_path, columns, force_cloud=False):
                     return df
             except Exception as e:
                 err_str = str(e)
-                if "429" in err_str or "Quota exceeded" in err_str:
+                if "404" in err_str:
+                    try:
+                        email = client.auth.signer_email if hasattr(client.auth, 'signer_email') else "darpharm-bot@..."
+                    except:
+                        email = "l'email du robot Google"
+                    st.error(f"🚨 ERREUR 404: {email} n'a pas accès au fichier. Ajoutez-le en Éditeur sur Google Drive !")
+                elif "429" in err_str or "Quota exceeded" in err_str:
                     # Message plus discret pour le Rate Limit de Google
                     if "rate_limit_warned" not in st.session_state:
                         st.warning(f"⚠️ Google Sheets est très sollicité. Utilisation du cache local pour accélérer.")
