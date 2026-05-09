@@ -103,3 +103,26 @@ def save_gs_data(df, worksheet_name, fallback_path):
             st.error(f"Erreur sauvegarde GSheets ({worksheet_name}) : {e}")
             
     df.to_csv(fallback_path, index=False, sep=',', encoding='utf-8-sig')
+
+def create_archive_spreadsheet(name, df):
+    """Crée un nouveau fichier Google Sheets et y injecte les données."""
+    client = get_gs_client()
+    if not client: 
+        st.error("Client GSheets non disponible.")
+        return None
+    try:
+        sh = client.create(name)
+        worksheet = sh.get_worksheet(0)
+        
+        df_gs = df.copy().fillna("")
+        # Conversion dates
+        for col in df_gs.columns:
+            if pd.api.types.is_datetime64_any_dtype(df_gs[col]):
+                df_gs[col] = df_gs[col].dt.strftime('%Y-%m-%d')
+        
+        data_to_save = [df_gs.columns.values.tolist()] + df_gs.values.tolist()
+        worksheet.update(data_to_save)
+        return sh.url
+    except Exception as e:
+        st.error(f"Erreur lors de la création de l'archive '{name}' : {e}")
+        return None

@@ -28,7 +28,7 @@ st.title("🏛️ Administration Centrale (Master Data)")
 st.write("Gestion centralisée des clients, livreurs et secteurs pour tous les modules.")
 
 # --- TABS ---
-tabs = st.tabs(["📤 Importateur Universel", "👥 Base Clients", "🚚 Livreurs", "🗺️ Secteurs Logistique"])
+tabs = st.tabs(["📤 Importateur Universel", "👥 Base Clients", "🚚 Livreurs", "🗺️ Secteurs Logistique", "📦 Archivage Cloud"])
 
 # ONGLET 0 : IMPORTATEUR UNIVERSEL (DRAG & DROP)
 with tabs[0]:
@@ -141,3 +141,45 @@ with tabs[3]:
     if st.button("💾 Sauvegarder Secteurs", key="btn_save_sec"):
         save_gs_data(edited_sec, "Secteurs", DATA_SECTEURS)
         st.success("Cartographie des Secteurs mise à jour !")
+
+# ONGLET 4 : ARCHIVAGE CLOUD
+with tabs[4]:
+    st.subheader("📦 Archivage & Nettoyage Cloud")
+    st.write("Cet outil permet de déplacer les données anciennes vers un **nouveau fichier Google Sheets** séparé pour garder la base principale légère et rapide.")
+    
+    col_arch1, col_arch2 = st.columns(2)
+    module_to_archive = col_arch1.selectbox("Sélectionner le module à archiver", ["Logs", "Recouvrement", "Pointages", "Saisie_Inventaire"])
+    
+    # Paramètres par défaut selon module
+    fallback_map = {
+        "Logs": "data/db_logs.csv",
+        "Recouvrement": "data_recouvrement.csv",
+        "Pointages": "data/db_pointages.csv",
+        "Saisie_Inventaire": "data_inventaire/saisie.csv"
+    }
+    
+    archive_name = col_arch2.text_input("Nom du nouveau fichier archive", value=f"Archive_{module_to_archive}_{datetime.now().strftime('%m_%Y')}")
+    
+    if st.button("🚀 Créer l'archive et Vider la base actuelle", type="primary", use_container_width=True):
+        from utils_gsheets import create_archive_spreadsheet
+        
+        # 1. Charger les données actuelles
+        df_to_archive = load_gs_data(module_to_archive, fallback_map[module_to_archive], [])
+        
+        if not df_to_archive.empty:
+            # 2. Créer le nouveau fichier
+            archive_url = create_archive_spreadsheet(archive_name, df_to_archive)
+            
+            if archive_url:
+                st.success(f"✅ Nouveau fichier Sheets créé avec succès !")
+                st.markdown(f"🔗 [Cliquez ici pour ouvrir l'archive : {archive_name}]({archive_url})")
+                
+                # 3. Vider la base actuelle (On garde les colonnes)
+                empty_df = pd.DataFrame(columns=df_to_archive.columns)
+                save_gs_data(empty_df, module_to_archive, fallback_map[module_to_archive])
+                
+                st.warning("⚠️ La base actuelle a été vidée pour optimiser les performances.")
+                log_action(st.session_state.current_user['username'], f"Archivage Cloud : {module_to_archive} -> {archive_name}", "Admin Centrale")
+                st.cache_data.clear()
+        else:
+            st.warning("La base sélectionnée est déjà vide.")
