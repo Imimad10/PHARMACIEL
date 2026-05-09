@@ -55,7 +55,7 @@ if not df_users.empty:
 st.divider()
 
 if is_admin:
-    tab_list = ["➕ Ajouter", "✏️ Modifier", "🗑️ Supprimer", "📝 Traçabilité (Logs)", "💾 Sauvegarde", "🤖 Configuration IA"]
+    tab_list = ["➕ Ajouter", "✏️ Modifier", "🗑️ Supprimer", "📝 Traçabilité (Logs)", "💾 Sauvegarde", "🤖 Configuration IA", "🔑 Accès"]
 else:
     tab_list = ["📍 Affectation des Zones"]
 
@@ -63,7 +63,7 @@ tabs = st.tabs(tab_list)
 
 # Mapping des index selon le rôle
 if is_admin:
-    tab_add, tab_edit, tab_del, tab_logs, tab_backup, tab_ia = tabs
+    tab_add, tab_edit, tab_del, tab_logs, tab_backup, tab_ia, tab_access = tabs
 else:
     tab_edit = tabs[0]
     # On désactive les autres onglets pour le superviseur
@@ -111,32 +111,7 @@ if tab_add:
             
             u_depot = st.selectbox("Lieu de travail / Dépôt", ["Stock", "Préparation", "Expédition", "Administration"])
             
-            # PROFIL TYPE POUR ACCÈS RAPIDE
-            st.write("---")
-            profil_type = st.selectbox("📦 Profil Type (pour configurer les accès rapidement)", 
-                                     ["Sur mesure", "Préparateur", "Livreur / Recouvrement", "Vendeur / Commercial", "Administrateur Complet"])
-            
-            # Mapping des profils
-            profil_map = {
-                "Préparateur": ["Inventaire Détail", "Gestion des Péremptions", "Scan Mobile", "Profil"],
-                "Livreur / Recouvrement": ["Logistique", "Recouvrement", "Pointage Expéditeur", "Scan Mobile", "Profil"],
-                "Vendeur / Commercial": ["Catalogue Produits", "Analyse Rotation", "Profil"],
-                "Administrateur Complet": MODULES_DISPO
-            }
-            
-            target_p = profil_map.get(profil_type, default_p)
-
-            with st.expander("🔑 Droits d'accès aux modules", expanded=True):
-                st.write(f"Accès pour le profil : **{profil_type}**")
-                u_pages = []
-                cols_p = st.columns(3)
-                for i, m in enumerate(MODULES_DISPO):
-                    with cols_p[i % 3]:
-                        # Si profil_type != Sur mesure, on force les valeurs du profil
-                        default_val = m in target_p
-                        if st.checkbox(m, value=default_val, key=f"add_p_{m}_{profil_type}"):
-                            u_pages.append(m)
-            
+            u_pages = [] # Sera géré dans le nouvel onglet Accès
             u_zone = st.selectbox("Zone Attribuée (Inventaire Détail)", ["Aucune", "A", "B", "C", "D", "Frigo"])
             
             if st.form_submit_button("Créer l'utilisateur"):
@@ -181,32 +156,6 @@ if tab_edit:
                     role_list = ["Saisie", "Superviseur", "Admin"]
                     current_role = target_data.get('role', 'Saisie')
                     new_role = st.selectbox("Nouveau rôle", role_list, index=role_list.index(current_role) if current_role in role_list else 0)
-                    new_prenom = ce2.text_input("Prénom", value=target_data.get('prenom', ''))
-
-                    # PROFIL TYPE POUR MODIFICATION RAPIDE
-                    st.write("---")
-                    profil_type_edit = st.selectbox("📦 Changer pour un Profil Type", 
-                                             ["Conserver actuel", "Préparateur", "Livreur / Recouvrement", "Vendeur / Commercial", "Administrateur Complet"])
-                    
-                    profil_map = {
-                        "Préparateur": ["Inventaire Détail", "Gestion des Péremptions", "Scan Mobile", "Profil"],
-                        "Livreur / Recouvrement": ["Logistique", "Recouvrement", "Pointage Expéditeur", "Scan Mobile", "Profil"],
-                        "Vendeur / Commercial": ["Catalogue Produits", "Analyse Rotation", "Profil"],
-                        "Administrateur Complet": MODULES_DISPO
-                    }
-                    
-                    current_p_list = target_data.get('pages', [])
-                    if profil_type_edit != "Conserver actuel":
-                        current_p_list = profil_map.get(profil_type_edit, [])
-
-                    with st.expander("🔑 Droits d'accès aux modules", expanded=True):
-                        st.write(f"Configuration : **{profil_type_edit}**")
-                        new_pages = []
-                        cols_ep = st.columns(3)
-                        for i, m in enumerate(MODULES_DISPO):
-                            with cols_ep[i % 3]:
-                                if st.checkbox(m, value=(m in current_p_list), key=f"edit_p_{m}_{profil_type_edit}"):
-                                    new_pages.append(m)
                     
                     ce1, ce2 = st.columns(2)
                     new_nom = ce1.text_input("Nom de famille", value=target_data.get('nom', ''))
@@ -216,7 +165,6 @@ if tab_edit:
                     st.info(f"Rôle actuel : {target_data.get('role')}")
                     new_pwd = target_data.get('password')
                     new_role = target_data.get('role')
-                    new_pages = target_data.get('pages')
                     new_nom = target_data.get('nom', '')
                     new_prenom = target_data.get('prenom', '')
 
@@ -232,13 +180,13 @@ if tab_edit:
                     mask = df_users['username'] == edit_target
                     df_users.loc[mask, 'password'] = new_pwd
                     df_users.loc[mask, 'role'] = new_role
-                    df_users.loc[mask, 'pages'] = str(new_pages)
+                    # Note: Les accès (pages) sont gérés dans l'onglet "🔑 Accès"
                     df_users.loc[mask, 'zone'] = new_zone
                     df_users.loc[mask, 'nom'] = new_nom
                     df_users.loc[mask, 'prenom'] = new_prenom
                     df_users.loc[mask, 'depot'] = new_depot
                     save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
-                    st.success("Mise à jour réussie sur GSheets !")
+                    st.success("Informations mises à jour !")
                     st.rerun()
 
 
@@ -348,3 +296,47 @@ if tab_ia:
                     st.rerun()
         else:
             st.warning("⚠️ Accès restreint. Seuls les administrateurs peuvent configurer l'IA.")
+
+if tab_access:
+    with tab_access:
+        st.subheader("🔑 Gestion Fine des Accès par Utilisateur")
+        
+        user_list_acc = df_users['username'].tolist() if not df_users.empty else []
+        u_acc = st.selectbox("Sélectionner l'utilisateur à configurer", user_list_acc, key="sel_user_acc")
+        
+        if u_acc:
+            target_acc = df_users[df_users['username'] == u_acc].iloc[0]
+            st.info(f"Rôle actuel : **{target_acc.get('role')}** | Dépôt : **{target_acc.get('depot')}**")
+            
+            # Profil type pour aide à la saisie
+            profil_type_acc = st.selectbox("🚀 Appliquer un Profil Type (optionnel)", 
+                                     ["Conserver actuel", "Préparateur", "Livreur / Recouvrement", "Vendeur / Commercial", "Administrateur Complet"],
+                                     key="profil_acc_helper")
+            
+            profil_map = {
+                "Préparateur": ["Inventaire Détail", "Gestion des Péremptions", "Scan Mobile", "Profil"],
+                "Livreur / Recouvrement": ["Logistique", "Recouvrement", "Pointage Expéditeur", "Scan Mobile", "Profil"],
+                "Vendeur / Commercial": ["Catalogue Produits", "Analyse Rotation", "Profil"],
+                "Administrateur Complet": MODULES_DISPO
+            }
+            
+            current_pages_acc = target_acc.get('pages', [])
+            if profil_type_acc != "Conserver actuel":
+                current_pages_acc = profil_map.get(profil_type_acc, [])
+            
+            st.write("---")
+            st.write("Cochez les modules autorisés :")
+            final_pages = []
+            cols_acc = st.columns(3)
+            for i, m in enumerate(MODULES_DISPO):
+                with cols_acc[i % 3]:
+                    if st.checkbox(m, value=(m in current_pages_acc), key=f"acc_{u_acc}_{m}_{profil_type_acc}"):
+                        final_pages.append(m)
+            
+            st.write("---")
+            if st.button("💾 Enregistrer les droits d'accès", type="primary", use_container_width=True):
+                mask = df_users['username'] == u_acc
+                df_users.loc[mask, 'pages'] = str(final_pages)
+                save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+                st.success(f"✅ Droits d'accès de {u_acc} mis à jour !")
+                st.rerun()
