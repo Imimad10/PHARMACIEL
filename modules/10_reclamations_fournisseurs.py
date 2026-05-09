@@ -34,7 +34,11 @@ def get_delay(start_date, end_date):
 st.title("📦 DARPHARM - Gestion des Litiges & Réclamations")
 st.write("Système synchronisé pour le suivi des anomalies de réception et litiges fournisseurs.")
 
-tab_new, tab_list, tab_stats = st.tabs(["➕ Nouveau Rapport", "📋 Suivi des Litiges", "📊 Statistiques"])
+tab_new, tab_list, tab_stats, tab_prods = st.tabs(["➕ Nouveau Rapport", "📋 Suivi des Litiges", "📊 Statistiques", "📦 Base Produits"])
+
+# --- CHARGEMENT DYNAMIQUE DES PRODUITS ---
+df_prods = load_gs_data("Base_Produits", "data_produits.csv", ["Désignation"])
+liste_prods = sorted([str(p).upper().strip() for p in df_prods["Désignation"].unique() if pd.notna(p) and str(p).strip() != ""])
 
 # --- ONGLET 1 : NOUVELLE RÉCLAMATION ---
 with tab_new:
@@ -44,7 +48,13 @@ with tab_new:
         with col1:
             fournisseur = st.text_input("Fournisseur / Laboratoire", placeholder="Ex: Sanofi, Biopharm...")
             num_facture = st.text_input("N° Facture / BL")
-            produit = st.text_input("Désignation du Produit")
+            
+            # Utilisation de la liste déroulante au lieu du champ texte libre
+            if liste_prods:
+                produit = st.selectbox("Désignation du Produit", options=liste_prods, index=None, placeholder="Rechercher le produit...")
+            else:
+                produit = st.text_input("Désignation du Produit (Veuillez importer une base)")
+                
             lot = st.text_input("N° Lot")
             quantite = st.number_input("Quantité concernée", min_value=1, step=1)
             
@@ -162,3 +172,55 @@ with tab_stats:
         st.subheader("Répartition par Motif")
         df_motif = df_litiges['Type'].value_counts().reset_index()
         st.bar_chart(df_motif, x='Type', y='count')
+
+# --- ONGLET 4 : BASE PRODUITS ---
+with tab_prods:
+    st.subheader("📦 Base de Données des Produits")
+    st.write("Importez une liste Excel ou CSV pour mettre à jour les produits disponibles dans le formulaire de litige. Les doublons seront automatiquement ignorés.")
+    
+    col_up, col_list = st.columns([1, 1])
+    with col_up:
+        file_up = st.file_uploader("Importer une nouvelle liste de produits", type=["xlsx", "xls", "csv"])
+        if file_up:
+            if st.button("🚀 Importer et Mettre à jour la Base", type="primary"):
+                with st.spinner("Analyse et nettoyage en cours..."):
+                    try:
+                        if file_up.name.endswith(".csv"):
+                            df_new = pd.read_csv(file_up)
+                        else:
+                            df_new = pd.read_excel(file_up)
+                        
+                        # 1. Trouver la bonne colonne de désignation
+                        prod_col = None
+                        for c in df_new.columns:
+                            c_low = str(c).lower()
+                            if "produit" in c_low or "designation" in c_low or "nom" in c_low:
+                                prod_col = c
+                                break
+                        if not prod_col: prod_col = df_new.columns[0]
+                        
+                        # 2. Nettoyer et formater les nouveaux produits
+                        new_prods = pd.DataFrame({
+                            "Désignation": df_new[prod_col].dropna().astype(str).str.upper().str.strip()
+                        })
+                        
+                        # 3. Fusionner avec l'ancienne base sans créer de doublons
+                        df_merged = pd.concat([df_prods, new_prods]).drop_duplicates(subset=["Désignation"]).reset_index(drop=True)
+                        
+                        # Ne garder que ceux qui ne sont pas vides
+                        df_merged = df_merged[df_merged["Désignation"] != ""]
+                        
+                        # 4. Sauvegarder dans la base centrale
+                        save_gs_data(df_merged, "Base_Produits", "data_produits.csv")
+                        
+                        st.success(f"✅ Import réussi ! Vous avez maintenant {len(df_merged)} produits uniques dans la base.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erreur lors de l'importation : {e}")
+
+    with col_list:
+        st.metric("Total de produits uniques", len(df_prods))
+        if not df_prods.empty:
+            st.dataframe(df_prods.sort_values("Désignation"), use_container_width=True, hide_index=True)
+        else:
+            st.info("La base est actuellement vide.")
