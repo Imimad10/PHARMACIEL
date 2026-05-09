@@ -138,7 +138,14 @@ if "inv_work_df" not in st.session_state and df_master is not None:
     st.session_state.inv_work_df = work_df
 
 # --- INTERFACE ---
-st.title("📋 Inventaire Triple & Confrontation Logipharm")
+col_t1, col_t2 = st.columns([4, 1])
+with col_t1:
+    st.title("📋 Inventaire Triple & Confrontation Logipharm")
+with col_t2:
+    if st.button("♻️ Rafraîchir les données", use_container_width=True, help="Synchroniser avec les saisies des autres utilisateurs"):
+        st.cache_data.clear()
+        if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
+        st.rerun()
 
 if df_master is None:
     st.warning("⚠️ Aucun fichier Master détecté. Veuillez l'importer dans l'Admin Centrale.")
@@ -198,17 +205,8 @@ if df_master is not None and tab_dash:
 # --- SAISIE ---
 if df_master is not None and tab_saisie:
     with tab_saisie:
-        # En-tête avec bouton de rafraîchissement
-        col_title, col_refresh = st.columns([3, 1])
-        with col_title:
-            st.markdown("### ⚡ Saisie Libre & Grille")
-        with col_refresh:
-            if st.button("♻️ Rafraîchir les données", use_container_width=True, help="Recharge les données depuis le fichier Master"):
-                st.cache_data.clear()
-                if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
-                st.rerun()
+        st.markdown("### ⚡ Saisie Libre & Grille")
 
-        # Diagnostic
         with st.expander("🔍 Diagnostic Colonnes"):
             st.write("Colonnes identifiées :", list(df_master.columns))
             st.dataframe(df_master[['depot', 'produit', 'lot', 'qte_logi']].head())
