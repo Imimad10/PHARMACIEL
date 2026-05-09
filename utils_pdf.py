@@ -40,7 +40,7 @@ def generate_blank_inventory_pdf(df, module_name, columns_to_print):
     if "Triple" in module_name:
         extra_cols = [("DDP", 20), ("PPA", 15), ("Vrac P.", 18), ("Colis P.", 18), ("Vrac M.", 18), ("Colis M.", 18)]
     else:
-        extra_cols = [("DDP", 25), ("QTE RÉELLE", 30), ("OBSERVATIONS", 35)]
+        extra_cols = [("DDP", 22), ("VRAC", 15), ("MINISTOCK", 20), ("TOTAL", 15), ("OBSERVATIONS", 28)]
         
     for label, width in extra_cols:
         pdf.cell(width, 8, label, 1, 0, 'C', 1)

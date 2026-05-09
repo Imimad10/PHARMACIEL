@@ -18,7 +18,7 @@ if "DATA_DIR" not in st.session_state:
     st.session_state.SAISIE_FALLBACK = os.path.join(st.session_state.DATA_DIR, "saisie.csv")
 
 os.makedirs(st.session_state.DATA_DIR, exist_ok=True)
-COLS_MASTER = ["designation", "lot", "ddp", "ppa", "shp", "labo", "stock_theorique"]
+COLS_MASTER = ["designation", "lot", "ddp", "ppa", "shp", "labo", "stock_theorique", "zone"]
 COLS_SAISIE = ["designation", "lot_master", "lot", "qte_saisie", "ddp_saisi", "ppa_saisi", "agent"]
 
 st.set_page_config(page_title="Inventaire Pharmaciel", layout="wide")
@@ -62,7 +62,8 @@ def clean_columns(df):
         'n°lot': 'lot', 'nlot': 'lot', 'lot': 'lot', 
         'peremption': 'ddp', 'ddp': 'ddp', 'exp': 'ddp',
         'ppa': 'ppa', 'shp': 'shp',
-        'labo': 'labo', 'laboratoire': 'labo', 'lab': 'labo', 'fabricant': 'labo', 'marque': 'labo'
+        'labo': 'labo', 'laboratoire': 'labo', 'lab': 'labo', 'fabricant': 'labo', 'marque': 'labo',
+        'zone': 'zone', 'emplacement': 'zone', 'lieu': 'zone'
     }
     stock_keywords = ['quantit', 'depot', 'stock', 'theorique', 'qte']
     new_cols = []
@@ -176,19 +177,37 @@ with tabs[0]:
             with c_p1:
                 st.write("Générer une fiche d'inventaire vierge basée sur le Master.")
             with c_p2:
-                # Filtrage par labo optionnel pour l'impression
-                labos = ["Tous"] + sorted(df_master['labo'].dropna().unique().tolist()) if 'labo' in df_master.columns else ["Tous"]
-                lab_sel = st.selectbox("Laboratoire :", labos, key="print_lab_inv")
+                # NOUVELLE LOGIQUE D'IMPRESSION
+                col_print_1, col_print_2 = st.columns(2)
+                with col_print_1:
+                    type_fiche = st.radio("Type de Fiche :", ["Global", "Par Zone"], horizontal=True, key="type_fiche_inv")
                 
-                df_print = df_master if lab_sel == "Tous" else df_master[df_master['labo'] == lab_sel]
+                with col_print_2:
+                    labos = ["Tous"] + sorted(df_master['labo'].dropna().unique().tolist()) if 'labo' in df_master.columns else ["Tous"]
+                    lab_sel = st.selectbox("Laboratoire :", labos, key="print_lab_inv")
+                
+                df_print = df_master.copy()
+                if lab_sel != "Tous":
+                    df_print = df_print[df_print['labo'] == lab_sel]
+                
+                # Gestion des Zones
+                title_pdf = "Inventaire Global"
+                if type_fiche == "Par Zone" and 'zone' in df_print.columns:
+                    zones_dispo = sorted(df_print['zone'].dropna().unique().tolist())
+                    zone_sel = st.selectbox("Choisir la Zone :", zones_dispo, key="print_zone_inv")
+                    df_print = df_print[df_print['zone'] == zone_sel]
+                    title_pdf = f"Inventaire Zone {zone_sel}"
+                
+                # TRI ALPHABÉTIQUE
+                df_print = df_print.sort_values(by='designation')
                 
                 cols_to_print = [('designation', 'Produit', 60), ('lot', 'Lot', 30)]
-                pdf_bytes = generate_blank_inventory_pdf(df_print, "Inventaire Global", cols_to_print)
+                pdf_bytes = generate_blank_inventory_pdf(df_print, title_pdf, cols_to_print)
                 
                 st.download_button(
                     "📥 Télécharger la Fiche Vierge",
                     pdf_bytes,
-                    f"Fiche_Vierge_Inventaire_{lab_sel}.pdf",
+                    f"Fiche_Vierge_Inventaire_{type_fiche}_{lab_sel}.pdf",
                     "application/pdf",
                     use_container_width=True
                 )
@@ -286,6 +305,7 @@ with tabs[2]:
                     
                     else:
                         # --- MODE DÉTAILLÉ ---
+                        extra_cols = [("DDP", 22), ("VRAC", 15), ("MINISTOCK", 20), ("TOTAL", 15), ("OBSERVATIONS", 28)]
                         # Préparation et sécurisation des types
                         saisie['designation'] = saisie['designation'].astype(str).str.strip()
                         saisie['lot_master'] = saisie['lot_master'].astype(str).str.strip()
