@@ -183,10 +183,11 @@ else:
                 # Récupération des agents affectés à cette zone
                 from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
                 df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "nom", "prenom", "zone"])
-                if not df_users.empty:
+                if not df_users.empty and 'zone' in df_users.columns:
                     target_z = str(sel_z).strip().upper()
-                    df_users['zone_norm'] = df_users['zone'].astype(str).str.strip().upper()
-                    zone_users = df_users[df_users['zone_norm'] == target_z]
+                    u_df = df_users.copy()
+                    u_df['zone_norm'] = u_df['zone'].astype(str).str.strip().upper()
+                    zone_users = u_df[u_df['zone_norm'] == target_z]
                     if not zone_users.empty:
                         names = [f"{u['nom']} {u['prenom']}".strip() or u['username'] for _, u in zone_users.iterrows()]
                         agents_str = "Agents affectés : " + ", ".join(names)
