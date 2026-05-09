@@ -89,6 +89,13 @@ def load_gs_data(worksheet_name, fallback_path, columns):
             # Reindexation pour coller aux colonnes attendues
             df = df.reindex(columns=columns)
             
+            # Conversion intelligente des types (GSheets renvoie tout en string)
+            for col in df.columns:
+                try:
+                    df[col] = pd.to_numeric(df[col])
+                except:
+                    pass # Reste en string si pas convertible
+            
             # Parsing automatique des colonnes qui contiennent des listes (ex: ["Page1", "Page2"])
             import ast
             def safe_parse(val):
