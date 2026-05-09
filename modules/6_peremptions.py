@@ -64,7 +64,8 @@ with tab1:
             c2.metric("Critiques", stats.get("⚠️ Critique (< 3 mois)", 0))
             c3.metric("Vigilance", stats.get("🟠 Vigilance (3-6 mois)", 0))
             c4.metric("Sains", stats.get("✅ OK (> 6 mois)", 0))
-            st.dataframe(df_res[['designation', 'lot', 'ddp_saisi', 'Statut', 'mois_restants']].sort_values('expiry_date'), use_container_width=True)
+            df_sorted = df_res.sort_values('expiry_date')[['designation', 'lot', 'ddp_saisi', 'Statut', 'mois_restants']]
+            st.dataframe(df_sorted, use_container_width=True)
         else: st.info("Aucune donnée de péremption valide trouvée dans la saisie.")
     else: st.info("Aucun inventaire terrain trouvé sur GSheets.")
 
