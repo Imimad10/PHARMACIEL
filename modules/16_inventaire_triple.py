@@ -122,7 +122,6 @@ if "inv_work_df" not in st.session_state and df_master is not None:
     work_df = df_master.copy()
     work_df['Terrain (Vrac)'] = 0.0
     work_df['Terrain (Colis)'] = 0.0
-    work_df['Mini (Vrac)'] = 0.0
     work_df['Mini (Colis)'] = 0.0
     
     # Fusion avec GSheets data
@@ -132,7 +131,6 @@ if "inv_work_df" not in st.session_state and df_master is not None:
             if mask.any():
                 work_df.loc[mask, 'Terrain (Vrac)'] = entry.get('tv', 0.0)
                 work_df.loc[mask, 'Terrain (Colis)'] = entry.get('tc', 0.0)
-                work_df.loc[mask, 'Mini (Vrac)'] = entry.get('mv', 0.0)
                 work_df.loc[mask, 'Mini (Colis)'] = entry.get('mc', 0.0)
                 if 'col' in entry:
                     work_df.loc[mask, 'colissage'] = entry.get('col')
@@ -177,7 +175,7 @@ if df_master is not None and tab_dash:
             total_items = len(dash_df)
             
             # Un item est considéré "compté" s'il a une quantité saisie
-            dash_df['Saisi'] = (dash_df['Terrain (Vrac)'] > 0) | (dash_df['Terrain (Colis)'] > 0) | (dash_df['Mini (Vrac)'] > 0) | (dash_df['Mini (Colis)'] > 0)
+            dash_df['Saisi'] = (dash_df['Terrain (Vrac)'] > 0) | (dash_df['Terrain (Colis)'] > 0) | (dash_df['Mini (Colis)'] > 0)
             items_counted = dash_df['Saisi'].sum()
             progress = (items_counted / total_items) * 100 if total_items > 0 else 0
             
@@ -240,11 +238,11 @@ if df_master is not None and tab_saisie:
             
             # Calculs
             c = disp_df['colissage']
-            disp_df['Total Réel'] = disp_df['Terrain (Vrac)'] + (disp_df['Terrain (Colis)'] * c) + disp_df['Mini (Vrac)'] + (disp_df['Mini (Colis)'] * c)
+            disp_df['Total Réel'] = disp_df['Terrain (Vrac)'] + (disp_df['Terrain (Colis)'] * c) + (disp_df['Mini (Colis)'] * c)
             disp_df['Écart'] = disp_df['Total Réel'] - disp_df['qte_logi']
             
             # Grille
-            mcols = ['depot', 'zone', 'produit', 'lot', 'qte_logi', 'colissage', 'Terrain (Vrac)', 'Terrain (Colis)', 'Mini (Vrac)', 'Mini (Colis)', 'Total Réel', 'Écart']
+            mcols = ['depot', 'zone', 'produit', 'lot', 'qte_logi', 'colissage', 'Terrain (Vrac)', 'Terrain (Colis)', 'Mini (Colis)', 'Total Réel', 'Écart']
             # Sécurité si une colonne manque
             mcols = [c for c in mcols if c in disp_df.columns]
             disp_df = disp_df[mcols]
@@ -271,7 +269,7 @@ if df_master is not None and tab_saisie:
             try:
                 # pandas compare() faille si les types ne sont pas strictement identiques, on utilise un check manuel
                 # On compare edited et disp_df sur les colonnes modifiables
-                cols_to_check = ['Terrain (Vrac)', 'Terrain (Colis)', 'Mini (Vrac)', 'Mini (Colis)', 'colissage']
+                cols_to_check = ['Terrain (Vrac)', 'Terrain (Colis)', 'Mini (Colis)', 'colissage']
                 
                 # S'assurer que les index sont alignés
                 changed_indices = []
@@ -291,7 +289,6 @@ if df_master is not None and tab_saisie:
                         # Update session state
                         st.session_state.inv_work_df.loc[idx, 'Terrain (Vrac)'] = row['Terrain (Vrac)']
                         st.session_state.inv_work_df.loc[idx, 'Terrain (Colis)'] = row['Terrain (Colis)']
-                        st.session_state.inv_work_df.loc[idx, 'Mini (Vrac)'] = row['Mini (Vrac)']
                         st.session_state.inv_work_df.loc[idx, 'Mini (Colis)'] = row['Mini (Colis)']
                         if 'colissage' in row:
                             st.session_state.inv_work_df.loc[idx, 'colissage'] = row['colissage']
@@ -300,7 +297,7 @@ if df_master is not None and tab_saisie:
                         new_entry = {
                             'produit': row['produit'], 'lot': row['lot'],
                             'tv': float(row['Terrain (Vrac)']), 'tc': float(row['Terrain (Colis)']),
-                            'mv': float(row['Mini (Vrac)']), 'mc': float(row['Mini (Colis)']),
+                            'mv': 0.0, 'mc': float(row['Mini (Colis)']), # mv conservé à 0 pour la BDD
                             'col': float(row['colissage']) if 'colissage' in row else 1.0
                         }
                         
@@ -328,7 +325,7 @@ if df_master is not None and tab_analyse:
             st.warning("Aucune donnée à analyser pour vos zones.")
         else:
             c = res_df['colissage']
-            res_df['Total'] = res_df['Terrain (Vrac)'] + (res_df['Terrain (Colis)'] * c) + res_df['Mini (Vrac)'] + (res_df['Mini (Colis)'] * c)
+            res_df['Total'] = res_df['Terrain (Vrac)'] + (res_df['Terrain (Colis)'] * c) + (res_df['Mini (Colis)'] * c)
             res_df['Ecart'] = res_df['Total'] - res_df['qte_logi']
             
             diff = res_df[res_df['Ecart'] != 0].copy()
