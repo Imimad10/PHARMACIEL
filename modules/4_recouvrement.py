@@ -379,21 +379,11 @@ with tabs[2]:
             to_keep    = edited_global[~edited_global["Statut"].isin(status_archived)].copy()
 
             if not to_archive.empty:
-                to_archive["Date Archivage"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-                # Charger les archives existantes et fusionner
-                archive_path = "data_archive_recouvrement.csv"
-                archive_cols = COLS_RECOUV + ["Date Archivage"]
-                if os.path.exists(archive_path):
-                    df_arch_old = pd.read_csv(archive_path, sep=',', encoding='utf-8-sig')
-                else:
-                    df_arch_old = pd.DataFrame(columns=archive_cols)
-                df_arch_new = pd.concat([df_arch_old, to_archive.reindex(columns=archive_cols, fill_value="")], ignore_index=True)
-                df_arch_new.to_csv(archive_path, index=False, sep=',', encoding='utf-8-sig')
-                st.success(f"✅ {len(to_archive)} dossier(s) archivé(s) avec succès !")
+                st.success(f"✅ {len(to_archive)} dossier(s) archivé(s) avec succès dans la base de données principale !")
 
-            # Reconstruire la base complète (actifs non touchés + édités actifs)
+            # Reconstruire la base complète (actifs non touchés + édités actifs + les dossiers nouvellement archivés)
             df_untouched = df_all[df_all["Statut"].isin(status_archived)]  # archives déjà existantes
-            df_final = pd.concat([df_untouched, df_global[~df_global.index.isin(df_view.index)], to_keep], ignore_index=True)
+            df_final = pd.concat([df_untouched, df_global[~df_global.index.isin(df_view.index)], to_keep, to_archive], ignore_index=True)
             save_data(df_final, DATA_RECOUV)
             st.rerun()
         
@@ -478,6 +468,24 @@ with tabs[2]:
 # ONGLET 4 : ARCHIVES
 with tabs[3]:
     st.subheader("🗄️ Archives des dossiers terminés")
+    
+    # --- HOTFIX : Récupération des archives locales perdues ---
+    archive_path = "data_archive_recouvrement.csv"
+    if os.path.exists(archive_path):
+        try:
+            df_arch_local = pd.read_csv(archive_path, sep=',', encoding='utf-8-sig')
+            if not df_arch_local.empty:
+                if "Date Archivage" in df_arch_local.columns:
+                    df_arch_local = df_arch_local.drop(columns=["Date Archivage"])
+                df_current = load_data(DATA_RECOUV, COLS_RECOUV)
+                df_merged = pd.concat([df_current, df_arch_local], ignore_index=True)
+                save_data(df_merged, DATA_RECOUV)
+                st.success(f"🔄 {len(df_arch_local)} dossier(s) récupéré(s) et réintégré(s) dans la base centrale !")
+            os.remove(archive_path)
+            st.rerun()
+        except Exception as e:
+            st.error(f"Erreur de récupération locale : {e}")
+
     df_all_arch = load_data(DATA_RECOUV, COLS_RECOUV)
     status_archived = ["Clôturé", "Annulé", "Réglé"]
     df_arch = df_all_arch[df_all_arch["Statut"].isin(status_archived)].copy()
