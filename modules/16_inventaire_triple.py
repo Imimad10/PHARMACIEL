@@ -151,8 +151,16 @@ if df_master is None:
     st.warning("⚠️ Aucun fichier Master détecté. Veuillez l'importer dans l'Admin Centrale.")
     tab_dash, tab_saisie, tab_analyse = None, None, None
 else:
-    tabs = st.tabs(["📈 Tableau de Bord", "⚡ Saisie & Grille", "📊 Analyse Écarts"])
+    user_role = st.session_state.current_user.get('role', 'Saisie')
+    tab_titles = ["📈 Tableau de Bord", "⚡ Saisie & Grille", "📊 Analyse Écarts"]
+    
+    show_diag = user_role in ['Admin', 'Superviseur']
+    if show_diag:
+        tab_titles.append("🔍 Diagnostic")
+        
+    tabs = st.tabs(tab_titles)
     tab_dash, tab_saisie, tab_analyse = tabs[0], tabs[1], tabs[2]
+    tab_diag = tabs[3] if show_diag else None
 
 # --- FONCTION FILTRAGE ZONES ---
 def get_user_data():
@@ -207,9 +215,6 @@ if df_master is not None and tab_saisie:
     with tab_saisie:
         st.markdown("### ⚡ Saisie Libre & Grille")
 
-        with st.expander("🔍 Diagnostic Colonnes"):
-            st.write("Colonnes identifiées :", list(df_master.columns))
-            st.dataframe(df_master[['depot', 'produit', 'lot', 'qte_logi']].head())
 
         # Filtres
         f1, f2, f3 = st.columns(3)
@@ -360,3 +365,22 @@ if df_master is not None and tab_analyse:
                         reponse = ask_ai(prompt)
                         st.success("✅ Analyse terminée")
                         st.write(reponse)
+
+# --- DIAGNOSTIC ---
+if df_master is not None and tab_diag:
+    with tab_diag:
+        st.subheader("🔍 Diagnostic Technique des Colonnes")
+        st.info("Cet onglet permet de vérifier si les colonnes de votre fichier Excel ont été correctement identifiées par le système.")
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            st.write("**Colonnes brutes détectées :**")
+            st.write(list(df_master.columns))
+        
+        with c2:
+            st.write("**Aperçu des données critiques :**")
+            st.dataframe(df_master[['depot', 'produit', 'lot', 'qte_logi']].head(), use_container_width=True)
+            
+        st.divider()
+        st.write("### 🛠️ Structure complète du Master")
+        st.dataframe(df_master, use_container_width=True)
