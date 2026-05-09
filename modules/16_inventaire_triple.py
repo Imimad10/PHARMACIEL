@@ -155,12 +155,19 @@ else:
     tab_titles = ["📈 Tableau de Bord", "⚡ Saisie & Grille", "📊 Analyse Écarts"]
     
     show_diag = user_role in ['Admin', 'Superviseur']
-    if show_diag:
-        tab_titles.append("🔍 Diagnostic")
+    show_gest = user_role == 'Admin'
+    
+    if show_diag: tab_titles.append("🔍 Diagnostic")
+    if show_gest: tab_titles.append("⚙️ Gestion")
         
     tabs = st.tabs(tab_titles)
-    tab_dash, tab_saisie, tab_analyse = tabs[0], tabs[1], tabs[2]
-    tab_diag = tabs[3] if show_diag else None
+    
+    # Assignation robuste par nom
+    tab_dash = tabs[tab_titles.index("📈 Tableau de Bord")]
+    tab_saisie = tabs[tab_titles.index("⚡ Saisie & Grille")]
+    tab_analyse = tabs[tab_titles.index("📊 Analyse Écarts")]
+    tab_diag = tabs[tab_titles.index("🔍 Diagnostic")] if show_diag else None
+    tab_gest = tabs[tab_titles.index("⚙️ Gestion")] if show_gest else None
 
 # --- FONCTION FILTRAGE ZONES ---
 def get_user_data():
@@ -384,3 +391,61 @@ if df_master is not None and tab_diag:
         st.divider()
         st.write("### 🛠️ Structure complète du Master")
         st.dataframe(df_master, use_container_width=True)
+
+# --- GESTION ---
+if df_master is not None and tab_gest:
+    with tab_gest:
+        st.subheader("⚙️ Gestion de l'Inventaire Triple")
+        st.write("Espace réservé aux administrateurs pour la clôture et la maintenance.")
+        
+        col_g1, col_g2 = st.columns(2)
+        
+        with col_g1:
+            st.markdown("### 📥 Rapports & Exports")
+            if st.button("📄 Générer Rapport PDF des Écarts", use_container_width=True):
+                # Calcul des écarts pour le rapport
+                res_df = st.session_state.inv_work_df.copy()
+                c = res_df['colissage']
+                res_df['Total'] = res_df['Terrain (Vrac)'] + (res_df['Terrain (Colis)'] * c) + (res_df['Mini (Colis)'] * c)
+                res_df['Ecart'] = res_df['Total'] - res_df['qte_logi']
+                diff_df = res_df[res_df['Ecart'] != 0].copy()
+                
+                if diff_df.empty:
+                    st.success("Aucun écart à signaler ! L'inventaire est parfait.")
+                else:
+                    from utils_pdf import generate_inventory_report_pdf
+                    pdf_bytes = generate_inventory_report_pdf(diff_df, "RAPPORT D'INVENTAIRE TRIPLE")
+                    st.download_button(
+                        "📥 Télécharger le Rapport PDF",
+                        pdf_bytes,
+                        "Rapport_Ecarts_Triple.pdf",
+                        "application/pdf",
+                        use_container_width=True
+                    )
+
+        with col_g2:
+            st.markdown("### ⚠️ Maintenance")
+            
+            # Utilisation de st.expander pour sécuriser les boutons destructifs
+            with st.expander("🗑️ Actions Destructives"):
+                st.warning("Ces actions modifient définitivement les données sur Google Sheets.")
+                
+                if st.button("🔄 Réinitialiser les Saisies (Vider)", use_container_width=True):
+                    # On ne vide que les saisies, pas le Master
+                    empty_saisie = pd.DataFrame(columns=COLS_INV_TRIPLE)
+                    save_gs_data(empty_saisie, INV_TRIPLE_WORKSHEET, INV_TRIPLE_FALLBACK)
+                    st.cache_data.clear()
+                    if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
+                    st.success("✅ Toutes les saisies terrain ont été effacées.")
+                    st.rerun()
+
+                if st.button("🔴 Supprimer tout (Saisies + Master)", use_container_width=True):
+                    save_gs_data(pd.DataFrame(columns=COLS_INV_TRIPLE), INV_TRIPLE_WORKSHEET, INV_TRIPLE_FALLBACK)
+                    save_gs_data(pd.DataFrame(columns=COLS_MASTER), MASTER_WORKSHEET, MASTER_FALLBACK)
+                    st.cache_data.clear()
+                    if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
+                    st.success("✅ Inventaire et Master supprimés.")
+                    st.rerun()
+
+        st.divider()
+        st.info("💡 Les modifications effectuées ici ne ciblent que les feuilles (worksheets) spécifiées ('Inventaire_Triple' ou 'Master_Inventaire_Zone') et ne touchent pas au reste de votre document Google Sheets.")

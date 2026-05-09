@@ -73,3 +73,70 @@ def generate_blank_inventory_pdf(df, module_name, columns_to_print):
     if isinstance(raw, (bytes, bytearray)):
         return bytes(raw)
     return raw.encode('latin-1', 'replace')
+
+def generate_inventory_report_pdf(df_diff, title="RAPPORT D'INVENTAIRE"):
+    """
+    df_diff: DataFrame contenant les écarts (doit avoir 'produit', 'lot', 'qte_logi', 'Total', 'Ecart')
+    """
+    pdf = InventoryPDF()
+    pdf.title_text = title.upper()
+    pdf.alias_nb_pages()
+    pdf.add_page()
+    
+    # Statistiques
+    total_items = len(df_diff)
+    manquants = len(df_diff[df_diff['Ecart'] < 0])
+    excedents = len(df_diff[df_diff['Ecart'] > 0])
+    
+    pdf.set_font('Arial', 'B', 12)
+    pdf.cell(0, 10, "1. RESUME DES ECARTS", 0, 1)
+    pdf.set_font('Arial', '', 10)
+    pdf.cell(0, 8, f"- Nombre total de produits avec ecart : {total_items}", 0, 1)
+    pdf.cell(0, 8, f"- Nombre de produits manquants : {manquants}", 0, 1)
+    pdf.cell(0, 8, f"- Nombre de produits en excedent : {excedents}", 0, 1)
+    pdf.ln(5)
+    
+    # Tableau des écarts
+    pdf.set_font('Arial', 'B', 9)
+    pdf.set_fill_color(240, 240, 240)
+    cols = [('produit', 'Produit', 70), ('lot', 'Lot', 30), ('qte_logi', 'Logi', 20), ('Total', 'Reel', 20), ('Ecart', 'Ecart', 20)]
+    
+    for _, label, w in cols:
+        pdf.cell(w, 8, label, 1, 0, 'C', 1)
+    pdf.ln()
+    
+    pdf.set_font('Arial', '', 8)
+    for _, row in df_diff.iterrows():
+        if pdf.get_y() > 260:
+            pdf.add_page()
+            pdf.set_font('Arial', 'B', 9)
+            for _, label, w in cols: pdf.cell(w, 8, label, 1, 0, 'C', 1)
+            pdf.ln()
+            pdf.set_font('Arial', '', 8)
+            
+        for key, _, w in cols:
+            val = str(row.get(key, ""))[:40]
+            align = 'L' if key == 'produit' else 'C'
+            pdf.cell(w, 7, val.encode('latin-1', 'replace').decode('latin-1'), 1, 0, align)
+        pdf.ln()
+        
+    # Conclusion
+    pdf.ln(10)
+    pdf.set_font('Arial', 'B', 12)
+    pdf.cell(0, 10, "2. CONCLUSION ET VALIDATION", 0, 1)
+    pdf.set_font('Arial', 'I', 10)
+    pdf.multi_cell(0, 8, "L'inventaire a ete realise et confronte au systeme Logipharm. Les ecarts listes ci-dessus doivent faire l'objet d'une regularisation en stock ou d'une recherche approfondie dans les factures.")
+    pdf.ln(15)
+    
+    # Signatures
+    pdf.set_font('Arial', 'B', 10)
+    pdf.cell(95, 10, "L'Agent Saisie", 0, 0, 'C')
+    pdf.cell(95, 10, "Le Superviseur / Admin", 0, 1, 'C')
+    pdf.ln(20)
+    pdf.cell(95, 0, "__________________", 0, 0, 'C')
+    pdf.cell(95, 0, "__________________", 0, 1, 'C')
+
+    raw = pdf.output(dest='S')
+    if isinstance(raw, (bytes, bytearray)):
+        return bytes(raw)
+    return raw.encode('latin-1', 'replace')
