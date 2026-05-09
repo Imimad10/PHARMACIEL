@@ -89,23 +89,38 @@ with tabs[0]:
         
         if target:
             st.success(f"🎯 Type détecté : **{target}**")
+            
+            # Définition des paramètres de destination
+            if target == "Base_Clients":
+                db_path, db_cols, key = DATA_CLIENTS, COLS_CLIENTS, "Nom Client"
+            elif target == "Livreurs":
+                db_path, db_cols, key = DATA_LIVREURS, COLS_LIVREURS, "Nom"
+            elif target == "Utilisateurs":
+                from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+                db_path, db_cols, key = DB_USERS_FALLBACK, ["username", "password", "role", "pages", "nom", "prenom", "zone"], "username"
+            elif target == "Master_Inventaire_Zone":
+                db_path, db_cols, key = "data_inventaire_detail/master_detail.csv", ["depot", "zone", "produit", "lot", "qte_logi", "colissage"], "lot"
+            else:
+                db_path, db_cols, key = DATA_SECTEURS, COLS_SECTEURS, "Client"
+
             if st.button(f"📥 Fusionner avec la base {target}", type="primary", use_container_width=True):
-                df_up = df_up.rename(columns=mapping)
+                # On renomme intelligemment pour éviter les colonnes en double
+                new_cols = []
+                mapped_targets = set()
+                for c in df_up.columns:
+                    target_name = mapping.get(c, c)
+                    if target_name in db_cols and target_name not in mapped_targets:
+                        new_cols.append(target_name)
+                        mapped_targets.add(target_name)
+                    else:
+                        new_cols.append(f"old_{c}")
+                
+                df_up.columns = new_cols
                 
                 if target == "Base_Clients":
-                    db_path, db_cols, key = DATA_CLIENTS, COLS_CLIENTS, "Nom Client"
                     # Région = Secteur si Secteur vide
                     if "Région" in df_up.columns and ("Secteur" not in df_up.columns or df_up["Secteur"].isnull().all()):
                         df_up["Secteur"] = df_up["Région"]
-                elif target == "Livreurs":
-                    db_path, db_cols, key = DATA_LIVREURS, COLS_LIVREURS, "Nom"
-                elif target == "Utilisateurs":
-                    from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
-                    db_path, db_cols, key = DB_USERS_FALLBACK, ["username", "password", "role", "pages", "nom", "prenom", "zone"], "username"
-                elif target == "Master_Inventaire_Zone":
-                    db_path, db_cols, key = "data_inventaire_detail/master_detail.csv", ["depot", "zone", "produit", "lot", "qte_logi", "colissage"], "lot"
-                else:
-                    db_path, db_cols, key = DATA_SECTEURS, COLS_SECTEURS, "Client"
                 
                 df_old = load_gs_data(target, db_path, db_cols)
                 cols_to_keep = [c for c in db_cols if c in df_up.columns]
