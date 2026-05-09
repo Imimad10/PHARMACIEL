@@ -65,6 +65,16 @@ with tabs[0]:
             mapping.update({c: "Secteur" for c in cols if c.lower() == "secteur"})
             mapping.update({c: "Téléphone" for c in cols if c.lower() in ["téléphone","telephone","tel"]})
         
+        elif "username" in cols_lower:
+            target = "Utilisateurs"
+            mapping = {c: "username" for c in cols if c.lower() == "username"}
+            mapping.update({c: "password" for c in cols if c.lower() in ["password", "mot de passe", "pwd"]})
+            mapping.update({c: "nom" for c in cols if c.lower() == "nom"})
+            mapping.update({c: "prenom" for c in cols if c.lower() in ["prenom", "prénom"]})
+            mapping.update({c: "role" for c in cols if c.lower() in ["role", "rôle"]})
+            mapping.update({c: "zone" for c in cols if c.lower() == "zone"})
+            mapping.update({c: "pages" for c in cols if c.lower() == "pages"})
+        
         st.write("**Aperçu des données :**")
         st.dataframe(df_up.head(5), use_container_width=True)
         
@@ -80,6 +90,9 @@ with tabs[0]:
                         df_up["Secteur"] = df_up["Région"]
                 elif target == "Livreurs":
                     db_path, db_cols, key = DATA_LIVREURS, COLS_LIVREURS, "Nom"
+                elif target == "Utilisateurs":
+                    from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+                    db_path, db_cols, key = DB_USERS_FALLBACK, ["username", "password", "role", "pages", "nom", "prenom", "zone"], "username"
                 else:
                     db_path, db_cols, key = DATA_SECTEURS, COLS_SECTEURS, "Client"
                 

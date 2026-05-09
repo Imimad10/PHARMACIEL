@@ -13,15 +13,20 @@ DB_USERS_FALLBACK = "data/db_users.json"
 
 def get_gs_client():
     # 1. Tenter via st.secrets (Meilleure pratique pour Cloud)
+    # On supporte les deux formats : st.secrets["gsheets"] et st.secrets["connections"]["gsheets"]
+    creds_dict = None
     if "gsheets" in st.secrets:
+        creds_dict = st.secrets["gsheets"]
+    elif "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+        creds_dict = st.secrets["connections"]["gsheets"]
+
+    if creds_dict:
         try:
             scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-            # On peut passer le dictionnaire de credentials directement
-            creds_dict = st.secrets["gsheets"]
             creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
             return gspread.authorize(creds)
-        except Exception:
-            pass
+        except Exception as e:
+            st.error(f"Erreur Auth GSheets (Secrets) : {e}")
 
     # 2. Tenter via fichier local (Développement)
     if os.path.exists(GS_CREDS_PATH):
@@ -69,9 +74,23 @@ def load_gs_data(worksheet_name, fallback_path, columns):
             
     if os.path.exists(fallback_path):
         try:
-            df = pd.read_csv(fallback_path, sep=',', encoding='utf-8-sig')
+            if fallback_path.endswith('.json'):
+                import json
+                with open(fallback_path, 'r', encoding='utf-8') as f:
+                    raw_data = json.load(f)
+                
+                # Gestion du format TinyDB {"_default": {"1": {...}, ...}}
+                if "_default" in raw_data:
+                    data_list = list(raw_data["_default"].values())
+                    df = pd.DataFrame(data_list)
+                else:
+                    df = pd.DataFrame(raw_data)
+            else:
+                df = pd.read_csv(fallback_path, sep=',', encoding='utf-8-sig')
+            
             return df.reindex(columns=columns)
-        except:
+        except Exception as e:
+            st.error(f"Erreur lecture fallback : {e}")
             return pd.DataFrame(columns=columns)
     return pd.DataFrame(columns=columns)
 
