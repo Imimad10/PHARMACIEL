@@ -302,18 +302,24 @@ if tab_ia:
 
 if tab_access:
     with tab_access:
-        st.subheader("🔑 Gestion Fine des Accès par Utilisateur")
+        st.subheader("🔑 Gestion Fine des Accès (Individuel ou Groupé)")
         
         user_list_acc = df_users['username'].tolist() if not df_users.empty else []
-        u_acc = st.selectbox("Sélectionner l'utilisateur à configurer", user_list_acc, key="sel_user_acc")
+        selected_users = st.multiselect("Sélectionner les utilisateurs à configurer", user_list_acc, key="sel_users_bulk")
         
-        if u_acc:
-            target_acc = df_users[df_users['username'] == u_acc].iloc[0]
-            st.info(f"Rôle actuel : **{target_acc.get('role')}** | Dépôt : **{target_acc.get('depot')}**")
+        if selected_users:
+            if len(selected_users) == 1:
+                target_acc = df_users[df_users['username'] == selected_users[0]].iloc[0]
+                st.info(f"Configuration pour : **{selected_users[0]}** | Rôle : {target_acc.get('role')} | Dépôt : {target_acc.get('depot')}")
+                current_pages_acc = target_acc.get('pages', [])
+            else:
+                st.warning(f"🔧 Mode Edition Groupée : **{len(selected_users)}** utilisateurs sélectionnés.")
+                st.info("Les modifications seront appliquées à tous les utilisateurs sélectionnés.")
+                current_pages_acc = [] # On part de vide ou d'un profil
             
             # Profil type pour aide à la saisie
-            profil_type_acc = st.selectbox("🚀 Appliquer un Profil Type (optionnel)", 
-                                     ["Conserver actuel", "Préparateur", "Livreur / Recouvrement", "Vendeur / Commercial", "Administrateur Complet"],
+            profil_type_acc = st.selectbox("🚀 Appliquer un Profil Type", 
+                                     ["Conserver / Personnalisé", "Préparateur", "Livreur / Recouvrement", "Vendeur / Commercial", "Administrateur Complet"],
                                      key="profil_acc_helper")
             
             profil_map = {
@@ -323,23 +329,29 @@ if tab_access:
                 "Administrateur Complet": MODULES_DISPO
             }
             
-            current_pages_acc = target_acc.get('pages', [])
-            if profil_type_acc != "Conserver actuel":
+            if profil_type_acc != "Conserver / Personnalisé":
                 current_pages_acc = profil_map.get(profil_type_acc, [])
             
             st.write("---")
-            st.write("Cochez les modules autorisés :")
+            st.write("Cochez les modules à autoriser pour cette sélection :")
             final_pages = []
             cols_acc = st.columns(3)
             for i, m in enumerate(MODULES_DISPO):
                 with cols_acc[i % 3]:
-                    if st.checkbox(m, value=(m in current_pages_acc), key=f"acc_{u_acc}_{m}_{profil_type_acc}"):
+                    # Dans le cas groupé, on laisse l'utilisateur cocher ce qu'il veut
+                    is_checked = m in current_pages_acc
+                    if st.checkbox(m, value=is_checked, key=f"acc_bulk_{m}_{profil_type_acc}"):
                         final_pages.append(m)
             
             st.write("---")
-            if st.button("💾 Enregistrer les droits d'accès", type="primary", use_container_width=True):
-                mask = df_users['username'] == u_acc
-                df_users.loc[mask, 'pages'] = str(final_pages)
+            if st.button("💾 Appliquer et Enregistrer les accès", type="primary", use_container_width=True):
+                # Mise à jour de tous les utilisateurs sélectionnés
+                for u_name in selected_users:
+                    mask = df_users['username'] == u_name
+                    df_users.loc[mask, 'pages'] = str(final_pages)
+                
                 save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
-                st.success(f"✅ Droits d'accès de {u_acc} mis à jour !")
+                st.success(f"✅ Droits d'accès mis à jour pour {len(selected_users)} utilisateur(s) !")
                 st.rerun()
+        else:
+            st.info("Veuillez sélectionner un ou plusieurs utilisateurs pour gérer leurs accès.")
