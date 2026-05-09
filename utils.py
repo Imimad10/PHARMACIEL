@@ -1,5 +1,6 @@
 from utils_gsheets import load_gs_data, save_gs_data
 import pandas as pd
+from datetime import datetime
 
 def log_action(user, action, module="Système"):
     """Enregistre une action dans la base de données des logs sur GSheets."""
