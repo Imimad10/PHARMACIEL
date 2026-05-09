@@ -256,12 +256,35 @@ with tabs[0]:
 # ONGLET 2 : FEUILLES DE ROUTE (AVEC SUPPRESSION DOUBLONS ET RÉINITIALISATION)
 with tabs[1]:
     df_main = load_data(DATA_RECOUV, COLS_RECOUV)
-    if not df_main.empty:
-        livs = sorted([str(l) for l in df_main["Livreur"].unique() if str(l).lower() != 'nan'])
-        sel_liv = st.selectbox("Sélectionner Livreur", livs)
+    
+    # 1. Chargement de la liste des livreurs depuis la base centrale
+    from utils_gsheets import load_gs_data
+    df_livreurs_db = load_gs_data("Livreurs", "data_expedition/livreurs.csv", ["Nom", "Prénom", "Téléphone", "Secteur"])
+    
+    livs_options = ["NON ASSIGNÉ"]
+    if not df_livreurs_db.empty:
+        noms = sorted([str(n).upper().strip() for n in df_livreurs_db["Nom"].unique() if pd.notna(n) and str(n).strip() != ""])
+        livs_options = noms + ["NON ASSIGNÉ"]
         
-        # FILTRAGE ET SUPPRESSION AUTOMATIQUE DES DOUBLONS
-        mask = df_main["Livreur"] == sel_liv
+    sel_liv = st.selectbox("Sélectionner Livreur", livs_options)
+    
+    # 2. Identifier le secteur du livreur sélectionné
+    sel_secteur = ""
+    if sel_liv != "NON ASSIGNÉ" and not df_livreurs_db.empty:
+        match_liv = df_livreurs_db[df_livreurs_db["Nom"].str.upper() == sel_liv]
+        if not match_liv.empty:
+            sel_secteur = str(match_liv.iloc[0]["Secteur"]).upper().strip()
+            st.caption(f"📍 Secteur centralisé : **{sel_secteur}**")
+            
+    if not df_main.empty:
+        # 3. Filtrage automatique (par livreur ou par secteur correspondant)
+        if sel_secteur:
+            # Inclure si le livreur est déjà bon OU si la région correspond au secteur du livreur
+            mask = (df_main["Livreur"].astype(str).str.upper() == sel_liv) | \
+                   (df_main["Région"].astype(str).str.upper().str.contains(sel_secteur, na=False))
+        else:
+            mask = df_main["Livreur"].astype(str).str.upper() == sel_liv
+            
         df_display = df_main[mask].drop_duplicates(subset=["Client", "Reste à payer"], keep='first').copy()
         
         col_btns = st.columns([1, 1, 2])
