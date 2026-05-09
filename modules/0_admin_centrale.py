@@ -193,10 +193,99 @@ with tabs[1]:
 with tabs[2]:
     st.subheader("🚚 Gestion des Livreurs")
     df_liv = load_gs_data("Livreurs", DATA_LIVREURS, COLS_LIVREURS)
-    edited_liv = st.data_editor(df_liv, use_container_width=True, num_rows="dynamic", key="editor_liv")
-    if st.button("💾 Sauvegarder Livreurs", key="btn_save_liv"):
-        save_gs_data(edited_liv, "Livreurs", DATA_LIVREURS)
-        st.success("Liste des Livreurs mise à jour !")
+    
+    # --- AJOUT ---
+    with st.expander("➕ Ajouter un nouveau Livreur"):
+        with st.form("form_add_livreur", clear_on_submit=True):
+            c_a1, c_a2, c_a3, c_a4 = st.columns(4)
+            n_nom = c_a1.text_input("Nom*")
+            n_pre = c_a2.text_input("Prénom")
+            n_tel = c_a3.text_input("Téléphone")
+            n_sec = c_a4.text_input("Secteur")
+            
+            if st.form_submit_button("Ajouter", type="primary"):
+                if n_nom:
+                    new_liv = pd.DataFrame([{"Nom": n_nom.upper(), "Prénom": n_pre.capitalize(), "Téléphone": n_tel, "Secteur": n_sec.upper()}])
+                    df_liv = pd.concat([df_liv, new_liv], ignore_index=True)
+                    save_gs_data(df_liv, "Livreurs", DATA_LIVREURS)
+                    st.success("Livreur ajouté avec succès !")
+                    st.rerun()
+                else:
+                    st.error("Le Nom est obligatoire.")
+
+    st.divider()
+
+    # --- ÉTAT DE SESSION POUR L'ÉDITION ---
+    if 'edit_liv_idx' not in st.session_state: st.session_state.edit_liv_idx = None
+    if 'del_liv_idx' not in st.session_state: st.session_state.del_liv_idx = None
+
+    if not df_liv.empty:
+        # En-têtes
+        h1, h2, h3, h4, h5 = st.columns([2, 2, 2, 2, 2])
+        h1.markdown("**Nom**")
+        h2.markdown("**Prénom**")
+        h3.markdown("**Téléphone**")
+        h4.markdown("**Secteur**")
+        h5.markdown("**Actions**")
+        st.write("---")
+
+        for idx, row in df_liv.iterrows():
+            with st.container():
+                # MODE ÉDITION
+                if st.session_state.edit_liv_idx == idx:
+                    c1, c2, c3, c4, c5 = st.columns([2, 2, 2, 2, 2])
+                    e_nom = c1.text_input("Nom", value=str(row.get('Nom', '')), key=f"en_{idx}", label_visibility="collapsed")
+                    e_pre = c2.text_input("Prénom", value=str(row.get('Prénom', '')), key=f"ep_{idx}", label_visibility="collapsed")
+                    e_tel = c3.text_input("Téléphone", value=str(row.get('Téléphone', '')), key=f"et_{idx}", label_visibility="collapsed")
+                    e_sec = c4.text_input("Secteur", value=str(row.get('Secteur', '')), key=f"es_{idx}", label_visibility="collapsed")
+                    
+                    ca, cb = c5.columns(2)
+                    if ca.button("💾", key=f"save_{idx}", help="Enregistrer"):
+                        df_liv.at[idx, 'Nom'] = e_nom.upper()
+                        df_liv.at[idx, 'Prénom'] = e_pre.capitalize()
+                        df_liv.at[idx, 'Téléphone'] = e_tel
+                        df_liv.at[idx, 'Secteur'] = e_sec.upper()
+                        save_gs_data(df_liv, "Livreurs", DATA_LIVREURS)
+                        st.session_state.edit_liv_idx = None
+                        st.rerun()
+                    if cb.button("❌", key=f"canc_ed_{idx}", help="Annuler"):
+                        st.session_state.edit_liv_idx = None
+                        st.rerun()
+
+                # MODE SUPPRESSION
+                elif st.session_state.del_liv_idx == idx:
+                    st.warning(f"⚠️ Voulez-vous vraiment supprimer **{row.get('Nom', '')}** ?")
+                    c1, c2 = st.columns(2)
+                    if c1.button("✅ Confirmer la suppression", key=f"conf_del_{idx}", type="primary"):
+                        df_liv = df_liv.drop(idx)
+                        save_gs_data(df_liv, "Livreurs", DATA_LIVREURS)
+                        st.session_state.del_liv_idx = None
+                        st.success("Supprimé !")
+                        st.rerun()
+                    if c2.button("🚫 Annuler", key=f"canc_del_{idx}"):
+                        st.session_state.del_liv_idx = None
+                        st.rerun()
+
+                # MODE NORMAL (AFFICHAGE)
+                else:
+                    c1, c2, c3, c4, c5 = st.columns([2, 2, 2, 2, 2])
+                    c1.write(str(row.get('Nom', '')))
+                    c2.write(str(row.get('Prénom', '')))
+                    c3.write(str(row.get('Téléphone', '')))
+                    c4.write(str(row.get('Secteur', '')))
+                    
+                    ca, cb = c5.columns(2)
+                    if ca.button("✏️", key=f"ed_{idx}", help="Modifier cette ligne"):
+                        st.session_state.edit_liv_idx = idx
+                        st.session_state.del_liv_idx = None
+                        st.rerun()
+                    if cb.button("🗑️", key=f"del_{idx}", help="Supprimer cette ligne"):
+                        st.session_state.del_liv_idx = idx
+                        st.session_state.edit_liv_idx = None
+                        st.rerun()
+                st.write("---")
+    else:
+        st.info("Aucun livreur enregistré pour le moment.")
 
 # ONGLET 3 : SECTEURS
 with tabs[3]:
