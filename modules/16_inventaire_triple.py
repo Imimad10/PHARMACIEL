@@ -77,11 +77,35 @@ def robust_num(val):
 def get_master_df():
     df = load_gs_data(MASTER_WORKSHEET, MASTER_FALLBACK, COLS_MASTER)
     if df.empty: return None
+    
+    # Nettoyage et mapping intelligent pour Excel
+    mapping = {
+        'dépôt': 'depot', 'depot': 'depot',
+        'produit': 'produit', 'désignation': 'produit',
+        'n°lot': 'lot', 'lot': 'lot', 'batch': 'lot',
+        'quantité dépôt': 'qte_logi', 'qte.globale': 'qte_logi', 'quantité': 'qte_logi',
+        'zone produit': 'zone', 'zone': 'zone',
+        'colis': 'colissage', 'u/colis': 'colissage'
+    }
+    
+    # On normalise les colonnes actuelles pour comparer
+    current_cols = {normalize_text(c): c for c in df.columns}
+    rename_dict = {}
+    for key, target in mapping.items():
+        if key in current_cols:
+            rename_dict[current_cols[key]] = target
+            
+    df = df.rename(columns=rename_dict)
+    
+    # Si après renommage il manque des colonnes essentielles, on les crée vides
+    for c in COLS_MASTER:
+        if c not in df.columns: df[c] = ""
+        
     df['produit'] = df['produit'].astype(str).str.upper()
     df['lot'] = df['lot'].astype(str).str.upper()
     df['qte_logi'] = df['qte_logi'].apply(robust_num)
     df['colissage'] = df['colissage'].apply(robust_num).replace(0, 1)
-    return df
+    return df[COLS_MASTER]
 
 # --- INITIALISATION ---
 df_master = get_master_df()

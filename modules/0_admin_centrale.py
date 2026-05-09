@@ -75,6 +75,15 @@ with tabs[0]:
             mapping.update({c: "zone" for c in cols if c.lower() == "zone"})
             mapping.update({c: "pages" for c in cols if c.lower() == "pages"})
         
+        elif any(x in cols_lower for x in ["dépôt", "depot", "quantité dépôt", "quantité depot", "qte.globale"]):
+            target = "Master_Inventaire_Zone"
+            mapping = {c: "depot" for c in cols if c.lower() in ["dépôt", "depot"]}
+            mapping.update({c: "produit" for c in cols if c.lower() in ["produit", "article", "désignation", "designation"]})
+            mapping.update({c: "lot" for c in cols if c.lower() in ["n°lot", "lot", "batch", "nlot"]})
+            mapping.update({c: "qte_logi" for c in cols if c.lower() in ["quantité dépôt", "quantité depot", "qte.globale", "quantité", "qte"]})
+            mapping.update({c: "colissage" for c in cols if c.lower() in ["colis", "u/colis", "colissage", "nbr colis"]})
+            mapping.update({c: "zone" for c in cols if c.lower() in ["zone produit", "zone", "emplacement"]})
+        
         st.write("**Aperçu des données :**")
         st.dataframe(df_up.head(5), use_container_width=True)
         
@@ -93,6 +102,8 @@ with tabs[0]:
                 elif target == "Utilisateurs":
                     from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
                     db_path, db_cols, key = DB_USERS_FALLBACK, ["username", "password", "role", "pages", "nom", "prenom", "zone"], "username"
+                elif target == "Master_Inventaire_Zone":
+                    db_path, db_cols, key = "data_inventaire_detail/master_detail.csv", ["depot", "zone", "produit", "lot", "qte_logi", "colissage"], "lot"
                 else:
                     db_path, db_cols, key = DATA_SECTEURS, COLS_SECTEURS, "Client"
                 
