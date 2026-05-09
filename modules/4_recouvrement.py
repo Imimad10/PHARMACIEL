@@ -15,7 +15,7 @@ from google.oauth2.service_account import Credentials
 DATA_RECOUV = "data_recouvrement.csv"
 DATA_CLIENTS = "base_clients.csv"
 COLS_RECOUV = ["Client", "Facture", "Date", "Montant Initial", "Montant Réglé", "Reste à payer", "Mode Paiement", "Livreur", "Région", "Statut", "Commentaires"]
-COLS_CLIENTS = ["Nom Client", "Région", "Téléphone", "Secteur"]
+COLS_CLIENTS = ["Nom Client", "Secteur"]
 STATUS_OPTIONS = ["En attente", "Partiel", "Réglé", "Clôturé", "Annulé", "Litige"]
 GS_CREDS_PATH = "google_creds.json"
 GS_CONFIG_PATH = "gs_config.txt"
@@ -190,8 +190,8 @@ with tabs[0]:
                 nom_sel = st.selectbox("Client", noms_valides, index=None, placeholder="Rechercher ou sélectionner un client...")
                 
                 if nom_sel:
-                    # Recherche sécurisée de la région
-                    match = df_clients[df_clients["Nom Client"] == nom_sel]["Région"]
+                    # Recherche du secteur
+                    match = df_clients[df_clients["Nom Client"] == nom_sel]["Secteur"]
                     reg_auto = match.values[0] if not match.empty else ""
                 else:
                     reg_auto = ""
@@ -265,7 +265,7 @@ with tabs[1]:
     if not df_main.empty:
         # 2. Mise à jour dynamique des Régions et Livreurs selon la base centrale
         if not df_clients_db.empty:
-            client_to_region = dict(zip(df_clients_db["Nom Client"].astype(str).str.strip().str.upper(), df_clients_db["Région"].astype(str).str.strip().str.upper()))
+            client_to_region = dict(zip(df_clients_db["Nom Client"].astype(str).str.strip().str.upper(), df_clients_db["Secteur"].astype(str).str.strip().str.upper()))
             for idx, row in df_main.iterrows():
                 c_name = str(row["Client"]).strip().upper()
                 if c_name in client_to_region and pd.notna(client_to_region[c_name]) and client_to_region[c_name] != "":
