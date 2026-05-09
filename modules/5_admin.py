@@ -258,6 +258,14 @@ if tab_backup:
                 st.rerun()
             else:
                 st.error(msg)
+        
+        if st.button("💾 Sauvegarder l'état actuel comme référence", use_container_width=True, help="Enregistre la liste actuelle des utilisateurs dans le code pour la prochaine restauration"):
+            from utils_gsheets import save_users_to_config
+            success, msg = save_users_to_config(df_users)
+            if success:
+                st.success(msg)
+            else:
+                st.error(msg)
 
 if tab_ia:
     with tab_ia:

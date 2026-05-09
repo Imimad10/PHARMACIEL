@@ -253,9 +253,27 @@ def restore_users_from_config():
     """Force la restauration de la base utilisateurs depuis le fichier config_users.py."""
     try:
         from config_users import DEFAULT_USERS
-        cols = ["username", "password", "role", "pages", "nom", "prenom", "zone"]
         df_new = pd.DataFrame(DEFAULT_USERS)
         save_gs_data(df_new, DB_USERS_WORKSHEET, DB_USERS_FALLBACK, force_cloud=True)
         return True, f"✅ {len(df_new)} utilisateurs restaurés avec succès !"
     except Exception as e:
         return False, f"❌ Erreur de restauration : {str(e)}"
+
+def save_users_to_config(df):
+    """Enregistre le DataFrame actuel des utilisateurs dans config_users.py pour une sauvegarde statique."""
+    try:
+        import pprint
+        # On s'assure que les pages sont bien au format string pour la sauvegarde
+        df_save = df.copy()
+        if 'pages' in df_save.columns:
+            df_save['pages'] = df_save['pages'].apply(lambda x: str(x) if isinstance(x, list) else x)
+            
+        users_list = df_save.to_dict('records')
+        content = "# Configuration Statique des Utilisateurs (Sauvegarde de Sécurité)\n\n"
+        content += "DEFAULT_USERS = " + pprint.pformat(users_list, indent=4, width=120) + "\n"
+        
+        with open("config_users.py", "w", encoding="utf-8") as f:
+            f.write(content)
+        return True, "✅ État actuel sauvegardé comme nouvelle référence de sécurité !"
+    except Exception as e:
+        return False, f"❌ Erreur lors de la sauvegarde statique : {str(e)}"
