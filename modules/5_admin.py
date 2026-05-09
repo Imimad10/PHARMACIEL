@@ -135,7 +135,7 @@ if tab_add:
                     save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
                     st.success(f"Utilisateur {u_name} créé !")
                     from utils import log_action
-                    log_action(st.session_state.current_user['username'], f"Création de l'utilisateur {u_name}", "Administration")
+                    log_action(user['username'], f"Création de l'utilisateur {u_name}", "Administration")
                     st.rerun()
                 else:
                     st.error("Nom d'utilisateur et mot de passe requis.")
@@ -197,7 +197,7 @@ if tab_edit:
 if tab_del:
     with tab_del:
         st.subheader("Supprimer définitivement un utilisateur")
-        del_options = [u for u in df_users['username'].tolist() if u != st.session_state.current_user['username']] if not df_users.empty else []
+        del_options = [u for u in df_users['username'].tolist() if u != user['username']] if not df_users.empty else []
         if not del_options:
             st.info("Aucun autre utilisateur à supprimer.")
         else:
@@ -209,7 +209,7 @@ if tab_del:
                     save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
                     st.success(f"Utilisateur {u_del} supprimé sur GSheets.")
                     from utils import log_action
-                    log_action(st.session_state.current_user['username'], f"Suppression de l'utilisateur {u_del}", "Administration")
+                    log_action(user['username'], f"Suppression de l'utilisateur {u_del}", "Administration")
                     st.rerun()
 
 if tab_logs:
