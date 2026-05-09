@@ -514,8 +514,11 @@ if is_ia_enabled():
 pages_to_show = {}
 nav_list = []
 
-# On s'assure que Dashboard est en premier si l'utilisateur y a accès
+# On s'assure que Dashboard est en premier et Profil est présent
 ordered_user_pages = user_pages.copy()
+if "Profil" not in ordered_user_pages:
+    ordered_user_pages.insert(0, "Profil")
+    
 if "Dashboard" in ordered_user_pages:
     ordered_user_pages.remove("Dashboard")
     ordered_user_pages.insert(0, "Dashboard")
