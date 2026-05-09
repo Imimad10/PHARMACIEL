@@ -314,7 +314,7 @@ if tab_access:
                                      key="profil_acc_helper")
             
             profil_map = {
-                "Préparateur": ["Inventaire Détail", "Gestion des Péremptions", "Scan Mobile", "Profil"],
+                "Préparateur": ["Inventaire", "Inventaire Détail", "Inventaire Triple", "Suivi", "Péremptions", "Liste des Lots", "Profil"],
                 "Livreur / Recouvrement": ["Logistique", "Recouvrement", "Pointage Expéditeur", "Scan Mobile", "Profil"],
                 "Vendeur / Commercial": ["Catalogue Produits", "Analyse Rotation", "Profil"],
                 "Administrateur Complet": MODULES_DISPO
