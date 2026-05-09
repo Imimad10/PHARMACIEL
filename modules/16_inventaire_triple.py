@@ -160,6 +160,45 @@ else:
     if show_diag: tab_titles.append("🔍 Diagnostic")
     if show_gest: tab_titles.append("⚙️ Gestion")
         
+    # --- FICHES VIERGES ---
+    with st.expander("🖨️ Impression des Fiches Terrain"):
+        from utils_pdf import generate_blank_inventory_pdf
+        st.write("Générer une fiche d'inventaire vierge basée sur le Master.")
+        
+        col_p1, col_p2 = st.columns(2)
+        with col_p1:
+            type_fiche = st.radio("Type de Fiche :", ["Global", "Par Zone", "Par Dépôt"], horizontal=True, key="print_type_triple")
+        
+        df_print = df_master.copy()
+        title_pdf = "Inventaire Triple"
+        
+        with col_p2:
+            if type_fiche == "Par Zone":
+                zones = sorted(df_print['zone'].astype(str).unique().tolist())
+                sel_z = st.selectbox("Choisir Zone :", zones)
+                df_print = df_print[df_print['zone'].astype(str) == sel_z]
+                title_pdf += f" - Zone {sel_z}"
+            elif type_fiche == "Par Dépôt":
+                depots = sorted(df_print['depot'].astype(str).unique().tolist())
+                sel_d = st.selectbox("Choisir Dépôt :", depots)
+                df_print = df_print[df_print['depot'].astype(str) == sel_d]
+                title_pdf += f" - Dépôt {sel_d}"
+        
+        # Tri alphabétique
+        df_print = df_print.sort_values(by='produit')
+        
+        cols_to_print = [('produit', 'Produit', 55), ('lot', 'Lot', 28)]
+        pdf_bytes = generate_blank_inventory_pdf(df_print, "Triple", cols_to_print)
+        
+        st.download_button(
+            "📥 Télécharger la Fiche Vierge (PDF)",
+            pdf_bytes,
+            f"Fiche_Vierge_Triple_{type_fiche}.pdf",
+            "application/pdf",
+            use_container_width=True,
+            key="btn_print_triple"
+        )
+
     tabs = st.tabs(tab_titles)
     
     # Assignation robuste par nom

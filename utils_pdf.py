@@ -38,7 +38,8 @@ def generate_blank_inventory_pdf(df, module_name, columns_to_print):
     # On définit les colonnes de saisie manuelle selon le module
     extra_cols = []
     if "Triple" in module_name:
-        extra_cols = [("DDP", 20), ("PPA", 15), ("Vrac P.", 18), ("Colis P.", 18), ("Vrac M.", 18), ("Colis M.", 18)]
+        # Correspondance avec 16_inventaire_triple.py : Terrain (Vrac), Terrain (Colis), Mini (Colis)
+        extra_cols = [("DDP", 20), ("PPA", 15), ("Vrac T.", 18), ("Colis T.", 18), ("Colis M.", 18), ("OBS", 18)]
     else:
         extra_cols = [("DDP", 22), ("VRAC", 15), ("MINISTOCK", 20), ("TOTAL", 15), ("OBSERVATIONS", 28)]
         
