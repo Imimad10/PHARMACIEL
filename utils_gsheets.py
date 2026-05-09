@@ -65,11 +65,28 @@ def load_gs_data(worksheet_name, fallback_path, columns):
                 worksheet.append_row(columns)
                 return pd.DataFrame(columns=columns)
             
-            data = worksheet.get_all_records()
-            df = pd.DataFrame(data)
+            all_vals = worksheet.get_all_values()
+            if not all_vals or len(all_vals) < 1:
+                return pd.DataFrame(columns=columns)
+            
+            headers = all_vals[0]
+            rows = all_vals[1:]
+            
+            # Sanitization des headers pour le DataFrame (évite les erreurs de doublons)
+            sanitized_h = []
+            h_count = {}
+            for h in headers:
+                if h in h_count:
+                    h_count[h] += 1
+                    sanitized_h.append(f"{h}_{h_count[h]}")
+                else:
+                    h_count[h] = 1
+                    sanitized_h.append(h)
+            
+            df = pd.DataFrame(rows, columns=sanitized_h)
             if df.empty: return pd.DataFrame(columns=columns)
             
-            # Reindexation
+            # Reindexation pour coller aux colonnes attendues
             df = df.reindex(columns=columns)
             
             # Parsing automatique des colonnes qui contiennent des listes (ex: ["Page1", "Page2"])
