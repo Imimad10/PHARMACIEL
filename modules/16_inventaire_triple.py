@@ -175,7 +175,7 @@ else:
         
         with col_p2:
             if type_fiche == "Par Zone":
-                zones = sorted(df_print['zone'].astype(str).unique().tolist())
+                zones = sorted([str(z) for z in df_print['zone'].dropna().unique()])
                 sel_z = st.selectbox("Choisir Zone :", zones)
                 df_print = df_print[df_print['zone'].astype(str) == sel_z]
                 title_pdf += f" - Zone {sel_z}"
@@ -192,7 +192,7 @@ else:
                         agents_str = "Agents affectés : " + ", ".join(names)
 
             elif type_fiche == "Par Dépôt":
-                depots = sorted(df_print['depot'].astype(str).unique().tolist())
+                depots = sorted([str(d) for d in df_print['depot'].dropna().unique()])
                 sel_d = st.selectbox("Choisir le Dépôt :", depots)
                 df_print = df_print[df_print['depot'].astype(str) == sel_d]
                 title_pdf += f" - Dépôt {sel_d}"
