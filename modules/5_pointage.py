@@ -9,7 +9,10 @@ from utils import log_action
 # st.set_page_config(page_title="Darpharm Solution - Pointage", layout="wide", page_icon="🚚")
 
 # Initialisation de la base de données locale
-from utils_gsheets import load_gs_data, save_gs_data
+from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui
+
+st.set_page_config(page_title="Pointage Pharmaciel", layout="wide")
+show_sync_ui("Pointages", "data/db_pointages.csv", ['date_pointage', 'date_feuille', 'livreur', 'rotation', 'reference', 'client', 'region', 'statut_karim'])
 # --- CONFIGURATION ET BASE DE DONNÉES ---
 LIVREURS_WORKSHEET = "Livreurs"
 LIVREURS_FALLBACK = "data/db_livreurs.csv"

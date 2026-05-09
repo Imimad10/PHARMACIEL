@@ -555,6 +555,21 @@ with st.sidebar:
     st.write(f"Connecté: **{user['username']}** ({user.get('role', 'Saisie')})")
     
     st.divider()
+    # Sélecteur de Mode de Stockage
+    if "storage_mode" not in st.session_state:
+        st.session_state.storage_mode = "Cloud"
+    
+    st.session_state.storage_mode = st.radio(
+        "📂 Mode de Stockage", 
+        ["Cloud", "Local"], 
+        index=0 if st.session_state.storage_mode == "Cloud" else 1,
+        help="Cloud: Synchronisation directe. Local: Travail sur PC avec synchro manuelle."
+    )
+    
+    if st.session_state.storage_mode == "Local":
+        st.warning("⚡ Mode Local : N'oubliez pas d'exporter vos données vers le Cloud.")
+    
+    st.divider()
     # Sélecteur de thème
     new_theme = st.selectbox("🎨 Thème d'affichage", ["Clair", "Sombre"], 
                               index=0 if st.session_state.theme == "Clair" else 1)

@@ -5,7 +5,7 @@ import os
 import io
 from PIL import Image
 from utils import log_action
-from utils_gsheets import load_gs_data, save_gs_data
+from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui
 from generator_pdf import generate_reclam_pdf
 
 # --- CONFIGURATION ---
@@ -17,6 +17,7 @@ os.makedirs(PHOTO_DIR, exist_ok=True)
 COLUMNS = ["Date", "Heure", "Facture", "Fournisseur", "Agent", "Produit", "Lot", "Quantite", "Type", "Priorite", "Statut", "Commentaire", "Photo_Path", "Date_Resolution"]
 
 st.set_page_config(page_title="Litiges Fournisseurs", layout="wide", page_icon="📦")
+show_sync_ui(WORKSHEET_NAME, FALLBACK_PATH, COLUMNS)
 
 # --- CHARGEMENT DES DONNÉES ---
 df_litiges = load_gs_data(WORKSHEET_NAME, FALLBACK_PATH, COLUMNS)

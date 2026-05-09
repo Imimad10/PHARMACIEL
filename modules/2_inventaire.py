@@ -7,7 +7,8 @@ from datetime import datetime
 from utils_ia import ask_ai, is_ia_enabled
 
 # --- 1. CONFIGURATION & CHEMINS ---
-from utils_gsheets import load_gs_data, save_gs_data
+from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui
+
 # --- 1. CONFIGURATION & CHEMINS ---
 if "DATA_DIR" not in st.session_state:
     st.session_state.DATA_DIR = "data_inventaire"
@@ -19,6 +20,10 @@ if "DATA_DIR" not in st.session_state:
 os.makedirs(st.session_state.DATA_DIR, exist_ok=True)
 COLS_MASTER = ["designation", "lot", "ddp", "ppa", "shp", "labo", "stock_theorique"]
 COLS_SAISIE = ["designation", "lot_master", "lot", "qte_saisie", "ddp_saisi", "ppa_saisi", "agent"]
+
+st.set_page_config(page_title="Inventaire Pharmaciel", layout="wide")
+show_sync_ui(st.session_state.MASTER_WORKSHEET, st.session_state.MASTER_FALLBACK, COLS_MASTER)
+show_sync_ui(st.session_state.SAISIE_WORKSHEET, st.session_state.SAISIE_FALLBACK, COLS_SAISIE)
 
 # --- 2. FONCTIONS TECHNIQUES ---
 def normalize_text(text):

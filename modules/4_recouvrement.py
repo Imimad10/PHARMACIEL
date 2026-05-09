@@ -20,7 +20,10 @@ STATUS_OPTIONS = ["En attente", "Partiel", "Réglé", "Clôturé", "Annulé", "L
 GS_CREDS_PATH = "google_creds.json"
 GS_CONFIG_PATH = "gs_config.txt"
 
-from utils_gsheets import load_gs_data, save_gs_data, get_gs_client, get_gs_url, GS_CREDS_PATH, GS_CONFIG_PATH
+from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui, get_gs_client, get_gs_url, GS_CREDS_PATH, GS_CONFIG_PATH
+
+st.set_page_config(page_title="Recouvrement Pharmaciel", layout="wide")
+show_sync_ui("Recouvrement", DATA_RECOUV, COLS_RECOUV)
 
 # --- FONCTIONS DE GESTION DES DONNÉES (WRAPPERS) ---
 def load_data(path, columns):
