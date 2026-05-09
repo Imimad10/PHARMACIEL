@@ -186,7 +186,7 @@ else:
                 if not df_users.empty and 'zone' in df_users.columns:
                     target_z = str(sel_z).strip().upper()
                     u_df = df_users.copy()
-                    u_df['zone_norm'] = u_df['zone'].astype(str).str.strip().upper()
+                    u_df['zone_norm'] = u_df['zone'].astype(str).str.strip().str.upper()
                     zone_users = u_df[u_df['zone_norm'] == target_z]
                     if not zone_users.empty:
                         names = [f"{u['nom']} {u['prenom']}".strip() or u['username'] for _, u in zone_users.iterrows()]
