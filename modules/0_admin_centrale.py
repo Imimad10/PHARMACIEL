@@ -124,7 +124,15 @@ with tabs[0]:
                 
                 df_old = load_gs_data(target, db_path, db_cols)
                 cols_to_keep = [c for c in db_cols if c in df_up.columns]
-                df_merged = pd.concat([df_old, df_up[cols_to_keep]], ignore_index=True).drop_duplicates(subset=[key])
+                
+                if target == "Master_Inventaire_Zone":
+                    # Remplacement COMPLET pour l'inventaire
+                    df_merged = df_up[cols_to_keep]
+                    if 'inv_work_df' in st.session_state:
+                        del st.session_state.inv_work_df
+                else:
+                    # Fusion / Ajout pour les autres bases
+                    df_merged = pd.concat([df_old, df_up[cols_to_keep]], ignore_index=True).drop_duplicates(subset=[key])
                 
                 save_gs_data(df_merged, target, db_path)
                 st.success(f"✅ Migration réussie vers **{target}** — {len(df_up)} lignes traitées.")
