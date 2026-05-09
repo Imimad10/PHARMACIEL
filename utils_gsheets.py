@@ -43,11 +43,19 @@ def get_gs_client():
     return None
 
 def get_gs_url(worksheet_name=None):
-    # Base dédiée uniquement pour les Utilisateurs
+    # 1. Priorité absolue aux Secrets Streamlit (Cloud)
+    if "GS_URL" in st.secrets: 
+        return st.secrets["GS_URL"]
+    
+    if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+        if "spreadsheet" in st.secrets["connections"]["gsheets"]:
+            return st.secrets["connections"]["gsheets"]["spreadsheet"]
+
+    # 2. Base dédiée pour les Utilisateurs (Fallback)
     if worksheet_name == DB_USERS_WORKSHEET:
         return "https://docs.google.com/spreadsheets/d/1tJDJCtk7cCNSBIfQLKS9J2oH95VcaNMoCVPX8V_cDc/edit"
         
-    if "GS_URL" in st.secrets: return st.secrets["GS_URL"]
+    # 3. Config locale
     if os.path.exists(GS_CONFIG_PATH):
         with open(GS_CONFIG_PATH, "r") as f: return f.read().strip()
     return None
