@@ -252,10 +252,13 @@ with tabs[5]:
             except Exception as e: st.error(f"Erreur: {e}")
         if st.button("🚀 Migrer vers GSheets"):
             try:
-                df_l = pd.read_csv(DATA_FILE)
-                conn = st.connection("gsheets", type=GSheetsConnection)
-                conn.update(worksheet="Suivi_Frigo", data=df_l)
-                st.success("Migration réussie !")
+                if os.path.exists(FALLBACK_SUIVI):
+                    df_local = pd.read_csv(FALLBACK_SUIVI)
+                    save_gs_data(df_local, WORKSHEET_SUIVI, FALLBACK_SUIVI)
+                    st.success("✅ Données locales migrées avec succès vers GSheets !")
+                    st.rerun()
+                else:
+                    st.warning("Aucun fichier local trouvé.")
             except Exception as e: st.error(f"Erreur: {e}")
             
         st.divider()
