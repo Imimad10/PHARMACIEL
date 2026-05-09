@@ -7,6 +7,9 @@ class InventoryPDF(FPDF):
     def header(self):
         self.set_font('Arial', 'B', 15)
         self.cell(0, 10, self.title_text, 0, 1, 'C')
+        if hasattr(self, 'subtitle_text') and self.subtitle_text:
+            self.set_font('Arial', 'B', 11)
+            self.cell(0, 8, self.subtitle_text, 0, 1, 'C')
         self.set_font('Arial', 'I', 10)
         self.cell(0, 10, f"Date d'édition : {datetime.now().strftime('%d/%m/%Y %H:%M')}", 0, 1, 'R')
         self.ln(5)
@@ -16,14 +19,16 @@ class InventoryPDF(FPDF):
         self.set_font('Arial', 'I', 8)
         self.cell(0, 10, f'Page {self.page_no()}/{{nb}}', 0, 0, 'C')
 
-def generate_blank_inventory_pdf(df, module_name, columns_to_print):
+def generate_blank_inventory_pdf(df, module_name, columns_to_print, subtitle=""):
     """
     df: DataFrame contenant les produits (Master)
     module_name: Nom du module pour le titre
     columns_to_print: Liste de tuples (Nom Colonne Master, Label Affichage, Largeur)
+    subtitle: Sous-titre optionnel (ex: agents affectés)
     """
     pdf = InventoryPDF()
     pdf.title_text = f"FICHE D'INVENTAIRE VIERGE - {module_name.upper()}"
+    pdf.subtitle_text = subtitle
     pdf.alias_nb_pages()
     pdf.add_page()
     

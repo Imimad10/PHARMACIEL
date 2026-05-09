@@ -171,6 +171,7 @@ else:
         
         df_print = df_master.copy()
         title_pdf = "Inventaire Triple"
+        agents_str = ""
         
         with col_p2:
             if type_fiche == "Par Zone":
@@ -178,9 +179,21 @@ else:
                 sel_z = st.selectbox("Choisir Zone :", zones)
                 df_print = df_print[df_print['zone'].astype(str) == sel_z]
                 title_pdf += f" - Zone {sel_z}"
+                
+                # Récupération des agents affectés à cette zone
+                from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+                df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "nom", "prenom", "zone"])
+                if not df_users.empty:
+                    target_z = str(sel_z).strip().upper()
+                    df_users['zone_norm'] = df_users['zone'].astype(str).str.strip().upper()
+                    zone_users = df_users[df_users['zone_norm'] == target_z]
+                    if not zone_users.empty:
+                        names = [f"{u['nom']} {u['prenom']}".strip() or u['username'] for _, u in zone_users.iterrows()]
+                        agents_str = "Agents affectés : " + ", ".join(names)
+
             elif type_fiche == "Par Dépôt":
                 depots = sorted(df_print['depot'].astype(str).unique().tolist())
-                sel_d = st.selectbox("Choisir Dépôt :", depots)
+                sel_d = st.selectbox("Choisir le Dépôt :", depots)
                 df_print = df_print[df_print['depot'].astype(str) == sel_d]
                 title_pdf += f" - Dépôt {sel_d}"
         
@@ -188,7 +201,7 @@ else:
         df_print = df_print.sort_values(by='produit')
         
         cols_to_print = [('produit', 'Produit', 55), ('lot', 'Lot', 28)]
-        pdf_bytes = generate_blank_inventory_pdf(df_print, "Triple", cols_to_print)
+        pdf_bytes = generate_blank_inventory_pdf(df_print, "Triple", cols_to_print, subtitle=agents_str)
         
         st.download_button(
             "📥 Télécharger la Fiche Vierge (PDF)",
