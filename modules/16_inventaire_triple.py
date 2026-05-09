@@ -230,9 +230,13 @@ with tab_admin:
                     if u.get('role') not in ['Admin', 'Superviseur']:
                         # inv_zones peut être stocké comme une chaîne JSON dans GSheets
                         curr = u.get('inv_zones', [])
-                        if isinstance(curr, str):
+                        if pd.isna(curr):
+                            curr = []
+                        elif isinstance(curr, str):
                             try: curr = json.loads(curr.replace("'", '"'))
                             except: curr = []
+                        elif not isinstance(curr, list):
+                            curr = []
                         
                         valid_curr = [z for z in curr if z in avail_zones]
                         sel = st.multiselect(f"Zones pour {u['username']}", avail_zones, default=valid_curr)
