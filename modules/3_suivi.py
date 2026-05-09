@@ -36,7 +36,12 @@ def clean_frigo_data(df):
         df['Type'] = df['Type'].replace('Relevé Standard', 'Plage idéale :+2°C+8°C')
     if 'Chambre' not in df.columns:
         df['Chambre'] = CHAMBRES[0]
+    else:
+        # Gérer les valeurs vides ou NaN issues de l'ancien format
+        df['Chambre'] = df['Chambre'].astype(str).str.strip().replace(["nan", "None", ""], CHAMBRES[0])
+        df['Chambre'] = df['Chambre'].fillna(CHAMBRES[0])
     return df
+
 
 def generer_pdf(df, chambre_name):
     pdf = FPDF()
@@ -159,7 +164,12 @@ def render_dashboard(chambre_name, df_all):
     df = df_all[df_all['Chambre'] == chambre_name.strip()].copy()
     
     if not df.empty:
-        df['Timestamp'] = pd.to_datetime(df['Date'] + ' ' + df['Heure'], format="%d/%m/%Y %H:%M", errors='coerce')
+        df['Timestamp'] = pd.to_datetime(df['Date'].astype(str) + ' ' + df['Heure'].astype(str), format="%d/%m/%Y %H:%M", errors='coerce')
+        # Gérer les formats modifiés par GSheets (ex: YYYY-MM-DD)
+        mask = df['Timestamp'].isna()
+        if mask.any():
+            df.loc[mask, 'Timestamp'] = pd.to_datetime(df.loc[mask, 'Date'].astype(str) + ' ' + df.loc[mask, 'Heure'].astype(str), errors='coerce')
+            
         last_entry = df.iloc[-1]
         if last_entry['Statut'] == "ALERTE":
             st.error(f"🚨 ATTENTION : La dernière température de la {chambre_name} ({last_entry['Température']}°C) est HORS PLAGE !")
