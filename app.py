@@ -258,7 +258,8 @@ st.markdown("""
 from utils_gsheets import load_gs_data, save_gs_data, DB_USERS_WORKSHEET, DB_USERS_FALLBACK
 
 # Chargement initial des utilisateurs
-df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "password", "role", "pages", "nom", "prenom", "zone"])
+USER_COLUMNS = ["username", "password", "role", "pages", "nom", "prenom", "zone", "depot"]
+df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, USER_COLUMNS)
 
 # Toujours s'assurer que l'admin principal existe
 if 'admin_imad' not in df_users['username'].values:
@@ -269,16 +270,17 @@ if 'admin_imad' not in df_users['username'].values:
         'nom': 'Administrateur',
         'prenom': 'Imad',
         'pages': ['Profil', 'Admin Centrale', 'Dashboard', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Péremptions', 'Scanneur QR', 'Automatisation', 'Litiges Fournisseurs', 'Analyse Rotation', 'Scan Mobile', 'RH'],
-        'zone': 'Aucune'
+        'zone': 'Aucune',
+        'depot': 'Administration'
     }
     df_users = pd.concat([df_users, pd.DataFrame([admin_data])], ignore_index=True)
     save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
 
 # Liste des utilisateurs essentiels à maintenir
 essentials = [
-    {'username': 'Ayoub', 'password': 'ayoub2026', 'role': 'Saisie', 'pages': ['Logistique', 'Suivi', 'Inventaire Détail']},
-    {'username': 'Islem', 'password': 'islem2026', 'role': 'Saisie', 'pages': ['Logistique', 'Suivi', 'Inventaire Détail']},
-    {'username': 'Seif', 'password': 'seif2026', 'role': 'Saisie', 'pages': ['Inventaire', 'Inventaire Détail']}
+    {'username': 'Ayoub', 'password': 'ayoub2026', 'role': 'Saisie', 'pages': ['Logistique', 'Suivi', 'Inventaire Détail'], 'depot': 'Expédition'},
+    {'username': 'Islem', 'password': 'islem2026', 'role': 'Saisie', 'pages': ['Logistique', 'Suivi', 'Inventaire Détail'], 'depot': 'Expédition'},
+    {'username': 'Seif', 'password': 'seif2026', 'role': 'Saisie', 'pages': ['Inventaire', 'Inventaire Détail'], 'depot': 'Préparation'}
 ]
 
 # Synchronisation des essentiels
