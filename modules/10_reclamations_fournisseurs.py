@@ -40,21 +40,28 @@ tab_new, tab_list, tab_stats, tab_prods = st.tabs(["➕ Nouveau Rapport", "📋 
 df_prods = load_gs_data("Base_Produits", "data_produits.csv", ["Désignation"])
 liste_prods = sorted([str(p).upper().strip() for p in df_prods["Désignation"].unique() if pd.notna(p) and str(p).strip() != ""])
 
+if "temp_litiges" not in st.session_state:
+    st.session_state.temp_litiges = []
+
 # --- ONGLET 1 : NOUVELLE RÉCLAMATION ---
 with tab_new:
-    with st.form("form_new_reclam", clear_on_submit=True):
+    # 1. En-tête commune
+    st.subheader("📝 Informations Générales")
+    c_h1, c_h2 = st.columns(2)
+    fournisseur = c_h1.text_input("Fournisseur / Laboratoire", placeholder="Ex: Sanofi, Biopharm...")
+    num_facture = c_h2.text_input("N° Facture / BL")
+    
+    st.divider()
+    
+    # 2. Ajout d'un article
+    st.subheader("🔍 Ajouter un article à la réclamation")
+    with st.form("form_add_litige_item", clear_on_submit=True):
         col1, col2 = st.columns(2)
-        
         with col1:
-            fournisseur = st.text_input("Fournisseur / Laboratoire", placeholder="Ex: Sanofi, Biopharm...")
-            num_facture = st.text_input("N° Facture / BL")
-            
-            # Utilisation de la liste déroulante au lieu du champ texte libre
             if liste_prods:
                 produit = st.selectbox("Désignation du Produit", options=liste_prods, index=None, placeholder="Rechercher le produit...")
             else:
                 produit = st.text_input("Désignation du Produit (Veuillez importer une base)")
-                
             lot = st.text_input("N° Lot")
             quantite = st.number_input("Quantité concernée", min_value=1, step=1)
             
@@ -67,44 +74,74 @@ with tab_new:
             uploaded_photo = st.file_uploader("📸 Photo de preuve (Optionnel)", type=["jpg", "jpeg", "png"])
             commentaire = st.text_area("Observations détaillées")
 
-        if st.form_submit_button("🚀 Enregistrer & Synchroniser"):
+        if st.form_submit_button("➕ Ajouter cet article à la liste"):
             if fournisseur and produit:
-                now = datetime.now()
+                # Gestion photo
                 photo_path = ""
-                
-                # Sauvegarde de la photo si présente
                 if uploaded_photo:
+                    now = datetime.now()
                     photo_filename = f"reclam_{now.strftime('%Y%m%d_%H%M%S')}.jpg"
                     photo_path = os.path.join(PHOTO_DIR, photo_filename)
                     img = Image.open(uploaded_photo)
                     img = img.convert('RGB')
                     img.save(photo_path, quality=80)
                 
-                new_row = {
-                    "Date": now.strftime("%Y-%m-%d"),
-                    "Heure": now.strftime("%H:%M"),
-                    "Facture": num_facture,
-                    "Fournisseur": fournisseur.upper(),
-                    "Agent": st.session_state.current_user['username'],
+                new_item = {
                     "Produit": produit.upper(),
                     "Lot": lot,
                     "Quantite": quantite,
                     "Type": type_litige,
                     "Priorite": priorite,
-                    "Statut": "En cours",
                     "Commentaire": commentaire,
-                    "Photo_Path": photo_path,
-                    "Date_Resolution": ""
+                    "Photo_Path": photo_path
                 }
-                
-                df_litiges = pd.concat([df_litiges, pd.DataFrame([new_row])], ignore_index=True)
-                save_gs_data(df_litiges, WORKSHEET_NAME, FALLBACK_PATH)
-                
-                st.success(f"✅ Réclamation enregistrée et synchronisée !")
-                log_action(st.session_state.current_user['username'], f"Nouveau Litige: {fournisseur} - {produit}", "Litiges")
+                st.session_state.temp_litiges.append(new_item)
+                st.success(f"Article ajouté : {produit}")
                 st.rerun()
             else:
-                st.error("Veuillez remplir les champs obligatoires (Fournisseur & Produit).")
+                st.error("Veuillez remplir le Fournisseur et le Produit.")
+
+    # 3. Liste temporaire et validation finale
+    if st.session_state.temp_litiges:
+        st.divider()
+        st.subheader(f"📋 Articles à réclamer ({len(st.session_state.temp_litiges)})")
+        
+        for i, item in enumerate(st.session_state.temp_litiges):
+            col_a, col_b, col_c = st.columns([3, 1, 0.5])
+            col_a.write(f"**{item['Produit']}** (Lot: {item['Lot']}) - {item['Quantite']} x {item['Type']}")
+            if col_c.button("🗑️", key=f"del_temp_{i}"):
+                st.session_state.temp_litiges.pop(i)
+                st.rerun()
+        
+        st.divider()
+        if st.button("🚀 ENREGISTRER & SYNCHRONISER TOUT", type="primary", use_container_width=True):
+            now = datetime.now()
+            new_rows = []
+            for item in st.session_state.temp_litiges:
+                new_rows.append({
+                    "Date": now.strftime("%Y-%m-%d"),
+                    "Heure": now.strftime("%H:%M"),
+                    "Facture": num_facture,
+                    "Fournisseur": fournisseur.upper(),
+                    "Agent": st.session_state.current_user['username'],
+                    "Produit": item['Produit'],
+                    "Lot": item['Lot'],
+                    "Quantite": item['Quantite'],
+                    "Type": item['Type'],
+                    "Priorite": item['Priorite'],
+                    "Statut": "En cours",
+                    "Commentaire": item['Commentaire'],
+                    "Photo_Path": item['Photo_Path'],
+                    "Date_Resolution": ""
+                })
+            
+            df_litiges = pd.concat([df_litiges, pd.DataFrame(new_rows)], ignore_index=True)
+            save_gs_data(df_litiges, WORKSHEET_NAME, FALLBACK_PATH)
+            
+            st.session_state.temp_litiges = []
+            st.success("✅ Tous les litiges ont été enregistrés et synchronisés !")
+            log_action(st.session_state.current_user['username'], f"Multi-Litiges: {fournisseur} - {len(new_rows)} articles", "Litiges")
+            st.rerun()
 
 # --- ONGLET 2 : LISTE ET PDF ---
 with tab_list:
