@@ -3,7 +3,9 @@ import pandas as pd
 import os
 import json
 import unicodedata
-from utils_ia import ask_ai, is_ia_enabled
+from utils_ia import ask_ai, ask_ai_vision, is_ia_enabled, is_ia_scanner_enabled
+import base64
+import difflib
 
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Inventaire Triple - Pharmaciel", layout="wide")
@@ -274,7 +276,35 @@ if df_master is not None and tab_dash:
 if df_master is not None and tab_saisie:
     with tab_saisie:
         st.markdown("### ⚡ Saisie Libre & Grille")
+        
+        # --- AI VISION SCANNER ---
+        if is_ia_scanner_enabled():
+            with st.expander("📷 Scanner la marchandise avec l'IA", expanded=False):
+                c_img1, c_img2 = st.columns(2)
+                img_cam = c_img1.camera_input("Prendre une photo du produit", key="cam_triple")
+                img_file = c_img2.file_uploader("Ou importer une image", type=['jpg', 'jpeg', 'png'], key="file_up_triple")
+                img_to_use = img_cam if img_cam else img_file
+                
+                if img_to_use and st.button("🔍 Identifier et Extraire", use_container_width=True, type="primary"):
+                    base64_img = base64.b64encode(img_to_use.getvalue()).decode("utf-8")
+                    prompt = 'Extrais les informations de ce produit ou vignette. Renvoie UNIQUEMENT un objet JSON avec les clés exactes : "designation" (nom du médicament/produit), "lot" (numéro de lot). Si invisible, mets "".'
+                    with st.spinner("L'IA analyse l'image..."):
+                        resp = ask_ai_vision(prompt, base64_img)
+                        try:
+                            match = re.search(r'```json(.*?)```', resp, re.DOTALL)
+                            if match: resp = match.group(1)
+                            else:
+                                start = resp.find('{')
+                                end = resp.rfind('}') + 1
+                                if start != -1 and end != 0: resp = resp[start:end]
+                            
+                            data = json.loads(resp)
+                            st.session_state['ai_scan_triple'] = data
+                            st.success(f"✅ Détection : {data.get('designation')} (Lot: {data.get('lot')})")
+                        except Exception as e:
+                            st.error("Lecture échouée. Essayez une image plus nette.")
 
+        ai_data_triple = st.session_state.get('ai_scan_triple', {})
 
         # Filtres
         f1, f2, f3 = st.columns(3)
@@ -289,7 +319,38 @@ if df_master is not None and tab_saisie:
             zones = ["Toutes"] + sorted(disp_df['zone'].dropna().unique().tolist()) if 'zone' in disp_df.columns else ["Toutes"]
             sel_zone = f2.selectbox("Filtrer Zone", zones)
             
-            search = st.text_input("Recherche Produit / Lot")
+            search_def = ""
+            if ai_data_triple.get('designation'):
+                # Nettoyage et matching intelligent pour la recherche par défaut
+                target_raw = str(ai_data_triple['designation']).upper()
+                def normalize_name(text):
+                    t = str(text).upper().replace(' ', '')
+                    t = re.sub(r'1000MG', '1G', t)
+                    t = re.sub(r'1000UI', '1MUI', t)
+                    return t
+                target_norm = normalize_name(target_raw)
+                nums_target = set(re.findall(r'\d+', target_norm))
+                
+                best_match = None
+                best_score = 0
+                prods = disp_df['produit'].dropna().unique().tolist()
+                for s in prods:
+                    s_norm = normalize_name(s)
+                    ratio = difflib.SequenceMatcher(None, target_norm, s_norm).ratio()
+                    nums_candidate = set(re.findall(r'\d+', s_norm))
+                    if nums_target and not nums_target.intersection(nums_candidate): ratio -= 0.4
+                    if nums_target and nums_target.intersection(nums_candidate): ratio += 0.2
+                    if ratio > best_score:
+                        best_score = ratio
+                        best_match = s
+                if best_match and best_score > 0.4:
+                    search_def = best_match
+
+            search = st.text_input("Recherche Produit / Lot", value=search_def)
+            if search and ai_data_triple:
+                if st.button("❌ Effacer la recherche (Scan)"):
+                    if 'ai_scan_triple' in st.session_state: del st.session_state['ai_scan_triple']
+                    st.rerun()
             
             # Filtrage sécurisé
             if sel_depot != "Tous" and 'depot' in disp_df.columns: 

@@ -280,6 +280,7 @@ if tab_ia:
                 
             with st.form("form_ia_config_admin"):
                 ia_en = st.checkbox("🚀 Activer l'IA globalement", value=get_setting('ia_global_enabled', 'True') == 'True')
+                ia_scanner = st.checkbox("📷 Activer le Scanner IA pour l'Inventaire (Détail/Triple)", value=get_setting('ia_scanner_enabled', 'True') == 'True', help="Permet aux utilisateurs de scanner les médicaments avec l'appareil photo.")
                 providers = ["Gemini (Google)", "Claude (Anthropic)", "ChatGPT (OpenAI)", "Grok (xAI)", "OpenRouter"]
                 active_p = st.selectbox("Moteur par défaut", providers, index=providers.index(get_setting('active_ai_provider', 'OpenRouter')))
                 
@@ -303,6 +304,7 @@ if tab_ia:
                     update_setting('openrouter_api_key', new_openrouter)
                     update_setting('active_ai_provider', active_p)
                     update_setting('ia_global_enabled', ia_en)
+                    update_setting('ia_scanner_enabled', ia_scanner)
                     
                     save_gs_data(df_settings, DB_SETTINGS_WORKSHEET, DB_SETTINGS_FALLBACK)
                     st.success("✅ Configuration IA mise à jour sur GSheets !")
