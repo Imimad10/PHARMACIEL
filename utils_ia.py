@@ -32,19 +32,19 @@ def ask_ai(prompt, fallback_msg="⚠️ L'IA n'est pas configurée. Allez dans A
             if not api_key: return fallback_msg
             genai.configure(api_key=api_key)
             
-            # Détection dynamique du meilleur modèle disponible
-            try:
-                available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-                # Priorité : Flash 1.5 -> Pro 1.5 -> Pro 1.0
-                target_model = None
-                for candidate in ["1.5-flash", "1.5-pro", "gemini-pro"]:
-                    match = next((m for m in available_models if candidate in m), None)
-                    if match:
-                        target_model = match
-                        break
-                
-                if not target_model:
-                    target_model = available_models[0] if available_models else "gemini-1.5-flash"
+                # Détection dynamique du meilleur modèle disponible
+                try:
+                    available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                    # Priorité : Flash 1.5 -> Pro 1.5 -> Pro 1.0
+                    target_model = None
+                    for candidate in ["1.5-flash", "1.5-pro", "gemini-pro"]:
+                        match = next((m for m in available_models if candidate in m), None)
+                        if match:
+                            target_model = match.replace("models/", "")
+                            break
+                    
+                    if not target_model:
+                        target_model = "gemini-1.5-flash"
                 
                 model = genai.GenerativeModel(target_model)
                 response = model.generate_content(prompt)
