@@ -14,7 +14,17 @@ CATALOGUE_PATH = "catalogue_pharmnet.csv"
 
 def load_catalogue():
     if os.path.exists(CATALOGUE_PATH):
-        return pd.read_csv(CATALOGUE_PATH, encoding='utf-8-sig')
+        try:
+            df = pd.read_csv(CATALOGUE_PATH, encoding='utf-8-sig')
+        except:
+            try:
+                df = pd.read_csv(CATALOGUE_PATH, encoding='latin-1')
+            except:
+                df = pd.read_csv(CATALOGUE_PATH)
+        
+        # Nettoyage des noms de colonnes (espaces invisibles)
+        df.columns = [str(c).strip() for c in df.columns]
+        return df
     return pd.DataFrame(columns=["Nom Commercial", "PPA", "Tarif de référence"])
 
 def save_reception(reception_data):
@@ -81,11 +91,16 @@ with tabs[0]:
     df_cat = load_catalogue()
     
     # Barre de recherche intelligente
-    search_list = df_cat['Nom Commercial'].tolist() if not df_cat.empty else []
+    col_name = "Nom Commercial" if "Nom Commercial" in df_cat.columns else ("Nom" if "Nom" in df_cat.columns else None)
+    
+    search_list = []
+    if col_name and not df_cat.empty:
+        search_list = df_cat[col_name].dropna().unique().tolist()
+    
     selected_prod_name = st.selectbox("Sélectionner un produit (Tapez pour chercher)", [""] + search_list, index=0)
 
-    if selected_prod_name:
-        prod_info = df_cat[df_cat['Nom Commercial'] == selected_prod_name].iloc[0]
+    if selected_prod_name and col_name:
+        prod_info = df_cat[df_cat[col_name] == selected_prod_name].iloc[0]
         
         with st.form("form_add_item", clear_on_submit=True):
             st.info(f"Produit sélectionné : **{selected_prod_name}**")
