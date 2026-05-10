@@ -158,6 +158,11 @@ with tab_list:
             
             if selected_inv:
                 df_group = df_litiges[df_litiges['Facture'] == selected_inv]
+                
+                include_resolved = st.checkbox("Inclure les réclamations déjà réglées", value=False)
+                if not include_resolved:
+                    df_group = df_group[df_group['Statut'] != "Réglée"]
+                
                 st.write(f"Nombre d'articles trouvés : **{len(df_group)}**")
                 
                 if st.button("📄 Télécharger Rapport Groupé PDF", type="primary"):
