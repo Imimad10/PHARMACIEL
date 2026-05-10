@@ -74,18 +74,18 @@ if uploaded_files:
                     S'il n'y a aucun produit détecté, renvoie [].
                     """
                     
-                        # Détection dynamique du modèle
-                        try:
-                            available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-                            # On nettoie le nom du modèle pour éviter le préfixe 'models/' qui peut causer des erreurs 404
-                            target_model = "gemini-1.5-flash" # Valeur sûre par défaut
-                            for m in available_models:
-                                if "1.5-flash" in m:
-                                    target_model = m.replace("models/", "")
-                                    break
-                            
-                            model = genai.GenerativeModel(target_model)
-                            response = model.generate_content([sample_file, prompt])
+                    # Détection dynamique du modèle
+                    try:
+                        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                        # On nettoie le nom du modèle pour éviter le préfixe 'models/' qui peut causer des erreurs 404
+                        target_model = "gemini-1.5-flash" # Valeur sûre par défaut
+                        for m in available_models:
+                            if "1.5-flash" in m:
+                                target_model = m.replace("models/", "")
+                                break
+                        
+                        model = genai.GenerativeModel(target_model)
+                        response = model.generate_content([sample_file, prompt])
                     except Exception as e:
                         st.error(f"Erreur technique IA : {str(e)}")
                         st.stop()
