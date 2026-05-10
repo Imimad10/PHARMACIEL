@@ -21,6 +21,8 @@ show_sync_ui(WORKSHEET_NAME, FALLBACK_PATH, COLUMNS)
 
 # --- CHARGEMENT DES DONNÉES ---
 df_litiges = load_gs_data(WORKSHEET_NAME, FALLBACK_PATH, COLUMNS)
+df_litiges['Statut'] = df_litiges['Statut'].astype(str)
+df_litiges['Date_Resolution'] = df_litiges['Date_Resolution'].astype(str)
 
 def get_delay(start_date, end_date):
     try:
