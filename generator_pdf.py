@@ -108,9 +108,11 @@ def generate_multi_reclam_pdf(items_list):
         if pdf.get_y() > 220:
             pdf.add_page()
             
+        # Entête de l'article avec fond gris clair
+        pdf.set_fill_color(245, 245, 245)
         pdf.set_font("Arial", 'B', 11)
         pdf.set_text_color(24, 119, 242)
-        pdf.cell(0, 10, f"ARTICLE #{i+1} : {item['produit']}", "T", 1, 'L')
+        pdf.cell(0, 10, f"  ARTICLE #{i+1} : {item['produit']}", 0, 1, 'L', fill=True)
         pdf.set_text_color(0, 0, 0)
         
         y_start = pdf.get_y()
@@ -123,14 +125,14 @@ def generate_multi_reclam_pdf(items_list):
         
         y_text_end = pdf.get_y()
         
-        # Photo (colonne droite)
+        # Photo (colonne droite) - On fixe la HAUTEUR pour la cohérence
         photo_path = item.get('Photo_Path', '')
         if photo_path and os.path.exists(photo_path):
             try:
-                # Placement de la photo à droite du texte
-                pdf.image(photo_path, x=145, y=y_start, w=45)
-                # On s'assure de descendre plus bas que le texte ET l'image (estimée à 40mm de haut)
-                y_final = max(y_text_end, y_start + 35)
+                # On utilise h=35 pour que toutes les photos fassent la même hauteur
+                pdf.image(photo_path, x=145, y=y_start + 2, h=35)
+                # On descend le curseur en dessous du texte ou de l'image
+                y_final = max(y_text_end, y_start + 40)
                 pdf.set_y(y_final)
             except: 
                 pdf.set_y(y_text_end)
