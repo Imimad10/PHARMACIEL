@@ -284,9 +284,9 @@ if "setup_done" not in st.session_state:
 
     # Liste des utilisateurs essentiels à maintenir
     essentials = [
-        {'username': 'Ayoub', 'password': 'ayoub2026', 'role': 'Saisie', 'pages': str(['Logistique', 'Suivi', 'Inventaire Détail']), 'depot': 'Expédition'},
-        {'username': 'Islem', 'password': 'islem2026', 'role': 'Saisie', 'pages': str(['Logistique', 'Suivi', 'Inventaire Détail']), 'depot': 'Expédition'},
-        {'username': 'Seif', 'password': 'seif2026', 'role': 'Saisie', 'pages': str(['Inventaire', 'Inventaire Détail']), 'depot': 'Préparation'}
+        {'username': 'Ayoub', 'password': 'ayoub2026', 'role': 'Saisie', 'pages': str(['Logistique', 'Suivi', 'Inventaire Détail', 'Pointage Marchandise']), 'depot': 'Expédition'},
+        {'username': 'Islem', 'password': 'islem2026', 'role': 'Saisie', 'pages': str(['Logistique', 'Suivi', 'Inventaire Détail', 'Pointage Marchandise']), 'depot': 'Expédition'},
+        {'username': 'Seif', 'password': 'seif2026', 'role': 'Saisie', 'pages': str(['Inventaire', 'Inventaire Détail', 'Pointage Marchandise']), 'depot': 'Préparation'}
     ]
 
     for ess in essentials:
@@ -490,7 +490,7 @@ if not isinstance(user_pages, list):
 is_admin = user.get('role') == 'Admin'
 
 if is_admin:
-    for extra_page in ["Automatisation", "Liste des Lots", "Pointage Expéditeur", "Inventaire Triple"]:
+    for extra_page in ["Automatisation", "Liste des Lots", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise"]:
         if extra_page not in user_pages:
             user_pages.append(extra_page)
 
@@ -513,6 +513,7 @@ ALL_PAGES = {
     "RH": st.Page("modules/13_rh.py", title="RH & Performance", icon="👥"),
     "Liste des Lots": st.Page("modules/14_liste_des_lots.py", title="Liste des Lots", icon="📑"),
     "Catalogue Produits": st.Page("modules/17_catalogue_produits.py", title="Catalogue Produits", icon="📚"),
+    "Pointage Marchandise": st.Page("modules/18_reception.py", title="Pointage Marchandise", icon="📦"),
     "Profil": st.Page("modules/17_profil.py", title="Mon Profil", icon="👤")
 }
 

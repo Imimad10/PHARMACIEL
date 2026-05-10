@@ -146,3 +146,47 @@ def generate_inventory_report_pdf(df_diff, title="RAPPORT D'INVENTAIRE"):
     if isinstance(raw, (bytes, bytearray)):
         return bytes(raw)
     return raw.encode('latin-1', 'replace')
+
+def generate_reception_pdf(reception_data):
+    """
+    reception_data: dict with id, date, fournisseur, facture_num, items (list)
+    """
+    pdf = InventoryPDF()
+    pdf.title_text = "FICHE DE RECEPTION & POINTAGE"
+    pdf.subtitle_text = f"Fournisseur: {reception_data['fournisseur']} | Facture: {reception_data['facture_num']}"
+    pdf.alias_nb_pages()
+    pdf.add_page()
+    
+    # Tableau
+    pdf.set_font('Arial', 'B', 9)
+    pdf.set_fill_color(230, 230, 230)
+    cols = [('produit', 'Désignation', 70), ('lot', 'Lot', 30), ('ddp', 'DDP', 25), ('qte', 'Qte', 20), ('ppa', 'PPA', 20), ('shp', 'SHP', 20)]
+    
+    for _, label, w in cols:
+        pdf.cell(w, 8, label, 1, 0, 'C', 1)
+    pdf.ln()
+    
+    pdf.set_font('Arial', '', 8)
+    for item in reception_data['items']:
+        if pdf.get_y() > 260:
+            pdf.add_page()
+            pdf.set_font('Arial', 'B', 9)
+            for _, label, w in cols: pdf.cell(w, 8, label, 1, 0, 'C', 1)
+            pdf.ln()
+            pdf.set_font('Arial', '', 8)
+            
+        for key, _, w in cols:
+            val = str(item.get(key, ""))[:40]
+            align = 'L' if key == 'produit' else 'C'
+            pdf.cell(w, 7, val.encode('latin-1', 'replace').decode('latin-1'), 1, 0, align)
+        pdf.ln()
+    
+    # Pied de page
+    pdf.ln(10)
+    pdf.set_font('Arial', 'I', 10)
+    pdf.write(5, f"Reception terminee le {reception_data['date']} par {reception_data.get('created_by', 'Equipe Reception')}")
+    
+    raw = pdf.output(dest='S')
+    if isinstance(raw, (bytes, bytearray)):
+        return bytes(raw)
+    return raw.encode('latin-1', 'replace')
