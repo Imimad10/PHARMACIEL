@@ -78,6 +78,7 @@ def generate_reclam_pdf(data, image_path=None):
         pdf.set_font("Arial", 'I', 10)
         pdf.cell(0, 10, "(Aucune photo jointe au dossier)", 0, 1)
 
+    raw = pdf.output()
     if isinstance(raw, (bytes, bytearray)):
         return bytes(raw)
     return raw.encode('latin-1', 'replace')
