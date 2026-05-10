@@ -26,111 +26,222 @@ else:
 # Injection CSS
 st.markdown(f"""
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@300;500;700&display=swap');
-
-        :root {{
-            --primary: #1877f2;
-            --secondary: #00d2ff;
-            --accent: #ff007a;
-            --glass-bg: rgba(255, 255, 255, 0.7);
-            --glass-border: rgba(255, 255, 255, 0.2);
-            --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-        }}
-
         .stApp {{
             background: {bg_style};
-            font-family: 'Inter', sans-serif;
+        }}
+        [data-testid="stSidebar"] {{
+            background-color: {sidebar_bg} !important;
+        }}
+        [data-testid="stHeader"] {{
+            background: rgba(0,0,0,0);
+        }}
+        
+        /* Optimisations mobiles globales */
+        @media (max-width: 768px) {{
+            .stButton button {{
+            }}
         }}
 
-        /* Entrance Animations */
-        @keyframes fadeInUp {{
-            from {{ opacity: 0; transform: translateY(20px); }}
-            to {{ opacity: 1; transform: translateY(0); }}
+        /* Fix visibility for metrics and text */
+        [data-testid="stMetricLabel"] {{
+            color: {text_color} !important;
+            opacity: 0.9;
+            font-weight: 600 !important;
         }}
-
-        @keyframes slideInRight {{
-            from {{ opacity: 0; transform: translateX(50px); }}
-            to {{ opacity: 1; transform: translateX(0); }}
-        }}
-
-        @keyframes pulseGlow {{
-            0% {{ box-shadow: 0 0 5px rgba(24, 119, 242, 0.2); }}
-            50% {{ box-shadow: 0 0 20px rgba(24, 119, 242, 0.6); }}
-            100% {{ box-shadow: 0 0 5px rgba(24, 119, 242, 0.2); }}
-        }}
-
-        .main .block-container {{
-            animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
-        }}
-
-        /* 3D and Interactive Elements */
-        .stButton button {{
-            border-radius: 12px !important;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
-            border: 1px solid var(--glass-border) !important;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05) !important;
-        }}
-
-        .stButton button:hover {{
-            transform: translateY(-5px) scale(1.02) perspective(1000px) rotateX(5deg) !important;
-            box-shadow: 0 12px 25px rgba(24, 119, 242, 0.25) !important;
-            background: var(--primary) !important;
-            color: white !important;
-        }}
-
-        /* Premium Titles */
-        h1 {{
-            font-family: 'Outfit', sans-serif !important;
+        [data-testid="stMetricValue"] {{
+            color: {text_color} !important;
             font-weight: 800 !important;
-            background: linear-gradient(90deg, #1877f2, #00d2ff);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            letter-spacing: -1.5px;
+        }}
+        h1, h2, h3, h4, h5, h6, p, span {{
+            color: {text_color};
         }}
 
-        /* Metric Cards (Glassmorphism) */
-        [data-testid="stMetric"] {{
-            background: {card_bg};
-            padding: 20px !important;
-            border-radius: 20px !important;
-            border: 1px solid var(--glass-border) !important;
-            backdrop-filter: blur(10px);
-            transition: all 0.3s ease;
+        /* BOUTON ACTUALISER */
+        div[data-testid="stBaseButton-btn_refresh"] button {{
+            background-color: #e0f2fe !important;
+            color: #0369a1 !important;
+            border: 1px solid #bae6fd !important;
+            transition: all 0.3s ease !important;
         }}
-        [data-testid="stMetric"]:hover {{
-            transform: translateY(-5px);
-            box-shadow: var(--shadow);
+        div[data-testid="stBaseButton-btn_refresh"] button:hover {{
+            background-color: #f3f4f6 !important;
+            color: #374151 !important;
+            border-color: #d1d5db !important;
+            transform: scale(1.02);
+        }}
+
+        /* BOUTON MOBILE */
+        div[data-testid="stBaseButton-btn_mobile"] button {{
+            background-color: #f9fafb !important;
+            color: #374151 !important;
+            border: 1px solid #e5e7eb !important;
+            transition: all 0.3s ease !important;
+        }}
+        div[data-testid="stBaseButton-btn_mobile"] button:hover {{
+            background-color: #1f2937 !important;
+            color: #ffffff !important;
+            transform: translateY(-2px);
+        }}
+
+        /* BOUTON DÉCONNEXION */
+        div[data-testid="stBaseButton-btn_logout"] button {{
+            background-color: #fee2e2 !important;
+            color: #dc2626 !important;
+            border: 1px solid #fecaca !important;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+        }}
+        div[data-testid="stBaseButton-btn_logout"] button:hover {{
+            background-color: #ef4444 !important;
+            color: #ffffff !important;
+            border-color: #ef4444 !important;
         }}
 
         /* ==========================================
-           RESPONSIVE & MOBILE OPTIMIZATIONS
+           MOBILE-FIRST RESPONSIVE DESIGN
            ========================================== */
+
+        /* Tablettes (768px et moins) */
         @media (max-width: 768px) {{
+
+            /* Padding réduit pour maximiser l'espace */
             .main .block-container {{
                 padding: 1rem 0.75rem 5rem 0.75rem !important;
+                max-width: 100% !important;
             }}
+
+            /* Boutons pleine largeur et plus grands (touch-friendly) */
             .stButton button {{
                 width: 100% !important;
                 min-height: 52px !important;
                 font-size: 16px !important;
+                margin-bottom: 8px !important;
                 border-radius: 12px !important;
+                touch-action: manipulation;
             }}
-            [data-testid="stMetricValue"] {{ font-size: 1.8rem !important; }}
-            [data-testid="column"] {{ width: 100% !important; flex: none !important; }}
-            
-            /* Sidebar Panel */
+
+            /* Métriques plus lisibles */
+            [data-testid="stMetricValue"] {{
+                font-size: 2rem !important;
+            }}
+            [data-testid="stMetricLabel"] {{
+                font-size: 0.85rem !important;
+            }}
+
+            /* Colonnes empilées sur mobile */
+            [data-testid="column"] {{
+                width: 100% !important;
+                flex: none !important;
+            }}
+
+            /* Tableaux scrollables horizontalement */
+            [data-testid="stDataFrame"], .stDataFrame {{
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+            }}
+
+            /* Inputs plus grands pour les doigts */
+            .stTextInput input,
+            .stSelectbox select,
+            .stNumberInput input {{
+                min-height: 48px !important;
+                font-size: 16px !important; /* Évite le zoom auto sur iOS */
+                border-radius: 10px !important;
+            }}
+
+            /* Titre de la page */
+            h1 {{
+                font-size: 1.5rem !important;
+                margin-bottom: 0.5rem !important;
+            }}
+            h2 {{
+                font-size: 1.25rem !important;
+            }}
+            h3 {{
+                font-size: 1.1rem !important;
+            }}
+
+            /* Sidebar se comporte comme un panneau glissant */
             [data-testid="stSidebar"] {{
                 width: 85vw !important;
                 max-width: 320px !important;
             }}
+
+            /* Header plus compact */
+            [data-testid="stHeader"] {{
+                height: 3rem !important;
+            }}
+
+            /* Expanders plus faciles à tapper */
+            [data-testid="stExpander"] summary {{
+                min-height: 48px !important;
+                font-size: 15px !important;
+                align-items: center !important;
+            }}
+
+            /* Tabs touch-friendly */
+            [data-testid="stTabs"] [role="tab"] {{
+                min-height: 44px !important;
+                font-size: 14px !important;
+                padding: 0 12px !important;
+            }}
+
+            /* Upload zone simplifiée */
+            [data-testid="stFileUploader"] {{
+                border-radius: 12px !important;
+                padding: 1rem !important;
+            }}
+
+            /* Checkbox et radio plus grands */
+            [data-testid="stCheckbox"] label,
+            [data-testid="stRadio"] label {{
+                min-height: 44px !important;
+                font-size: 16px !important;
+                display: flex !important;
+                align-items: center !important;
+            }}
+
+            /* Form submit pleine largeur */
+            div[data-testid="stFormSubmitButton"] button {{
+                width: 100% !important;
+                min-height: 52px !important;
+                font-size: 18px !important;
+                border-radius: 12px !important;
+            }}
+
+            /* Sliders plus larges */
+            [data-testid="stSlider"] {{
+                padding: 1rem 0 !important;
+            }}
+
+            /* Ajouter de l'espace en bas pour la zone safe area (iOS) */
+            .main {{
+                padding-bottom: env(safe-area-inset-bottom, 20px) !important;
+            }}
         }}
 
-        /* Scrollbar styling */
-        ::-webkit-scrollbar {{ width: 6px; height: 6px; }}
-        ::-webkit-scrollbar-thumb {{ background: rgba(24, 119, 242, 0.3); border-radius: 10px; }}
+        /* Très petits écrans (moins de 400px) */
+        @media (max-width: 400px) {{
+            .main .block-container {{
+                padding: 0.75rem 0.5rem 5rem 0.5rem !important;
+            }}
+            [data-testid="stMetricValue"] {{
+                font-size: 1.6rem !important;
+            }}
+            h1 {{ font-size: 1.3rem !important; }}
+        }}
 
-        /* Prevent auto-zoom on iOS */
-        * {{ touch-action: manipulation; }}
+        /* Empêcher le zoom iOS sur double-tap */
+        * {{
+            touch-action: manipulation;
+        }}
+
+        /* Scrollbar invisible sur mobile mais fonctionnelle */
+        @media (max-width: 768px) {{
+            ::-webkit-scrollbar {{
+                width: 0px;
+                background: transparent;
+            }}
+        }}
 
     </style>
 """, unsafe_allow_html=True)
