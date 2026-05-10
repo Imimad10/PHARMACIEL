@@ -7,7 +7,9 @@ import os
 st.set_page_config(page_title="Liste des Lots", layout="wide")
 
 # --- 1. CONFIGURATION ---
+# --- 1. CONFIGURATION ---
 from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui, DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+from utils_ia import ask_ai, is_ia_enabled
 
 # --- 1. CONFIGURATION ---
 DATA_DIR = "data_inventaire_detail"
@@ -143,6 +145,20 @@ with tabs[1]:
     else:
         st.write(f"**Zone active :** {user_zone}")
         st.write("Seules les données de votre zone sont affichées.")
+        
+    if is_ia_enabled():
+        st.divider()
+        st.markdown("### 🤖 Assistant IA - Analyse des Risques")
+        st.info("L'Intelligence Artificielle peut scanner rapidement vos lots pour détecter les risques de péremption imminente.")
+        if st.button("🧠 Scanner les Lots Critiques", use_container_width=True, type="primary"):
+            with st.spinner("L'IA examine vos dates de péremption et stocks..."):
+                # Prendre un échantillon si trop grand
+                if 'ddp' in df_filtered.columns and 'stock_theorique' in df_filtered.columns:
+                    data_to_analyze = df_filtered[['designation', 'lot', 'ddp', 'stock_theorique']].head(30).to_dict('records')
+                    prompt = f"Tu es un pharmacien expert en gestion de stock. Voici un échantillon des lots actuels : {data_to_analyze}. Identifie immédiatement s'il y a des risques de péremption (DDP proche). Propose 3 actions commerciales innovantes pour liquider les stocks à risque (ex: création de bundles, promotions ciblées). Sois concis et utilise des emojis."
+                    st.success(ask_ai(prompt))
+                else:
+                    st.warning("Les colonnes DDP (Date de Péremption) ou Stock Théorique sont manquantes pour l'analyse.")
 
 with tabs[2]:
     if is_admin:
