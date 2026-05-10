@@ -113,21 +113,30 @@ def generate_multi_reclam_pdf(items_list):
         pdf.cell(0, 10, f"ARTICLE #{i+1} : {item['produit']}", "T", 1, 'L')
         pdf.set_text_color(0, 0, 0)
         
+        y_start = pdf.get_y()
+        
+        # Détails (colonne gauche)
         pdf.set_font("Arial", '', 10)
-        pdf.cell(60, 8, f"Lot: {item['lot']}", 0, 0)
-        pdf.cell(60, 8, f"Quantite: {item['quantite']}", 0, 0)
-        pdf.cell(0, 8, f"Motif: {item['type']}", 0, 1)
-        
+        pdf.cell(130, 7, f"Lot: {item['lot']}  |  Quantite: {item['quantite']}  |  Motif: {item['type']}", 0, 1)
         pdf.set_font("Arial", 'I', 9)
-        pdf.multi_cell(0, 6, f"Observations: {item.get('commentaire', 'N/A')}", 0, 'L')
+        pdf.multi_cell(130, 6, f"Observations: {item.get('commentaire', 'N/A')}", 0, 'L')
         
-        # Photo si dispo (version réduite pour le rapport groupé)
+        y_text_end = pdf.get_y()
+        
+        # Photo (colonne droite)
         photo_path = item.get('Photo_Path', '')
         if photo_path and os.path.exists(photo_path):
             try:
-                pdf.image(photo_path, x=140, y=pdf.get_y()-15, w=40)
-                pdf.ln(5)
-            except: pass
+                # Placement de la photo à droite du texte
+                pdf.image(photo_path, x=145, y=y_start, w=45)
+                # On s'assure de descendre plus bas que le texte ET l'image (estimée à 40mm de haut)
+                y_final = max(y_text_end, y_start + 35)
+                pdf.set_y(y_final)
+            except: 
+                pdf.set_y(y_text_end)
+        else:
+            pdf.set_y(y_text_end)
+            
         pdf.ln(5)
         
     pdf.ln(10)
