@@ -83,6 +83,8 @@ with tabs[0]:
 
     # Formulaire d'ajout de produit
     st.subheader("🔍 Ajouter un Produit")
+    df_prod = load_produits_reception()
+    
     # Détection flexible de la colonne de désignation
     col_candidates = ["Designation", "Désignation", "Produit", "Nom", "Nom Commercial"]
     col_name = next((c for c in col_candidates if c in df_prod.columns), None)
