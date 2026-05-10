@@ -26,9 +26,10 @@ def clean_cols_v5(df):
         'produit': 'designation', 'designation': 'designation', 'article': 'designation', 'libelle': 'designation',
         'n°lot': 'lot', 'nlot': 'lot', 'lot': 'lot', 'batch': 'lot',
         'peremption': 'ddp', 'ddp': 'ddp', 'exp': 'ddp', 'date': 'ddp',
-        'ppa': 'ppa', 'shp': 'shp', 'zone': 'zone', 'emplacement': 'zone', 'sector': 'zone'
+        'ppa': 'ppa', 'shp': 'shp', 'zone': 'zone', 'emplacement': 'zone', 'sector': 'zone',
+        'depot': 'depot', 'dépôt': 'depot'
     }
-    stock_keywords = ['quantit', 'depot', 'stock', 'theorique', 'qte', 'dispo']
+    stock_keywords = ['quantit', 'stock', 'theorique', 'qte', 'dispo']
     new_cols = []
     found = set()
     for col in df.columns:
@@ -115,7 +116,12 @@ with tabs[0]:
         ]
         
     st.write(f"Affichage de **{len(df_display)}** résultats.")
-    st.dataframe(df_display, use_container_width=True, hide_index=True)
+    
+    # Restreindre l'affichage aux colonnes désirées
+    cols_to_show = ['designation', 'lot', 'zone', 'stock_theorique', 'ddp', 'ppa', 'shp']
+    cols_to_show = [c for c in cols_to_show if c in df_display.columns]
+    
+    st.dataframe(df_display[cols_to_show], use_container_width=True, hide_index=True)
 
 with tabs[1]:
     st.subheader("📊 Tableau de Bord")

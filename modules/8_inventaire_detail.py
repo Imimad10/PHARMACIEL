@@ -44,9 +44,10 @@ def clean_cols_v5(df):
         'produit': 'designation', 'designation': 'designation', 'article': 'designation', 'libelle': 'designation',
         'n°lot': 'lot', 'nlot': 'lot', 'lot': 'lot', 'batch': 'lot',
         'peremption': 'ddp', 'ddp': 'ddp', 'exp': 'ddp', 'date': 'ddp',
-        'ppa': 'ppa', 'shp': 'shp', 'zone': 'zone', 'emplacement': 'zone', 'sector': 'zone'
+        'ppa': 'ppa', 'shp': 'shp', 'zone': 'zone', 'emplacement': 'zone', 'sector': 'zone',
+        'depot': 'depot', 'dépôt': 'depot'
     }
-    stock_keywords = ['quantit', 'depot', 'stock', 'theorique', 'qte', 'dispo']
+    stock_keywords = ['quantit', 'stock', 'theorique', 'qte', 'dispo']
     new_cols = []
     found = set()
     for col in df.columns:
