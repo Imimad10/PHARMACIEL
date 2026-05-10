@@ -106,6 +106,13 @@ with tab1:
                             st.success(st.session_state['ia_ddp_advice'])
                 else:
                     st.success("Aucun produit critique détecté. Votre stock est sain ! 🎉")
+                    if is_ia_enabled():
+                        st.markdown("### 🤖 Analyse Préventive IA")
+                        st.info("Votre stock est sain, mais l'IA peut vous aider à optimiser votre gestion globale.")
+                        if st.button("🧠 Générer un rapport d'optimisation préventif", use_container_width=True):
+                            with st.spinner("L'IA prépare des conseils préventifs..."):
+                                prompt = "Tu es expert en gestion de pharmacie. Mon stock ne contient actuellement aucun produit critique (tout périme dans plus de 6 mois). Donne moi 3 conseils stratégiques courts et innovants pour maintenir ce niveau d'excellence et optimiser ma trésorerie à long terme. Utilise des emojis."
+                                st.success(ask_ai(prompt))
         else: st.info("Aucune donnée de péremption valide trouvée dans la saisie.")
     else: st.info("Aucun inventaire terrain trouvé sur la base centrale.")
 
@@ -188,6 +195,17 @@ with tab2:
                     else:
                         st.success("✅ Logique FEFO respectée : tous les produits en réserve périment après ceux en vente.")
                     
+                    if is_ia_enabled():
+                        st.write("---")
+                        st.markdown("### 🤖 Consultant Logistique IA")
+                        if st.button("🧠 Demander un avis stratégique sur la rotation", use_container_width=True, type="primary"):
+                            with st.spinner("L'IA analyse vos flux de rotation..."):
+                                if anomalies.empty:
+                                    prompt = "Tu es expert en supply chain pharmaceutique. Je viens d'analyser mes flux FEFO entre le dépôt de stockage et la zone de vente. Tout est parfait, aucune anomalie. Propose 2 innovations logistiques concrètes pour aller encore plus loin dans la gestion des flux internes d'une pharmacie. Sois précis."
+                                else:
+                                    prompt = f"Tu es expert en supply chain pharmaceutique. J'ai détecté {len(anomalies)} anomalies FEFO (des produits en réserve qui périment AVANT ceux en rayon de vente). Propose une procédure opérationnelle très courte et stricte en 3 étapes pour que l'équipe corrige ça aujourd'hui et évite de répéter l'erreur."
+                                st.info(ask_ai(prompt))
+                                
                     st.divider()
                     st.write("### 🔍 Vue d'ensemble comparative")
                     full = pd.merge(df_vente, df_stock, on='produit', how='outer', suffixes=('_vente', '_stock'))
