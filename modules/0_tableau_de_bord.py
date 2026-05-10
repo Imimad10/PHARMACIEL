@@ -27,14 +27,6 @@ with col_ref:
 
 st.divider()
 
-if is_ia_enabled():
-    st.markdown("### 🤖 Briefing Exécutif IA")
-    if st.button("✨ Générer la synthèse intelligente du jour", use_container_width=True, type="primary"):
-        with st.spinner("L'IA analyse vos performances en temps réel..."):
-            kpis_to_analyze = collect_all_kpis()
-            prompt = f"Tu es le Directeur des Opérations Virtuel de la pharmacie. Voici les indicateurs actuels : {kpis_to_analyze}. Rédige un briefing très court (3 paragraphes max) et dynamique pour l'équipe dirigeante. Mets en évidence le montant à recouvrer, les risques de péremption, et l'avancement de l'inventaire. Propose 2 actions urgentes à faire aujourd'hui. Utilise des emojis."
-            st.info(ask_ai(prompt))
-    st.divider()
 
 # ═══════════════════════════════════════════
 # 1. COLLECTE DES KPIs DE TOUS LES MODULES
@@ -129,6 +121,14 @@ def collect_all_kpis():
     return kpis
 
 kpis = collect_all_kpis()
+
+if is_ia_enabled():
+    st.markdown("### 🤖 Briefing Exécutif IA")
+    if st.button("✨ Générer la synthèse intelligente du jour", use_container_width=True, type="primary"):
+        with st.spinner("L'IA analyse vos performances en temps réel..."):
+            prompt = f"Tu es le Directeur des Opérations Virtuel de la pharmacie. Voici les indicateurs actuels : {kpis}. Rédige un briefing très court (3 paragraphes max) et dynamique pour l'équipe dirigeante. Mets en évidence le montant à recouvrer, les risques de péremption, et l'avancement de l'inventaire. Propose 2 actions urgentes à faire aujourd'hui. Utilise des emojis."
+            st.info(ask_ai(prompt))
+    st.divider()
 
 # ═══════════════════════════════════════════
 # 2. KPIs PRINCIPAUX
