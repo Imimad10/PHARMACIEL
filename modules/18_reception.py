@@ -83,14 +83,18 @@ with tabs[0]:
 
     # Formulaire d'ajout de produit
     st.subheader("🔍 Ajouter un Produit")
-    df_prod = load_produits_reception()
-    
-    # Détection de la colonne de désignation (Designation ou Nom)
-    col_name = "Designation" if "Designation" in df_prod.columns else ("Designation" if "Designation" in df_prod.columns else ("Nom" if "Nom" in df_prod.columns else None))
+    # Détection flexible de la colonne de désignation
+    col_candidates = ["Designation", "Désignation", "Produit", "Nom", "Nom Commercial"]
+    col_name = next((c for c in col_candidates if c in df_prod.columns), None)
     
     search_list = []
     if col_name and not df_prod.empty:
         search_list = sorted(df_prod[col_name].dropna().unique().tolist())
+    else:
+        # Fallback si rien n'est trouvé : on prend la première colonne
+        if not df_prod.empty:
+            col_name = df_prod.columns[0]
+            search_list = sorted(df_prod[col_name].dropna().unique().tolist())
     
     selected_prod_name = st.selectbox("Sélectionner un produit (Tapez pour chercher)", [""] + search_list, index=0)
 
