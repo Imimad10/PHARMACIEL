@@ -9,14 +9,154 @@ from streamlit_cookies_controller import CookieController
 st.set_page_config(page_title="Darpharm Solution - Portail", layout="wide", page_icon="💊")
 
 if "theme" not in st.session_state:
-    st.session_state.theme = "Clair"
+    st.session_state.theme = "Chic Animé"
 
 # Définition des styles selon le thème
+extra_css = ""
 if st.session_state.theme == "Sombre":
     bg_style = "linear-gradient(135deg, #0e1117 0%, #161b22 100%)"
     text_color = "#e0e6ed"
     card_bg = "rgba(255, 255, 255, 0.05)"
     sidebar_bg = "#0e1117"
+elif st.session_state.theme == "Chic Animé":
+    bg_style = "linear-gradient(-45deg, #1a1a2e, #16213e, #0f3460, #e94560)"
+    text_color = "#ffffff"
+    card_bg = "rgba(255, 255, 255, 0.1)"
+    sidebar_bg = "rgba(26, 26, 46, 0.85)"
+    extra_css = """
+        /* ANIMATIONS ET DESIGN 3D CHIC */
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes float3D {
+            0% { transform: translateY(0px) rotateX(0deg); }
+            50% { transform: translateY(-8px) rotateX(4deg); box-shadow: 0 15px 35px rgba(0,0,0,0.4); }
+            100% { transform: translateY(0px) rotateX(0deg); }
+        }
+        @keyframes slideUpFade {
+            from { opacity: 0; transform: translateY(40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulseGlow {
+            0% { box-shadow: 0 0 10px rgba(233, 69, 96, 0.4); }
+            50% { box-shadow: 0 0 25px rgba(233, 69, 96, 0.8); }
+            100% { box-shadow: 0 0 10px rgba(233, 69, 96, 0.4); }
+        }
+
+        .stApp {
+            background-size: 300% 300% !important;
+            animation: gradientShift 15s ease infinite !important;
+        }
+
+        .block-container > div {
+            animation: slideUpFade 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        [data-testid="stMetric"] {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-radius: 20px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+            animation: float3D 6s ease-in-out infinite;
+        }
+        [data-testid="stMetric"]:hover {
+            transform: translateY(-15px) scale(1.05) perspective(800px) rotateX(10deg) rotateY(-5deg) !important;
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: -10px 20px 40px rgba(0,0,0,0.5);
+            border-color: #e94560;
+        }
+
+        [data-testid="stSidebar"] {
+            background: rgba(26, 26, 46, 0.6) !important;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 5px 0 25px rgba(0,0,0,0.3);
+        }
+
+        .stButton button {
+            border-radius: 25px !important;
+            background: linear-gradient(135deg, #e94560 0%, #0f3460 100%) !important;
+            color: white !important;
+            border: none !important;
+            box-shadow: 0 5px 15px rgba(233, 69, 96, 0.4), inset 0 -2px 5px rgba(0,0,0,0.2) !important;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+            text-transform: uppercase;
+            font-weight: 700 !important;
+            letter-spacing: 1px;
+        }
+        .stButton button:hover {
+            transform: translateY(-5px) scale(1.05) !important;
+            box-shadow: 0 10px 25px rgba(233, 69, 96, 0.8), inset 0 -2px 5px rgba(0,0,0,0.2) !important;
+            animation: pulseGlow 2s infinite;
+        }
+        .stButton button:active {
+            transform: translateY(2px) scale(0.98) !important;
+        }
+
+        .stTextInput input, .stSelectbox select, .stNumberInput input {
+            border-radius: 15px !important;
+            background: rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            color: white !important;
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55) !important;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .stTextInput input:focus, .stSelectbox select:focus, .stNumberInput input:focus {
+            transform: scale(1.02) !important;
+            background: rgba(255, 255, 255, 0.1) !important;
+            box-shadow: 0 0 20px rgba(233, 69, 96, 0.5), inset 0 2px 5px rgba(0,0,0,0.1) !important;
+            border-color: #e94560 !important;
+        }
+
+        [data-testid="stDataFrame"] {
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        [data-testid="stExpander"] {
+            background: rgba(255,255,255,0.03) !important;
+            border-radius: 15px !important;
+            border: 1px solid rgba(255,255,255,0.1) !important;
+            transition: all 0.3s ease !important;
+        }
+        [data-testid="stExpander"]:hover {
+            background: rgba(255,255,255,0.08) !important;
+            transform: translateX(8px);
+            border-color: rgba(233, 69, 96, 0.6) !important;
+            box-shadow: -5px 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        [data-testid="stMetricValue"] {
+            text-shadow: 2px 4px 6px rgba(0,0,0,0.4) !important;
+            background: -webkit-linear-gradient(45deg, #fff, #e94560);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        /* 3D Icons in sidebar */
+        [data-testid="stSidebarNav"] span {
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: inline-block;
+        }
+        [data-testid="stSidebarNav"] a:hover span {
+            transform: scale(1.4) rotate(-15deg) translateY(-2px);
+            filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.5));
+        }
+
+        /* En-tête avec glow */
+        h1, h2, h3 {
+            text-shadow: 0 0 10px rgba(255,255,255,0.2);
+        }
+    """
 else:
     bg_style = "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)"
     text_color = "#1a1c21"
@@ -243,6 +383,8 @@ st.markdown(f"""
             }}
         }}
 
+        {extra_css}
+
     </style>
 """, unsafe_allow_html=True)
 
@@ -329,104 +471,144 @@ if st.session_state.current_user:
 
 # --- 4. ÉCRAN DE CONNEXION ---
 if st.session_state.current_user is None:
+    # Variables dynamiques pour le login selon le thème
+    if st.session_state.theme == "Chic Animé":
+        login_bg = "transparent"
+        logo_color = "#e94560"
+        slogan_color = "#ffffff"
+        card_bg_color = "rgba(255, 255, 255, 0.1)"
+        card_shadow = "0 15px 35px rgba(0, 0, 0, 0.3)"
+        card_backdrop = "backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);"
+        input_bg = "rgba(255, 255, 255, 0.05)"
+        input_border = "rgba(255,255,255,0.2)"
+        input_text = "white"
+        btn_bg = "linear-gradient(135deg, #e94560 0%, #0f3460 100%)"
+        btn_hover = "linear-gradient(135deg, #ff5c77 0%, #1a4b85 100%)"
+    else:
+        login_bg = "#f0f2f5"
+        logo_color = "#1877f2"
+        slogan_color = "#4b4f56"
+        card_bg_color = "white"
+        card_shadow = "0 2px 4px rgba(0, 0, 0, .1), 0 8px 16px rgba(0, 0, 0, .1)"
+        card_backdrop = ""
+        input_bg = "white"
+        input_border = "#dddfe2"
+        input_text = "#1c1e21"
+        btn_bg = "#1877f2"
+        btn_hover = "#166fe5"
+
     # Injection CSS spécifique pour l'écran de connexion Facebook-style
-    st.markdown("""
+    st.markdown(f"""
         <style>
             /* Cacher la barre latérale et le header */
-            [data-testid="stSidebar"], [data-testid="stSidebarNav"] {display: none;}
-            section[data-testid="stSidebar"] {width: 0px;}
-            [data-testid="stHeader"] {display: none;}
+            [data-testid="stSidebar"], [data-testid="stSidebarNav"] {{display: none;}}
+            section[data-testid="stSidebar"] {{width: 0px;}}
+            [data-testid="stHeader"] {{display: none;}}
             
-            .stApp {
-                background-color: #f0f2f5 !important;
-            }
+            .stApp {{
+                background-color: {login_bg} !important;
+            }}
             
-            .main .block-container {
+            .main .block-container {{
                 max-width: 1000px;
                 padding-top: 100px;
                 margin: auto;
-            }
+            }}
             
             /* Styles du contenu gauche */
-            .fb-left-container {
+            .fb-left-container {{
                 padding-top: 40px;
-            }
-            .fb-logo-text {
-                color: #1877f2;
+                animation: slideUpFade 0.8s ease-out forwards;
+            }}
+            .fb-logo-text {{
+                color: {logo_color};
                 font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
                 font-size: 55px;
                 font-weight: bold;
                 letter-spacing: -1.5px;
                 margin-bottom: 0px;
                 line-height: 1;
-            }
-            .fb-slogan {
+                text-shadow: 2px 4px 10px rgba(0,0,0,0.2);
+            }}
+            .fb-slogan {{
                 font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
                 font-size: 24px;
                 line-height: 28px;
                 font-weight: normal;
-                color: #4b4f56 !important;
+                color: {slogan_color} !important;
                 margin-top: 15px;
                 max-width: 500px;
-            }
+            }}
             
             /* Styles de la carte de connexion */
-            .login-card {
-                background-color: white;
-                padding: 20px 20px 25px 20px;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, .1), 0 8px 16px rgba(0, 0, 0, .1);
-            }
+            .login-card {{
+                background: {card_bg_color};
+                {card_backdrop}
+                padding: 30px 20px 25px 20px;
+                border-radius: 15px;
+                box-shadow: {card_shadow};
+                border: 1px solid rgba(255,255,255,0.1);
+                animation: float3D 6s infinite ease-in-out;
+            }}
+            .login-card:hover {{
+                transform: translateY(-5px);
+                box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            }}
             
             /* Style des inputs Streamlit */
-            .stTextInput input {
+            .stTextInput input {{
                 height: 52px !important;
                 font-size: 17px !important;
                 padding: 14px 16px !important;
-                border: 1px solid #dddfe2 !important;
-                border-radius: 6px !important;
-                color: #1c1e21 !important;
-                background-color: white !important;
+                border: 1px solid {input_border} !important;
+                border-radius: 12px !important;
+                color: {input_text} !important;
+                background: {input_bg} !important;
                 margin-bottom: 10px !important;
-            }
-            .stTextInput input:focus {
-                border-color: #1877f2 !important;
-                box-shadow: 0 0 0 2px #e7f3ff !important;
-            }
+                transition: all 0.3s ease;
+            }}
+            .stTextInput input:focus {{
+                border-color: {logo_color} !important;
+                box-shadow: 0 0 15px rgba(233, 69, 96, 0.4) !important;
+                transform: scale(1.02);
+            }}
             
             /* Visibilité des placeholders */
-            ::placeholder {
+            ::placeholder {{
                 color: #8d949e !important;
                 opacity: 1 !important;
-            }
+            }}
             
-            /* Style du bouton de connexion (Submit Button) */
-            div[data-testid="stFormSubmitButton"] button {
-                background-color: #1877f2 !important;
+            /* Style du bouton de connexion */
+            div[data-testid="stFormSubmitButton"] button {{
+                background: {btn_bg} !important;
                 color: white !important;
                 font-size: 20px !important;
                 font-weight: bold !important;
-                height: 48px !important;
-                border-radius: 6px !important;
+                height: 52px !important;
+                border-radius: 12px !important;
                 border: none !important;
                 width: 100% !important;
-                margin-top: 5px !important;
-                transition: background-color 0.2s;
-            }
-            div[data-testid="stFormSubmitButton"] button:hover {
-                background-color: #166fe5 !important;
-                color: white !important;
-            }
+                margin-top: 10px !important;
+                transition: all 0.3s ease !important;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.2) !important;
+            }}
+            div[data-testid="stFormSubmitButton"] button:hover {{
+                background: {btn_hover} !important;
+                transform: translateY(-3px) scale(1.02) !important;
+                box-shadow: 0 8px 25px rgba(0,0,0,0.3) !important;
+            }}
 
-            [data-testid="stForm"] {
+            [data-testid="stForm"] {{
                 border: none !important;
                 padding: 0 !important;
-            }
+                background: transparent !important;
+            }}
 
             /* Cacher d'éventuels éléments indésirables */
-            [data-testid="stForm"] hr, [data-testid="stForm"] .forgot-link {
+            [data-testid="stForm"] hr, [data-testid="stForm"] .forgot-link {{
                 display: none !important;
-            }
+            }}
         </style>
     """, unsafe_allow_html=True)
 
@@ -581,8 +763,9 @@ with st.sidebar:
     
     st.divider()
     # Sélecteur de thème
-    new_theme = st.selectbox("🎨 Thème d'affichage", ["Clair", "Sombre"], 
-                              index=0 if st.session_state.theme == "Clair" else 1)
+    themes_disponibles = ["Clair", "Sombre", "Chic Animé"]
+    current_index = themes_disponibles.index(st.session_state.theme) if st.session_state.theme in themes_disponibles else 0
+    new_theme = st.selectbox("🎨 Thème d'affichage", themes_disponibles, index=current_index)
     if new_theme != st.session_state.theme:
         st.session_state.theme = new_theme
         st.rerun()
