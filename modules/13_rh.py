@@ -51,14 +51,17 @@ def get_rh_data():
 rh_data = get_rh_data()
 users_list = rh_data['users']['username'].tolist() if not rh_data['users'].empty else []
 
-# --- FILTRES ---
-col_f1, col_f2 = st.columns([1, 2])
-with col_f1:
-    selected_user = st.selectbox("👤 Sélectionner un employé", ["Tous le personnel"] + users_list)
-with col_f2:
-    st.write("") # Alignement
+# --- FILTRES ET ONGLETS ---
+tab_dash, tab_podium = st.tabs(["📊 Tableaux de Bord", "🏆 Podium & Gamification (Top Employés)"])
 
-st.divider()
+with tab_dash:
+    col_f1, col_f2 = st.columns([1, 2])
+    with col_f1:
+        selected_user = st.selectbox("👤 Sélectionner un employé", ["Tous le personnel"] + users_list)
+    with col_f2:
+        st.write("") # Alignement
+
+    st.divider()
 
 if selected_user == "Tous le personnel":
     # --- VUE GLOBALE COMPARATIVE ---
@@ -192,9 +195,82 @@ else:
                 fig_mod = px.pie(mod_dist, values='count', names='module', hole=0.5, template=plotly_template)
                 st.plotly_chart(fig_mod, use_container_width=True)
 
-    st.subheader("📜 Dernières actions significatives")
-    if not u_logs_df.empty:
-        st.table(u_logs_df.sort_values('timestamp', ascending=False).head(10)[['timestamp', 'module', 'action']])
+        st.subheader("📜 Dernières actions significatives")
+        if not u_logs_df.empty:
+            st.table(u_logs_df.sort_values('timestamp', ascending=False).head(10)[['timestamp', 'module', 'action']])
+
+# --- ONGLET GAMIFICATION (PODIUM) ---
+with tab_podium:
+    st.subheader("🏆 Classement Général - Le Mur des Champions")
+    st.write("Ce système IA calcule le score de performance de chaque employé en temps réel pour définir le podium.")
+    
+    # --- Calcul des scores ---
+    scores = []
+    df_l = rh_data['logs']
+    df_i = rh_data['inventaire']
+    if 'user_saisie' in df_i.columns: df_i.rename(columns={'user_saisie': 'agent'}, inplace=True)
+    df_p = rh_data['pointages']
+    
+    for u in users_list:
+        score = 0
+        
+        # 1 point par action (logs)
+        if not df_l.empty and 'user' in df_l.columns:
+            score += len(df_l[df_l['user'] == u]) * 1
+            
+        # 3 points par article inventorié
+        if not df_i.empty and 'agent' in df_i.columns:
+            score += len(df_i[df_i['agent'] == u]) * 3
+            
+        # 5 points par pointage de livraison
+        if not df_p.empty and 'livreur' in df_p.columns:
+            score += len(df_p[df_p['livreur'] == u]) * 5
+            
+        scores.append({'Employé': u, 'Score XP': score})
+        
+    df_scores = pd.DataFrame(scores).sort_values(by='Score XP', ascending=False).reset_index(drop=True)
+    
+    if len(df_scores) >= 3:
+        # Affichage du podium style moderne
+        st.markdown("""
+        <style>
+        .podium-container { display: flex; justify-content: center; align-items: flex-end; height: 250px; margin-top: 50px; gap: 20px; }
+        .podium-box { width: 150px; text-align: center; border-radius: 10px 10px 0 0; color: white; font-weight: bold; position: relative; box-shadow: 0px -5px 15px rgba(0,0,0,0.2); }
+        .p-name { font-size: 1.2rem; margin-top: 10px; color: #333; }
+        .p-score { font-size: 1rem; color: #666; margin-bottom: 5px; }
+        .gold { background: linear-gradient(145deg, #ffd700, #daa520); height: 200px; }
+        .silver { background: linear-gradient(145deg, #e0e0e0, #9e9e9e); height: 160px; }
+        .bronze { background: linear-gradient(145deg, #cd7f32, #a0522d); height: 120px; }
+        .medal { font-size: 3rem; position: absolute; top: -45px; left: 50%; transform: translateX(-50%); }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        p1, p2, p3 = df_scores.iloc[0], df_scores.iloc[1], df_scores.iloc[2]
+        
+        html_podium = f"""
+        <div class="podium-container">
+            <div>
+                <div class="p-name">{p2['Employé']}</div>
+                <div class="p-score">{p2['Score XP']} XP</div>
+                <div class="podium-box silver"><div class="medal">🥈</div></div>
+            </div>
+            <div>
+                <div class="p-name"><b>{p1['Employé']}</b></div>
+                <div class="p-score"><b>{p1['Score XP']} XP</b></div>
+                <div class="podium-box gold"><div class="medal">🏆</div></div>
+            </div>
+            <div>
+                <div class="p-name">{p3['Employé']}</div>
+                <div class="p-score">{p3['Score XP']} XP</div>
+                <div class="podium-box bronze"><div class="medal">🥉</div></div>
+            </div>
+        </div>
+        """
+        st.markdown(html_podium, unsafe_allow_html=True)
+        st.write("")
+        st.write("")
+        
+    st.dataframe(df_scores, use_container_width=True)
 
 # --- SECTION SUGGESTIONS AVANCÉES ---
 with st.expander("🚀 Suggestions Stratégiques pour la Cartographie du Personnel"):

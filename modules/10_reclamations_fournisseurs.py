@@ -7,6 +7,8 @@ from PIL import Image
 from utils import log_action
 from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui
 from generator_pdf import generate_reclam_pdf, generate_multi_reclam_pdf
+from utils_ia import ask_ai, ask_ai_vision, is_ia_enabled
+import base64
 
 # --- CONFIGURATION ---
 WORKSHEET_NAME = "Litiges"
@@ -249,6 +251,31 @@ with tab_list:
                     c_wa.link_button("💬 WA", f"https://wa.me/?text={msg_encoded}", use_container_width=True)
                     c_vi.link_button("💜 Viber", f"viber://forward?text={msg_encoded}", use_container_width=True)
                     
+                    # --- GESTIONNAIRE D'EMAIL IA ---
+                    if is_ia_enabled():
+                        if st.button("🤖 Rédiger E-mail Officiel (IA)", key=f"btn_ia_mail_{i}", use_container_width=True):
+                            with st.spinner("L'IA rédige l'e-mail avec un ton formel et professionnel..."):
+                                prompt_email = f"Rédige un e-mail très professionnel, ferme mais courtois, pour le laboratoire ou fournisseur '{row['Fournisseur']}'. L'entreprise expéditrice est 'DarPharm'. Tu signales un litige commercial/logistique sur la facture {row['Facture']} concernant le produit {row['Produit']} (Lot: {row['Lot']}, Qté: {row['Quantite']}). Motif du litige : {row['Type']}. Observation supplémentaire : {row['Commentaire']}. Demande un avoir ou un remplacement rapide. Ne mets pas de variables à remplir autres que [Votre Nom]."
+                                
+                                # Si une photo est dispo, on utilise l'IA Vision pour s'en inspirer
+                                if row['Photo_Path'] and os.path.exists(row['Photo_Path']):
+                                    try:
+                                        with open(row['Photo_Path'], "rb") as img_file:
+                                            b64 = base64.b64encode(img_file.read()).decode("utf-8")
+                                        prompt_email += " Prends aussi en compte la gravité visible sur la photo jointe pour adapter le ton de l'email."
+                                        email_draft = ask_ai_vision(prompt_email, b64)
+                                    except:
+                                        email_draft = ask_ai(prompt_email)
+                                else:
+                                    email_draft = ask_ai(prompt_email)
+                                    
+                                st.session_state[f"draft_{i}"] = email_draft
+                                
+                        if f"draft_{i}" in st.session_state:
+                            st.success("✨ Brouillon généré avec succès :")
+                            st.text_area("Copiez-collez ce texte dans votre client e-mail :", st.session_state[f"draft_{i}"], height=250, key=f"textarea_draft_{i}")
+                    
+                    st.divider()
                     if row['Statut'] == "En cours":
                         if st.button("✅ Régler", key=f"btn_regler_{i}", use_container_width=True):
                             df_litiges.at[i, 'Statut'] = "Réglée"

@@ -1,6 +1,11 @@
 import streamlit as st
 import pandas as pd
 import os
+import json
+import base64
+import re
+from utils_ia import ask_ai_vision, is_ia_enabled
+from utils_gsheets import load_gs_data, save_gs_data
 
 st.set_page_config(page_title="Catalogue Produits", layout="wide")
 
@@ -59,6 +64,46 @@ def load_catalogue():
     return pd.read_csv(CSV_PATH, encoding='utf-8-sig')
 
 df = load_catalogue()
+
+# --- INGESTION MAGIQUE IA ---
+if is_ia_enabled():
+    with st.expander("🤖 Ingestion Magique : Importer un tarif fournisseur (Image/Scan)", expanded=False):
+        st.write("Prenez en photo ou téléversez une capture d'écran d'un catalogue fournisseur (PDF/Excel imprimé). L'IA va le lire, extraire les produits, et les ajouter automatiquement à votre base de données !")
+        
+        img_file = st.file_uploader("Importer l'image du catalogue", type=['jpg', 'jpeg', 'png'])
+        if img_file and st.button("✨ Lancer la Magie IA", type="primary"):
+            b64_img = base64.b64encode(img_file.getvalue()).decode('utf-8')
+            prompt = '''Extrais le tableau des médicaments de cette image. 
+            Je veux un objet JSON qui contient un tableau "produits". Chaque produit doit avoir les clés:
+            - "Nom" (Désignation complète du médicament)
+            - "PPA" (Prix Public si disponible, sinon vide)
+            - "Dosage" (ex: 500mg, 1g, etc. si disponible)
+            - "Forme" (ex: Comprimés, Sirop, etc.)
+            Renvoie uniquement le code JSON valide, rien d'autre.'''
+            
+            with st.spinner("L'IA est en train de lire le catalogue..."):
+                resp = ask_ai_vision(prompt, b64_img)
+                try:
+                    match = re.search(r'```json(.*?)```', resp, re.DOTALL)
+                    if match: resp = match.group(1)
+                    else:
+                        start = resp.find('{')
+                        end = resp.rfind('}') + 1
+                        if start != -1 and end != 0: resp = resp[start:end]
+                    
+                    data = json.loads(resp)
+                    if "produits" in data:
+                        nouveaux_produits = pd.DataFrame(data["produits"])
+                        st.success(f"✅ L'IA a trouvé {len(nouveaux_produits)} produits !")
+                        st.dataframe(nouveaux_produits, use_container_width=True)
+                        
+                        # Concaténer et sauvegarder
+                        global df
+                        df = pd.concat([df, nouveaux_produits], ignore_index=True).drop_duplicates(subset=['Nom'], keep='last')
+                        df.to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
+                        st.balloons()
+                except Exception as e:
+                    st.error("L'IA n'a pas pu extraire un tableau clair. Essayez de zoomer ou de recadrer l'image.")
 
 # --- RECHERCHE ET FILTRES ---
 col_s1, col_s2, col_s3 = st.columns([2, 1, 1])
