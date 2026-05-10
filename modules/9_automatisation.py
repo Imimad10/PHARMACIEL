@@ -17,7 +17,53 @@ is_admin = st.session_state.current_user.get('role') == 'Admin'
 
 st.title("🤖 Automatisation & IA - Scanner de Factures")
 
-st.info("Ce module utilise l'Intelligence Artificielle de Google (Gemini) pour lire vos factures fournisseurs (Photos ou PDF) et extraire automatiquement les informations structurées des produits.")
+st.markdown("""
+    <style>
+        .scanning-container {
+            position: relative;
+            overflow: hidden;
+            border-radius: 15px;
+            border: 1px solid rgba(24, 119, 242, 0.3);
+            background: rgba(24, 119, 242, 0.05);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(to bottom, transparent, #1877f2, transparent);
+            box-shadow: 0 0 15px #1877f2;
+            animation: scan 2.5s infinite ease-in-out;
+            z-index: 10;
+            display: none;
+        }
+        @keyframes scan {
+            0% { top: 0%; }
+            50% { top: 100%; }
+            100% { top: 0%; }
+        }
+        .ai-active .scan-line {
+            display: block;
+        }
+        
+        /* 3D Card for instructions */
+        .ai-info-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            transform: perspective(1000px) rotateX(2deg);
+            margin-bottom: 30px;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+st.markdown('<div class="ai-info-card">Ce module utilise l\'Intelligence Artificielle de Google (Gemini) pour lire vos factures fournisseurs (Photos ou PDF) et extraire automatiquement les informations structurées des produits.</div>', unsafe_allow_html=True)
 
 from utils_ia import get_setting
 
@@ -41,6 +87,10 @@ uploaded_files = st.file_uploader("Chargez une ou plusieurs factures (Photos ou 
 
 if uploaded_files:
     if st.button("🚀 Lancer l'extraction IA", use_container_width=True):
+        
+        # Conteneur visuel pour l'animation de scan
+        scan_placeholder = st.empty()
+        scan_placeholder.markdown('<div class="ai-active scanning-container"><div class="scan-line"></div><b>Analyse IA en cours...</b></div>', unsafe_allow_html=True)
         
         all_results = []
         
@@ -116,6 +166,9 @@ if uploaded_files:
                 finally:
                     # Nettoyage
                     os.remove(tmp_path)
+            
+            # On efface l'animation de scan
+            scan_placeholder.empty()
                     
         if all_results:
             st.success("✅ Extraction terminée avec succès !")
