@@ -100,3 +100,46 @@ def ask_ai(prompt, fallback_msg="⚠️ L'IA n'est pas configurée. Allez dans A
         return f"Erreur IA ({provider}) : {str(e)}"
     
     return fallback_msg
+
+def ask_ai_vision(prompt, base64_image, fallback_msg="⚠️ L'IA Vision n'est pas configurée."):
+    """Envoie un prompt et une image base64 au fournisseur d'IA actif (OpenRouter/OpenAI supportés)."""
+    provider = get_setting('active_ai_provider')
+    if not provider:
+        provider = 'OpenRouter'
+        
+    try:
+        if provider in ['OpenRouter', 'ChatGPT (OpenAI)']:
+            if provider == 'OpenRouter':
+                api_key = get_setting('openrouter_api_key') or st.secrets.get("OPENROUTER_API_KEY")
+                base_url = "https://openrouter.ai/api/v1"
+                model = "openai/gpt-4o-mini" # Modèle supportant la vision sur OpenRouter
+            else:
+                api_key = get_setting('openai_api_key') or st.secrets.get("OPENAI_API_KEY")
+                base_url = None
+                model = "gpt-4o"
+                
+            if not api_key: return fallback_msg
+            
+            client = OpenAI(api_key=api_key, base_url=base_url)
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{base64_image}"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            )
+            return response.choices[0].message.content
+        else:
+            return "⚠️ La vision IA n'est pas encore implémentée pour ce moteur. Veuillez sélectionner OpenRouter ou OpenAI dans l'Admin."
+    except Exception as e:
+        return f"Erreur IA Vision ({provider}) : {str(e)}"

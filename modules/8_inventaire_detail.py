@@ -5,7 +5,11 @@ import os
 import unicodedata
 import shutil
 from datetime import datetime
-from utils_ia import ask_ai, is_ia_enabled
+from utils_ia import ask_ai, ask_ai_vision, is_ia_enabled
+import difflib
+import base64
+import json
+import re
 
 st.set_page_config(page_title="Inventaire Détail", layout="wide")
 
@@ -181,19 +185,68 @@ with tabs[1]:
         if df_z.empty: st.warning(f"Zone {selected_zone} vide.")
         else:
             mode = st.radio("Méthode de saisie :", ["🚀 Rapide", "📋 Détaillée"], horizontal=True)
+            
+            # --- AI VISION SCANNER ---
+            if is_ia_enabled():
+                with st.expander("📷 Scanner avec l'IA (Appareil photo / Image)", expanded=False):
+                    c_img1, c_img2 = st.columns(2)
+                    img_cam = c_img1.camera_input("Prendre une photo de la vignette")
+                    img_file = c_img2.file_uploader("Ou importer une image", type=['jpg', 'jpeg', 'png'])
+                    img_to_use = img_cam if img_cam else img_file
+                    
+                    if img_to_use and st.button("🔍 Extraire les infos du médicament", use_container_width=True, type="primary"):
+                        base64_img = base64.b64encode(img_to_use.getvalue()).decode("utf-8")
+                        prompt = 'Extrais les informations de cette vignette de médicament. Renvoie UNIQUEMENT un objet JSON (sans texte avant ou après) avec ces clés exactes : "designation" (le nom complet du médicament et dosage), "lot" (numéro de lot/batch), "ddp" (date de péremption au format MM/AAAA), "ppa" (prix public, juste le nombre), "shp" (tarif hôpital, juste le nombre). Si une information est invisible, mets "".'
+                        with st.spinner("L'IA analyse l'image..."):
+                            resp = ask_ai_vision(prompt, base64_img)
+                            try:
+                                # Nettoyage de la réponse pour extraire le JSON
+                                match = re.search(r'```json(.*?)```', resp, re.DOTALL)
+                                if match: resp = match.group(1)
+                                else:
+                                    start = resp.find('{')
+                                    end = resp.rfind('}') + 1
+                                    if start != -1 and end != 0: resp = resp[start:end]
+                                
+                                data = json.loads(resp)
+                                st.session_state['ai_scan'] = data
+                                st.success(f"✅ Détection réussie : {data.get('designation')} (Lot: {data.get('lot')})")
+                            except Exception as e:
+                                st.error("L'IA n'a pas pu lire la vignette. Essayez de vous rapprocher ou d'améliorer l'éclairage.")
+                                st.write("Réponse brute de l'IA:", resp)
+
+            ai_data = st.session_state.get('ai_scan', {})
             prods = sorted(df_z['designation'].unique())
-            sel_prod = st.selectbox("Produit :", [""] + prods)
+            
+            # Auto-sélection intelligente de la désignation
+            default_prod_index = 0
+            if ai_data.get('designation'):
+                matches = difflib.get_close_matches(str(ai_data['designation']).upper(), prods, n=1, cutoff=0.2)
+                if matches:
+                    default_prod_index = prods.index(matches[0]) + 1
+            
+            sel_prod = st.selectbox("Produit :", [""] + prods, index=default_prod_index)
             
             if sel_prod:
                 df_p = df_z[df_z['designation'] == sel_prod]
                 lots = sorted(df_p['lot'].unique())
-                sel_lot = st.selectbox("Lot Master :", lots)
-                info = df_p[df_p['lot'] == sel_lot].iloc[0]
+                
+                # Auto-sélection intelligente du lot
+                default_lot_index = 0
+                if ai_data.get('lot'):
+                    lot_matches = difflib.get_close_matches(str(ai_data['lot']).upper(), lots, n=1, cutoff=0.3)
+                    if lot_matches:
+                        default_lot_index = lots.index(lot_matches[0])
+                        
+                sel_lot = st.selectbox("Lot Master :", lots, index=default_lot_index if lots else 0)
+                info = df_p[df_p['lot'] == sel_lot].iloc[0] if not df_p[df_p['lot'] == sel_lot].empty else df_p.iloc[0]
                 
                 with st.form("form_saisie_det_v5", clear_on_submit=True):
                     c1, c2 = st.columns(2)
-                    ddp_m = str(info.get('ddp', ''))
-                    ppa_m = robust_num(info.get('ppa', 0))
+                    
+                    # Remplacement intelligent par l'IA si disponible, sinon données Master
+                    ddp_m = str(ai_data.get('ddp', '')) if ai_data.get('ddp') else str(info.get('ddp', ''))
+                    ppa_m = robust_num(ai_data.get('ppa')) if ai_data.get('ppa') else robust_num(info.get('ppa', 0))
                     
                     if mode == "🚀 Rapide":
                         st.markdown("##### 📍 Zone de Préparation")
@@ -240,6 +293,8 @@ with tabs[1]:
                         }])
                         df_saisie_global = pd.concat([df_saisie_global, new_line], ignore_index=True)
                         save_gs_data(df_saisie_global, SAISIE_WORKSHEET, SAISIE_FALLBACK)
+                        # Vider le scan IA de la session
+                        if 'ai_scan' in st.session_state: del st.session_state['ai_scan']
                         st.success(f"Saisie OK : {sel_prod} (Total: {total_qte})")
                         st.rerun()
     else: st.info("Master requis.")
