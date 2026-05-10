@@ -8,7 +8,7 @@ from utils_ia import ask_ai, is_ia_enabled
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Inventaire Triple - Pharmaciel", layout="wide")
 
-from utils_gsheets import load_gs_data, save_gs_data
+from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Inventaire Triple - Pharmaciel", layout="wide")
 
@@ -25,6 +25,9 @@ if 'current_user' not in st.session_state:
 
 COLS_MASTER = ["depot", "zone", "produit", "lot", "qte_logi", "colissage"]
 COLS_INV_TRIPLE = ["produit", "lot", "tv", "tc", "mv", "mc", "col"]
+
+show_sync_ui(MASTER_WORKSHEET, MASTER_FALLBACK, COLS_MASTER)
+show_sync_ui(INV_TRIPLE_WORKSHEET, INV_TRIPLE_FALLBACK, COLS_INV_TRIPLE)
 
 # --- STYLE CSS ---
 st.markdown("""
@@ -74,11 +77,35 @@ def robust_num(val):
 def get_master_df():
     df = load_gs_data(MASTER_WORKSHEET, MASTER_FALLBACK, COLS_MASTER)
     if df.empty: return None
+    
+    # Nettoyage et mapping intelligent pour Excel
+    mapping = {
+        'dépôt': 'depot', 'depot': 'depot',
+        'produit': 'produit', 'désignation': 'produit',
+        'n°lot': 'lot', 'lot': 'lot', 'batch': 'lot',
+        'quantité dépôt': 'qte_logi', 'qte.globale': 'qte_logi', 'quantité': 'qte_logi',
+        'zone produit': 'zone', 'zone': 'zone',
+        'colis': 'colissage', 'u/colis': 'colissage'
+    }
+    
+    # On normalise les colonnes actuelles pour comparer
+    current_cols = {normalize_text(c): c for c in df.columns}
+    rename_dict = {}
+    for key, target in mapping.items():
+        if key in current_cols:
+            rename_dict[current_cols[key]] = target
+            
+    df = df.rename(columns=rename_dict)
+    
+    # Si après renommage il manque des colonnes essentielles, on les crée vides
+    for c in COLS_MASTER:
+        if c not in df.columns: df[c] = ""
+        
     df['produit'] = df['produit'].astype(str).str.upper()
     df['lot'] = df['lot'].astype(str).str.upper()
     df['qte_logi'] = df['qte_logi'].apply(robust_num)
     df['colissage'] = df['colissage'].apply(robust_num).replace(0, 1)
-    return df
+    return df[COLS_MASTER]
 
 # --- INITIALISATION ---
 df_master = get_master_df()
@@ -95,7 +122,6 @@ if "inv_work_df" not in st.session_state and df_master is not None:
     work_df = df_master.copy()
     work_df['Terrain (Vrac)'] = 0.0
     work_df['Terrain (Colis)'] = 0.0
-    work_df['Mini (Vrac)'] = 0.0
     work_df['Mini (Colis)'] = 0.0
     
     # Fusion avec GSheets data
@@ -105,7 +131,6 @@ if "inv_work_df" not in st.session_state and df_master is not None:
             if mask.any():
                 work_df.loc[mask, 'Terrain (Vrac)'] = entry.get('tv', 0.0)
                 work_df.loc[mask, 'Terrain (Colis)'] = entry.get('tc', 0.0)
-                work_df.loc[mask, 'Mini (Vrac)'] = entry.get('mv', 0.0)
                 work_df.loc[mask, 'Mini (Colis)'] = entry.get('mc', 0.0)
                 if 'col' in entry:
                     work_df.loc[mask, 'colissage'] = entry.get('col')
@@ -113,28 +138,104 @@ if "inv_work_df" not in st.session_state and df_master is not None:
     st.session_state.inv_work_df = work_df
 
 # --- INTERFACE ---
-st.title("📋 Inventaire Triple & Confrontation Logipharm")
+col_t1, col_t2 = st.columns([4, 1])
+with col_t1:
+    st.title("📋 Inventaire Triple & Confrontation Logipharm")
+with col_t2:
+    if st.button("♻️ Rafraîchir les données", use_container_width=True, help="Synchroniser avec les saisies des autres utilisateurs"):
+        st.cache_data.clear()
+        if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
+        st.rerun()
 
 if df_master is None:
-    st.warning("⚠️ Aucun fichier Master détecté. Veuillez l'importer dans l'onglet Administration.")
-    tabs = st.tabs(["⚙️ Administration"])
-    tab_dash, tab_saisie, tab_analyse, tab_admin = None, None, None, tabs[0]
+    st.warning("⚠️ Aucun fichier Master détecté. Veuillez l'importer dans l'Admin Centrale.")
+    tab_dash, tab_saisie, tab_analyse = None, None, None
 else:
-    tabs = st.tabs(["📈 Tableau de Bord", "⚡ Saisie & Grille", "📊 Analyse Écarts", "⚙️ Administration"])
-    tab_dash, tab_saisie, tab_analyse, tab_admin = tabs[0], tabs[1], tabs[2], tabs[3]
+    user_role = st.session_state.current_user.get('role', 'Saisie')
+    tab_titles = ["📈 Tableau de Bord", "⚡ Saisie & Grille", "📊 Analyse Écarts"]
+    
+    show_diag = user_role in ['Admin', 'Superviseur']
+    show_gest = user_role == 'Admin'
+    
+    if show_diag: tab_titles.append("🔍 Diagnostic")
+    if show_gest: tab_titles.append("⚙️ Gestion")
+        
+    # --- FICHES VIERGES ---
+    with st.expander("🖨️ Impression des Fiches Terrain"):
+        from utils_pdf import generate_blank_inventory_pdf
+        st.write("Générer une fiche d'inventaire vierge basée sur le Master.")
+        
+        col_p1, col_p2 = st.columns(2)
+        with col_p1:
+            type_fiche = st.radio("Type de Fiche :", ["Global", "Par Zone", "Par Dépôt"], horizontal=True, key="print_type_triple")
+        
+        df_print = df_master.copy()
+        title_pdf = "Inventaire Triple"
+        agents_str = ""
+        
+        with col_p2:
+            if type_fiche == "Par Zone":
+                zones = sorted([str(z) for z in df_print['zone'].dropna().unique()])
+                sel_z = st.selectbox("Choisir Zone :", zones)
+                df_print = df_print[df_print['zone'].astype(str) == sel_z]
+                title_pdf += f" - Zone {sel_z}"
+                
+                # Récupération des agents affectés à cette zone
+                from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+                df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "nom", "prenom", "zone"])
+                if not df_users.empty and 'zone' in df_users.columns:
+                    target_z = str(sel_z).strip().upper()
+                    u_df = df_users.copy()
+                    u_df['zone_norm'] = u_df['zone'].astype(str).str.strip().str.upper()
+                    zone_users = u_df[u_df['zone_norm'] == target_z]
+                    if not zone_users.empty:
+                        names = [f"{u['nom']} {u['prenom']}".strip() or u['username'] for _, u in zone_users.iterrows()]
+                        agents_str = "Agents affectés : " + ", ".join(names)
+
+            elif type_fiche == "Par Dépôt":
+                depots = sorted([str(d) for d in df_print['depot'].dropna().unique()])
+                sel_d = st.selectbox("Choisir le Dépôt :", depots)
+                df_print = df_print[df_print['depot'].astype(str) == sel_d]
+                title_pdf += f" - Dépôt {sel_d}"
+        
+        # Tri alphabétique
+        df_print = df_print.sort_values(by='produit')
+        
+        cols_to_print = [('produit', 'Produit', 55), ('lot', 'Lot', 28)]
+        pdf_bytes = generate_blank_inventory_pdf(df_print, "Triple", cols_to_print, subtitle=agents_str)
+        
+        st.download_button(
+            "📥 Télécharger la Fiche Vierge (PDF)",
+            pdf_bytes,
+            f"Fiche_Vierge_Triple_{type_fiche}.pdf",
+            "application/pdf",
+            use_container_width=True,
+            key="btn_print_triple"
+        )
+
+    tabs = st.tabs(tab_titles)
+    
+    # Assignation robuste par nom
+    tab_dash = tabs[tab_titles.index("📈 Tableau de Bord")]
+    tab_saisie = tabs[tab_titles.index("⚡ Saisie & Grille")]
+    tab_analyse = tabs[tab_titles.index("📊 Analyse Écarts")]
+    tab_diag = tabs[tab_titles.index("🔍 Diagnostic")] if show_diag else None
+    tab_gest = tabs[tab_titles.index("⚙️ Gestion")] if show_gest else None
 
 # --- FONCTION FILTRAGE ZONES ---
 def get_user_data():
     df = st.session_state.inv_work_df.copy()
     user_role = st.session_state.current_user.get('role', 'Saisie')
-    allowed_zones = st.session_state.current_user.get('inv_zones', [])
+    user_zone = str(st.session_state.current_user.get('zone', 'Aucune')).strip().upper()
     
     if user_role not in ['Admin', 'Superviseur']:
-        if not allowed_zones:
+        if user_zone == 'AUCUNE' or not user_zone:
             # Si aucune zone assignée, on retourne un DF vide
             return df.iloc[0:0]
+            
         if 'zone' in df.columns:
-            df = df[df['zone'].isin(allowed_zones)]
+            # Filtre robuste : si la zone assignée (ex: "A") est contenue dans la zone Excel (ex: "1 a", "a")
+            df = df[df['zone'].astype(str).str.upper().str.contains(user_zone, na=False, regex=False)]
     return df
 
 # --- TABLEAU DE BORD ---
@@ -149,7 +250,7 @@ if df_master is not None and tab_dash:
             total_items = len(dash_df)
             
             # Un item est considéré "compté" s'il a une quantité saisie
-            dash_df['Saisi'] = (dash_df['Terrain (Vrac)'] > 0) | (dash_df['Terrain (Colis)'] > 0) | (dash_df['Mini (Vrac)'] > 0) | (dash_df['Mini (Colis)'] > 0)
+            dash_df['Saisi'] = (dash_df['Terrain (Vrac)'] > 0) | (dash_df['Terrain (Colis)'] > 0) | (dash_df['Mini (Colis)'] > 0)
             items_counted = dash_df['Saisi'].sum()
             progress = (items_counted / total_items) * 100 if total_items > 0 else 0
             
@@ -167,85 +268,13 @@ if df_master is not None and tab_dash:
             zone_counts.columns = ['Zone', 'Nombre de Produits']
             st.dataframe(zone_counts, use_container_width=True)
 
-# --- ADMINISTRATION ---
-with tab_admin:
-    st.subheader("⚙️ Importation Logipharm")
-    up = st.file_uploader("Fichier Excel Export Logipharm", type="xlsx", key="up_v7")
-    if up:
-        if st.button("🚀 Importer ce fichier", type="primary"):
-            df_up = pd.read_excel(up)
-            # Normalisation et nettoyage avant envoi
-            # (Ici on pourrait rajouter la logique de mapping si besoin)
-            save_gs_data(df_up, MASTER_WORKSHEET, MASTER_FALLBACK)
-            st.cache_data.clear()
-            if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
-            st.success("Master synchronisé sur GSheets !")
-            st.rerun()
-    
-        if st.session_state.current_user.get('role') in ['Admin', 'Superviseur']:
-            st.divider()
-            st.subheader("👥 Affectation des Zones")
-        
-        from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
-        df_users_it = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "password", "role", "pages", "inv_zones"])
-        
-        # Liste des zones uniques du master
-        avail_zones = []
-        if df_master is not None and 'zone' in df_master.columns:
-            avail_zones = sorted([str(z) for z in df_master['zone'].dropna().unique()])
-            
-        if not avail_zones:
-            st.warning("Aucune zone trouvée dans le fichier Master.")
-        else:
-            with st.form("form_zones_triple"):
-                # On filtre les utilisateurs qui ont accès à cette page
-                for idx, u in df_users_it.iterrows():
-                    if u.get('role') not in ['Admin', 'Superviseur']:
-                        # inv_zones peut être stocké comme une chaîne JSON dans GSheets
-                        curr = u.get('inv_zones', [])
-                        if isinstance(curr, str):
-                            try: curr = json.loads(curr.replace("'", '"'))
-                            except: curr = []
-                        
-                        valid_curr = [z for z in curr if z in avail_zones]
-                        sel = st.multiselect(f"Zones pour {u['username']}", avail_zones, default=valid_curr)
-                        df_users_it.at[idx, 'inv_zones'] = str(sel)
-                
-                if st.form_submit_button("💾 Sauvegarder les affectations", type="primary"):
-                    save_gs_data(df_users_it, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
-                    st.success("Affectations mises à jour sur GSheets !")
-                    st.rerun()
-
-        st.divider()
-        st.subheader("🚨 Danger Zone")
-        c1, c2 = st.columns(2)
-        if c1.button("🗑️ Vider TOUTES les saisies (GSheets)", use_container_width=True):
-            save_gs_data(pd.DataFrame(columns=COLS_INV_TRIPLE), INV_TRIPLE_WORKSHEET, INV_TRIPLE_FALLBACK)
-            if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
-            st.rerun()
-        if c2.button("📁 Vider le Master sur GSheets", use_container_width=True):
-            save_gs_data(pd.DataFrame(columns=COLS_MASTER), MASTER_WORKSHEET, MASTER_FALLBACK)
-            st.cache_data.clear()
-            if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
-            st.rerun()
+# Tab admin supprimé. La gestion des zones et de l'import master se fait dans Admin Centrale.
 
 # --- SAISIE ---
 if df_master is not None and tab_saisie:
     with tab_saisie:
-        # En-tête avec bouton de rafraîchissement
-        col_title, col_refresh = st.columns([3, 1])
-        with col_title:
-            st.markdown("### ⚡ Saisie Libre & Grille")
-        with col_refresh:
-            if st.button("♻️ Rafraîchir les données", use_container_width=True, help="Recharge les données depuis le fichier Master"):
-                st.cache_data.clear()
-                if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
-                st.rerun()
+        st.markdown("### ⚡ Saisie Libre & Grille")
 
-        # Diagnostic
-        with st.expander("🔍 Diagnostic Colonnes"):
-            st.write("Colonnes identifiées :", list(df_master.columns))
-            st.dataframe(df_master[['depot', 'produit', 'lot', 'qte_logi']].head())
 
         # Filtres
         f1, f2, f3 = st.columns(3)
@@ -272,11 +301,11 @@ if df_master is not None and tab_saisie:
             
             # Calculs
             c = disp_df['colissage']
-            disp_df['Total Réel'] = disp_df['Terrain (Vrac)'] + (disp_df['Terrain (Colis)'] * c) + disp_df['Mini (Vrac)'] + (disp_df['Mini (Colis)'] * c)
+            disp_df['Total Réel'] = disp_df['Terrain (Vrac)'] + (disp_df['Terrain (Colis)'] * c) + (disp_df['Mini (Colis)'] * c)
             disp_df['Écart'] = disp_df['Total Réel'] - disp_df['qte_logi']
             
             # Grille
-            mcols = ['depot', 'zone', 'produit', 'lot', 'qte_logi', 'colissage', 'Terrain (Vrac)', 'Terrain (Colis)', 'Mini (Vrac)', 'Mini (Colis)', 'Total Réel', 'Écart']
+            mcols = ['depot', 'zone', 'produit', 'lot', 'qte_logi', 'colissage', 'Terrain (Vrac)', 'Terrain (Colis)', 'Mini (Colis)', 'Total Réel', 'Écart']
             # Sécurité si une colonne manque
             mcols = [c for c in mcols if c in disp_df.columns]
             disp_df = disp_df[mcols]
@@ -303,7 +332,7 @@ if df_master is not None and tab_saisie:
             try:
                 # pandas compare() faille si les types ne sont pas strictement identiques, on utilise un check manuel
                 # On compare edited et disp_df sur les colonnes modifiables
-                cols_to_check = ['Terrain (Vrac)', 'Terrain (Colis)', 'Mini (Vrac)', 'Mini (Colis)', 'colissage']
+                cols_to_check = ['Terrain (Vrac)', 'Terrain (Colis)', 'Mini (Colis)', 'colissage']
                 
                 # S'assurer que les index sont alignés
                 changed_indices = []
@@ -323,7 +352,6 @@ if df_master is not None and tab_saisie:
                         # Update session state
                         st.session_state.inv_work_df.loc[idx, 'Terrain (Vrac)'] = row['Terrain (Vrac)']
                         st.session_state.inv_work_df.loc[idx, 'Terrain (Colis)'] = row['Terrain (Colis)']
-                        st.session_state.inv_work_df.loc[idx, 'Mini (Vrac)'] = row['Mini (Vrac)']
                         st.session_state.inv_work_df.loc[idx, 'Mini (Colis)'] = row['Mini (Colis)']
                         if 'colissage' in row:
                             st.session_state.inv_work_df.loc[idx, 'colissage'] = row['colissage']
@@ -332,7 +360,7 @@ if df_master is not None and tab_saisie:
                         new_entry = {
                             'produit': row['produit'], 'lot': row['lot'],
                             'tv': float(row['Terrain (Vrac)']), 'tc': float(row['Terrain (Colis)']),
-                            'mv': float(row['Mini (Vrac)']), 'mc': float(row['Mini (Colis)']),
+                            'mv': 0.0, 'mc': float(row['Mini (Colis)']), # mv conservé à 0 pour la BDD
                             'col': float(row['colissage']) if 'colissage' in row else 1.0
                         }
                         
@@ -360,7 +388,7 @@ if df_master is not None and tab_analyse:
             st.warning("Aucune donnée à analyser pour vos zones.")
         else:
             c = res_df['colissage']
-            res_df['Total'] = res_df['Terrain (Vrac)'] + (res_df['Terrain (Colis)'] * c) + res_df['Mini (Vrac)'] + (res_df['Mini (Colis)'] * c)
+            res_df['Total'] = res_df['Terrain (Vrac)'] + (res_df['Terrain (Colis)'] * c) + (res_df['Mini (Colis)'] * c)
             res_df['Ecart'] = res_df['Total'] - res_df['qte_logi']
             
             diff = res_df[res_df['Ecart'] != 0].copy()
@@ -397,3 +425,80 @@ if df_master is not None and tab_analyse:
                         reponse = ask_ai(prompt)
                         st.success("✅ Analyse terminée")
                         st.write(reponse)
+
+# --- DIAGNOSTIC ---
+if df_master is not None and tab_diag:
+    with tab_diag:
+        st.subheader("🔍 Diagnostic Technique des Colonnes")
+        st.info("Cet onglet permet de vérifier si les colonnes de votre fichier Excel ont été correctement identifiées par le système.")
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            st.write("**Colonnes brutes détectées :**")
+            st.write(list(df_master.columns))
+        
+        with c2:
+            st.write("**Aperçu des données critiques :**")
+            st.dataframe(df_master[['depot', 'produit', 'lot', 'qte_logi']].head(), use_container_width=True)
+            
+        st.divider()
+        st.write("### 🛠️ Structure complète du Master")
+        st.dataframe(df_master, use_container_width=True)
+
+# --- GESTION ---
+if df_master is not None and tab_gest:
+    with tab_gest:
+        st.subheader("⚙️ Gestion de l'Inventaire Triple")
+        st.write("Espace réservé aux administrateurs pour la clôture et la maintenance.")
+        
+        col_g1, col_g2 = st.columns(2)
+        
+        with col_g1:
+            st.markdown("### 📥 Rapports & Exports")
+            if st.button("📄 Générer Rapport PDF des Écarts", use_container_width=True):
+                # Calcul des écarts pour le rapport
+                res_df = st.session_state.inv_work_df.copy()
+                c = res_df['colissage']
+                res_df['Total'] = res_df['Terrain (Vrac)'] + (res_df['Terrain (Colis)'] * c) + (res_df['Mini (Colis)'] * c)
+                res_df['Ecart'] = res_df['Total'] - res_df['qte_logi']
+                diff_df = res_df[res_df['Ecart'] != 0].copy()
+                
+                if diff_df.empty:
+                    st.success("Aucun écart à signaler ! L'inventaire est parfait.")
+                else:
+                    from utils_pdf import generate_inventory_report_pdf
+                    pdf_bytes = generate_inventory_report_pdf(diff_df, "RAPPORT D'INVENTAIRE TRIPLE")
+                    st.download_button(
+                        "📥 Télécharger le Rapport PDF",
+                        pdf_bytes,
+                        "Rapport_Ecarts_Triple.pdf",
+                        "application/pdf",
+                        use_container_width=True
+                    )
+
+        with col_g2:
+            st.markdown("### ⚠️ Maintenance")
+            
+            # Utilisation de st.expander pour sécuriser les boutons destructifs
+            with st.expander("🗑️ Actions Destructives"):
+                st.warning("Ces actions modifient définitivement les données sur Google Sheets.")
+                
+                if st.button("🔄 Réinitialiser les Saisies (Vider)", use_container_width=True):
+                    # On ne vide que les saisies, pas le Master
+                    empty_saisie = pd.DataFrame(columns=COLS_INV_TRIPLE)
+                    save_gs_data(empty_saisie, INV_TRIPLE_WORKSHEET, INV_TRIPLE_FALLBACK)
+                    st.cache_data.clear()
+                    if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
+                    st.success("✅ Toutes les saisies terrain ont été effacées.")
+                    st.rerun()
+
+                if st.button("🔴 Supprimer tout (Saisies + Master)", use_container_width=True):
+                    save_gs_data(pd.DataFrame(columns=COLS_INV_TRIPLE), INV_TRIPLE_WORKSHEET, INV_TRIPLE_FALLBACK)
+                    save_gs_data(pd.DataFrame(columns=COLS_MASTER), MASTER_WORKSHEET, MASTER_FALLBACK)
+                    st.cache_data.clear()
+                    if 'inv_work_df' in st.session_state: del st.session_state.inv_work_df
+                    st.success("✅ Inventaire et Master supprimés.")
+                    st.rerun()
+
+        st.divider()
+        st.info("💡 Les modifications effectuées ici ne ciblent que les feuilles (worksheets) spécifiées ('Inventaire_Triple' ou 'Master_Inventaire_Zone') et ne touchent pas au reste de votre document Google Sheets.")

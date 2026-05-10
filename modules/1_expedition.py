@@ -282,26 +282,75 @@ with tab_exp:
     else:
         info_config = st.column_config.TextColumn("Colissage")
 
-    # Édition du tableau filtré
-    edited_df = st.data_editor(
-        df_visible, 
-        num_rows="dynamic", 
-        use_container_width=True, 
-        column_config={
-            "Info": info_config,
-            "Statut": st.column_config.SelectboxColumn("Statut", options=["En cours", "Livré", "Reporté", "Annulé"]),
-            "Signature": None,
-            "Secteur": st.column_config.TextColumn("Secteur", disabled=True)
-        }
-    )
-    
-    # Synchronisation : On met à jour les lignes modifiées dans la session globale
-    if not edited_df.equals(df_visible):
-        if secteur_affichage == "Tous":
-            st.session_state.rows = edited_df
-        else:
-            other_sectors = st.session_state.rows[st.session_state.rows['Secteur'].astype(str).str.strip().str.lower() != secteur_affichage.lower()]
-            st.session_state.rows = pd.concat([other_sectors, edited_df], ignore_index=True)
+    # --- LOGIQUE DE SUPPRESSION ---
+    if "to_delete" not in st.session_state:
+        st.session_state.to_delete = None
+
+    if st.session_state.to_delete:
+        st.error(f"🗑️ Confirmer la suppression de la ligne : **{st.session_state.to_delete}** ?")
+        col_c1, col_c2 = st.columns(2)
+        if col_c1.button("✅ Confirmer", type="primary", use_container_width=True):
+            st.session_state.rows = st.session_state.rows[st.session_state.rows['N° Doc'] != st.session_state.to_delete]
+            st.session_state.to_delete = None
+            st.success("Ligne supprimée !")
+            st.rerun()
+        if col_c2.button("❌ Abandonner", use_container_width=True):
+            st.session_state.to_delete = None
+            st.rerun()
+
+    # --- AFFICHAGE DU TABLEAU AVEC BOUTONS ---
+    if not df_visible.empty:
+        # En-têtes du tableau
+        h1, h2, h3, h4, h5, h6 = st.columns([2.5, 1.5, 2.5, 1.5, 1.5, 0.5])
+        h1.markdown("**Client**")
+        h2.markdown("**Ville**")
+        h3.markdown("**N° Doc**")
+        h4.markdown(f"**{col_label}**")
+        h5.markdown("**Statut**")
+        h6.markdown("") # Poubelle
+        
+        # Lignes du tableau
+        for i, row in df_visible.iterrows():
+            with st.container():
+                c1, c2, c3, c4, c5, c6 = st.columns([2.5, 1.5, 2.5, 1.5, 1.5, 0.5])
+                c1.write(row['Client'])
+                c2.write(row['Ville'])
+                c3.write(f"`{row['N° Doc']}`")
+                
+                # Info modifiable
+                if mode == "Réclamation":
+                    motifs_disp = load_motifs()
+                    try:
+                        idx_m = motifs_disp.index(str(row['Info']))
+                    except:
+                        idx_m = 0
+                    new_info = c4.selectbox("Info", motifs_disp, index=idx_m, key=f"info_{row['N° Doc']}", label_visibility="collapsed")
+                else:
+                    new_info = c4.text_input("Info", value=str(row['Info']), key=f"info_{row['N° Doc']}", label_visibility="collapsed")
+                
+                if new_info != str(row['Info']):
+                    st.session_state.rows.loc[st.session_state.rows['N° Doc'] == row['N° Doc'], 'Info'] = new_info
+                    st.rerun()
+
+                # Statut modifiable
+                new_statut = c5.selectbox(
+                    "Statut", 
+                    ["En cours", "Livré", "Reporté", "Annulé"], 
+                    index=["En cours", "Livré", "Reporté", "Annulé"].index(row['Statut']),
+                    key=f"statut_{row['N° Doc']}",
+                    label_visibility="collapsed"
+                )
+                if new_statut != row['Statut']:
+                    st.session_state.rows.loc[st.session_state.rows['N° Doc'] == row['N° Doc'], 'Statut'] = new_statut
+                    st.rerun()
+
+                # Bouton Poubelle
+                if c6.button("🗑️", key=f"del_{row['N° Doc']}", help="Supprimer cette ligne"):
+                    st.session_state.to_delete = row['N° Doc']
+                    st.rerun()
+                st.divider()
+    else:
+        st.info("Aucune donnée à afficher pour ce secteur.")
     
     if st.button("🗑️ Vider le secteur/filtre actuel"):
         if secteur_affichage == "Tous":
@@ -357,7 +406,11 @@ with tab_exp:
                     pdf.cell(30, 8, "", 1)
                     pdf.ln()
                     
-                pdf_bytes = pdf.output(dest='S').encode('latin-1', 'replace')
+                raw = pdf.output(dest='S')
+                if isinstance(raw, (bytes, bytearray)):
+                    pdf_bytes = bytes(raw)
+                else:
+                    pdf_bytes = raw.encode('latin-1', 'replace')
                 if os.path.exists(qr_path):
                     os.remove(qr_path)
                     

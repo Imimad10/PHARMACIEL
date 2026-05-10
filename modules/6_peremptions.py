@@ -49,10 +49,10 @@ def analyze_peremptions(df, date_col='ddp'):
 
 st.title("⏳ Gestion des Péremptions")
 
-tab1, tab2 = st.tabs(["📋 Inventaire Terrain", "🏢 Analyse Multi-Dépôts"])
+tab1, tab2 = st.tabs(["📊 Tableau de Bord (DDP)", "🏢 Analyse Multi-Dépôts"])
 
 with tab1:
-    st.subheader("Analyse de l'inventaire manuel")
+    st.subheader("Vue Globale des Péremptions (DDP)")
     df_inv = load_gs_data(SAISIE_WORKSHEET, SAISIE_FALLBACK, COLS_SAISIE)
     if not df_inv.empty:
         # L'inventaire utilise 'ddp_saisi'
@@ -60,13 +60,54 @@ with tab1:
         if not df_res.empty:
             stats = df_res['Statut'].value_counts()
             c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Périmés", stats.get("❌ Périmé", 0))
-            c2.metric("Critiques", stats.get("⚠️ Critique (< 3 mois)", 0))
-            c3.metric("Vigilance", stats.get("🟠 Vigilance (3-6 mois)", 0))
-            c4.metric("Sains", stats.get("✅ OK (> 6 mois)", 0))
-            st.dataframe(df_res[['designation', 'lot', 'ddp_saisi', 'Statut', 'mois_restants']].sort_values('expiry_date'), use_container_width=True)
+            c1.metric("❌ Périmés", stats.get("❌ Périmé", 0))
+            c2.metric("⚠️ Critiques (< 3m)", stats.get("⚠️ Critique (< 3 mois)", 0))
+            c3.metric("🟠 Vigilance (3-6m)", stats.get("🟠 Vigilance (3-6 mois)", 0))
+            c4.metric("✅ Sains", stats.get("✅ OK (> 6 mois)", 0))
+            
+            st.divider()
+            
+            col_list, col_action = st.columns([2, 1])
+            with col_list:
+                st.markdown("### 📋 Liste détaillée des produits")
+                df_sorted = df_res.sort_values('expiry_date')[['designation', 'lot', 'ddp_saisi', 'Statut', 'mois_restants']]
+                # Formater la date pour affichage
+                df_sorted['ddp_saisi'] = pd.to_datetime(df_sorted['ddp_saisi']).dt.strftime('%d/%m/%Y')
+                st.dataframe(df_sorted, use_container_width=True, hide_index=True)
+                
+            with col_action:
+                st.markdown("### 💡 Solutions & Actions")
+                critiques = df_res[df_res['Statut'].str.contains('Périmé|Critique', na=False)]
+                if not critiques.empty:
+                    st.warning(f"🚨 {len(critiques)} produit(s) nécessitent une action immédiate.")
+                    with st.expander("📝 Suggestions Standards", expanded=True):
+                        st.markdown("""
+                        - **Promotion Rapide** : Remise commerciale agressive (Ex: -30%).
+                        - **Rotation FEFO** : Transfert vers le point de vente le plus actif.
+                        - **Retour Labo** : Vérifier la convention de retour (si < 6 mois).
+                        - **Quarantaine** : Isoler physiquement les produits périmés pour destruction.
+                        """)
+                    
+                    if is_ia_enabled():
+                        st.markdown("### 🤖 Intervention IA")
+                        st.info("Obtenez une stratégie de déstockage sur mesure.")
+                        if st.button("🧠 Analyser et Proposer des Solutions", type="primary", use_container_width=True):
+                            with st.spinner("L'IA analyse votre stock critique..."):
+                                liste_prods = "\n".join([f"- {r['designation']} (Lot {r['lot']}) : {r['mois_restants']} mois restants" for _, r in critiques.head(15).iterrows()])
+                                prompt = f"""Tu es Directeur Supply Chain en pharmacie. 
+                                Voici une liste partielle de nos produits en risque de péremption :
+                                {liste_prods}
+                                
+                                Propose 3 actions concrètes, innovantes et immédiates pour écouler ce stock ou minimiser les pertes. Sois concis et professionnel."""
+                                reponse = ask_ai(prompt)
+                                st.session_state['ia_ddp_advice'] = reponse
+                        
+                        if 'ia_ddp_advice' in st.session_state:
+                            st.success(st.session_state['ia_ddp_advice'])
+                else:
+                    st.success("Aucun produit critique détecté. Votre stock est sain ! 🎉")
         else: st.info("Aucune donnée de péremption valide trouvée dans la saisie.")
-    else: st.info("Aucun inventaire terrain trouvé sur GSheets.")
+    else: st.info("Aucun inventaire terrain trouvé sur la base centrale.")
 
 with tab2:
     st.subheader("🔄 Analyse Stratégique FEFO (Vente vs Stockage)")
@@ -141,7 +182,9 @@ with tab2:
                             for _, row in anomalies.iterrows():
                                 pdf.cell(85, 8, str(row['produit'])[:40].encode('latin-1','replace').decode('latin-1'), 1)
                                 pdf.cell(25, 8, row['DDP Vente'], 1); pdf.cell(25, 8, row['DDP Stock'], 1); pdf.cell(55, 8, "TRANSFERT URGENT", 1, ln=1)
-                            st.download_button("📥 Télécharger le Bon PDF", pdf.output(dest='S').encode('latin-1'), "Transfert_FEFO.pdf", type="primary")
+                            raw = pdf.output(dest='S')
+                            pdf_bytes = bytes(raw) if isinstance(raw, (bytes, bytearray)) else raw.encode('latin-1')
+                            st.download_button("📥 Télécharger le Bon PDF", pdf_bytes, "Transfert_FEFO.pdf", type="primary")
                     else:
                         st.success("✅ Logique FEFO respectée : tous les produits en réserve périment après ceux en vente.")
                     

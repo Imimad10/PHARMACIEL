@@ -9,7 +9,10 @@ from utils import log_action
 # st.set_page_config(page_title="Darpharm Solution - Pointage", layout="wide", page_icon="🚚")
 
 # Initialisation de la base de données locale
-from utils_gsheets import load_gs_data, save_gs_data
+from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui
+
+st.set_page_config(page_title="Pointage Pharmaciel", layout="wide")
+show_sync_ui("Pointages", "data/db_pointages.csv", ['date_pointage', 'date_feuille', 'livreur', 'rotation', 'reference', 'client', 'region', 'statut_karim'])
 # --- CONFIGURATION ET BASE DE DONNÉES ---
 LIVREURS_WORKSHEET = "Livreurs"
 LIVREURS_FALLBACK = "data/db_livreurs.csv"
@@ -224,7 +227,10 @@ with tab_pointage:
                                 pdf.cell(15, 8, "[  ]", 1, 0, 'C')
                                 pdf.cell(50, 8, str(r['reference']), 1)
                                 pdf.cell(125, 8, str(r['client'])[:55], 1, 1)
-                            return pdf.output(dest='S').encode('latin-1', 'ignore')
+                            raw = pdf.output(dest='S')
+                            if isinstance(raw, (bytes, bytearray)):
+                                return bytes(raw)
+                            return raw.encode('latin-1', 'ignore')
 
                         if not df_filtre.empty:
                             pdf_bytes = create_pdf_bytes(livreur_sel, region_sel, rotation_sel, d_sel, df_filtre)

@@ -15,12 +15,15 @@ from google.oauth2.service_account import Credentials
 DATA_RECOUV = "data_recouvrement.csv"
 DATA_CLIENTS = "base_clients.csv"
 COLS_RECOUV = ["Client", "Facture", "Date", "Montant Initial", "Montant Réglé", "Reste à payer", "Mode Paiement", "Livreur", "Région", "Statut", "Commentaires"]
-COLS_CLIENTS = ["Nom Client", "Région", "Téléphone", "Secteur"]
+COLS_CLIENTS = ["Nom Client", "Secteur"]
 STATUS_OPTIONS = ["En attente", "Partiel", "Réglé", "Clôturé", "Annulé", "Litige"]
 GS_CREDS_PATH = "google_creds.json"
 GS_CONFIG_PATH = "gs_config.txt"
 
-from utils_gsheets import load_gs_data, save_gs_data, get_gs_client, get_gs_url, GS_CREDS_PATH, GS_CONFIG_PATH
+from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui, get_gs_client, get_gs_url, GS_CREDS_PATH, GS_CONFIG_PATH
+
+st.set_page_config(page_title="Recouvrement Pharmaciel", layout="wide")
+show_sync_ui("Recouvrement", DATA_RECOUV, COLS_RECOUV)
 
 # --- FONCTIONS DE GESTION DES DONNÉES (WRAPPERS) ---
 def load_data(path, columns):
@@ -46,10 +49,25 @@ def save_data(df, path):
 
 def get_livreur(region_val):
     reg = str(region_val).strip().upper() if pd.notna(region_val) else ""
-    mapping = {"ALGER 1": "FETHI", "ALGER 2": "FARES", "ALGER EST": "MAIDI", "TIPAZA": "HAROUN", "BLIDA": "HAROUN"}
-    hamid_list = ["MEDEA", "CHLEF", "DJELFA", "AIN-DEFLA", "RELIZANE", "LAGHOUAT", "ORAN"]
-    if reg in mapping: return mapping[reg]
-    if any(h in reg for h in hamid_list): return "HAMID"
+    if not reg: return "NON ASSIGNÉ"
+    
+    try:
+        from utils_gsheets import load_gs_data
+        df_livreurs = load_gs_data("Livreurs", "data_expedition/livreurs.csv", ["Nom", "Prénom", "Téléphone", "Secteur"])
+        if not df_livreurs.empty:
+            # Recherche exacte
+            match = df_livreurs[df_livreurs["Secteur"].astype(str).str.strip().str.upper() == reg]
+            if not match.empty:
+                return str(match.iloc[0]["Nom"]).strip().upper()
+            
+            # Recherche partielle (si la région contient le secteur)
+            for _, row in df_livreurs.iterrows():
+                secteur = str(row["Secteur"]).strip().upper()
+                if secteur and secteur in reg:
+                    return str(row["Nom"]).strip().upper()
+    except Exception as e:
+        pass # Fallback silencieux en cas d'erreur de chargement
+    
     return "NON ASSIGNÉ"
 
 def generate_pdf(df, livreur_name):
@@ -94,7 +112,12 @@ def generate_pdf(df, livreur_name):
         pdf.cell(25, 10, str(row['Mode Paiement']), 1, 0, 'C')
         pdf.cell(35, 10, "", 1, 1)
     
-    result = pdf.output(dest='S').encode('latin-1', 'replace')
+    raw = pdf.output(dest='S')
+    if isinstance(raw, (bytes, bytearray)):
+        result = bytes(raw)
+    else:
+        result = raw.encode('latin-1', 'replace')
+    
     if os.path.exists(qr_path): os.remove(qr_path)
     return result
 
@@ -144,7 +167,10 @@ def generate_relance_pdf(client_name, df_client, total_du):
     footer = "Nous vous remercions de bien vouloir regulariser cette situation dans les plus brefs delais.\n\nCordialement,\nLe Service Recouvrement"
     pdf.multi_cell(0, 8, footer.encode('latin-1', 'replace').decode('latin-1'))
     
-    return pdf.output(dest='S').encode('latin-1', 'replace')
+    raw = pdf.output(dest='S')
+    if isinstance(raw, (bytes, bytearray)):
+        return bytes(raw)
+    return raw.encode('latin-1', 'replace')
 
 # --- INTERFACE UTILISATEUR ---
 st.title("💰 Système de Recouvrement")
@@ -164,8 +190,8 @@ with tabs[0]:
                 nom_sel = st.selectbox("Client", noms_valides, index=None, placeholder="Rechercher ou sélectionner un client...")
                 
                 if nom_sel:
-                    # Recherche sécurisée de la région
-                    match = df_clients[df_clients["Nom Client"] == nom_sel]["Région"]
+                    # Recherche du secteur
+                    match = df_clients[df_clients["Nom Client"] == nom_sel]["Secteur"]
                     reg_auto = match.values[0] if not match.empty else ""
                 else:
                     reg_auto = ""
@@ -230,12 +256,53 @@ with tabs[0]:
 # ONGLET 2 : FEUILLES DE ROUTE (AVEC SUPPRESSION DOUBLONS ET RÉINITIALISATION)
 with tabs[1]:
     df_main = load_data(DATA_RECOUV, COLS_RECOUV)
+    
+    # 1. Chargement des bases centrales
+    from utils_gsheets import load_gs_data
+    df_livreurs_db = load_gs_data("Livreurs", "data_expedition/livreurs.csv", ["Nom", "Prénom", "Téléphone", "Secteur"])
+    df_clients_db = load_gs_data("Base_Clients", DATA_CLIENTS, COLS_CLIENTS)
+    
     if not df_main.empty:
-        livs = sorted([str(l) for l in df_main["Livreur"].unique() if str(l).lower() != 'nan'])
-        sel_liv = st.selectbox("Sélectionner Livreur", livs)
+        # 2. Mise à jour dynamique des Régions et Livreurs selon la base centrale
+        if not df_clients_db.empty:
+            client_to_region = dict(zip(df_clients_db["Nom Client"].astype(str).str.strip().str.upper(), df_clients_db["Secteur"].astype(str).str.strip().str.upper()))
+            for idx, row in df_main.iterrows():
+                c_name = str(row["Client"]).strip().upper()
+                if c_name in client_to_region and pd.notna(client_to_region[c_name]) and client_to_region[c_name] != "":
+                    df_main.at[idx, "Région"] = client_to_region[c_name]
+                    
+        if not df_livreurs_db.empty:
+            region_to_livreur = {}
+            for _, row in df_livreurs_db.iterrows():
+                sec = str(row["Secteur"]).strip().upper()
+                nom = str(row["Nom"]).strip().upper()
+                if sec and nom: region_to_livreur[sec] = nom
+                
+            for idx, row in df_main.iterrows():
+                reg = str(row["Région"]).strip().upper()
+                assigned = "NON ASSIGNÉ"
+                for sec, liv in region_to_livreur.items():
+                    if sec in reg or reg == sec:
+                        assigned = liv
+                        break
+                df_main.at[idx, "Livreur"] = assigned
+
+        # 3. Liste déroulante : Uniquement les livreurs ayant des clients
+        livs_actifs = sorted([str(l).upper() for l in df_main["Livreur"].unique() if str(l).strip() != "" and str(l).upper() != "NAN"])
+        if "NON ASSIGNÉ" not in livs_actifs: livs_actifs.append("NON ASSIGNÉ")
+            
+        sel_liv = st.selectbox("Sélectionner Livreur", livs_actifs)
         
-        # FILTRAGE ET SUPPRESSION AUTOMATIQUE DES DOUBLONS
-        mask = df_main["Livreur"] == sel_liv
+        # 4. Identifier le secteur du livreur sélectionné
+        sel_secteur = ""
+        if sel_liv != "NON ASSIGNÉ" and not df_livreurs_db.empty:
+            match_liv = df_livreurs_db[df_livreurs_db["Nom"].str.upper() == sel_liv]
+            if not match_liv.empty:
+                sel_secteur = str(match_liv.iloc[0]["Secteur"]).upper().strip()
+                st.caption(f"📍 Secteur centralisé : **{sel_secteur}**")
+            
+        # 5. Filtrage automatique
+        mask = df_main["Livreur"].astype(str).str.upper() == sel_liv
         df_display = df_main[mask].drop_duplicates(subset=["Client", "Reste à payer"], keep='first').copy()
         
         col_btns = st.columns([1, 1, 2])
@@ -312,21 +379,11 @@ with tabs[2]:
             to_keep    = edited_global[~edited_global["Statut"].isin(status_archived)].copy()
 
             if not to_archive.empty:
-                to_archive["Date Archivage"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-                # Charger les archives existantes et fusionner
-                archive_path = "data_archive_recouvrement.csv"
-                archive_cols = COLS_RECOUV + ["Date Archivage"]
-                if os.path.exists(archive_path):
-                    df_arch_old = pd.read_csv(archive_path, sep=',', encoding='utf-8-sig')
-                else:
-                    df_arch_old = pd.DataFrame(columns=archive_cols)
-                df_arch_new = pd.concat([df_arch_old, to_archive.reindex(columns=archive_cols, fill_value="")], ignore_index=True)
-                df_arch_new.to_csv(archive_path, index=False, sep=',', encoding='utf-8-sig')
-                st.success(f"✅ {len(to_archive)} dossier(s) archivé(s) avec succès !")
+                st.success(f"✅ {len(to_archive)} dossier(s) archivé(s) avec succès dans la base de données principale !")
 
-            # Reconstruire la base complète (actifs non touchés + édités actifs)
+            # Reconstruire la base complète (actifs non touchés + édités actifs + les dossiers nouvellement archivés)
             df_untouched = df_all[df_all["Statut"].isin(status_archived)]  # archives déjà existantes
-            df_final = pd.concat([df_untouched, df_global[~df_global.index.isin(df_view.index)], to_keep], ignore_index=True)
+            df_final = pd.concat([df_untouched, df_global[~df_global.index.isin(df_view.index)], to_keep, to_archive], ignore_index=True)
             save_data(df_final, DATA_RECOUV)
             st.rerun()
         
@@ -360,8 +417,10 @@ with tabs[2]:
             st.subheader("📲 Relance Rapide via WhatsApp")
             
             # Recherche sécurisée du téléphone
-            match_phone = df_clients[df_clients["Nom Client"] == client_relance]["Téléphone"] if not df_clients.empty else pd.Series()
-            client_phone = match_phone.values[0] if not match_phone.empty else ""
+            client_phone = ""
+            if not df_clients.empty and "Téléphone" in df_clients.columns:
+                match_phone = df_clients[df_clients["Nom Client"] == client_relance]["Téléphone"]
+                client_phone = match_phone.values[0] if not match_phone.empty else ""
             
             if pd.notna(client_phone) and str(client_phone) != "":
                 # Nettoyage du numéro (garder uniquement les chiffres)
@@ -409,6 +468,24 @@ with tabs[2]:
 # ONGLET 4 : ARCHIVES
 with tabs[3]:
     st.subheader("🗄️ Archives des dossiers terminés")
+    
+    # --- HOTFIX : Récupération des archives locales perdues ---
+    archive_path = "data_archive_recouvrement.csv"
+    if os.path.exists(archive_path):
+        try:
+            df_arch_local = pd.read_csv(archive_path, sep=',', encoding='utf-8-sig')
+            if not df_arch_local.empty:
+                if "Date Archivage" in df_arch_local.columns:
+                    df_arch_local = df_arch_local.drop(columns=["Date Archivage"])
+                df_current = load_data(DATA_RECOUV, COLS_RECOUV)
+                df_merged = pd.concat([df_current, df_arch_local], ignore_index=True)
+                save_data(df_merged, DATA_RECOUV)
+                st.success(f"🔄 {len(df_arch_local)} dossier(s) récupéré(s) et réintégré(s) dans la base centrale !")
+            os.remove(archive_path)
+            st.rerun()
+        except Exception as e:
+            st.error(f"Erreur de récupération locale : {e}")
+
     df_all_arch = load_data(DATA_RECOUV, COLS_RECOUV)
     status_archived = ["Clôturé", "Annulé", "Réglé"]
     df_arch = df_all_arch[df_all_arch["Statut"].isin(status_archived)].copy()
@@ -544,13 +621,26 @@ with tabs[5]:
                 st.success("Secteurs migrés !")
 
     st.divider()
-    st.subheader("👥 Gestion de la Base Clients")
-    st.info("La gestion des clients est désormais centralisée. Veuillez utiliser le module **Admin Centrale** pour modifier, ajouter ou importer des clients.")
-    if st.session_state.current_user.get('role') == 'Admin':
-        if st.button("🚀 Aller à l'Administration Centrale", use_container_width=True):
-            st.switch_page("pages/0_admin_centrale.py")
-    else:
-        st.warning("Accès à l'Administration Centrale réservé aux Administrateurs.")
+    st.subheader("👥 Synchronisation Centralisée")
+    st.info("La gestion des clients et l'affectation régionale des livreurs sont centralisées. Vous pouvez forcer la mise à jour immédiate depuis le Cloud ici.")
+    
+    col_sync1, col_sync2 = st.columns(2)
+    with col_sync1:
+        if st.button("🔄 Synchroniser Clients & Livreurs", use_container_width=True, help="Force le rechargement des bases clients et livreurs depuis Google Sheets"):
+            with st.spinner("Synchronisation..."):
+                st.cache_data.clear() # Vider le cache pour forcer le reload global
+                df_sync = load_data(DATA_CLIENTS, COLS_CLIENTS)
+                from utils_gsheets import load_gs_data
+                df_liv = load_gs_data("Livreurs", "data_expedition/livreurs.csv", ["Nom", "Prénom", "Téléphone", "Secteur"])
+                st.success(f"✅ Synchronisation réussie : {len(df_sync)} clients et {len(df_liv)} livreurs à jour !")
+                st.rerun()
+    
+    with col_sync2:
+        if st.session_state.current_user.get('role') == 'Admin':
+            if st.button("🚀 Aller à l'Administration Centrale", use_container_width=True):
+                st.switch_page("pages/0_admin_centrale.py")
+        else:
+            st.warning("Accès Admin Centrale restreint.")
 
     st.divider()
     if st.session_state.current_user.get('role') == 'Admin':

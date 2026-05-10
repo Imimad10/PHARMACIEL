@@ -43,7 +43,10 @@ def generate_pdf(df, livreur_name):
         pdf.cell(60, 10, str(row['Note'])[:35], 1)
         pdf.ln()
     
-    return pdf.output(dest='S').encode('latin-1', 'replace')
+    raw = pdf.output(dest='S')
+    if isinstance(raw, (bytes, bytearray)):
+        return bytes(raw)
+    return raw.encode('latin-1', 'replace')
 
 # --- INTERFACE ---
 st.set_page_config(page_title="Darpharm Solution - Recouvrement", layout="wide")

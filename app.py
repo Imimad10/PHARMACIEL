@@ -258,38 +258,44 @@ st.markdown("""
 from utils_gsheets import load_gs_data, save_gs_data, DB_USERS_WORKSHEET, DB_USERS_FALLBACK
 
 # Chargement initial des utilisateurs
-df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "password", "role", "pages", "nom", "prenom", "zone"])
+USER_COLUMNS = ["username", "password", "role", "pages", "nom", "prenom", "zone", "depot"]
+df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, USER_COLUMNS)
 
-# Toujours s'assurer que l'admin principal existe
-if 'admin_imad' not in df_users['username'].values:
-    admin_data = {
-        'username': 'admin_imad',
-        'password': 'admin_imad_pwd',
-        'role': 'Admin',
-        'nom': 'Administrateur',
-        'prenom': 'Imad',
-        'pages': ['Profil', 'Admin Centrale', 'Dashboard', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Péremptions', 'Scanneur QR', 'Automatisation', 'Litiges Fournisseurs', 'Analyse Rotation', 'Scan Mobile', 'RH'],
-        'zone': 'Aucune'
-    }
-    df_users = pd.concat([df_users, pd.DataFrame([admin_data])], ignore_index=True)
-    save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
-
-# Liste des utilisateurs essentiels à maintenir
-essentials = [
-    {'username': 'Ayoub', 'password': 'ayoub2026', 'role': 'Saisie', 'pages': ['Logistique', 'Suivi', 'Inventaire Détail']},
-    {'username': 'Islem', 'password': 'islem2026', 'role': 'Saisie', 'pages': ['Logistique', 'Suivi', 'Inventaire Détail']},
-    {'username': 'Seif', 'password': 'seif2026', 'role': 'Saisie', 'pages': ['Inventaire', 'Inventaire Détail']}
-]
-
-# Synchronisation des essentiels
-changes_made = False
-for ess in essentials:
-    if df_users.empty or ess['username'] not in df_users['username'].values:
-        df_users = pd.concat([df_users, pd.DataFrame([ess])], ignore_index=True)
+# Synchronisation des essentiels (Uniquement une fois par session pour la rapidité)
+if "setup_done" not in st.session_state:
+    changes_made = False
+    
+    # Toujours s'assurer que l'admin principal existe
+    if 'admin_imad' not in df_users['username'].values:
+        admin_data = {
+            'username': 'admin_imad',
+            'password': 'admin_imad_pwd',
+            'role': 'Admin',
+            'nom': 'Administrateur',
+            'prenom': 'Imad',
+            'pages': str(['Profil', 'Admin Centrale', 'Dashboard', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Péremptions', 'Scanneur QR', 'Automatisation', 'Litiges Fournisseurs', 'Analyse Rotation', 'Scan Mobile', 'RH']),
+            'zone': 'Aucune',
+            'depot': 'Administration'
+        }
+        df_users = pd.concat([df_users, pd.DataFrame([admin_data])], ignore_index=True)
         changes_made = True
 
-if changes_made:
-    save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+    # Liste des utilisateurs essentiels à maintenir
+    essentials = [
+        {'username': 'Ayoub', 'password': 'ayoub2026', 'role': 'Saisie', 'pages': str(['Logistique', 'Suivi', 'Inventaire Détail']), 'depot': 'Expédition'},
+        {'username': 'Islem', 'password': 'islem2026', 'role': 'Saisie', 'pages': str(['Logistique', 'Suivi', 'Inventaire Détail']), 'depot': 'Expédition'},
+        {'username': 'Seif', 'password': 'seif2026', 'role': 'Saisie', 'pages': str(['Inventaire', 'Inventaire Détail']), 'depot': 'Préparation'}
+    ]
+
+    for ess in essentials:
+        if df_users.empty or ess['username'] not in df_users['username'].values:
+            df_users = pd.concat([df_users, pd.DataFrame([ess])], ignore_index=True)
+            changes_made = True
+
+    if changes_made:
+        save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+    
+    st.session_state.setup_done = True
 
 # --- 3. GESTION DE SESSION ET COOKIES ---
 if "current_user" not in st.session_state:
@@ -504,6 +510,7 @@ ALL_PAGES = {
     "Scan Mobile": st.Page("modules/12_mobile_scan.py", title="Scan Mobile", icon="📱"),
     "RH": st.Page("modules/13_rh.py", title="RH & Performance", icon="👥"),
     "Liste des Lots": st.Page("modules/14_liste_des_lots.py", title="Liste des Lots", icon="📑"),
+    "Catalogue Produits": st.Page("modules/17_catalogue_produits.py", title="Catalogue Produits", icon="📚"),
     "Profil": st.Page("modules/17_profil.py", title="Mon Profil", icon="👤")
 }
 
@@ -514,8 +521,11 @@ if is_ia_enabled():
 pages_to_show = {}
 nav_list = []
 
-# On s'assure que Dashboard est en premier si l'utilisateur y a accès
+# On s'assure que Dashboard est en premier et Profil est présent
 ordered_user_pages = user_pages.copy()
+if "Profil" not in ordered_user_pages:
+    ordered_user_pages.insert(0, "Profil")
+    
 if "Dashboard" in ordered_user_pages:
     ordered_user_pages.remove("Dashboard")
     ordered_user_pages.insert(0, "Dashboard")
@@ -550,6 +560,21 @@ with st.sidebar:
     else:
         st.title("💊 Darpharm Solution")
     st.write(f"Connecté: **{user['username']}** ({user.get('role', 'Saisie')})")
+    
+    st.divider()
+    # Sélecteur de Mode de Stockage
+    if "storage_mode" not in st.session_state:
+        st.session_state.storage_mode = "Cloud"
+    
+    st.session_state.storage_mode = st.radio(
+        "📂 Mode de Stockage", 
+        ["Cloud", "Local"], 
+        index=0 if st.session_state.storage_mode == "Cloud" else 1,
+        help="Cloud: Synchronisation directe. Local: Travail sur PC avec synchro manuelle."
+    )
+    
+    if st.session_state.storage_mode == "Local":
+        st.warning("⚡ Mode Local : N'oubliez pas d'exporter vos données vers le Cloud.")
     
     st.divider()
     # Sélecteur de thème

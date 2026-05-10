@@ -10,7 +10,7 @@ from utils_ia import ask_ai, is_ia_enabled
 st.set_page_config(page_title="Inventaire Détail", layout="wide")
 
 # --- 1. CONFIGURATION ---
-from utils_gsheets import load_gs_data, save_gs_data
+from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui
 # --- 1. CONFIGURATION ---
 DATA_DIR = "data_inventaire_detail"
 MASTER_WORKSHEET = "Master_Inventaire_Zone"
@@ -18,6 +18,9 @@ MASTER_FALLBACK = os.path.join(DATA_DIR, "master_detail.csv")
 SAISIE_WORKSHEET = "Saisie_Inventaire_Zone"
 SAISIE_FALLBACK = os.path.join(DATA_DIR, "saisie_detail.csv")
 os.makedirs(DATA_DIR, exist_ok=True)
+
+show_sync_ui(MASTER_WORKSHEET, MASTER_FALLBACK, ["designation", "lot", "ddp", "ppa", "shp", "labo", "stock_theorique"])
+show_sync_ui(SAISIE_WORKSHEET, SAISIE_FALLBACK, ["designation", "lot_master", "lot", "qte_saisie", "ddp_saisi", "ppa_saisi", "agent"])
 COLS_MASTER = ["designation", "lot", "zone", "ddp", "ppa", "shp", "stock_theorique"]
 COLS_SAISIE = ['designation', 'lot_master', 'lot', 'qte_vrac_prepa', 'qte_colis_prepa', 'qte_vrac_mini', 'qte_colis_mini', 'qte_vrac', 'qte_colis', 'qte_saisie', 'ddp_saisi', 'ppa_saisi', 'zone', 'agent']
 
@@ -365,26 +368,19 @@ with tabs[3]:
             st.rerun()
 
         st.divider()
-        st.subheader("⚙️ Gestion des fichiers")
-        up = st.file_uploader("Importer Master Détail (XLSX)", type="xlsx")
-        if up:
-            df_up = pd.read_excel(up)
-            df_up = clean_cols_v5(df_up)
-            save_gs_data(df_up, MASTER_WORKSHEET, MASTER_FALLBACK)
-            st.success("Master Détail synchronisé sur GSheets !")
-            st.rerun()
-                
-        st.divider()
-        c1, c2 = st.columns(2)
+        st.subheader("⚙️ Gestion de la base de données")
+        st.info("💡 **Centralisation activée** : L'importation et la gestion du fichier Master se font désormais exclusivement depuis le module **Admin Centrale** (Onglet Importateur Universel).")
         
-        if c1.button("🗑️ Vider Inventaire (Saisie)", use_container_width=True):
+        if st.button("🔄 Synchroniser avec Admin Centrale", type="primary", use_container_width=True):
+            st.cache_data.clear()
+            st.success("Synchronisation effectuée avec succès !")
+            st.rerun()
+        
+        st.divider()
+        
+        if st.button("🗑️ Vider Inventaire (Saisie)", use_container_width=True, type="secondary"):
             save_gs_data(pd.DataFrame(columns=COLS_SAISIE), SAISIE_WORKSHEET, SAISIE_FALLBACK)
             st.success("Toutes les saisies terrain ont été effacées sur GSheets.")
-            st.rerun()
-                
-        if c2.button("🔴 Supprimer Master", use_container_width=True):
-            save_gs_data(pd.DataFrame(columns=COLS_MASTER), MASTER_WORKSHEET, MASTER_FALLBACK)
-            st.success("Fichier Master vidé sur GSheets.")
             st.rerun()
 
         st.divider()

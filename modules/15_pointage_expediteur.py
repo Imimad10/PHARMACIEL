@@ -7,13 +7,16 @@ import os
 from utils import log_action
 
 # --- CONFIGURATION ET BASE DE DONNÉES ---
-from utils_gsheets import load_gs_data, save_gs_data
+from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui
 # --- CONFIGURATION ET BASE DE DONNÉES ---
 DATA_DIR = "data_pointage"
 LOGIPHARM_WORKSHEET = "Logipharm_Export"
 LOGIPHARM_FALLBACK = os.path.join(DATA_DIR, "current_export.csv")
 HISTORIQUE_WORKSHEET = "Historique_Pointage"
 HISTORIQUE_FALLBACK = "data/db_pointage_hist.csv"
+
+show_sync_ui(LOGIPHARM_WORKSHEET, LOGIPHARM_FALLBACK, [])
+show_sync_ui(HISTORIQUE_WORKSHEET, HISTORIQUE_FALLBACK, ['date_dispatch', 'valide_par', 'reference', 'client', 'region', 'colis', 'statut'])
 
 # Assurer l'existence du dossier data
 os.makedirs(DATA_DIR, exist_ok=True)

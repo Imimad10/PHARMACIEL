@@ -31,6 +31,11 @@ with st.container(border=True):
             detector = cv2.QRCodeDetector()
             data, bbox, _ = detector.detectAndDecode(opencv_image)
             
+            # Tentative de secours en Noir & Blanc si échec
+            if not data:
+                gray = cv2.cvtColor(opencv_image, cv2.COLOR_BGR2GRAY)
+                data, _, _ = detector.detectAndDecode(gray)
+            
             if data:
                 st.success(f"✅ QR Code détecté !")
                 
