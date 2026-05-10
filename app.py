@@ -9,7 +9,7 @@ from streamlit_cookies_controller import CookieController
 st.set_page_config(page_title="Darpharm Solution - Portail", layout="wide", page_icon="💊")
 
 if "theme" not in st.session_state:
-    st.session_state.theme = "Chic Animé"
+    st.session_state.theme = "Clair"
 
 # Définition des styles selon le thème
 extra_css = ""
@@ -623,6 +623,15 @@ if st.session_state.current_user is None:
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
+        col_theme1, col_theme2 = st.columns([2, 1.5])
+        with col_theme2:
+            themes_login = ["Clair", "Sombre", "Chic Animé"]
+            idx_theme = themes_login.index(st.session_state.theme) if st.session_state.theme in themes_login else 0
+            choix_theme = st.selectbox("Thème", themes_login, index=idx_theme, label_visibility="collapsed", key="login_theme_selector")
+            if choix_theme != st.session_state.theme:
+                st.session_state.theme = choix_theme
+                st.rerun()
+
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
         with st.form("login_form"):
             u = st.text_input("Username", placeholder="Nom d'utilisateur", label_visibility="collapsed")
