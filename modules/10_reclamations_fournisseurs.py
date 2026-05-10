@@ -6,7 +6,7 @@ import io
 from PIL import Image
 from utils import log_action
 from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui
-from generator_pdf import generate_reclam_pdf
+from generator_pdf import generate_reclam_pdf, generate_multi_reclam_pdf
 
 # --- CONFIGURATION ---
 WORKSHEET_NAME = "Litiges"
@@ -148,6 +148,43 @@ with tab_list:
     if df_litiges.empty:
         st.info("Aucun litige enregistré.")
     else:
+        # --- SECTION : RAPPORT GROUPÉ ---
+        with st.expander("📊 Générer un Rapport Groupé (Multi-articles)", expanded=False):
+            st.info("Sélectionnez une facture pour générer un PDF contenant tous les articles concernés.")
+            all_invoices = sorted(df_litiges['Facture'].dropna().unique().tolist())
+            selected_inv = st.selectbox("Choisir le N° de Facture", [""] + all_invoices)
+            
+            if selected_inv:
+                df_group = df_litiges[df_litiges['Facture'] == selected_inv]
+                st.write(f"Nombre d'articles trouvés : **{len(df_group)}**")
+                
+                if st.button("📄 Télécharger Rapport Groupé PDF", type="primary"):
+                    items_list = df_group.to_dict('records')
+                    # On renomme les clés pour matcher le générateur
+                    formatted_items = []
+                    for it in items_list:
+                        formatted_items.append({
+                            'date': it['Date'],
+                            'fournisseur': it['Fournisseur'],
+                            'facture': it['Facture'],
+                            'agent': it['Agent'],
+                            'produit': it['Produit'],
+                            'lot': it['Lot'],
+                            'quantite': it['Quantite'],
+                            'type': it['Type'],
+                            'commentaire': it['Commentaire'],
+                            'Photo_Path': it['Photo_Path']
+                        })
+                    
+                    pdf_bytes = generate_multi_reclam_pdf(formatted_items)
+                    st.download_button(
+                        label="📥 Cliquer pour télécharger le PDF Groupé",
+                        data=pdf_bytes,
+                        file_name=f"Rapport_Litiges_{selected_inv}.pdf",
+                        mime="application/pdf"
+                    )
+
+        st.divider()
         # Filtres rapides
         f_fourn = st.text_input("🔍 Rechercher par Fournisseur ou Produit").upper()
         df_view = df_litiges.copy()

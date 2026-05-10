@@ -78,7 +78,61 @@ def generate_reclam_pdf(data, image_path=None):
         pdf.set_font("Arial", 'I', 10)
         pdf.cell(0, 10, "(Aucune photo jointe au dossier)", 0, 1)
 
-    # Output bytes correctly for fpdf2
+    if isinstance(raw, (bytes, bytearray)):
+        return bytes(raw)
+    return raw.encode('latin-1', 'replace')
+
+def generate_multi_reclam_pdf(items_list):
+    """
+    items_list: list of dicts, each containing: 
+    date, fournisseur, facture, agent, produit, lot, quantite, type, commentaire, Photo_Path
+    """
+    pdf = ReclamPDF()
+    pdf.alias_nb_pages()
+    pdf.add_page()
+    
+    if not items_list:
+        return None
+        
+    first = items_list[0]
+    pdf.set_font("Arial", 'B', 14)
+    pdf.set_fill_color(230, 230, 230)
+    pdf.cell(0, 12, f"RAPPORT DE RECLAMATIONS - {first['fournisseur']}", 1, 1, 'C', fill=True)
+    pdf.set_font("Arial", 'B', 11)
+    pdf.cell(0, 10, f"Facture / BL: {first['facture']} | Date: {first['date']}", 0, 1, 'C')
+    pdf.ln(5)
+    
+    for i, item in enumerate(items_list):
+        # Vérifier saut de page
+        if pdf.get_y() > 220:
+            pdf.add_page()
+            
+        pdf.set_font("Arial", 'B', 11)
+        pdf.set_text_color(24, 119, 242)
+        pdf.cell(0, 10, f"ARTICLE #{i+1} : {item['produit']}", "T", 1, 'L')
+        pdf.set_text_color(0, 0, 0)
+        
+        pdf.set_font("Arial", '', 10)
+        pdf.cell(60, 8, f"Lot: {item['lot']}", 0, 0)
+        pdf.cell(60, 8, f"Quantite: {item['quantite']}", 0, 0)
+        pdf.cell(0, 8, f"Motif: {item['type']}", 0, 1)
+        
+        pdf.set_font("Arial", 'I', 9)
+        pdf.multi_cell(0, 6, f"Observations: {item.get('commentaire', 'N/A')}", 0, 'L')
+        
+        # Photo si dispo (version réduite pour le rapport groupé)
+        photo_path = item.get('Photo_Path', '')
+        if photo_path and os.path.exists(photo_path):
+            try:
+                pdf.image(photo_path, x=140, y=pdf.get_y()-15, w=40)
+                pdf.ln(5)
+            except: pass
+        pdf.ln(5)
+        
+    pdf.ln(10)
+    pdf.set_font("Arial", 'I', 9)
+    pdf.cell(0, 10, f"Rapport genere par {first.get('agent', 'Systeme')} le {datetime.now().strftime('%d/%m/%Y %H:%M')}", 0, 0, 'R')
+
     raw = pdf.output()
     if isinstance(raw, (bytes, bytearray)):
         return bytes(raw)
