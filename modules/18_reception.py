@@ -131,15 +131,42 @@ with tabs[0]:
 
     ai_data = st.session_state.get('ai_scan_rec', {})
     
-    # Auto-sélection intelligente
+    # Auto-sélection intelligente avec prise en compte du dosage
     default_prod_index = 0
     if ai_data.get('designation'):
-        matches = difflib.get_close_matches(str(ai_data['designation']).upper(), [str(s).upper() for s in search_list], n=1, cutoff=0.2)
-        if matches:
-            # Trouver l'index original car matches est en majuscule
-            original_match = next((s for s in search_list if str(s).upper() == matches[0]), None)
-            if original_match:
-                default_prod_index = search_list.index(original_match) + 1
+        target_raw = str(ai_data['designation']).upper()
+        
+        # Fonction de normalisation des dosages courants (1000mg = 1g)
+        def normalize_name(text):
+            t = str(text).upper().replace(' ', '')
+            t = re.sub(r'1000MG', '1G', t)
+            t = re.sub(r'1000UI', '1MUI', t) # au cas où
+            return t
+            
+        target_norm = normalize_name(target_raw)
+        nums_target = set(re.findall(r'\d+', target_norm))
+        
+        best_match = None
+        best_score = 0
+        
+        for s in search_list:
+            s_norm = normalize_name(s)
+            ratio = difflib.SequenceMatcher(None, target_norm, s_norm).ratio()
+            
+            nums_candidate = set(re.findall(r'\d+', s_norm))
+            
+            if nums_target and not nums_target.intersection(nums_candidate):
+                ratio -= 0.4
+                
+            if nums_target and nums_target.intersection(nums_candidate):
+                ratio += 0.2
+                
+            if ratio > best_score:
+                best_score = ratio
+                best_match = s
+                
+        if best_match and best_score > 0.4:
+            default_prod_index = search_list.index(best_match) + 1
     
     selected_prod_name = st.selectbox("Sélectionner un produit (Tapez pour chercher)", [""] + search_list, index=default_prod_index)
 
