@@ -5,6 +5,10 @@ import json
 from datetime import datetime
 from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui
 from utils_pdf import generate_reception_pdf
+from utils_ia import ask_ai_vision, is_ia_enabled
+import difflib
+import base64
+import re
 
 # --- CONFIGURATION ---
 DB_RECEPTIONS = "data/db_receptions.csv"
@@ -97,8 +101,47 @@ with tabs[0]:
         if not df_prod.empty:
             col_name = df_prod.columns[0]
             search_list = sorted(df_prod[col_name].dropna().unique().tolist())
+            
+    # --- AI VISION SCANNER ---
+    if is_ia_enabled():
+        with st.expander("📷 Scanner la marchandise avec l'IA", expanded=False):
+            c_img1, c_img2 = st.columns(2)
+            img_cam = c_img1.camera_input("Prendre une photo du produit")
+            img_file = c_img2.file_uploader("Ou importer une image", type=['jpg', 'jpeg', 'png'], key="file_up_rec")
+            img_to_use = img_cam if img_cam else img_file
+            
+            if img_to_use and st.button("🔍 Identifier et Extraire", use_container_width=True, type="primary"):
+                base64_img = base64.b64encode(img_to_use.getvalue()).decode("utf-8")
+                prompt = 'Extrais les informations de ce produit ou vignette. Renvoie UNIQUEMENT un objet JSON avec les clés exactes : "designation" (nom du médicament/produit), "lot" (numéro de lot), "ddp" (date péremption MM/AAAA), "ppa" (prix public, juste le nombre), "shp" (tarif hôpital). Si invisible, mets "".'
+                with st.spinner("L'IA analyse l'image..."):
+                    resp = ask_ai_vision(prompt, base64_img)
+                    try:
+                        match = re.search(r'```json(.*?)```', resp, re.DOTALL)
+                        if match: resp = match.group(1)
+                        else:
+                            start = resp.find('{')
+                            end = resp.rfind('}') + 1
+                            if start != -1 and end != 0: resp = resp[start:end]
+                        
+                        data = json.loads(resp)
+                        st.session_state['ai_scan_rec'] = data
+                        st.success(f"✅ Détection : {data.get('designation')} (Lot: {data.get('lot')})")
+                    except Exception as e:
+                        st.error("Lecture échouée. Essayez une image plus nette.")
+
+    ai_data = st.session_state.get('ai_scan_rec', {})
     
-    selected_prod_name = st.selectbox("Sélectionner un produit (Tapez pour chercher)", [""] + search_list, index=0)
+    # Auto-sélection intelligente
+    default_prod_index = 0
+    if ai_data.get('designation'):
+        matches = difflib.get_close_matches(str(ai_data['designation']).upper(), [str(s).upper() for s in search_list], n=1, cutoff=0.2)
+        if matches:
+            # Trouver l'index original car matches est en majuscule
+            original_match = next((s for s in search_list if str(s).upper() == matches[0]), None)
+            if original_match:
+                default_prod_index = search_list.index(original_match) + 1
+    
+    selected_prod_name = st.selectbox("Sélectionner un produit (Tapez pour chercher)", [""] + search_list, index=default_prod_index)
 
     if selected_prod_name and col_name:
         prod_info = df_prod[df_prod[col_name] == selected_prod_name].iloc[0]
@@ -107,17 +150,21 @@ with tabs[0]:
             st.info(f"Produit sélectionné : **{selected_prod_name}**")
             c1, c2, c3 = st.columns(3)
             qte = c1.number_input("Quantité reçue", min_value=1, step=1)
-            lot = c2.text_input("Numéro de Lot", placeholder="Ex: AX123")
-            ddp = c3.text_input("DDP (Péremption)", placeholder="MM/AAAA")
+            
+            lot_def = str(ai_data.get('lot', ''))
+            ddp_def = str(ai_data.get('ddp', ''))
+            
+            lot = c2.text_input("Numéro de Lot", value=lot_def, placeholder="Ex: AX123")
+            ddp = c3.text_input("DDP (Péremption)", value=ddp_def, placeholder="MM/AAAA")
             
             c4, c5, c6 = st.columns(3)
-            # Utilisation des valeurs de la base indépendante si disponibles
-            def_ppa = float(str(prod_info.get('PPA', 0)).replace(',','.') if pd.notna(prod_info.get('PPA')) else 0)
-            def_shp = float(str(prod_info.get('SHP', 0)).replace(',','.') if pd.notna(prod_info.get('SHP')) else 0)
+            # Priorité à l'IA si détecté, sinon données de la base
+            def_ppa = float(ai_data['ppa']) if ai_data.get('ppa') else float(str(prod_info.get('PPA', 0)).replace(',','.') if pd.notna(prod_info.get('PPA')) else 0)
+            def_shp = float(ai_data['shp']) if ai_data.get('shp') else float(str(prod_info.get('SHP', 0)).replace(',','.') if pd.notna(prod_info.get('SHP')) else 0)
             def_col = int(prod_info.get('Colissage', 1) if pd.notna(prod_info.get('Colissage')) else 1)
 
-            ppa = c4.number_input("PPA (Public)", value=def_ppa)
-            shp = c5.number_input("SHP (Achat)", value=def_shp)
+            ppa = c4.number_input("PPA (Public)", value=float(def_ppa))
+            shp = c5.number_input("SHP (Achat)", value=float(def_shp))
             colissage = c6.number_input("Colissage (U/Colis)", min_value=1, value=def_col)
             
             if st.form_submit_button("➕ Ajouter au pointage", use_container_width=True):
@@ -132,6 +179,7 @@ with tabs[0]:
                     "total_colis": qte / colissage if colissage > 0 else 0
                 }
                 st.session_state.current_reception['items'].append(new_item)
+                if 'ai_scan_rec' in st.session_state: del st.session_state['ai_scan_rec']
                 st.success(f"Ajouté : {selected_prod_name}")
                 st.rerun()
 
