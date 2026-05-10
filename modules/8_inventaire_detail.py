@@ -90,7 +90,7 @@ user = st.session_state.current_user
 user_zone = user.get('zone', 'Aucune')
 
 # Chargement du Master
-df_master = load_gs_data(MASTER_WORKSHEET, MASTER_FALLBACK, COLS_MASTER)
+df_master = load_gs_data(MASTER_WORKSHEET, MASTER_FALLBACK, None)
 if not df_master.empty:
     df_master = clean_cols_v5(df_master)
 else:
