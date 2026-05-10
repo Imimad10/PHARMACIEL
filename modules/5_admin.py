@@ -280,13 +280,14 @@ if tab_ia:
                 
             with st.form("form_ia_config_admin"):
                 ia_en = st.checkbox("🚀 Activer l'IA globalement", value=get_setting('ia_global_enabled', 'True') == 'True')
-                providers = ["Gemini (Google)", "Claude (Anthropic)", "ChatGPT (OpenAI)", "Grok (xAI)"]
-                active_p = st.selectbox("Moteur par défaut", providers, index=providers.index(get_setting('active_ai_provider', 'Gemini (Google)')))
+                providers = ["Gemini (Google)", "Claude (Anthropic)", "ChatGPT (OpenAI)", "Grok (xAI)", "OpenRouter"]
+                active_p = st.selectbox("Moteur par défaut", providers, index=providers.index(get_setting('active_ai_provider', 'OpenRouter')))
                 
                 st.write("---")
                 new_gemini = st.text_input("Clé API Gemini (Google)", value=get_setting('gemini_api_key'), type="password")
                 new_claude = st.text_input("Clé API Claude (Anthropic)", value=get_setting('anthropic_api_key'), type="password")
                 new_openai = st.text_input("Clé API ChatGPT (OpenAI)", value=get_setting('openai_api_key'), type="password")
+                new_openrouter = st.text_input("Clé API OpenRouter", value=get_setting('openrouter_api_key'), type="password")
                 
                 if st.form_submit_button("💾 Sauvegarder la configuration IA", use_container_width=True):
                     def update_setting(name, val):
@@ -299,6 +300,7 @@ if tab_ia:
                     update_setting('gemini_api_key', new_gemini)
                     update_setting('anthropic_api_key', new_claude)
                     update_setting('openai_api_key', new_openai)
+                    update_setting('openrouter_api_key', new_openrouter)
                     update_setting('active_ai_provider', active_p)
                     update_setting('ia_global_enabled', ia_en)
                     

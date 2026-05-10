@@ -24,7 +24,7 @@ def ask_ai(prompt, fallback_msg="⚠️ L'IA n'est pas configurée. Allez dans A
     """Envoie un prompt au fournisseur d'IA actif et retourne la réponse."""
     provider = get_setting('active_ai_provider')
     if not provider:
-        provider = 'Gemini (Google)' # Défaut
+        provider = 'OpenRouter' # Défaut
         
     try:
         if provider == 'Gemini (Google)':
@@ -82,6 +82,16 @@ def ask_ai(prompt, fallback_msg="⚠️ L'IA n'est pas configurée. Allez dans A
             client = OpenAI(api_key=api_key, base_url="https://api.x.ai/v1")
             response = client.chat.completions.create(
                 model="grok-beta",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return response.choices[0].message.content
+            
+        elif provider == 'OpenRouter':
+            api_key = get_setting('openrouter_api_key') or st.secrets.get("OPENROUTER_API_KEY")
+            if not api_key: return fallback_msg
+            client = OpenAI(api_key=api_key, base_url="https://openrouter.ai/api/v1")
+            response = client.chat.completions.create(
+                model="openai/gpt-4o-mini", # Modèle par défaut pour OpenRouter, très rapide et qualitatif
                 messages=[{"role": "user", "content": prompt}]
             )
             return response.choices[0].message.content
