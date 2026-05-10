@@ -8,24 +8,19 @@ from utils_pdf import generate_reception_pdf
 
 # --- CONFIGURATION ---
 DB_RECEPTIONS = "data/db_receptions.csv"
+DB_PRODUITS_RECEPTION = "data/db_reception_produits.csv" # Base INDÉPENDANTE
 COLS_RECEPTIONS = ["id", "date", "fournisseur", "facture_num", "statut", "items", "created_by"]
+COLS_PRODUITS = ["Designation", "PPA", "SHP", "Colissage"] # Colonnes attendues pour cette base
 
-CATALOGUE_PATH = "catalogue_pharmnet.csv"
-
-def load_catalogue():
-    if os.path.exists(CATALOGUE_PATH):
+def load_produits_reception():
+    if os.path.exists(DB_PRODUITS_RECEPTION):
         try:
-            df = pd.read_csv(CATALOGUE_PATH, encoding='utf-8-sig')
+            df = pd.read_csv(DB_PRODUITS_RECEPTION, encoding='utf-8-sig')
+            df.columns = [str(c).strip() for c in df.columns]
+            return df
         except:
-            try:
-                df = pd.read_csv(CATALOGUE_PATH, encoding='latin-1')
-            except:
-                df = pd.read_csv(CATALOGUE_PATH)
-        
-        # Nettoyage des noms de colonnes (espaces invisibles)
-        df.columns = [str(c).strip() for c in df.columns]
-        return df
-    return pd.DataFrame(columns=["Nom Commercial", "PPA", "Tarif de référence"])
+            return pd.read_csv(DB_PRODUITS_RECEPTION)
+    return pd.DataFrame(columns=COLS_PRODUITS)
 
 def save_reception(reception_data):
     df_old = load_gs_data("Receptions", DB_RECEPTIONS, COLS_RECEPTIONS)
@@ -88,19 +83,19 @@ with tabs[0]:
 
     # Formulaire d'ajout de produit
     st.subheader("🔍 Ajouter un Produit")
-    df_cat = load_catalogue()
+    df_prod = load_produits_reception()
     
-    # Barre de recherche intelligente
-    col_name = "Nom Commercial" if "Nom Commercial" in df_cat.columns else ("Nom" if "Nom" in df_cat.columns else None)
+    # Détection de la colonne de désignation (Designation ou Nom)
+    col_name = "Designation" if "Designation" in df_prod.columns else ("Designation" if "Designation" in df_prod.columns else ("Nom" if "Nom" in df_prod.columns else None))
     
     search_list = []
-    if col_name and not df_cat.empty:
-        search_list = df_cat[col_name].dropna().unique().tolist()
+    if col_name and not df_prod.empty:
+        search_list = sorted(df_prod[col_name].dropna().unique().tolist())
     
     selected_prod_name = st.selectbox("Sélectionner un produit (Tapez pour chercher)", [""] + search_list, index=0)
 
     if selected_prod_name and col_name:
-        prod_info = df_cat[df_cat[col_name] == selected_prod_name].iloc[0]
+        prod_info = df_prod[df_prod[col_name] == selected_prod_name].iloc[0]
         
         with st.form("form_add_item", clear_on_submit=True):
             st.info(f"Produit sélectionné : **{selected_prod_name}**")
@@ -110,9 +105,14 @@ with tabs[0]:
             ddp = c3.text_input("DDP (Péremption)", placeholder="MM/AAAA")
             
             c4, c5, c6 = st.columns(3)
-            ppa = c4.number_input("PPA (Public)", value=float(str(prod_info.get('PPA', 0)).replace(',','.') if pd.notna(prod_info.get('PPA')) else 0))
-            shp = c5.number_input("SHP (Achat)", value=float(str(prod_info.get('Tarif de référence', 0)).replace(',','.') if pd.notna(prod_info.get('Tarif de référence')) else 0))
-            colissage = c6.number_input("Colissage (U/Colis)", min_value=1, value=1)
+            # Utilisation des valeurs de la base indépendante si disponibles
+            def_ppa = float(str(prod_info.get('PPA', 0)).replace(',','.') if pd.notna(prod_info.get('PPA')) else 0)
+            def_shp = float(str(prod_info.get('SHP', 0)).replace(',','.') if pd.notna(prod_info.get('SHP')) else 0)
+            def_col = int(prod_info.get('Colissage', 1) if pd.notna(prod_info.get('Colissage')) else 1)
+
+            ppa = c4.number_input("PPA (Public)", value=def_ppa)
+            shp = c5.number_input("SHP (Achat)", value=def_shp)
+            colissage = c6.number_input("Colissage (U/Colis)", min_value=1, value=def_col)
             
             if st.form_submit_button("➕ Ajouter au pointage", use_container_width=True):
                 new_item = {
@@ -232,18 +232,39 @@ with tabs[2]:
     show_sync_ui("Receptions", DB_RECEPTIONS, COLS_RECEPTIONS)
     
     st.divider()
-    st.markdown("### 📥 Mise à jour du catalogue produits")
-    st.info("Déposez ici votre fichier 'catalogue_pharmnet.csv' mis à jour ou un Excel pour actualiser la liste des produits disponibles au pointage.")
+    st.markdown("### 📦 Base de données Produits (Réception)")
+    st.info("Cette base est **indépendante** du catalogue général. Elle contient les produits spécifiques que vous pointez en réception.")
     
-    up_cat = st.file_uploader("Fichier Catalogue (CSV ou Excel)", type=["csv", "xlsx"])
-    if up_cat:
-        if up_cat.name.endswith('.xlsx'):
-            df_new_cat = pd.read_excel(up_cat)
+    # Affichage de la base actuelle
+    df_prod_current = load_produits_reception()
+    if not df_prod_current.empty:
+        st.write(f"Nombre de produits enregistrés : **{len(df_prod_current)}**")
+        with st.expander("Voir / Modifier la liste actuelle"):
+            edited_prod = st.data_editor(df_prod_current, use_container_width=True, num_rows="dynamic", key="editor_prod_rec")
+            if st.button("💾 Sauvegarder les modifications manuelles"):
+                edited_prod.to_csv(DB_PRODUITS_RECEPTION, index=False, encoding='utf-8-sig')
+                st.success("Base de données produits mise à jour !")
+                st.rerun()
+    
+    st.divider()
+    st.markdown("### 📥 Importation par Drag & Drop")
+    st.write("Importez un fichier Excel ou CSV pour mettre à jour massivement votre liste de produits.")
+    
+    up_prod = st.file_uploader("Fichier Produits Réception (Excel ou CSV)", type=["csv", "xlsx"])
+    if up_prod:
+        if up_prod.name.endswith('.xlsx'):
+            df_new_prod = pd.read_excel(up_prod)
         else:
-            df_new_cat = pd.read_csv(up_cat)
+            df_new_prod = pd.read_csv(up_prod)
         
-        st.dataframe(df_new_cat.head())
-        if st.button("💾 Remplacer le catalogue actuel"):
-            df_new_cat.to_csv(CATALOGUE_PATH, index=False, encoding='utf-8-sig')
-            st.success("Catalogue mis à jour !")
+        # Nettoyage des colonnes
+        df_new_prod.columns = [str(c).strip() for c in df_new_prod.columns]
+        
+        st.write("Aperçu du fichier importé :")
+        st.dataframe(df_new_prod.head())
+        
+        if st.button("🚀 Remplacer la base de données par ce fichier", type="primary"):
+            # On s'assure que les colonnes minimales existent
+            df_new_prod.to_csv(DB_PRODUITS_RECEPTION, index=False, encoding='utf-8-sig')
+            st.success("La base de données des produits de réception a été remplacée avec succès !")
             st.rerun()
