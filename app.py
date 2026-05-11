@@ -716,7 +716,7 @@ if is_ia_enabled():
 pages_to_show = {}
 nav_list = []
 
-# On s'assure que Dashboard est en premier et Profil est présent
+# On s'assure que Dashboard est en premier, Profil en second, et Assistant IA à la fin
 ordered_user_pages = user_pages.copy()
 if "Profil" not in ordered_user_pages:
     ordered_user_pages.insert(0, "Profil")
@@ -724,6 +724,9 @@ if "Profil" not in ordered_user_pages:
 if "Dashboard" in ordered_user_pages:
     ordered_user_pages.remove("Dashboard")
     ordered_user_pages.insert(0, "Dashboard")
+    
+if "Assistant IA" not in ordered_user_pages:
+    ordered_user_pages.append("Assistant IA")
 
 for p_name in ordered_user_pages:
     if p_name in ALL_PAGES:
