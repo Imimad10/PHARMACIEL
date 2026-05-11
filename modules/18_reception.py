@@ -113,14 +113,17 @@ with tabs[0]:
                             base64_img = base64.b64encode(img.getvalue()).decode("utf-8")
                             
                             system_prompt = """
-                            Tu es un expert en lecture de vignettes pharmaceutiques algériennes.
-                            Extrais :
-                            1. "designation" : Nom COMPLET + Dosage (ex: 250mg) + Forme/Conditionnement (ex: Boite de 14 Comps).
+                            Tu es un expert en vignettes pharmaceutiques algériennes.
+                            Règles de lecture :
+                            1. "designation" : ORDRE OBLIGATOIRE = Nom Commercial (en majuscules) suivi de la DCI entre parenthèses, puis Dosage et Conditionnement.
+                               Exemple: "ONYCAL (Terbinafine chlorhydrate) 250mg Boite de 14 Comps".
                             2. "lot" : Numéro de lot.
                             3. "ddp" : Date péremption (MM/AAAA).
-                            4. "ppa_reel" : Le prix PPA SANS SHP (si tu vois '1043.70 + 1.50', ppa_reel est '1043.70').
-                            5. "shp_val" : La valeur SHP après le '+' (ex: '1.50').
-                            6. "couleur" : Couleur de la bande de la vignette (verte, rouge ou blanche).
+                            4. PPA / SHP : Cherche le format "PRIX_A + PRIX_B".
+                               - "ppa_reel" est PRIX_A (le prix AVANT le symbole '+').
+                               - "shp_val" est PRIX_B (la valeur APRÈS le symbole '+', ex: 1.50 ou 2.50).
+                               - Ne renvoie JAMAIS la somme totale comme PPA si une décomposition est visible.
+                            5. "couleur" : Couleur de la bande (verte, rouge, blanche).
                             """
                             
                             if scan_mode == "Par Produit (Unique)":
@@ -166,11 +169,10 @@ with tabs[0]:
         selected_prod = st.selectbox("Sélectionner dans la liste", [""] + search_list, index=default_idx)
         prod_name = selected_prod
     else:
-        prod_name = st.text_input("Désignation Libre (Nom + Dosage + Cond.)", value=current_ai_item.get('designation', ""))
+        prod_name = st.text_input("Désignation Libre (NOM (DCI) Dosage Cond.)", value=current_ai_item.get('designation', ""))
 
     if prod_name or current_ai_item:
         with st.form("form_add_rec", clear_on_submit=True):
-            # Badge de couleur de vignette
             v_color = current_ai_item.get('couleur', 'blanche').lower()
             color_map = {"verte": "🟢 Verte (Remboursable)", "rouge": "🔴 Rouge", "blanche": "⚪ Blanche (Non remboursable)"}
             st.markdown(f"Produit : **{prod_name}** | Vignette : **{color_map.get(v_color, v_color)}**")
@@ -183,7 +185,6 @@ with tabs[0]:
             st.markdown("---")
             c_ppa, c_shp, c_col = st.columns(3)
             
-            # PPA Réel (sans SHP)
             base_ppa = 0.0
             if saisie_mode == "Traditionnel (Liste)" and selected_prod:
                 row = df_prod[df_prod[col_name] == selected_prod].iloc[0]
@@ -191,24 +192,25 @@ with tabs[0]:
             
             if current_ai_item.get('ppa_reel'): 
                 base_ppa = float(current_ai_item['ppa_reel'])
-            elif current_ai_item.get('ppa'): # Fallback ancien format
+            elif current_ai_item.get('ppa'): 
                 base_ppa = float(current_ai_item['ppa'])
             
-            ppa = c_ppa.number_input("PPA (Prix Public SANS SHP)", value=base_ppa, step=0.01)
+            ppa = c_ppa.number_input("PPA (Prix sans SHP)", value=base_ppa, step=0.01)
             
-            # SHP Auto-détection
             detected_shp = 0.0
             if current_ai_item.get('shp_val'):
                 try: detected_shp = float(current_ai_item['shp_val'])
                 except: pass
             
-            # On cherche le taux le plus proche si c'est une valeur
             shp_options = [2.5, 1.5, 0.0]
             default_shp_idx = 0
-            if detected_shp in shp_options:
-                default_shp_idx = shp_options.index(detected_shp)
+            if detected_shp is not None:
+                for i, opt in enumerate(shp_options):
+                    if abs(opt - detected_shp) < 0.1:
+                        default_shp_idx = i
+                        break
             
-            shp_choice = c_shp.selectbox("SHP (Taux / Valeur)", shp_options, index=default_shp_idx)
+            shp_choice = c_shp.selectbox("SHP (Taux)", shp_options, index=default_shp_idx)
             
             colissage = c_col.number_input("Colissage", min_value=1, value=1)
             
