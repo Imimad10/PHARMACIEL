@@ -111,10 +111,22 @@ with tabs[0]:
                         results = []
                         for img in all_images:
                             base64_img = base64.b64encode(img.getvalue()).decode("utf-8")
+                            
+                            system_prompt = """
+                            Tu es un expert en lecture de vignettes pharmaceutiques algériennes.
+                            Extrais :
+                            1. "designation" : Nom COMPLET + Dosage (ex: 250mg) + Forme/Conditionnement (ex: Boite de 14 Comps).
+                            2. "lot" : Numéro de lot.
+                            3. "ddp" : Date péremption (MM/AAAA).
+                            4. "ppa_reel" : Le prix PPA SANS SHP (si tu vois '1043.70 + 1.50', ppa_reel est '1043.70').
+                            5. "shp_val" : La valeur SHP après le '+' (ex: '1.50').
+                            6. "couleur" : Couleur de la bande de la vignette (verte, rouge ou blanche).
+                            """
+                            
                             if scan_mode == "Par Produit (Unique)":
-                                prompt = 'Analyse ce produit. Retourne UNIQUEMENT un objet JSON : {"designation": "...", "lot": "...", "ddp": "MM/AAAA", "ppa": 0.0, "shp": 0.0}.'
+                                prompt = system_prompt + '\nRetourne UNIQUEMENT un objet JSON : {"designation": "...", "lot": "...", "ddp": "...", "ppa_reel": 0.0, "shp_val": 0.0, "couleur": "..."}.'
                             else:
-                                prompt = 'Analyse ces vignettes. Retourne UNIQUEMENT une LISTE d\'objets JSON : [{"designation": "...", "lot": "...", "ddp": "MM/AAAA", "ppa": 0.0, "shp": 0.0}, ...].'
+                                prompt = system_prompt + '\nRetourne UNIQUEMENT une LISTE d\'objets JSON : [{"designation": "...", "lot": "...", "ddp": "...", "ppa_reel": 0.0, "shp_val": 0.0, "couleur": "..."}, ...].'
                             
                             resp = ask_ai_vision(prompt, base64_img)
                             try:
@@ -146,7 +158,6 @@ with tabs[0]:
     current_ai_item = ai_queue[0] if ai_queue else {}
 
     if saisie_mode == "Traditionnel (Liste)":
-        # Auto-match si données IA
         default_idx = 0
         if current_ai_item.get('designation'):
             matches = difflib.get_close_matches(current_ai_item['designation'].upper(), search_list, n=1, cutoff=0.4)
@@ -155,11 +166,15 @@ with tabs[0]:
         selected_prod = st.selectbox("Sélectionner dans la liste", [""] + search_list, index=default_idx)
         prod_name = selected_prod
     else:
-        prod_name = st.text_input("Désignation Libre", value=current_ai_item.get('designation', ""))
+        prod_name = st.text_input("Désignation Libre (Nom + Dosage + Cond.)", value=current_ai_item.get('designation', ""))
 
     if prod_name or current_ai_item:
         with st.form("form_add_rec", clear_on_submit=True):
-            st.info(f"Produit : **{prod_name}**")
+            # Badge de couleur de vignette
+            v_color = current_ai_item.get('couleur', 'blanche').lower()
+            color_map = {"verte": "🟢 Verte (Remboursable)", "rouge": "🔴 Rouge", "blanche": "⚪ Blanche (Non remboursable)"}
+            st.markdown(f"Produit : **{prod_name}** | Vignette : **{color_map.get(v_color, v_color)}**")
+            
             col1, col2, col3 = st.columns(3)
             qte = col1.number_input("Quantité", min_value=1, step=1)
             lot = col2.text_input("Lot", value=str(current_ai_item.get('lot', ""))).upper()
@@ -168,17 +183,32 @@ with tabs[0]:
             st.markdown("---")
             c_ppa, c_shp, c_col = st.columns(3)
             
-            # PPA en premier
+            # PPA Réel (sans SHP)
             base_ppa = 0.0
             if saisie_mode == "Traditionnel (Liste)" and selected_prod:
                 row = df_prod[df_prod[col_name] == selected_prod].iloc[0]
                 base_ppa = float(str(row.get('PPA', 0)).replace(',','.'))
-            if current_ai_item.get('ppa'): base_ppa = float(current_ai_item['ppa'])
             
-            ppa = c_ppa.number_input("PPA (Prix Public)", value=base_ppa)
+            if current_ai_item.get('ppa_reel'): 
+                base_ppa = float(current_ai_item['ppa_reel'])
+            elif current_ai_item.get('ppa'): # Fallback ancien format
+                base_ppa = float(current_ai_item['ppa'])
             
-            # SHP avec choix imposés
-            shp_choice = c_shp.selectbox("SHP (Taux)", [2.5, 1.5, 0.0], index=0)
+            ppa = c_ppa.number_input("PPA (Prix Public SANS SHP)", value=base_ppa, step=0.01)
+            
+            # SHP Auto-détection
+            detected_shp = 0.0
+            if current_ai_item.get('shp_val'):
+                try: detected_shp = float(current_ai_item['shp_val'])
+                except: pass
+            
+            # On cherche le taux le plus proche si c'est une valeur
+            shp_options = [2.5, 1.5, 0.0]
+            default_shp_idx = 0
+            if detected_shp in shp_options:
+                default_shp_idx = shp_options.index(detected_shp)
+            
+            shp_choice = c_shp.selectbox("SHP (Taux / Valeur)", shp_options, index=default_shp_idx)
             
             colissage = c_col.number_input("Colissage", min_value=1, value=1)
             
@@ -189,16 +219,13 @@ with tabs[0]:
                     "ddp": ddp,
                     "qte": qte,
                     "ppa": ppa,
-                    "shp": shp_choice, # On stocke le taux ou on peut calculer la valeur
+                    "shp": shp_choice,
+                    "couleur": v_color,
                     "colissage": colissage,
                     "total_colis": qte / colissage if colissage > 0 else 0
                 }
                 st.session_state.current_reception['items'].append(new_item)
-                
-                # Consommer l'item IA
-                if ai_queue:
-                    st.session_state['ai_results_rec'].pop(0)
-                
+                if ai_queue: st.session_state['ai_results_rec'].pop(0)
                 st.success(f"Ajouté : {prod_name}")
                 st.rerun()
 
@@ -208,9 +235,10 @@ with tabs[0]:
         st.subheader("📋 Produits pointés")
         for i, item in enumerate(st.session_state.current_reception['items']):
             c1, c2, c3, c4 = st.columns([4, 2, 2, 0.5])
-            c1.write(f"**{item['produit']}**")
+            c_icon = "🟢" if item.get('couleur') == "verte" else "🔴" if item.get('couleur') == "rouge" else "⚪"
+            c1.write(f"{c_icon} **{item['produit']}**")
             c2.write(f"Lot: {item['lot']} | DDP: {item['ddp']}")
-            c3.write(f"PPA: {item['ppa']} | SHP: {item['shp']}%")
+            c3.write(f"PPA: {item['ppa']} | SHP: {item['shp']}")
             if c4.button("🗑️", key=f"del_{i}"):
                 st.session_state.current_reception['items'].pop(i)
                 st.rerun()
@@ -240,7 +268,6 @@ with tabs[0]:
             if 'ai_results_rec' in st.session_state: del st.session_state['ai_results_rec']
             st.rerun()
 
-# --- ONGLET 2 & 3 (Gardés tels quels ou simplifiés) ---
 with tabs[1]:
     st.subheader("📊 Historique")
     df_rec = load_gs_data("Receptions", DB_RECEPTIONS, COLS_RECEPTIONS)
