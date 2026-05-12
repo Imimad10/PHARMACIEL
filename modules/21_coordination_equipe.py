@@ -15,6 +15,50 @@ st.markdown("### Gérez vos 8h de travail efficacement")
 df_tasks = load_gs_data(TASKS_WORKSHEET, TASKS_FALLBACK, COLS_TASKS)
 agents = ["Ayoub", "Islem", "Imad", "Seif"]
 
+# --- 3. AJOUT TÂCHE (SUR LA PAGE PRINCIPALE) ---
+with st.expander("➕ Assigner une nouvelle tâche manuellement", expanded=False):
+    # Missions prédéfinies pour faciliter le choix
+    COMMON_MISSIONS = [
+        "Personnalisé...",
+        "📦 Déchargement Camion (Arrivage)",
+        "🔍 Vérification Vignettes & État",
+        "❄️ Inventaire Chambre Froide",
+        "🛒 Préparation de Commande (Picking)",
+        "🔄 Transfert Gros ➔ Principal",
+        "📝 Rédaction Fiches de Vérification",
+        "🚚 Pointage Expédition",
+        "🏢 Gestion Réclamation Fournisseur",
+        "🧹 Nettoyage & Rangement Zone"
+    ]
+    
+    with st.form("form_task", clear_on_submit=True):
+        selected_template = st.selectbox("Choisir un modèle de mission :", COMMON_MISSIONS)
+        task_input = st.text_area("Description ou détails de la mission :", placeholder="Ajoutez des détails si nécessaire...")
+        
+        # Logique pour utiliser le modèle ou le texte saisi
+        final_task = task_input if selected_template == "Personnalisé..." else selected_template
+        if selected_template != "Personnalisé..." and task_input:
+            final_task = f"{selected_template} : {task_input}"
+
+        col1, col2 = st.columns(2)
+        assigned = col1.selectbox("Assigner à", agents)
+        priority = col2.select_slider("Priorité", options=["Basse", "Moyenne", "Haute", "Critique"], value="Moyenne")
+        
+        if st.form_submit_button("🚀 Lancer la mission", use_container_width=True):
+            if final_task and final_task != "Personnalisé...":
+                new_row = {
+                    "id": len(df_tasks) + 1,
+                    "creation_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "task": final_task,
+                    "assigned_to": assigned,
+                    "priority": priority,
+                    "status": "À faire"
+                }
+                df_tasks = pd.concat([df_tasks, pd.DataFrame([new_row])], ignore_index=True)
+                save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                st.success("Mission ajoutée !")
+                st.rerun()
+
 # --- 2. ASSISTANT IA POUR LE CHEF D'ÉQUIPE (LOGIQUE ÉQUITABLE) ---
 with st.expander("🤖 Assistant IA - Planification & Équité", expanded=True):
     st.info("L'IA répartit le travail équitablement selon les spécialités : Islem (Préparation/Bons), Ayoub & Seif (Généralistes).")

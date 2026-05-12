@@ -108,7 +108,32 @@ for i, (name, emoji, earned, desc) in enumerate(trophy_list):
 
 st.divider()
 
-# --- SECTION 3 : SÉCURITÉ ---
+# --- SECTION 2.5 : MISSIONS & RÉCOMPENSES ---
+st.header("🌟 Mes Missions & Primes")
+TASKS_WORKSHEET = "DB_Tasks_Team"
+TASKS_FALLBACK = "data/db_tasks.csv"
+COLS_TASKS = ["id", "creation_date", "task", "assigned_to", "priority", "status"]
+
+df_tasks = load_gs_data(TASKS_WORKSHEET, TASKS_FALLBACK, COLS_TASKS)
+if not df_tasks.empty:
+    user_tasks = df_tasks[(df_tasks['assigned_to'] == username) & (df_tasks['status'] == "Terminé")]
+    num_completed = len(user_tasks)
+    prime_est = num_completed * 100 # 100 DA par mission
+    
+    col_p1, col_p2, col_p3 = st.columns(3)
+    col_p1.metric("Missions Accomplies", num_completed, help="Nombre de tâches marquées comme terminées ce mois-ci.")
+    col_p2.metric("Prime Estimée", f"{prime_est} DA", delta=f"{num_completed*10} pts", help="Basé sur 100 DA par mission.")
+    
+    if num_completed > 0:
+        st.success(f"Bravo {username} ! Vous êtes dans le top performance ce mois-ci. 🚀")
+        with st.expander("📝 Détail de mes missions terminées"):
+            st.table(user_tasks[['creation_date', 'task', 'priority']])
+    else:
+        st.info("Aucune mission terminée pour le moment. Acceptez une tâche dans le module 'Coordination Équipe' pour commencer à cumuler des primes !")
+else:
+    st.info("Le système de missions est en attente de données.")
+
+st.divider()
 st.header("🔐 Sécurité")
 with st.form("change_pwd_profile"):
     st.write("Changer mon mot de passe")
