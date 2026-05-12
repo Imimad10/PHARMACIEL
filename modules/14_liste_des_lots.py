@@ -29,20 +29,37 @@ def clean_cols_v5(df):
         'n°lot': 'lot', 'nlot': 'lot', 'lot': 'lot', 'batch': 'lot',
         'peremption': 'ddp', 'ddp': 'ddp', 'exp': 'ddp', 'date': 'ddp',
         'ppa': 'ppa', 'shp': 'shp', 'zone': 'zone', 'emplacement': 'zone', 'sector': 'zone',
-        'depot': 'depot', 'dépôt': 'depot'
+        'depot': 'depot', 'dépôt': 'depot', 'qte_logi': 'stock_theorique', 'quantite': 'stock_theorique'
     }
-    stock_keywords = ['quantit', 'stock', 'theorique', 'qte', 'dispo']
+    # Mots-clés élargis pour le stock
+    stock_keywords = ['quantit', 'stock', 'theorique', 'qte', 'dispo', 'logi', 'theor']
     new_cols = []
     found = set()
-    for col in df.columns:
+    
+    # 1. Nettoyage des noms de colonnes originaux
+    original_cols = [str(c).strip() for c in df.columns]
+    
+    for col in original_cols:
         norm = normalize_text(col)
         target = None
+        
+        # Mapping direct
         for k, v in mapping.items():
-            if k in norm and v not in found:
+            if k == norm and v not in found:
                 target = v; found.add(v); break
+        
+        # Mapping par mot-clé (si pas trouvé en direct)
+        if not target:
+            for k, v in mapping.items():
+                if k in norm and v not in found:
+                    target = v; found.add(v); break
+        
+        # Détection stock par mots-clés génériques
         if not target and any(key in norm for key in stock_keywords) and 'stock_theorique' not in found:
             target = 'stock_theorique'; found.add(target)
+            
         new_cols.append(target if target else norm)
+    
     df.columns = new_cols
     return df
 
@@ -129,10 +146,36 @@ with tabs[0]:
     
     # Restreindre l'affichage aux colonnes désirées
     cols_to_show = ['depot', 'designation', 'lot', 'zone', 'stock_theorique', 'ddp', 'ppa', 'shp']
+    
+    # Sécurité : Si stock_theorique n'est pas trouvé, chercher une colonne alternative
+    if 'stock_theorique' not in df_display.columns:
+        for c in df_display.columns:
+            if any(k in str(c).lower() for k in ['qte', 'stock', 'quantit']):
+                cols_to_show.append(c)
+                break
+
     cols_to_show = [c for c in cols_to_show if c in df_display.columns]
     
     # Renommer pour l'affichage utilisateur
-    df_final = df_display[cols_to_show].rename(columns={'stock_theorique': 'Quantité', 'depot': 'Dépôt', 'designation': 'Désignation', 'lot': 'Lot', 'zone': 'Zone', 'ddp': 'DDP', 'ppa': 'PPA', 'shp': 'SHP'})
+    rename_map = {
+        'stock_theorique': 'Quantité', 
+        'depot': 'Dépôt', 
+        'designation': 'Désignation', 
+        'lot': 'Lot', 
+        'zone': 'Zone', 
+        'ddp': 'DDP', 
+        'ppa': 'PPA', 
+        'shp': 'SHP'
+    }
+    # Ajouter les colonnes dynamiques au rename_map si besoin
+    for c in cols_to_show:
+        if c not in rename_map:
+            if any(k in str(c).lower() for k in ['qte', 'stock', 'quantit']):
+                rename_map[c] = 'Quantité'
+            else:
+                rename_map[c] = str(c).capitalize()
+
+    df_final = df_display[cols_to_show].rename(columns=rename_map)
     
     st.dataframe(df_final, use_container_width=True, hide_index=True)
 
@@ -144,7 +187,13 @@ with tabs[1]:
     c2.metric("Total Lots Différents", len(df_filtered))
     
     if 'stock_theorique' in df_filtered.columns:
-        total_stock = pd.to_numeric(df_filtered['stock_theorique'], errors='coerce').sum()
+        # Conversion numérique propre
+        df_filtered['stock_theorique'] = pd.to_numeric(df_filtered['stock_theorique'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+        total_stock = df_filtered['stock_theorique'].sum()
+        c3.metric("Stock Théorique Cumulé", f"{total_stock:,.0f}")
+    elif 'qte_logi' in df_filtered.columns:
+        df_filtered['qte_logi'] = pd.to_numeric(df_filtered['qte_logi'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+        total_stock = df_filtered['qte_logi'].sum()
         c3.metric("Stock Théorique Cumulé", f"{total_stock:,.0f}")
     
     st.divider()
