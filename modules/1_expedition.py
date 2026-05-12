@@ -113,22 +113,16 @@ with tab_exp:
     all_sectors = sorted([str(s).strip().lower() for s in df_clients['Secteur'].dropna().unique() if str(s).lower() != 'nan'])
 
     with col_g1:
-        livreur_choisi = st.selectbox("Choisir le livreur", liste_livreurs)
-        # Déterminer le secteur par défaut du livreur
-        secteur_par_defaut = ""
-        if livreur_choisi:
-            row_l = df_livreurs[df_livreurs['Nom'].str.upper() == str(livreur_choisi).upper()]
-            if not row_l.empty:
-                secteur_par_defaut = str(row_l.iloc[0]['Secteur']).strip().lower()
+        # Sélection libre du secteur (Région)
+        secteur_affichage = st.selectbox("🌍 Région / Secteur à traiter", ["Tous"] + all_sectors)
         
-        # Sélecteur de secteur libre (choix de la région)
-        default_idx = (all_sectors.index(secteur_par_defaut) + 1) if secteur_par_defaut in all_sectors else 0
-        secteur_affichage = st.selectbox("🌍 Région / Secteur à traiter", ["Tous"] + all_sectors, index=default_idx)
+        # Sélection libre du livreur (Indépendante du secteur)
+        livreur_choisi = st.selectbox("👤 Choisir le livreur pour cette mission", liste_livreurs)
         
         if secteur_affichage != "Tous":
-            st.success(f"📍 Filtre actif : **{secteur_affichage.upper()}**")
+            st.success(f"📍 Secteur actif : **{secteur_affichage.upper()}**")
         else:
-            st.info("🔓 Affichage de toutes les régions")
+            st.info("🔓 Toutes les régions affichées")
 
     with col_d1:
         date_exp = st.date_input("Date d'expédition")
@@ -494,31 +488,39 @@ with tab_suivi_sav:
 
 # 4. ADMINISTRATION
 with tab_admin:
-    st.header("⚙️ Paramètres du module")
+    # Gestion des Livreurs
+    st.divider()
+    st.subheader("👥 Gestion des Livreurs & Secteurs")
+    df_liv_admin = load_livreurs()
     
-    st.subheader("📋 Gestion des Motifs (Réclamations)")
-    current_motifs = load_motifs()
-    
-    col_m1, col_m2 = st.columns([2, 1])
-    with col_m1:
-        new_motif = st.text_input("Nouveau motif")
-    with col_m2:
-        st.write("###")
-        if st.button("➕ Ajouter Motif"):
-            if new_motif and new_motif not in current_motifs:
-                current_motifs.append(new_motif)
-                save_motifs(current_motifs)
+    with st.expander("➕ Ajouter / Modifier un Livreur"):
+        c_l1, c_l2, c_l3 = st.columns(3)
+        l_nom = c_l1.text_input("Nom du Livreur")
+        l_sect = c_l2.selectbox("Secteur Assigné (Par défaut)", [""] + all_sectors)
+        l_tel = c_l3.text_input("Téléphone")
+        
+        if st.button("💾 Enregistrer Livreur"):
+            if l_nom:
+                new_l = pd.DataFrame([{"Nom": l_nom, "Secteur": l_sect, "Téléphone": l_tel, "Prénom": ""}])
+                if not df_liv_admin.empty and l_nom in df_liv_admin['Nom'].values:
+                    df_liv_admin.loc[df_liv_admin['Nom'] == l_nom, ['Secteur', 'Téléphone']] = [l_sect, l_tel]
+                else:
+                    df_liv_admin = pd.concat([df_liv_admin, new_l], ignore_index=True)
+                save_livreurs(df_liv_admin)
+                st.success(f"Livreur {l_nom} mis à jour !")
                 st.rerun()
-    
-    # Liste des motifs avec bouton supprimer
-    st.write("Motifs actuels :")
-    for i, m in enumerate(current_motifs):
-        c_m1, c_m2 = st.columns([3, 1])
-        c_m1.text(f"• {m}")
-        if c_m2.button("🗑️", key=f"del_m_{i}"):
-            current_motifs.pop(i)
-            save_motifs(current_motifs)
-            st.rerun()
+
+    if not df_liv_admin.empty:
+        st.write("Liste des livreurs actifs :")
+        for i, row in df_liv_admin.iterrows():
+            cl1, cl2, cl3, cl4 = st.columns([2, 2, 2, 0.5])
+            cl1.text(f"👤 {row['Nom']}")
+            cl2.text(f"📍 {row['Secteur']}")
+            cl3.text(f"📞 {row.get('Téléphone', '')}")
+            if cl4.button("🗑️", key=f"del_liv_{i}"):
+                df_liv_admin = df_liv_admin.drop(i)
+                save_livreurs(df_liv_admin)
+                st.rerun()
 
     st.divider()
     if st.session_state.current_user.get('role') == 'Admin':
