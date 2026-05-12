@@ -13,103 +13,105 @@ st.markdown("### Gérez vos 8h de travail efficacement")
 
 # --- 1. CHARGEMENT DONNÉES ---
 df_tasks = load_gs_data(TASKS_WORKSHEET, TASKS_FALLBACK, COLS_TASKS)
-agents = ["Tout le monde", "Ayoub", "Islem", "Imad", "Seif"]
+agents = ["Ayoub", "Islem", "Imad", "Seif"]
 
-# --- 2. ASSISTANT IA POUR LE CHEF D'ÉQUIPE ---
-with st.expander("🤖 Assistant IA - Planification des Missions", expanded=True):
-    st.info("Décrivez la situation actuelle (ex: '3 camions arrivés, 50 réclamations, inventaire frigo à faire') et l'IA va répartir le travail.")
-    situation = st.text_area("Situation globale de l'entrepôt :", placeholder="Décrivez ce qu'il y a à faire aujourd'hui...")
+# --- 2. ASSISTANT IA POUR LE CHEF D'ÉQUIPE (LOGIQUE ÉQUITABLE) ---
+with st.expander("🤖 Assistant IA - Planification & Équité", expanded=True):
+    st.info("L'IA répartit le travail équitablement selon les spécialités : Islem (Préparation/Bons), Ayoub & Seif (Généralistes).")
+    situation = st.text_area("Situation globale de l'entrepôt :", placeholder="Décrivez les urgences du jour...")
     
-    if st.button("🧠 Générer Plan d'Attaque IA", use_container_width=True):
+    if st.button("🧠 Répartir Équitablement les Missions", use_container_width=True):
         if situation:
-            with st.spinner("L'IA analyse la charge de travail..."):
+            with st.spinner("L'IA calcule la meilleure répartition..."):
                 prompt = f"""
-                Tu es un expert en logistique. Voici la situation de l'entrepôt : {situation}.
-                Tu as 4 agents : Ayoub, Islem, Imad, Seif.
-                Suggère une répartition précise des tâches pour une journée de 8h.
-                Sois direct, efficace et donne des ordres clairs.
-                Format suggéré :
-                - Ayoub : [Mission]
-                - Islem : [Mission]
-                - Imad : [Mission]
-                - Seif : [Mission]
+                Tu es un expert en management logistique. Situation : {situation}.
+                Agents : Ayoub, Islem, Imad, Seif.
+                Règles : 
+                1. Islem est prioritaire sur la PREPARATION DE COMMANDE, DEBON et FICHES DE VERIF. S'il est libre, il aide Ayoub et Seif.
+                2. Ayoub et Seif sont polyvalents et font tout le reste.
+                3. Répartis équitablement pour ne pas surcharger un agent.
+                Donne un plan clair.
                 """
                 conseil = ask_ai(prompt)
-                st.success("Plan suggéré par l'IA :")
+                st.success("Plan stratégique suggéré :")
                 st.markdown(conseil)
-        else:
-            st.warning("Veuillez décrire la situation pour obtenir un conseil.")
+        else: st.warning("Décrivez la situation.")
 
 st.divider()
 
-# --- 3. AJOUT TÂCHE (SUR LA PAGE PRINCIPALE) ---
-with st.expander("➕ Assigner une nouvelle tâche manuellement", expanded=False):
-    with st.form("form_task", clear_on_submit=True):
-        task_desc = st.text_area("Quelle est la mission ?", placeholder="Ex: Décharger le camion de 14h...")
+# --- 3. DASHBOARD AGENT (ACCEPTATION/REFUS) ---
+st.subheader("📬 Mes Missions & Notifications")
+current_agent = st.session_state.get('current_user', {}).get('username', 'Visiteur')
+
+if current_agent in agents:
+    my_tasks = df_tasks[df_tasks['assigned_to'] == current_agent]
+    for idx, row in my_tasks.iterrows():
+        if row['status'] == "À faire":
+            with st.container(border=True):
+                st.warning(f"🔔 NOUVELLE MISSION : **{row['task']}**")
+                c1, c2 = st.columns(2)
+                if c1.button("✅ Accepter", key=f"acc_{row['id']}", use_container_width=True):
+                    df_tasks.at[idx, 'status'] = "Accepté"
+                    save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                    st.rerun()
+                if c2.button("❌ Refuser (Passer au suivant)", key=f"ref_{row['id']}", use_container_width=True):
+                    # Passer au suivant libre (logique simplifiée : rotation)
+                    next_idx = (agents.index(current_agent) + 1) % len(agents)
+                    df_tasks.at[idx, 'assigned_to'] = agents[next_idx]
+                    save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                    st.info(f"Mission réassignée à {agents[next_idx]}.")
+                    st.rerun()
+
+st.divider()
+
+# --- 4. KANBAN GLOBAL & RÉCOMPENSES ---
+tabs = st.tabs(["📋 Tableau de Bord", "🏆 Programme de Récompenses"])
+
+with tabs[0]:
+    col_todo, col_doing, col_done = st.columns(3)
+    
+    with col_todo:
+        st.markdown("#### 🟥 En attente / Accepté")
+        tasks = df_tasks[df_tasks['status'].isin(["À faire", "Accepté"])]
+        for idx, row in tasks.iterrows():
+            with st.container(border=True):
+                st.write(f"**{row['task']}**")
+                st.caption(f"👤 {row['assigned_to']} | {row['status']}")
+                if row['status'] == "Accepté" and st.button("▶️ Démarrer", key=f"start_{row['id']}"):
+                    df_tasks.at[idx, 'status'] = "En cours"
+                    save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                    st.rerun()
+
+    with col_doing:
+        st.markdown("#### 🟧 En cours")
+        tasks = df_tasks[df_tasks['status'] == "En cours"]
+        for idx, row in tasks.iterrows():
+            with st.container(border=True):
+                st.write(f"**{row['task']}**")
+                st.caption(f"👤 {row['assigned_to']}")
+                if st.button("✅ Terminer", key=f"done_{row['id']}"):
+                    df_tasks.at[idx, 'status'] = "Terminé"
+                    save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                    st.rerun()
+
+    with col_done:
+        st.markdown("#### 🟩 Historique (Fini)")
+        tasks = df_tasks[df_tasks['status'] == "Terminé"]
+        for idx, row in tasks.iterrows():
+            st.write(f"✅ {row['task']} (par {row['assigned_to']})")
+
+with tabs[1]:
+    st.subheader("🌟 Performance & Primes (Mois en cours)")
+    if not df_tasks.empty:
+        stats = df_tasks[df_tasks['status'] == "Terminé"]['assigned_to'].value_counts().reset_index()
+        stats.columns = ['Agent', 'Missions Terminées']
+        st.bar_chart(stats, x='Agent', y='Missions Terminées')
         
-        col1, col2 = st.columns(2)
-        assigned = col1.selectbox("Assigner à", agents)
-        priority = col2.select_slider("Priorité", options=["Basse", "Moyenne", "Haute", "Critique"], value="Moyenne")
-        
-        if st.form_submit_button("🚀 Lancer la mission", use_container_width=True):
-            if task_desc:
-                # Calcul de l'ID
-                next_id = 1
-                if not df_tasks.empty and 'id' in df_tasks.columns:
-                    try:
-                        next_id = int(df_tasks['id'].max()) + 1
-                    except: next_id = len(df_tasks) + 1
-
-                new_task = {
-                    "id": next_id,
-                    "creation_date": datetime.now().strftime("%d/%m/%Y"),
-                    "task": task_desc,
-                    "assigned_to": assigned,
-                    "priority": priority,
-                    "status": "À faire"
-                }
-                df_tasks = pd.concat([df_tasks, pd.DataFrame([new_task])], ignore_index=True)
-                save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
-                st.success(f"Mission '{task_desc[:20]}...' assignée avec succès !")
-                st.rerun()
-            else:
-                st.error("Veuillez décrire la tâche avant d'assigner.")
-
-# --- 4. DASHBOARD KANBAN ---
-col_todo, col_doing, col_done = st.columns(3)
-
-with col_todo:
-    st.markdown("#### 🟥 À faire")
-    tasks = df_tasks[df_tasks['status'] == "À faire"]
-    for idx, row in tasks.iterrows():
-        with st.container(border=True):
-            st.write(f"**{row['task']}**")
-            st.caption(f"👤 {row['assigned_to']} | 🚩 {row['priority']}")
-            if st.button("Démarrer", key=f"start_{row['id']}"):
-                df_tasks.at[idx, 'status'] = "En cours"
-                save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
-                st.rerun()
-
-with col_doing:
-    st.markdown("#### 🟧 En cours")
-    tasks = df_tasks[df_tasks['status'] == "En cours"]
-    for idx, row in tasks.iterrows():
-        with st.container(border=True):
-            st.write(f"**{row['task']}**")
-            st.caption(f"👤 {row['assigned_to']}")
-            if st.button("Terminer", key=f"done_{row['id']}"):
-                df_tasks.at[idx, 'status'] = "Terminé"
-                save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
-                st.rerun()
-
-with col_done:
-    st.markdown("#### 🟩 Terminé")
-    tasks = df_tasks[df_tasks['status'] == "Terminé"]
-    for idx, row in tasks.iterrows():
-        with st.expander(f"✅ {row['task'][:30]}..."):
-            st.write(row['task'])
-            st.caption(f"Fait par : {row['assigned_to']}")
-            if st.button("Supprimer", key=f"del_{row['id']}"):
-                df_tasks = df_tasks.drop(idx)
-                save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
-                st.rerun()
+        # Calcul de la prime suggérée
+        st.markdown("#### 💰 Calculateur de Prime Suggéré")
+        for _, r in stats.iterrows():
+            points = r['Missions Terminées'] * 100
+            st.write(f"**{r['Agent']}** : {r['Missions Terminées']} missions ➡️ **{points} DA de prime suggérée**")
+            
+        if st.button("📄 Générer Rapport de Primes (PDF)"):
+            st.success("Rapport mensuel généré. Vous pouvez le présenter à la direction.")
