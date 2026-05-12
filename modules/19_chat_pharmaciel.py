@@ -17,30 +17,43 @@ st.write("Posez vos questions sur vos stocks, vos livreurs, ou demandez de l'aid
 # Charger un résumé léger des bases de données pour donner du contexte à l'IA
 @st.cache_data(ttl=3600)
 def build_context():
-    context = "Tu es l'assistant IA de la plateforme logistique/pharmaceutique 'DarPharm Pro'. Voici un résumé de l'état actuel de l'entreprise :\n"
+    context = "Tu es l'assistant IA stratégique de la plateforme 'DarPharm Solution'. Voici un état des lieux de l'entreprise :\n"
     
     # 1. Utilisateurs
     try:
         from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
-        df_u = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "role", "zone", "depot"])
-        context += f"- Équipe : {len(df_u)} utilisateurs enregistrés.\n"
+        df_u = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "role"])
+        context += f"- Ressources Humaines : {len(df_u)} collaborateurs.\n"
     except: pass
     
-    # 2. Litiges
+    # 2. Recouvrement
     try:
-        df_l = load_gs_data("Litiges", "data/data_litiges.csv", ["Statut"])
-        en_cours = len(df_l[df_l['Statut'] == 'En cours'])
-        context += f"- Litiges Fournisseurs : {en_cours} litiges en cours.\n"
+        df_r = load_gs_data("Recouvrement", "data_recouvrement.csv", ["Reste à payer", "Statut"])
+        if not df_r.empty:
+            df_r['Reste à payer'] = pd.to_numeric(df_r['Reste à payer'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+            total_du = df_r['Reste à payer'].sum()
+            context += f"- Finances : Total à recouvrer de {total_du:,.2f} DA.\n"
     except: pass
 
-    # 3. Péremptions
+    # 3. Inventaire
     try:
-        df_p = load_gs_data("Peremptions", "data/db_peremptions.csv", ["Statut"])
-        crit = len(df_p[df_p['Statut'] == 'Alerte Rouge'])
-        context += f"- Péremptions : {crit} produits en alerte rouge (périmés ou très proches).\n"
+        df_i = load_gs_data("Saisie_Inventaire", "data_inventaire/saisie.csv", ["designation"])
+        context += f"- Inventaire : {len(df_i)} lignes saisies en stock.\n"
     except: pass
 
-    context += "\nRéponds toujours de manière professionnelle, concise et orientée solution. Si l'utilisateur te demande de rédiger un email, fais-le."
+    # 4. Clients
+    try:
+        df_c = load_gs_data("Base_Clients", "base_clients.csv", ["Nom Client"])
+        context += f"- Clients : Portefeuille de {len(df_c)} clients.\n"
+    except: pass
+
+    # 5. Pointages
+    try:
+        df_p = load_gs_data("Pointages", "data/db_pointages.csv", ["reference"])
+        context += f"- Logistique : {len(df_p)} factures pointées à ce jour.\n"
+    except: pass
+
+    context += "\nTa mission : Analyser ces chiffres pour aider le directeur à prendre des décisions. Sois visionnaire, précis et force de proposition. Utilise des emojis."
     return context
 
 context = build_context()

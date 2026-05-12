@@ -192,6 +192,52 @@ with tabs[1]:
         st.success(f"✅ {len(df_new_sec)} clients transmis vers Secteurs Logistique !")
         st.cache_data.clear()
 
+    # --- MINI-CRM : SUIVI DES INTERACTIONS ---
+    st.divider()
+    st.subheader("🤝 Mini-CRM : Suivi des Interactions")
+    
+    col_crm1, col_crm2 = st.columns([1, 2])
+    
+    # Charger les clients pour la sélection
+    liste_clients_crm = sorted(df_clients["Nom Client"].dropna().unique().tolist())
+    
+    with col_crm1:
+        st.write("📝 **Nouvelle Interaction**")
+        with st.form("form_crm_note", clear_on_submit=True):
+            client_sel = st.selectbox("Client", [""] + liste_clients_crm)
+            type_int = st.selectbox("Type", ["Note", "Appel", "Visite", "Réclamation", "Promesse Paiement"])
+            note_txt = st.text_area("Détails de l'échange")
+            
+            if st.form_submit_button("Enregistrer l'interaction"):
+                if client_sel and note_txt:
+                    df_crm = load_gs_data("CRM", "data/db_crm.csv", ["Date", "Client", "Type", "Note", "Agent"])
+                    new_note = pd.DataFrame([{
+                        "Date": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                        "Client": client_sel,
+                        "Type": type_int,
+                        "Note": note_txt,
+                        "Agent": st.session_state.current_user['username']
+                    }])
+                    df_crm = pd.concat([df_crm, new_note], ignore_index=True)
+                    save_gs_data(df_crm, "CRM", "data/db_crm.csv")
+                    st.success("Interaction enregistrée !")
+                    st.rerun()
+                else:
+                    st.warning("Veuillez remplir tous les champs.")
+
+    with col_crm2:
+        st.write("📜 **Historique des Échanges**")
+        client_hist = st.selectbox("Filtrer par Client", ["Tous"] + liste_clients_crm, key="crm_filter")
+        df_crm_view = load_gs_data("CRM", "data/db_crm.csv", ["Date", "Client", "Type", "Note", "Agent"])
+        
+        if not df_crm_view.empty:
+            if client_hist != "Tous":
+                df_crm_view = df_crm_view[df_crm_view["Client"] == client_hist]
+            
+            st.dataframe(df_crm_view.sort_values("Date", ascending=False), use_container_width=True, hide_index=True)
+        else:
+            st.info("Aucun historique d'interaction pour le moment.")
+
 # ONGLET 2 : LIVREURS
 with tabs[2]:
     st.subheader("🚚 Gestion des Livreurs")

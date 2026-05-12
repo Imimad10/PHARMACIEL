@@ -750,6 +750,9 @@ if not pages_to_show:
     st.stop()
 
 # --- 6. NAVIGATION ET SIDEBAR ---
+from utils_notifications import show_notification_center
+from utils_search import show_search_bar
+
 pg = st.navigation(pages_to_show)
 
 with st.sidebar:
@@ -758,6 +761,10 @@ with st.sidebar:
     else:
         st.title("💊 Darpharm Solution")
     st.write(f"Connecté: **{user['username']}** ({user.get('role', 'Saisie')})")
+    
+    # --- AJOUTS RÉCENTS (RECH. & NOTIFS) ---
+    show_notification_center()
+    show_search_bar()
     
     st.divider()
     # Sélecteur de Mode de Stockage
