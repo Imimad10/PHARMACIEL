@@ -736,7 +736,7 @@ if not isinstance(user_pages, list):
 is_admin = user.get('role') == 'Admin'
 
 if is_admin:
-    for extra_page in ["Automatisation", "Liste des Lots", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Assistant IA", "Transferts", "Coordination", "Qualité IA"]:
+    for extra_page in ["Automatisation", "Liste des Lots", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Assistant IA", "Transferts", "Coordination", "Qualité IA", "Mon Coin"]:
         if extra_page not in user_pages:
             user_pages.append(extra_page)
 
@@ -764,6 +764,7 @@ ALL_PAGES = {
     "Transferts": st.Page("modules/20_transferts.py", title="Transferts (Zéro Papier)", icon="🔄"),
     "Coordination": st.Page("modules/21_coordination_equipe.py", title="Coordination Équipe", icon="🤝"),
     "Qualité IA": st.Page("modules/22_controle_qualite_ia.py", title="Contrôle Qualité IA", icon="🛡️"),
+    "Mon Coin": st.Page("modules/23_mon_coin_admin.py", title="Mon Coin (Secret)", icon="🤫"),
     "Profil": st.Page("modules/17_profil.py", title="Mon Profil", icon="👤")
 }
 
