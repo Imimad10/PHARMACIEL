@@ -157,6 +157,46 @@ elif st.session_state.theme == "Chic Animé":
             text-shadow: 0 0 10px rgba(255,255,255,0.2);
         }
     """
+elif st.session_state.theme == "USMH":
+    bg_style = "linear-gradient(-45deg, #FFD700, #1a1a1a, #FFD700, #000000)"
+    text_color = "#ffffff"
+    card_bg = "rgba(0, 0, 0, 0.3)"
+    sidebar_bg = "#1a1a1a"
+    extra_css = """
+        .stApp { background-size: 400% 400% !important; animation: gradientShift 10s ease infinite !important; }
+        [data-testid="stMetricValue"] { background: -webkit-linear-gradient(45deg, #FFD700, #fff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .stButton button { background: linear-gradient(135deg, #FFD700 0%, #000 100%) !important; color: black !important; }
+    """
+elif st.session_state.theme == "CRB":
+    bg_style = "linear-gradient(-45deg, #ff0000, #ffffff, #ff0000, #ffffff)"
+    text_color = "#1a1a1a"
+    card_bg = "rgba(255, 255, 255, 0.2)"
+    sidebar_bg = "#ffffff"
+    extra_css = """
+        .stApp { background-size: 400% 400% !important; animation: gradientShift 12s ease infinite !important; }
+        [data-testid="stMetricValue"] { color: #ff0000 !important; -webkit-text-fill-color: #ff0000 !important; }
+        .stButton button { background: linear-gradient(135deg, #ff0000 0%, #fff 100%) !important; color: white !important; }
+    """
+elif st.session_state.theme == "USMA":
+    bg_style = "linear-gradient(-45deg, #ff0000, #000000, #ff0000, #1a1a1a)"
+    text_color = "#ffffff"
+    card_bg = "rgba(0, 0, 0, 0.4)"
+    sidebar_bg = "#000000"
+    extra_css = """
+        .stApp { background-size: 400% 400% !important; animation: gradientShift 8s ease infinite !important; }
+        [data-testid="stMetricValue"] { color: #ff0000 !important; -webkit-text-fill-color: #ff0000 !important; text-shadow: 0 0 10px rgba(255,0,0,0.5); }
+        .stButton button { background: linear-gradient(135deg, #ff0000 0%, #000 100%) !important; color: white !important; }
+    """
+elif st.session_state.theme == "MCA":
+    bg_style = "linear-gradient(-45deg, #008000, #ff0000, #008000, #ff0000)"
+    text_color = "#ffffff"
+    card_bg = "rgba(0, 128, 0, 0.2)"
+    sidebar_bg = "#004d00"
+    extra_css = """
+        .stApp { background-size: 400% 400% !important; animation: gradientShift 10s ease infinite !important; }
+        [data-testid="stMetricValue"] { background: -webkit-linear-gradient(45deg, #00ff00, #ff0000); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .stButton button { background: linear-gradient(135deg, #008000 0%, #ff0000 100%) !important; color: white !important; }
+    """
 else:
     bg_style = "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)"
     text_color = "#1a1c21"
@@ -625,7 +665,7 @@ if st.session_state.current_user is None:
     with col2:
         col_theme1, col_theme2 = st.columns([2, 1.5])
         with col_theme2:
-            themes_login = ["Clair", "Sombre", "Chic Animé"]
+            themes_login = ["Clair", "Sombre", "Chic Animé", "USMH", "CRB", "USMA", "MCA"]
             idx_theme = themes_login.index(st.session_state.theme) if st.session_state.theme in themes_login else 0
             choix_theme = st.selectbox("Thème", themes_login, index=idx_theme, label_visibility="collapsed", key="login_theme_selector")
             if choix_theme != st.session_state.theme:
@@ -783,7 +823,7 @@ with st.sidebar:
     
     st.divider()
     # Sélecteur de thème
-    themes_disponibles = ["Clair", "Sombre", "Chic Animé"]
+    themes_disponibles = ["Clair", "Sombre", "Chic Animé", "USMH", "CRB", "USMA", "MCA"]
     current_index = themes_disponibles.index(st.session_state.theme) if st.session_state.theme in themes_disponibles else 0
     new_theme = st.selectbox("🎨 Thème d'affichage", themes_disponibles, index=current_index)
     if new_theme != st.session_state.theme:
