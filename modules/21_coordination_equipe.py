@@ -13,14 +13,42 @@ st.markdown("### Gérez vos 8h de travail efficacement")
 
 # --- 1. CHARGEMENT DONNÉES ---
 df_tasks = load_gs_data(TASKS_WORKSHEET, TASKS_FALLBACK, COLS_TASKS)
+agents = ["Tout le monde", "Ayoub", "Islem", "Imad", "Seif"]
 
-# --- 2. AJOUT TÂCHE (SUR LA PAGE PRINCIPALE) ---
-with st.expander("➕ Assigner une nouvelle tâche à l'équipe", expanded=False):
+# --- 2. ASSISTANT IA POUR LE CHEF D'ÉQUIPE ---
+with st.expander("🤖 Assistant IA - Planification des Missions", expanded=True):
+    st.info("Décrivez la situation actuelle (ex: '3 camions arrivés, 50 réclamations, inventaire frigo à faire') et l'IA va répartir le travail.")
+    situation = st.text_area("Situation globale de l'entrepôt :", placeholder="Décrivez ce qu'il y a à faire aujourd'hui...")
+    
+    if st.button("🧠 Générer Plan d'Attaque IA", use_container_width=True):
+        if situation:
+            with st.spinner("L'IA analyse la charge de travail..."):
+                prompt = f"""
+                Tu es un expert en logistique. Voici la situation de l'entrepôt : {situation}.
+                Tu as 4 agents : Ayoub, Islem, Imad, Seif.
+                Suggère une répartition précise des tâches pour une journée de 8h.
+                Sois direct, efficace et donne des ordres clairs.
+                Format suggéré :
+                - Ayoub : [Mission]
+                - Islem : [Mission]
+                - Imad : [Mission]
+                - Seif : [Mission]
+                """
+                conseil = ask_ai(prompt)
+                st.success("Plan suggéré par l'IA :")
+                st.markdown(conseil)
+        else:
+            st.warning("Veuillez décrire la situation pour obtenir un conseil.")
+
+st.divider()
+
+# --- 3. AJOUT TÂCHE (SUR LA PAGE PRINCIPALE) ---
+with st.expander("➕ Assigner une nouvelle tâche manuellement", expanded=False):
     with st.form("form_task", clear_on_submit=True):
         task_desc = st.text_area("Quelle est la mission ?", placeholder="Ex: Décharger le camion de 14h...")
         
         col1, col2 = st.columns(2)
-        assigned = col1.selectbox("Assigner à", ["Tout le monde", "Agent 1", "Agent 2", "Agent 3", "Agent 4"])
+        assigned = col1.selectbox("Assigner à", agents)
         priority = col2.select_slider("Priorité", options=["Basse", "Moyenne", "Haute", "Critique"], value="Moyenne")
         
         if st.form_submit_button("🚀 Lancer la mission", use_container_width=True):
@@ -47,7 +75,7 @@ with st.expander("➕ Assigner une nouvelle tâche à l'équipe", expanded=False
             else:
                 st.error("Veuillez décrire la tâche avant d'assigner.")
 
-# --- 3. DASHBOARD KANBAN ---
+# --- 4. DASHBOARD KANBAN ---
 col_todo, col_doing, col_done = st.columns(3)
 
 with col_todo:
