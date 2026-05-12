@@ -14,17 +14,26 @@ st.markdown("### Gérez vos 8h de travail efficacement")
 # --- 1. CHARGEMENT DONNÉES ---
 df_tasks = load_gs_data(TASKS_WORKSHEET, TASKS_FALLBACK, COLS_TASKS)
 
-# --- 2. AJOUT TÂCHE ---
-with st.sidebar.expander("➕ Assigner une tâche", expanded=False):
-    with st.form("form_task"):
-        task_desc = st.text_area("Description de la tâche")
-        assigned = st.selectbox("Assigner à", ["Tout le monde", "Agent 1", "Agent 2", "Agent 3", "Agent 4"])
-        priority = st.select_slider("Priorité", options=["Basse", "Moyenne", "Haute", "Critique"])
+# --- 2. AJOUT TÂCHE (SUR LA PAGE PRINCIPALE) ---
+with st.expander("➕ Assigner une nouvelle tâche à l'équipe", expanded=False):
+    with st.form("form_task", clear_on_submit=True):
+        task_desc = st.text_area("Quelle est la mission ?", placeholder="Ex: Décharger le camion de 14h...")
         
-        if st.form_submit_button("Assigner"):
+        col1, col2 = st.columns(2)
+        assigned = col1.selectbox("Assigner à", ["Tout le monde", "Agent 1", "Agent 2", "Agent 3", "Agent 4"])
+        priority = col2.select_slider("Priorité", options=["Basse", "Moyenne", "Haute", "Critique"], value="Moyenne")
+        
+        if st.form_submit_button("🚀 Lancer la mission", use_container_width=True):
             if task_desc:
+                # Calcul de l'ID
+                next_id = 1
+                if not df_tasks.empty and 'id' in df_tasks.columns:
+                    try:
+                        next_id = int(df_tasks['id'].max()) + 1
+                    except: next_id = len(df_tasks) + 1
+
                 new_task = {
-                    "id": len(df_tasks) + 1,
+                    "id": next_id,
                     "creation_date": datetime.now().strftime("%d/%m/%Y"),
                     "task": task_desc,
                     "assigned_to": assigned,
@@ -33,8 +42,10 @@ with st.sidebar.expander("➕ Assigner une tâche", expanded=False):
                 }
                 df_tasks = pd.concat([df_tasks, pd.DataFrame([new_task])], ignore_index=True)
                 save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
-                st.success("Tâche assignée !")
+                st.success(f"Mission '{task_desc[:20]}...' assignée avec succès !")
                 st.rerun()
+            else:
+                st.error("Veuillez décrire la tâche avant d'assigner.")
 
 # --- 3. DASHBOARD KANBAN ---
 col_todo, col_doing, col_done = st.columns(3)
