@@ -68,6 +68,10 @@ def get_share_link(platform, filename):
 st.title("📦 Pointage de Marchandise & Réception")
 
 if "current_reception" not in st.session_state:
+    user_name = "Utilisateur"
+    if 'current_user' in st.session_state:
+        user_name = st.session_state.current_user.get('prenom', st.session_state.current_user.get('username', 'Utilisateur'))
+    
     st.session_state.current_reception = {
         "id": None,
         "date": datetime.now().strftime("%Y-%m-%d"),
@@ -75,8 +79,12 @@ if "current_reception" not in st.session_state:
         "facture_num": "",
         "statut": "En cours",
         "items": [],
-        "created_by": st.session_state.current_user['username'] if 'current_user' in st.session_state else "User"
+        "created_by": user_name
     }
+
+# Toujours privilégier le prénom de l'utilisateur actuel pour les nouveaux pointages
+if 'current_user' in st.session_state:
+    st.session_state.current_reception['created_by'] = st.session_state.current_user.get('prenom', st.session_state.current_user.get('username', 'Utilisateur'))
 
 tabs = st.tabs(["⚡ Nouvelle Réception", "📋 Historique & Suivi", "🏛️ Administration"])
 
@@ -268,6 +276,9 @@ with tabs[0]:
         if c_reset.button("⚠️ Tout effacer", use_container_width=True):
             st.session_state.current_reception['items'] = []
             if 'ai_results_rec' in st.session_state: del st.session_state['ai_results_rec']
+            # On remet le prénom correct au reset
+            if 'current_user' in st.session_state:
+                st.session_state.current_reception['created_by'] = st.session_state.current_user.get('prenom', st.session_state.current_user.get('username', 'Utilisateur'))
             st.rerun()
 
 with tabs[1]:
