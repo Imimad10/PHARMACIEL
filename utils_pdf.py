@@ -8,11 +8,11 @@ class InventoryPDF(FPDF):
         self.set_font('Arial', 'B', 15)
         self.cell(0, 10, self.title_text, 0, 1, 'C')
         if hasattr(self, 'subtitle_text') and self.subtitle_text:
-            self.set_font('Arial', 'B', 11)
+            self.set_font('Arial', 'B', 10)
             self.cell(0, 8, self.subtitle_text, 0, 1, 'C')
-        self.set_font('Arial', 'I', 10)
-        self.cell(0, 10, f"Date d'édition : {datetime.now().strftime('%d/%m/%Y %H:%M')}", 0, 1, 'R')
-        self.ln(5)
+        self.set_font('Arial', 'I', 9)
+        self.cell(0, 8, f"Date d'édition : {datetime.now().strftime('%d/%m/%Y %H:%M')}", 0, 1, 'R')
+        self.ln(2)
 
     def footer(self):
         self.set_y(-15)
@@ -152,15 +152,26 @@ def generate_reception_pdf(reception_data):
     reception_data: dict with id, date, fournisseur, facture_num, items (list)
     """
     pdf = InventoryPDF()
+    pdf.set_margins(left=7, top=10, right=7)
     pdf.title_text = "FICHE DE RECEPTION & POINTAGE"
     pdf.subtitle_text = f"Fournisseur: {reception_data['fournisseur']} | Facture: {reception_data['facture_num']}"
     pdf.alias_nb_pages()
     pdf.add_page()
     
     # Tableau
-    pdf.set_font('Arial', 'B', 9)
+    pdf.set_font('Arial', 'B', 8)
     pdf.set_fill_color(230, 230, 230)
-    cols = [('produit', 'Désignation', 70), ('lot', 'Lot', 30), ('ddp', 'DDP', 25), ('qte', 'Qte', 20), ('ppa', 'PPA', 20), ('shp', 'SHP', 20)]
+    # Total width: 85 + 24 + 18 + 12 + 15 + 16 + 12 + 14 = 196mm
+    cols = [
+        ('produit', 'Désignation', 85), 
+        ('lot', 'Lot', 24), 
+        ('ddp', 'DDP', 18), 
+        ('qte', 'Qte', 12), 
+        ('colissage', 'Colis.', 15),
+        ('ppa', 'PPA', 16), 
+        ('shp', 'SHP', 12),
+        ('couleur', 'Vig.', 14)
+    ]
     
     for _, label, w in cols:
         pdf.cell(w, 8, label, 1, 0, 'C', 1)
@@ -170,16 +181,60 @@ def generate_reception_pdf(reception_data):
     for item in reception_data['items']:
         if pdf.get_y() > 260:
             pdf.add_page()
-            pdf.set_font('Arial', 'B', 9)
+            pdf.set_font('Arial', 'B', 8)
+            pdf.set_fill_color(230, 230, 230)
             for _, label, w in cols: pdf.cell(w, 8, label, 1, 0, 'C', 1)
             pdf.ln()
             pdf.set_font('Arial', '', 8)
+        
+        # Calcul de la hauteur nécessaire pour la désignation (multi-ligne)
+        start_x = pdf.get_x()
+        start_y = pdf.get_y()
+        designation = str(item.get('produit', ""))
+        
+        # On écrit la désignation et on récupère la hauteur
+        pdf.multi_cell(85, 5, designation.encode('latin-1', 'replace').decode('latin-1'), 1, 'L')
+        end_y = pdf.get_y()
+        row_h = end_y - start_y
+        
+        # On revient en haut de la ligne pour les autres colonnes
+        curr_x = start_x + 85
+        
+        for key, _, w in cols[1:]:
+            pdf.set_xy(curr_x, start_y)
+            if key == 'couleur':
+                # Dessiner le cercle de couleur
+                pdf.cell(w, row_h, "", 1, 0, 'C') # Bordure de la cellule
+                c = item.get('couleur', 'blanche').lower()
+                
+                # Coordonnées pour le cercle (centré dans la cellule)
+                circle_size = 4
+                cx = curr_x + (w / 2) - (circle_size / 2)
+                cy = start_y + (row_h / 2) - (circle_size / 2)
+                
+                if c == "verte":
+                    pdf.set_fill_color(0, 180, 0)
+                elif c == "rouge":
+                    pdf.set_fill_color(220, 0, 0)
+                else: # blanche
+                    pdf.set_fill_color(255, 255, 255)
+                
+                pdf.ellipse(cx, cy, circle_size, circle_size, 'FD')
+                pdf.set_fill_color(255, 255, 255) # Reset fill
+            else:
+                val = str(item.get(key, ""))
+                # Formater si numérique
+                try:
+                    if key in ['ppa', 'shp', 'qte', 'colissage']:
+                        val = str(round(float(val), 2)) if '.' in str(val) else str(int(float(val)))
+                except:
+                    pass
+                
+                pdf.cell(w, row_h, val.encode('latin-1', 'replace').decode('latin-1'), 1, 0, 'C')
             
-        for key, _, w in cols:
-            val = str(item.get(key, ""))[:40]
-            align = 'L' if key == 'produit' else 'C'
-            pdf.cell(w, 7, val.encode('latin-1', 'replace').decode('latin-1'), 1, 0, align)
-        pdf.ln()
+            curr_x += w
+        
+        pdf.set_y(end_y) # On se positionne pour la ligne suivante
     
     # Pied de page
     pdf.ln(10)

@@ -239,7 +239,7 @@ with tabs[0]:
             c1, c2, c3, c4 = st.columns([4, 2, 2, 0.5])
             c_icon = "🟢" if item.get('couleur') == "verte" else "🔴" if item.get('couleur') == "rouge" else "⚪"
             c1.write(f"{c_icon} **{item['produit']}**")
-            c2.write(f"Lot: {item['lot']} | DDP: {item['ddp']}")
+            c2.write(f"Lot: {item['lot']} | DDP: {item['ddp']} | Colis: {item.get('colissage', 1)}")
             c3.write(f"PPA: {item['ppa']} | SHP: {item['shp']}")
             if c4.button("🗑️", key=f"del_{i}"):
                 st.session_state.current_reception['items'].pop(i)
