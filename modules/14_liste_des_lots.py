@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import unicodedata
+from datetime import datetime
 import os
 
 st.set_page_config(page_title="Liste des Lots", layout="wide")
@@ -61,6 +62,24 @@ def clean_cols_v5(df):
         new_cols.append(target if target else norm)
     
     df.columns = new_cols
+    
+    # Formatage de la DDP (Mois/Année uniquement)
+    if 'ddp' in df.columns:
+        def format_date(val):
+            if pd.isna(val) or val == "": return val
+            try:
+                # Si c'est déjà un objet datetime
+                if isinstance(val, (datetime, pd.Timestamp)):
+                    return val.strftime('%m/%Y')
+                # Si c'est une chaîne, on tente la conversion
+                dt = pd.to_datetime(val, errors='coerce')
+                if pd.notna(dt):
+                    return dt.strftime('%m/%Y')
+                return str(val)
+            except:
+                return str(val)
+        df['ddp'] = df['ddp'].apply(format_date)
+        
     return df
 
 @st.cache_data(ttl=60)
