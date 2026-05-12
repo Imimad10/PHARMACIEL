@@ -162,50 +162,55 @@ elif st.session_state.theme == "USMH":
     bg_style = f"url({bg_img})"
     text_color = "#ffffff"
     card_bg = "rgba(0, 0, 0, 0.6)"
-    sidebar_bg = "rgba(20, 20, 0, 0.9)"
+    sidebar_bg = "rgba(20, 20, 0, 0.95)"
     extra_css = """
-        .stApp { background-image: """ + bg_style + """; background-size: cover; background-position: center; background-attachment: fixed; }
-        .stApp::before { content: "SEMSSEM EL HARRACH - LA FORCE JAUNE"; position: fixed; top: 10px; right: 20px; font-weight: 900; color: #FFD700; font-size: 1.5rem; text-shadow: 2px 2px 10px black; z-index: 1000; font-style: italic; }
-        [data-testid="stMetric"] { background: rgba(0,0,0,0.7); border: 2px solid #FFD700; transform: perspective(1000px) rotateY(5deg); transition: all 0.5s; }
-        [data-testid="stMetric"]:hover { transform: perspective(1000px) rotateY(0deg) scale(1.1); box-shadow: 0 0 30px #FFD700; }
-        .stButton button { background: #FFD700 !important; color: #000 !important; border: 2px solid #000 !important; box-shadow: 5px 5px 0px #000 !important; }
+        @keyframes yellowGlow { 0% { box-shadow: 0 0 5px #FFD700; } 50% { box-shadow: 0 0 25px #FFD700; } 100% { box-shadow: 0 0 5px #FFD700; } }
+        .stApp { background-image: """ + bg_style + """; background-size: cover; background-position: center; background-attachment: fixed; animation: gradientShift 20s infinite alternate; }
+        .stApp::before { content: "EL HARRACH - SEMSSEM"; position: fixed; top: 15px; left: 50%; transform: translateX(-50%); font-size: 2rem; font-weight: 900; color: #FFD700; text-shadow: 0 0 20px black, 0 0 10px #FFD700; z-index: 1000; letter-spacing: 5px; pointer-events: none; }
+        [data-testid="stMetric"] { background: rgba(0,0,0,0.8) !important; border: 2px solid #FFD700 !important; animation: float3D 5s infinite ease-in-out, yellowGlow 3s infinite; }
+        .stButton button { background: linear-gradient(135deg, #FFD700, #000) !important; color: white !important; border: 1px solid #FFD700 !important; transform: skewX(-10deg); }
+        .stButton button:hover { transform: skewX(0deg) scale(1.1) !important; box-shadow: 0 0 30px #FFD700 !important; }
     """
 elif st.session_state.theme == "CRB":
     bg_img = "file:///C:/Users/DELL/.gemini/antigravity/brain/a5bb6f39-0376-4a2f-9b98-f3ca3de34130/crb_emblem_1778620468103.png"
     bg_style = f"url({bg_img})"
     text_color = "#ffffff"
-    card_bg = "rgba(255, 255, 255, 0.1)"
-    sidebar_bg = "rgba(139, 0, 0, 0.85)"
+    card_bg = "rgba(139, 0, 0, 0.4)"
+    sidebar_bg = "rgba(255, 255, 255, 0.1)"
     extra_css = """
+        @keyframes crbPulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
         .stApp { background-image: """ + bg_style + """; background-size: cover; background-position: center; background-attachment: fixed; }
-        .stApp::before { content: "VIVA CHABAB - LES ROIS D'ALGER"; position: fixed; top: 10px; right: 20px; font-weight: 900; color: #ff0000; font-size: 1.5rem; text-shadow: 0 0 15px white; z-index: 1000; }
-        [data-testid="stMetric"] { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border: 1px solid #fff; border-radius: 30px; }
-        .stButton button { background: linear-gradient(135deg, #ff0000 0%, #fff 100%) !important; color: #ff0000 !important; font-weight: 900 !important; }
+        .stApp::before { content: "BELOUIZDAD - LES ROIS"; position: fixed; top: 15px; left: 50%; transform: translateX(-50%); font-size: 2rem; font-weight: 900; color: #ff0000; text-shadow: 0 0 20px white; z-index: 1000; pointer-events: none; }
+        [data-testid="stMetric"] { background: rgba(255,255,255,0.1) !important; backdrop-filter: blur(15px); border-radius: 50% 20px 50% 20px !important; border: 1px solid white !important; animation: float3D 6s infinite; }
+        .stButton button { background: #ff0000 !important; color: white !important; border-radius: 0px !important; border: 2px solid white !important; transition: 0.5s; }
+        .stButton button:hover { background: white !important; color: #ff0000 !important; box-shadow: 0 0 40px red !important; }
     """
 elif st.session_state.theme == "USMA":
     bg_img = "file:///C:/Users/DELL/.gemini/antigravity/brain/a5bb6f39-0376-4a2f-9b98-f3ca3de34130/usma_emblem_1778620686784.png"
     bg_style = f"url({bg_img})"
     text_color = "#ffffff"
-    card_bg = "rgba(0, 0, 0, 0.7)"
+    card_bg = "rgba(0, 0, 0, 0.8)"
     sidebar_bg = "#000000"
     extra_css = """
+        @keyframes usmaFlash { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; filter: brightness(1.5); } }
         .stApp { background-image: """ + bg_style + """; background-size: cover; background-position: center; background-attachment: fixed; }
-        .stApp::before { content: "SOUSTARA - L'UNION FAIT LA FORCE"; position: fixed; top: 10px; right: 20px; font-weight: 900; color: #ff0000; font-size: 1.5rem; text-shadow: 2px 2px 5px black; z-index: 1000; }
-        [data-testid="stMetric"] { background: rgba(0,0,0,0.8); border-left: 5px solid #ff0000; animation: pulseGlow 3s infinite; }
-        .stButton button { background: #000 !important; color: #ff0000 !important; border: 1px solid #ff0000 !important; }
-        .stButton button:hover { background: #ff0000 !important; color: #000 !important; }
+        .stApp::after { content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle, transparent 40%, black 100%); pointer-events: none; }
+        .stApp::before { content: "SOUSTARA - L'UNION"; position: fixed; top: 15px; left: 50%; transform: translateX(-50%); font-size: 2.2rem; font-weight: 900; color: #ff0000; text-shadow: 3px 3px 0px black; z-index: 1000; animation: usmaFlash 2s infinite; pointer-events: none; }
+        [data-testid="stMetric"] { background: rgba(20,20,20,0.9) !important; border-bottom: 4px solid #ff0000 !important; transform: perspective(800px) rotateX(10deg); }
+        .stButton button { background: #ff0000 !important; color: black !important; font-weight: bold !important; clip-path: polygon(10% 0, 100% 0, 90% 100%, 0 100%); }
     """
 elif st.session_state.theme == "MCA":
     bg_img = "file:///C:/Users/DELL/.gemini/antigravity/brain/a5bb6f39-0376-4a2f-9b98-f3ca3de34130/mca_emblem_1778620924852.png"
     bg_style = f"url({bg_img})"
     text_color = "#ffffff"
-    card_bg = "rgba(0, 50, 0, 0.6)"
-    sidebar_bg = "rgba(0, 100, 0, 0.9)"
+    card_bg = "rgba(0, 50, 0, 0.7)"
+    sidebar_bg = "rgba(0, 80, 0, 0.9)"
     extra_css = """
+        @keyframes mcaSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .stApp { background-image: """ + bg_style + """; background-size: cover; background-position: center; background-attachment: fixed; }
-        .stApp::before { content: "MCA - LE DOYEN DES CLUBS ALGÉRIENS"; position: fixed; top: 10px; right: 20px; font-weight: 900; color: #00ff00; font-size: 1.5rem; text-shadow: 2px 2px 5px red; z-index: 1000; }
-        [data-testid="stMetric"] { background: rgba(0,100,0,0.5); border: 2px solid #ff0000; border-radius: 50px 0 50px 0; }
-        .stButton button { background: linear-gradient(90deg, #008000, #ff0000) !important; color: white !important; }
+        .stApp::before { content: "MCA - LE DOYEN"; position: fixed; top: 15px; left: 50%; transform: translateX(-50%); font-size: 2.2rem; font-weight: 900; color: #00ff00; text-shadow: 2px 2px 0px #ff0000; z-index: 1000; pointer-events: none; }
+        [data-testid="stMetric"] { background: linear-gradient(135deg, rgba(0,100,0,0.8), rgba(255,0,0,0.2)) !important; border-radius: 50px !important; border: 2px solid #00ff00 !important; }
+        .stButton button { background: linear-gradient(90deg, #008000, #ff0000, #008000) !important; background-size: 200% !important; animation: gradientShift 5s linear infinite !important; border-radius: 30px !important; }
     """
 else:
     bg_style = "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)"
