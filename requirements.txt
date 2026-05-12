@@ -14,3 +14,4 @@ streamlit-cookies-controller==0.0.2
 Pillow
 requests
 watchdog
+xlrd
