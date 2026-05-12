@@ -243,7 +243,7 @@ with tabs[0]:
                 pdf.cell(col_widths[1], 7, clean(lot), 1, 0, 'C')
                 pdf.cell(col_widths[2], 7, clean(zn), 1, 0, 'C')
                 pdf.cell(col_widths[3], 7, clean(qte), 1, 0, 'C')
-                pdf.cell(col_widths[4], 7, clean(ddp), 1, 0, 'C', ln=1)
+                pdf.cell(col_widths[4], 7, clean(ddp), 1, 1, 'C')
             
             # Sortie PDF
             pdf_output = pdf.output(dest='S')
