@@ -15,7 +15,7 @@ from utils_ia import ask_ai, is_ia_enabled
 DATA_DIR = "data_inventaire_detail"
 MASTER_WORKSHEET = "Master_Inventaire_Zone"
 MASTER_FALLBACK = os.path.join(DATA_DIR, "master_detail.csv")
-COLS_MASTER = ["designation", "lot", "zone", "ddp", "ppa", "shp", "stock_theorique"]
+COLS_MASTER = ["depot", "designation", "lot", "zone", "ddp", "ppa", "shp", "stock_theorique"]
 show_sync_ui(MASTER_WORKSHEET, MASTER_FALLBACK, COLS_MASTER)
 
 # --- 2. FONCTIONS TECHNIQUES ---
@@ -98,18 +98,26 @@ tabs = st.tabs(["📋 Liste des Lots", "📊 Tableau de Bord", "⚙️ Admin"])
 with tabs[0]:
     st.subheader("Consultation des Produits et Lots")
     
-    col_search, col_zone = st.columns(2)
+    col_search, col_depot, col_zone = st.columns([2, 1, 1])
     search_term = col_search.text_input("🔍 Rechercher un produit ou un lot :", "")
     
     if is_admin:
+        # Filtre Dépôt
+        depots_opt = ["Tous"] + sorted([str(d) for d in df_master['depot'].unique() if pd.notna(d)]) if 'depot' in df_master.columns else ["Tous"]
+        depot_filter = col_depot.selectbox("Filtrer par Dépôt :", depots_opt)
+        
+        # Filtre Zone
         zones_opt = ["Toutes"] + sorted([str(z) for z in df_master['zone'].unique() if pd.notna(z)])
         zone_filter = col_zone.selectbox("Filtrer par Zone :", zones_opt)
+        
+        # Application des filtres
+        df_display = df_filtered.copy()
+        if 'depot' in df_display.columns and depot_filter != "Tous":
+            df_display = df_display[df_display['depot'] == depot_filter]
         if zone_filter != "Toutes":
-            df_display = df_filtered[df_filtered['zone'] == zone_filter]
-        else:
-            df_display = df_filtered
+            df_display = df_display[df_display['zone'] == zone_filter]
     else:
-        df_display = df_filtered
+        df_display = df_filtered.copy()
         
     if search_term:
         df_display = df_display[
@@ -120,10 +128,13 @@ with tabs[0]:
     st.write(f"Affichage de **{len(df_display)}** résultats.")
     
     # Restreindre l'affichage aux colonnes désirées
-    cols_to_show = ['designation', 'lot', 'zone', 'stock_theorique', 'ddp', 'ppa', 'shp']
+    cols_to_show = ['depot', 'designation', 'lot', 'zone', 'stock_theorique', 'ddp', 'ppa', 'shp']
     cols_to_show = [c for c in cols_to_show if c in df_display.columns]
     
-    st.dataframe(df_display[cols_to_show], use_container_width=True, hide_index=True)
+    # Renommer pour l'affichage utilisateur
+    df_final = df_display[cols_to_show].rename(columns={'stock_theorique': 'Quantité', 'depot': 'Dépôt', 'designation': 'Désignation', 'lot': 'Lot', 'zone': 'Zone', 'ddp': 'DDP', 'ppa': 'PPA', 'shp': 'SHP'})
+    
+    st.dataframe(df_final, use_container_width=True, hide_index=True)
 
 with tabs[1]:
     st.subheader("📊 Tableau de Bord")
