@@ -282,13 +282,141 @@ with tabs[0]:
             st.rerun()
 
 with tabs[1]:
-    st.subheader("📊 Historique")
+    st.subheader("📊 Tableau de Bord & Suivi des Réceptions")
     df_rec = load_gs_data("Receptions", DB_RECEPTIONS, COLS_RECEPTIONS)
+    
     if not df_rec.empty:
-        st.dataframe(df_rec.sort_values("date", ascending=False), use_container_width=True)
+        # --- FILTRES ET RECHERCHE ---
+        c_f1, c_f2, c_f3 = st.columns([2, 1, 1])
+        search_q = c_f1.text_input("🔍 Rechercher par Fournisseur ou N° Facture", placeholder="Ex: BIO-PHARM...")
+        date_filter = c_f2.date_input("📅 Filtrer par Date", value=None)
+        
+        # Application des filtres
+        df_filtered = df_rec.copy()
+        if search_q:
+            df_filtered = df_filtered[
+                df_filtered['fournisseur'].str.contains(search_q, case=False, na=False) | 
+                df_filtered['facture_num'].astype(str).str.contains(search_q, case=False, na=False)
+            ]
+        if date_filter:
+            df_filtered = df_filtered[df_filtered['date'] == str(date_filter)]
+            
+        # --- DASHBOARD KPIs ---
+        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+        kpi1.metric("📦 Total Réceptions", len(df_filtered))
+        
+        # Calcul du total des items
+        def count_items(items_str):
+            try:
+                items = json.loads(items_str)
+                return sum(item.get('qte', 0) for item in items)
+            except: return 0
+            
+        total_qte = df_filtered['items'].apply(count_items).sum()
+        kpi2.metric("🔢 Total Produits", f"{total_qte:,}")
+        kpi3.metric("🏢 Fournisseurs", df_filtered['fournisseur'].nunique())
+        kpi4.metric("📅 Dernier Import", df_filtered['date'].max() if not df_filtered.empty else "N/A")
+
+        # --- GRAPHIQUES ANALYTIQUES ---
+        import plotly.express as px
+        g1, g2 = st.columns(2)
+        
+        with g1:
+            # Réceptions par fournisseur
+            df_counts = df_filtered['fournisseur'].value_counts().reset_index()
+            df_counts.columns = ['Fournisseur', 'Nombre']
+            fig_prov = px.bar(df_counts.head(10), x='Nombre', y='Fournisseur', orientation='h', 
+                             title="Top 10 Fournisseurs (Nb Réceptions)",
+                             color='Nombre', color_continuous_scale='Blues')
+            fig_prov.update_layout(height=300, margin=dict(l=0,r=0,t=30,b=0))
+            st.plotly_chart(fig_prov, use_container_width=True)
+            
+        with g2:
+            # Évolution temporelle
+            df_time = df_filtered.groupby('date').size().reset_index(name='Nombre')
+            fig_time = px.line(df_time, x='date', y='Nombre', title="Activité de Réception par Jour",
+                              markers=True, line_shape='spline')
+            fig_time.update_layout(height=300, margin=dict(l=0,r=0,t=30,b=0))
+            st.plotly_chart(fig_time, use_container_width=True)
+        
+        # --- EXPORT GLOBAL ---
+        csv = df_filtered.to_csv(index=False).encode('utf-8-sig')
+        c_f3.download_button("📥 Exporter Historique (CSV)", csv, f"historique_receptions_{datetime.now().strftime('%Y%m%d')}.csv", "text/csv", use_container_width=True)
+
+        st.divider()
+
+        # --- LISTE DES RÉCEPTIONS ---
+        # On utilise une liste extensible pour chaque réception
+        for _, row in df_filtered.sort_values("date", ascending=False).iterrows():
+            with st.expander(f"📄 {row['date']} | {row['fournisseur']} | Facture: {row['facture_num']}"):
+                col_d1, col_d2 = st.columns([3, 1])
+                
+                with col_d1:
+                    st.markdown(f"**Saisi par :** {row.get('created_by', 'N/A')} | **Statut :** {row['statut']}")
+                    try:
+                        items = json.loads(row['items'])
+                        df_items = pd.DataFrame(items)
+                        if not df_items.empty:
+                            # Renommer pour l'affichage
+                            display_cols = {
+                                "produit": "Désignation",
+                                "lot": "Lot",
+                                "ddp": "DDP",
+                                "qte": "Qte",
+                                "ppa": "PPA",
+                                "shp": "SHP",
+                                "couleur": "Vig."
+                            }
+                            df_display = df_items.rename(columns=display_cols)
+                            st.dataframe(df_display[[c for c in display_cols.values() if c in df_display.columns]], use_container_width=True, hide_index=True)
+                        else:
+                            st.info("Aucun produit dans cette réception.")
+                    except Exception as e:
+                        st.error(f"Erreur de lecture des données : {e}")
+
+                with col_d2:
+                    st.write("🛠️ **Actions**")
+                    # Bouton PDF
+                    reception_data = {
+                        "id": row['id'],
+                        "date": row['date'],
+                        "fournisseur": row['fournisseur'],
+                        "facture_num": row['facture_num'],
+                        "items": items,
+                        "created_by": row.get('created_by', 'Utilisateur')
+                    }
+                    pdf_bytes = generate_reception_pdf(reception_data)
+                    st.download_button(
+                        label="📥 Télécharger PDF",
+                        data=pdf_bytes,
+                        file_name=f"Facture_{row['fournisseur']}_{row['facture_num']}.pdf",
+                        mime="application/pdf",
+                        key=f"pdf_{row['id']}",
+                        use_container_width=True
+                    )
+                    
+                    # Bouton Excel (CSV)
+                    if not df_items.empty:
+                        item_csv = df_items.to_csv(index=False).encode('utf-8-sig')
+                        st.download_button(
+                            label="📊 Export Excel (Produits)",
+                            data=item_csv,
+                            file_name=f"Produits_{row['fournisseur']}_{row['facture_num']}.csv",
+                            mime="text/csv",
+                            key=f"csv_{row['id']}",
+                            use_container_width=True
+                        )
+                    
+                    if st.button("🗑️ Supprimer", key=f"del_hist_{row['id']}", type="secondary", use_container_width=True):
+                        df_all = load_gs_data("Receptions", DB_RECEPTIONS, COLS_RECEPTIONS)
+                        df_all = df_all[df_all['id'].astype(str) != str(row['id'])]
+                        save_gs_data(df_all, "Receptions", DB_RECEPTIONS)
+                        st.success("Réception supprimée.")
+                        st.rerun()
+
     else:
-        st.info("Aucun historique.")
+        st.info("Aucun historique de réception disponible.")
 
 with tabs[2]:
-    st.subheader("🏛️ Administration")
+    st.subheader("🏛️ Administration & Synchronisation")
     show_sync_ui("Receptions", DB_RECEPTIONS, COLS_RECEPTIONS)
