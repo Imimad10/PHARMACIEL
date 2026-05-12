@@ -158,44 +158,54 @@ elif st.session_state.theme == "Chic Animé":
         }
     """
 elif st.session_state.theme == "USMH":
-    bg_style = "linear-gradient(-45deg, #FFD700, #1a1a1a, #FFD700, #000000)"
+    bg_img = "file:///C:/Users/DELL/.gemini/antigravity/brain/a5bb6f39-0376-4a2f-9b98-f3ca3de34130/usmh_emblem_1778620364354.png"
+    bg_style = f"url({bg_img})"
     text_color = "#ffffff"
-    card_bg = "rgba(0, 0, 0, 0.3)"
-    sidebar_bg = "#1a1a1a"
+    card_bg = "rgba(0, 0, 0, 0.6)"
+    sidebar_bg = "rgba(20, 20, 0, 0.9)"
     extra_css = """
-        .stApp { background-size: 400% 400% !important; animation: gradientShift 10s ease infinite !important; }
-        [data-testid="stMetricValue"] { background: -webkit-linear-gradient(45deg, #FFD700, #fff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .stButton button { background: linear-gradient(135deg, #FFD700 0%, #000 100%) !important; color: black !important; }
+        .stApp { background-image: """ + bg_style + """; background-size: cover; background-position: center; background-attachment: fixed; }
+        .stApp::before { content: "SEMSSEM EL HARRACH - LA FORCE JAUNE"; position: fixed; top: 10px; right: 20px; font-weight: 900; color: #FFD700; font-size: 1.5rem; text-shadow: 2px 2px 10px black; z-index: 1000; font-style: italic; }
+        [data-testid="stMetric"] { background: rgba(0,0,0,0.7); border: 2px solid #FFD700; transform: perspective(1000px) rotateY(5deg); transition: all 0.5s; }
+        [data-testid="stMetric"]:hover { transform: perspective(1000px) rotateY(0deg) scale(1.1); box-shadow: 0 0 30px #FFD700; }
+        .stButton button { background: #FFD700 !important; color: #000 !important; border: 2px solid #000 !important; box-shadow: 5px 5px 0px #000 !important; }
     """
 elif st.session_state.theme == "CRB":
-    bg_style = "linear-gradient(-45deg, #ff0000, #ffffff, #ff0000, #ffffff)"
-    text_color = "#1a1a1a"
-    card_bg = "rgba(255, 255, 255, 0.2)"
-    sidebar_bg = "#ffffff"
+    bg_img = "file:///C:/Users/DELL/.gemini/antigravity/brain/a5bb6f39-0376-4a2f-9b98-f3ca3de34130/crb_emblem_1778620468103.png"
+    bg_style = f"url({bg_img})"
+    text_color = "#ffffff"
+    card_bg = "rgba(255, 255, 255, 0.1)"
+    sidebar_bg = "rgba(139, 0, 0, 0.85)"
     extra_css = """
-        .stApp { background-size: 400% 400% !important; animation: gradientShift 12s ease infinite !important; }
-        [data-testid="stMetricValue"] { color: #ff0000 !important; -webkit-text-fill-color: #ff0000 !important; }
-        .stButton button { background: linear-gradient(135deg, #ff0000 0%, #fff 100%) !important; color: white !important; }
+        .stApp { background-image: """ + bg_style + """; background-size: cover; background-position: center; background-attachment: fixed; }
+        .stApp::before { content: "VIVA CHABAB - LES ROIS D'ALGER"; position: fixed; top: 10px; right: 20px; font-weight: 900; color: #ff0000; font-size: 1.5rem; text-shadow: 0 0 15px white; z-index: 1000; }
+        [data-testid="stMetric"] { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border: 1px solid #fff; border-radius: 30px; }
+        .stButton button { background: linear-gradient(135deg, #ff0000 0%, #fff 100%) !important; color: #ff0000 !important; font-weight: 900 !important; }
     """
 elif st.session_state.theme == "USMA":
-    bg_style = "linear-gradient(-45deg, #ff0000, #000000, #ff0000, #1a1a1a)"
+    bg_img = "file:///C:/Users/DELL/.gemini/antigravity/brain/a5bb6f39-0376-4a2f-9b98-f3ca3de34130/usma_emblem_1778620686784.png"
+    bg_style = f"url({bg_img})"
     text_color = "#ffffff"
-    card_bg = "rgba(0, 0, 0, 0.4)"
+    card_bg = "rgba(0, 0, 0, 0.7)"
     sidebar_bg = "#000000"
     extra_css = """
-        .stApp { background-size: 400% 400% !important; animation: gradientShift 8s ease infinite !important; }
-        [data-testid="stMetricValue"] { color: #ff0000 !important; -webkit-text-fill-color: #ff0000 !important; text-shadow: 0 0 10px rgba(255,0,0,0.5); }
-        .stButton button { background: linear-gradient(135deg, #ff0000 0%, #000 100%) !important; color: white !important; }
+        .stApp { background-image: """ + bg_style + """; background-size: cover; background-position: center; background-attachment: fixed; }
+        .stApp::before { content: "SOUSTARA - L'UNION FAIT LA FORCE"; position: fixed; top: 10px; right: 20px; font-weight: 900; color: #ff0000; font-size: 1.5rem; text-shadow: 2px 2px 5px black; z-index: 1000; }
+        [data-testid="stMetric"] { background: rgba(0,0,0,0.8); border-left: 5px solid #ff0000; animation: pulseGlow 3s infinite; }
+        .stButton button { background: #000 !important; color: #ff0000 !important; border: 1px solid #ff0000 !important; }
+        .stButton button:hover { background: #ff0000 !important; color: #000 !important; }
     """
 elif st.session_state.theme == "MCA":
-    bg_style = "linear-gradient(-45deg, #008000, #ff0000, #008000, #ff0000)"
+    bg_img = "file:///C:/Users/DELL/.gemini/antigravity/brain/a5bb6f39-0376-4a2f-9b98-f3ca3de34130/mca_emblem_1778620924852.png"
+    bg_style = f"url({bg_img})"
     text_color = "#ffffff"
-    card_bg = "rgba(0, 128, 0, 0.2)"
-    sidebar_bg = "#004d00"
+    card_bg = "rgba(0, 50, 0, 0.6)"
+    sidebar_bg = "rgba(0, 100, 0, 0.9)"
     extra_css = """
-        .stApp { background-size: 400% 400% !important; animation: gradientShift 10s ease infinite !important; }
-        [data-testid="stMetricValue"] { background: -webkit-linear-gradient(45deg, #00ff00, #ff0000); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .stButton button { background: linear-gradient(135deg, #008000 0%, #ff0000 100%) !important; color: white !important; }
+        .stApp { background-image: """ + bg_style + """; background-size: cover; background-position: center; background-attachment: fixed; }
+        .stApp::before { content: "MCA - LE DOYEN DES CLUBS ALGÉRIENS"; position: fixed; top: 10px; right: 20px; font-weight: 900; color: #00ff00; font-size: 1.5rem; text-shadow: 2px 2px 5px red; z-index: 1000; }
+        [data-testid="stMetric"] { background: rgba(0,100,0,0.5); border: 2px solid #ff0000; border-radius: 50px 0 50px 0; }
+        .stButton button { background: linear-gradient(90deg, #008000, #ff0000) !important; color: white !important; }
     """
 else:
     bg_style = "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)"
