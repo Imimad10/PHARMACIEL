@@ -198,6 +198,66 @@ with tabs[0]:
     
     st.dataframe(df_final, use_container_width=True, hide_index=True)
 
+    # --- EXPORT PDF (ZONÉ) ---
+    st.divider()
+    if not df_final.empty:
+        if st.button("📥 Générer Rapport PDF (Ma Zone)", use_container_width=True, type="primary"):
+            from fpdf import FPDF
+            import io
+            
+            # Création du PDF
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", 'B', 16)
+            
+            title = f"Inventaire des Lots - Zone: {user_zone}" if not is_admin else f"Inventaire des Lots - Vue: {zone_filter if 'zone_filter' in locals() else 'Globale'}"
+            pdf.cell(0, 10, title, 0, 1, 'C')
+            pdf.set_font("Arial", '', 10)
+            pdf.cell(0, 10, f"Généré le : {datetime.now().strftime('%d/%m/%Y %H:%M')}", 0, 1, 'R')
+            pdf.ln(5)
+            
+            # En-têtes du tableau
+            pdf.set_fill_color(200, 220, 255)
+            pdf.set_font("Arial", 'B', 8)
+            cols = ['Désignation', 'Lot', 'Zone', 'Quantité', 'DDP']
+            col_widths = [80, 30, 25, 25, 30]
+            
+            for i in range(len(cols)):
+                pdf.cell(col_widths[i], 8, cols[i], 1, 0, 'C', 1)
+            pdf.ln()
+            
+            # Données
+            pdf.set_font("Arial", '', 7)
+            for _, row in df_final.iterrows():
+                # On s'assure que les données tiennent dans les cellules
+                desig = str(row.get('Désignation', ''))[:45]
+                lot = str(row.get('Lot', ''))
+                zn = str(row.get('Zone', ''))
+                qte = str(row.get('Quantité', '0'))
+                ddp = str(row.get('DDP', ''))
+                
+                # Encodage sécurisé pour FPDF
+                def clean(t): return str(t).encode('latin-1', 'replace').decode('latin-1')
+                
+                pdf.cell(col_widths[0], 7, clean(desig), 1)
+                pdf.cell(col_widths[1], 7, clean(lot), 1, 0, 'C')
+                pdf.cell(col_widths[2], 7, clean(zn), 1, 0, 'C')
+                pdf.cell(col_widths[3], 7, clean(qte), 1, 0, 'C')
+                pdf.cell(col_widths[4], 7, clean(ddp), 1, 0, 'C', ln=1)
+            
+            # Sortie PDF
+            pdf_output = pdf.output(dest='S')
+            # Compatibilité fpdf/fpdf2
+            pdf_bytes = bytes(pdf_output) if isinstance(pdf_output, (bytes, bytearray)) else pdf_output.encode('latin-1')
+            
+            st.download_button(
+                label="✅ Télécharger le fichier PDF",
+                data=pdf_bytes,
+                file_name=f"Inventaire_Lots_{user_zone}_{datetime.now().strftime('%Y%m%d')}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+
 with tabs[1]:
     st.subheader("📊 Tableau de Bord")
     
