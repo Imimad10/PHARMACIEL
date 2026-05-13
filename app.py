@@ -222,7 +222,7 @@ else:
 # Déterminer si un thème personnalisé doit être appliqué
 from utils_themes import get_user_theme, load_themes_db
 has_custom_theme = False
-if st.session_state.current_user:
+if st.session_state.get('current_user'):
     _tdb = load_themes_db()
     if get_user_theme(st.session_state.current_user.get('username',''), _tdb):
         has_custom_theme = True
