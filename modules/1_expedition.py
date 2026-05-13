@@ -330,18 +330,38 @@ with tab_exp:
                     if "DEPOSER" in motif_up or "ECHANGE" in motif_up:
                         if c4.button("🏷️ Étiquette", key=f"label_{row['N° Doc']}"):
                             try:
-                                lpdf = FPDF(orientation='L', unit='mm', format=(100, 60)) # Format étiquette 10x6cm
+                                # Format A6 paysage (148x105mm) pour une étiquette lisible
+                                lpdf = FPDF(orientation='L', unit='mm', format='A6')
+                                lpdf.set_margins(8, 8, 8)
                                 lpdf.add_page()
+                                
+                                client_name = str(row['Client']).encode('latin-1', 'replace').decode('latin-1')
+                                ref_val = str(row['N° Doc']).encode('latin-1', 'replace').decode('latin-1')
+                                qte = int(row.get('Qte Colis', 0))
+                                motif_label = str(row['Info']).upper().encode('latin-1', 'replace').decode('latin-1')
+                                
+                                # ===== BANDEAU ROUGE "RECLAMATION" =====
+                                lpdf.set_fill_color(180, 0, 0)
+                                lpdf.set_text_color(255, 255, 255)
+                                lpdf.set_font("Arial", 'B', 28)
+                                lpdf.cell(0, 20, "RECLAMATION", 0, 1, 'C', fill=True)
+                                lpdf.ln(3)
+                                
+                                # ===== NOM DU CLIENT =====
+                                lpdf.set_text_color(0, 0, 0)
                                 lpdf.set_font("Arial", 'B', 16)
-                                lpdf.cell(0, 10, "RECLAMATION", 1, 1, 'C')
-                                lpdf.ln(2)
-                                lpdf.set_font("Arial", 'B', 12)
-                                lpdf.cell(0, 8, f"CLIENT: {str(row['Client'])[:25]}", 0, 1)
-                                lpdf.set_font("Arial", '', 10)
-                                lpdf.cell(0, 6, f"REF: {row['N° Doc']}", 0, 1)
-                                lpdf.ln(2)
-                                lpdf.set_font("Arial", 'B', 20)
-                                lpdf.cell(0, 15, f"COLIS: {row['Qte Colis']}", 1, 1, 'C')
+                                lpdf.cell(0, 10, f"CLIENT : {client_name}", 0, 1, 'L')
+                                
+                                # ===== REFERENCE =====
+                                lpdf.set_font("Arial", '', 11)
+                                lpdf.cell(0, 7, f"REF : {ref_val}", 0, 1, 'L')
+                                lpdf.cell(0, 7, f"MOTIF : {motif_label}", 0, 1, 'L')
+                                lpdf.ln(3)
+                                
+                                # ===== NOMBRE DE COLIS (grand encadré) =====
+                                lpdf.set_fill_color(240, 240, 240)
+                                lpdf.set_font("Arial", 'B', 32)
+                                lpdf.cell(0, 18, f"COLIS : {qte}", 1, 1, 'C', fill=True)
                                 
                                 raw_out = lpdf.output(dest='S')
                                 if isinstance(raw_out, str):
