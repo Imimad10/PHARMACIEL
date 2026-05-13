@@ -20,7 +20,7 @@ def check_notifications():
     notifications = []
     now = datetime.now()
     
-    # 1. Check Temperature
+    # 1. Check Temperature (Suivi Frigo)
     try:
         df_suivi = load_gs_data("Suivi_Frigo", "suivi_data.csv", ["Date", "Heure", "Température", "Statut", "Chambre"])
         if not df_suivi.empty:
@@ -28,57 +28,69 @@ def check_notifications():
             for _, row in last_entries.iterrows():
                 if row['Statut'] == 'ALERTE':
                     notifications.append({
-                        "type": "error",
-                        "icon": "❄️",
-                        "title": f"Alerte Température : {row['Chambre']}",
-                        "message": f"Dernier relevé : {row['Température']}°C."
+                        "type": "error", "icon": "❄️", "title": f"Alerte Température : {row['Chambre']}",
+                        "message": f"Niveau critique : {row['Température']}°C."
                     })
     except: pass
 
-    # 2. Check Expiries
+    # 2. Check Expiries (Multi-Source)
     try:
-        df_inv = load_gs_data("Saisie_Inventaire", "data_inventaire/saisie.csv", ["designation", "ddp_saisi"])
-        if not df_inv.empty:
-            df_inv['expiry_date'] = df_inv['ddp_saisi'].apply(parse_ddp_local)
-            df_valid = df_inv.dropna(subset=['expiry_date']).copy()
-            if not df_valid.empty:
-                df_valid['mois'] = df_valid['expiry_date'].apply(lambda d: (d.year - now.year) * 12 + d.month - now.month)
-                critiques = df_valid[df_valid['mois'] <= 3]
+        # On check la Liste Officielle
+        df_lots = load_gs_data("Master_Inventaire_Zone", "data_inventaire_detail/master_detail.csv", ["produit", "ddp"])
+        if not df_lots.empty:
+            df_lots['expiry_date'] = df_lots['ddp'].apply(parse_ddp_local)
+            df_v = df_lots.dropna(subset=['expiry_date']).copy()
+            if not df_v.empty:
+                df_v['mois'] = df_v['expiry_date'].apply(lambda d: (d.year - now.year) * 12 + d.month - now.month)
+                
+                perimes = df_v[df_v['mois'] < 0]
+                critiques = df_v[(df_v['mois'] >= 0) & (df_v['mois'] <= 3)]
+                
+                if not perimes.empty:
+                    notifications.append({
+                        "type": "error", "icon": "❌", "title": "Produits Périmés !",
+                        "message": f"{len(perimes)} produits à retirer immédiatement."
+                    })
                 if not critiques.empty:
                     notifications.append({
-                        "type": "warning",
-                        "icon": "⏳",
-                        "title": f"{len(critiques)} Produits Critiques",
-                        "message": "Péremption dans moins de 3 mois."
+                        "type": "warning", "icon": "⏳", "title": "Alertes Péremptions",
+                        "message": f"{len(critiques)} produits expirent dans < 3 mois."
                     })
-    except: pass
-
-    # 3. Check Large Payments
-    try:
-        df_rec = load_gs_data("Recouvrement", "data_recouvrement.csv", ["Reste à payer", "Client", "Statut"])
-        if not df_rec.empty:
-            df_rec['Reste à payer'] = pd.to_numeric(df_rec['Reste à payer'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
-            large_debts = df_rec[df_rec['Reste à payer'] > 500000]
-            if not large_debts.empty:
-                notifications.append({
-                    "type": "info",
-                    "icon": "💰",
-                    "title": "Gros Impayés",
-                    "message": f"{len(large_debts)} dossiers > 500k DA."
-                })
     except: pass
 
     return notifications
 
+def get_ai_briefing(notifs):
+    """Génère un petit message d'encouragement/alerte via l'IA."""
+    if not notifs:
+        return "✨ Tout est sous contrôle. Vos stocks sont sains et la chaîne du froid est respectée."
+    
+    try:
+        from utils_ia import ask_ai
+        # On simplifie les notifs pour le prompt
+        summary = ", ".join([n['title'] for n in notifs])
+        prompt = f"Voici les alertes actuelles de la pharmacie : {summary}. Fais un briefing ultra-court (2 phrases max) de ton rôle d'assistant expert DarPharm pour motiver l'équipe."
+        return ask_ai(prompt)
+    except:
+        return "⚠️ L'assistant IA est temporairement indisponible pour le briefing."
+
 def show_notification_center():
-    with st.sidebar.expander("🔔 Notifications & Alertes", expanded=False):
+    with st.sidebar.expander("🔔 Centre de Notifications IA", expanded=False):
         notifs = check_notifications()
+        
+        # Briefing IA
+        st.markdown("### 🤖 Briefing Assistant")
+        briefing = get_ai_briefing(notifs)
+        st.markdown(f"""
+            <div style="font-style: italic; font-size: 0.85rem; color: #5b6cf9; background: rgba(91,108,249,0.05); padding: 12px; border-radius: 12px; border-left: 3px solid #5b6cf9; margin-bottom: 15px;">
+                "{briefing}"
+            </div>
+        """, unsafe_allow_html=True)
+
+        st.divider()
+
         if not notifs:
-            st.markdown("""
-                <div style="padding: 10px; border-radius: 10px; background: rgba(45,184,138,0.1); color: #2db88a; font-weight: 700; font-size: 0.9rem;">
-                    <span class="material-symbols-outlined" style="font-size: 18px;">check_circle</span> Système stable
-                </div>
-            """, unsafe_allow_html=True)
+            st.success("Aucune alerte critique.")
         else:
             for n in notifs:
                 icon_name = "error" if n['type'] == "error" else "warning" if n['type'] == "warning" else "info"
@@ -86,11 +98,11 @@ def show_notification_center():
                 bg = "rgba(240,101,133,0.1)" if n['type'] == "error" else "rgba(232,160,32,0.1)" if n['type'] == "warning" else "rgba(91,108,249,0.1)"
                 
                 st.markdown(f"""
-                    <div style="padding: 10px; border-radius: 10px; background: {bg}; color: {color}; margin-bottom: 8px; border-left: 3px solid {color};">
-                        <div style="font-weight: 800; font-size: 0.85rem;">
-                            <span class="material-symbols-outlined" style="font-size: 16px;">{icon_name}</span> {n['title']}
+                    <div style="padding: 12px; border-radius: 12px; background: {bg}; color: {color}; margin-bottom: 10px; border: 1px solid {color}33;">
+                        <div style="font-weight: 800; font-size: 0.9rem; display: flex; align-items: center; gap: 8px;">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">{icon_name}</span> {n['title']}
                         </div>
-                        <div style="font-size: 0.75rem; opacity: 0.8;">{n['message']}</div>
+                        <div style="font-size: 0.8rem; opacity: 0.9; margin-top: 4px; padding-left: 26px;">{n['message']}</div>
                     </div>
                 """, unsafe_allow_html=True)
 
