@@ -80,63 +80,80 @@ def generate_blank_inventory_pdf(df, module_name, columns_to_print, subtitle="")
         return bytes(raw)
     return raw.encode('latin-1', 'replace')
 
-def generate_inventory_report_pdf(df_diff, title="RAPPORT D'INVENTAIRE"):
+def generate_inventory_report_pdf(df_diff, title="RAPPORT D'INVENTAIRE", cols_to_include=None):
     """
-    df_diff: DataFrame contenant les écarts (doit avoir 'produit', 'lot', 'qte_logi', 'Total', 'Ecart')
+    df_diff: DataFrame contenant les données
+    cols_to_include: Liste de colonnes spécifiques (facultatif)
     """
     pdf = InventoryPDF()
     pdf.title_text = title.upper()
     pdf.alias_nb_pages()
     pdf.add_page()
     
-    # Statistiques
+    # Statistiques de base
     total_items = len(df_diff)
-    manquants = len(df_diff[df_diff['Ecart'] < 0])
-    excedents = len(df_diff[df_diff['Ecart'] > 0])
     
     pdf.set_font('Arial', 'B', 12)
-    pdf.cell(0, 10, "1. RESUME DES ECARTS", 0, 1)
+    pdf.cell(0, 10, "1. RESUME DU RAPPORT", 0, 1)
     pdf.set_font('Arial', '', 10)
-    pdf.cell(0, 8, f"- Nombre total de produits avec ecart : {total_items}", 0, 1)
-    pdf.cell(0, 8, f"- Nombre de produits manquants : {manquants}", 0, 1)
-    pdf.cell(0, 8, f"- Nombre de produits en excedent : {excedents}", 0, 1)
+    pdf.cell(0, 8, f"- Nombre total de lignes : {total_items}", 0, 1)
+    
+    if 'Ecart' in df_diff.columns:
+        manquants = len(df_diff[df_diff['Ecart'] < 0])
+        excedents = len(df_diff[df_diff['Ecart'] > 0])
+        pdf.cell(0, 8, f"- Produits manquants : {manquants}", 0, 1)
+        pdf.cell(0, 8, f"- Produits en excedent : {excedents}", 0, 1)
     pdf.ln(5)
     
-    # Tableau des écarts
+    # Configuration des colonnes
     pdf.set_font('Arial', 'B', 9)
     pdf.set_fill_color(240, 240, 240)
-    cols = [('produit', 'Produit', 70), ('lot', 'Lot', 30), ('qte_logi', 'Logi', 20), ('Total', 'Reel', 20), ('Ecart', 'Ecart', 20)]
     
-    for _, label, w in cols:
+    if cols_to_include:
+        # On définit des largeurs automatiques simplifiées
+        w_main = 80
+        w_others = (190 - w_main) / (len(cols_to_include) - 1) if len(cols_to_include) > 1 else 110
+        cols_config = []
+        for i, col in enumerate(cols_to_include):
+            w = w_main if i == 0 else w_others
+            label = str(col).capitalize().replace('_', ' ')
+            cols_config.append((col, label, w))
+    else:
+        # Default Inventory Cols
+        cols_config = [('produit', 'Produit', 70), ('lot', 'Lot', 30), ('qte_logi', 'Logi', 20), ('Total', 'Reel', 20), ('Ecart', 'Ecart', 20), ('Incohérence', 'Obs', 30)]
+    
+    # Affichage en-têtes
+    for _, label, w in cols_config:
         pdf.cell(w, 8, label, 1, 0, 'C', 1)
     pdf.ln()
     
+    # Affichage lignes
     pdf.set_font('Arial', '', 8)
     for _, row in df_diff.iterrows():
         if pdf.get_y() > 260:
             pdf.add_page()
             pdf.set_font('Arial', 'B', 9)
-            for _, label, w in cols: pdf.cell(w, 8, label, 1, 0, 'C', 1)
+            for _, label, w in cols_config: pdf.cell(w, 8, label, 1, 0, 'C', 1)
             pdf.ln()
             pdf.set_font('Arial', '', 8)
             
-        for key, _, w in cols:
-            val = str(row.get(key, ""))[:40]
-            align = 'L' if key == 'produit' else 'C'
+        for i, (key, _, w) in enumerate(cols_config):
+            val = str(row.get(key, ""))[:45]
+            align = 'L' if i == 0 else 'C' # Première colonne à gauche
             pdf.cell(w, 7, val.encode('latin-1', 'replace').decode('latin-1'), 1, 0, align)
         pdf.ln()
         
     # Conclusion
     pdf.ln(10)
     pdf.set_font('Arial', 'B', 12)
-    pdf.cell(0, 10, "2. CONCLUSION ET VALIDATION", 0, 1)
+    pdf.cell(0, 10, "2. VALIDATION", 0, 1)
     pdf.set_font('Arial', 'I', 10)
-    pdf.multi_cell(0, 8, "L'inventaire a ete realise et confronte au systeme Logipharm. Les ecarts listes ci-dessus doivent faire l'objet d'une regularisation en stock ou d'une recherche approfondie dans les factures.")
+    pdf.multi_cell(0, 8, "Ce document constitue un rapport officiel genere par DarPharm Solution. Il doit etre conserve et utilise pour la regularisation des stocks ou la gestion des peremptions.")
     pdf.ln(15)
     
     # Signatures
     pdf.set_font('Arial', 'B', 10)
-    pdf.cell(95, 10, "L'Agent Saisie", 0, 0, 'C')
+    pdf.cell(95, 10, "L'Agent Responsable", 0, 0, 'C')
     pdf.cell(95, 10, "Le Superviseur / Admin", 0, 1, 'C')
     pdf.ln(20)
     pdf.cell(95, 0, "__________________", 0, 0, 'C')

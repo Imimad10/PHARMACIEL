@@ -93,12 +93,51 @@ with tab1:
         df_res = analyze_peremptions(df_raw, date_col=date_col)
         if not df_res.empty:
             stats = df_res['Statut'].value_counts()
+            # --- EXPORT & FILTRAGE INTERACTIF ---
+            st.markdown("### 🖨️ Préparation du Rapport PDF")
+            all_statuts = ["❌ Périmé", "⚠️ Critique (< 3 mois)", "🟠 Vigilance (3-6 mois)", "✅ OK (> 6 mois)"]
+            
+            # Initialisation de la sélection dans le session_state
+            if 'export_filter' not in st.session_state:
+                st.session_state.export_filter = ["❌ Périmé", "⚠️ Critique (< 3 mois)"]
+
+            selected_statuts = st.multiselect("Sélectionnez les statuts à inclure dans le rapport :", 
+                                            all_statuts, 
+                                            default=st.session_state.export_filter)
+            st.session_state.export_filter = selected_statuts
+
+            # Injection CSS pour colorer les rectangles sélectionnés
+            highlight_css = ""
+            if "❌ Périmé" in selected_statuts: highlight_css += "[data-testid='stMetric']:nth-of-type(1) { background: rgba(255,0,0,0.1) !important; border: 2px solid #ff4b4b !important; }"
+            if "⚠️ Critique (< 3 mois)" in selected_statuts: highlight_css += "[data-testid='stMetric']:nth-of-type(2) { background: rgba(255,165,0,0.1) !important; border: 2px solid #ffa500 !important; }"
+            if "🟠 Vigilance (3-6 mois)" in selected_statuts: highlight_css += "[data-testid='stMetric']:nth-of-type(3) { background: rgba(255,140,0,0.1) !important; border: 2px solid #ff8c00 !important; }"
+            if "✅ OK (> 6 mois)" in selected_statuts: highlight_css += "[data-testid='stMetric']:nth-of-type(4) { background: rgba(0,255,0,0.1) !important; border: 2px solid #28a745 !important; }"
+            
+            if highlight_css:
+                st.markdown(f"<style>{highlight_css}</style>", unsafe_allow_html=True)
+
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("❌ Périmés", stats.get("❌ Périmé", 0))
             c2.metric("⚠️ Critiques (< 3m)", stats.get("⚠️ Critique (< 3 mois)", 0))
             c3.metric("🟠 Vigilance (3-6m)", stats.get("🟠 Vigilance (3-6 mois)", 0))
             c4.metric("✅ Sains", stats.get("✅ OK (> 6 mois)", 0))
             
+            # Bouton de téléchargement PDF filtré
+            df_to_export = df_res[df_res['Statut'].isin(selected_statuts)]
+            if not df_to_export.empty:
+                from utils_pdf import generate_inventory_report_pdf
+                # On adapte le titre du rapport
+                title_report = f"RAPPORT PEREMPTIONS - {source_data}"
+                if st.download_button("📥 Télécharger le Rapport PDF Filtré", 
+                                    generate_inventory_report_pdf(df_to_export, title_report, cols_to_include=['designation', 'lot', date_col, 'Statut']), 
+                                    f"Rapport_Peremptions_{datetime.now().strftime('%Y%m%d')}.pdf", 
+                                    "application/pdf",
+                                    use_container_width=True,
+                                    type="primary"):
+                    st.success("Rapport prêt !")
+            else:
+                st.info("Sélectionnez au moins un statut pour générer le rapport.")
+
             st.divider()
             
             col_list, col_action = st.columns([2, 1])
