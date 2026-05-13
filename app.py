@@ -255,9 +255,7 @@ apply_theme_css(fluffy)
 
 if st.session_state.get('current_user'):
     u_theme = get_user_theme(st.session_state.current_user.get('username',''), _tdb)
-    if u_theme:
-        apply_theme_css(u_theme)
-        # Style pour le bouton déconnexion
+        # Style Responsive et Bouton Déconnexion
         st.markdown("""
         <style>
             div[data-testid="stBaseButton-btn_logout"] button {
@@ -271,33 +269,32 @@ if st.session_state.get('current_user'):
                 color: #ffffff !important;
                 border-color: #ef4444 !important;
             }
+
+            /* ==========================================
+               MOBILE-FIRST RESPONSIVE DESIGN
+               ========================================== */
+            @media (max-width: 768px) {
+                .main .block-container {
+                    padding: 1rem 0.75rem 5rem 0.75rem !important;
+                    max-width: 100% !important;
+                }
+                .stButton button {
+                    width: 100% !important;
+                    min-height: 52px !important;
+                    font-size: 16px !important;
+                    margin-bottom: 8px !important;
+                    border-radius: 12px !important;
+                    touch-action: manipulation;
+                }
+                [data-testid="stMetric"] {
+                    padding: 15px !important;
+                }
+                div[data-testid="stExpander"] {
+                    border-radius: 12px !important;
+                }
+            }
         </style>
         """, unsafe_allow_html=True)
-
-        /* ==========================================
-           MOBILE-FIRST RESPONSIVE DESIGN
-           ========================================== */
-
-        /* Tablettes (768px et moins) */
-        @media (max-width: 768px) {{
-
-            /* Padding réduit pour maximiser l'espace */
-            .main .block-container {{
-                padding: 1rem 0.75rem 5rem 0.75rem !important;
-                max-width: 100% !important;
-            }}
-
-            /* Boutons pleine largeur et plus grands (touch-friendly) */
-            .stButton button {{
-                width: 100% !important;
-                min-height: 52px !important;
-                font-size: 16px !important;
-                margin-bottom: 8px !important;
-                border-radius: 12px !important;
-                touch-action: manipulation;
-            }}
-
-            /* Métriques plus lisibles */
             [data-testid="stMetricValue"] {{
                 font-size: 2rem !important;
             }}
