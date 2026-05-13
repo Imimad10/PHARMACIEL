@@ -105,16 +105,24 @@ df_master = get_master_df()
 df_inv_triple = load_gs_data(INV_TRIPLE_WORKSHEET, INV_TRIPLE_FALLBACK, COLS_INV_TRIPLE)
 
 # --- FONCTION FILTRAGE ZONES ---
-def get_user_data():
+def get_user_data(selected_zone_override=None):
     if df_master is None: return pd.DataFrame()
     df = df_master.copy()
     user_role = st.session_state.current_user.get('role', 'Saisie')
     user_zone = str(st.session_state.current_user.get('zone', 'Aucune')).strip().upper()
+    
+    # Si un Admin choisit une zone spécifique via le sélecteur
+    if selected_zone_override and selected_zone_override != "Toutes":
+        user_zone = selected_zone_override.strip().upper()
+        user_role = 'Saisie' # On force le filtrage pour l'aperçu
+
     if user_role not in ['Admin', 'Superviseur']:
         if user_zone == 'AUCUNE' or not user_zone:
             return df.iloc[0:0]
         if 'zone' in df.columns:
-            df = df[df['zone'].astype(str).str.upper().str.contains(user_zone, na=False, regex=False)]
+            # Nettoyage des zones dans le DF pour un matching parfait
+            df['zone_clean'] = df['zone'].astype(str).str.strip().str.upper()
+            df = df[df['zone_clean'].str.contains(user_zone, na=False, regex=False)]
     return df
 
 # Initialisation du work_df synchronisé
@@ -149,7 +157,10 @@ if "inv_work_df" in st.session_state:
         st.rerun()
 
 col_t1, col_t2 = st.columns([4, 1])
-with col_t1: st.title("📋 Inventaire Triple & Confrontation")
+with col_t1: 
+    u_z = st.session_state.current_user.get('zone', 'Non définie')
+    st.title("📋 Inventaire Triple & Confrontation")
+    st.info(f"👤 Utilisateur : **{st.session_state.current_user.get('username')}** | 📍 Zone assignée : **{u_z}**")
 with col_t2:
     if st.button("♻️ Actualiser", use_container_width=True):
         st.cache_data.clear()
@@ -179,7 +190,13 @@ tabs = st.tabs(["📊 Dashboard", "⚡ Saisie Inventaire", "📉 Analyse Écarts
 
 # --- DASHBOARD ---
 with tabs[0]:
-    dash_df = get_user_data()
+    # Sélecteur de zone pour Admin
+    z_override = None
+    if st.session_state.current_user.get('role') in ['Admin', 'Superviseur']:
+        all_zs = ["Toutes"] + sorted(df_master['zone'].unique().tolist())
+        z_override = st.selectbox("👁️ Voir une zone spécifique :", all_zs)
+
+    dash_df = get_user_data(selected_zone_override=z_override)
     if dash_df.empty: st.info("Aucune zone assignée.")
     else:
         work = st.session_state.inv_work_df
@@ -193,6 +210,12 @@ with tabs[0]:
 
 # --- SAISIE ---
 with tabs[1]:
+    # Sélecteur de zone pour Admin en mode saisie
+    z_s_override = None
+    if st.session_state.current_user.get('role') in ['Admin', 'Superviseur']:
+        all_zs = ["Toutes"] + sorted(df_master['zone'].unique().tolist())
+        z_s_override = st.selectbox("📍 Travailler sur la zone :", all_zs, key="sb_z_saisie")
+
     # AI SCANNER
     if is_ia_scanner_enabled():
         with st.expander("📷 Scanner IA", expanded=False):
@@ -206,7 +229,7 @@ with tabs[1]:
                     st.success(f"Détecté: {data['designation']}")
                 except: st.error("Échec lecture IA")
 
-    available_data = get_user_data()
+    available_data = get_user_data(selected_zone_override=z_s_override)
     if available_data.empty:
         st.error("❌ Aucune zone attribuée.")
     else:
