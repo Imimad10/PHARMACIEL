@@ -140,15 +140,13 @@ if "inv_work_df" not in st.session_state and df_master is not None:
                     work_df.loc[mask, 'colissage'] = entry.get('col')
     st.session_state.inv_work_df = work_df
 
-# SÉCURITÉ COLONNES
+# SÉCURITÉ ET COMPATIBILITÉ : Force le reset si la structure est ancienne
 if "inv_work_df" in st.session_state:
-    cols_to_fix = {
-        'Terrain (Vrac)': 0.0, 'Terrain (Colis)': 0.0, 'Mini (Colis)': 0.0,
-        'ddp': "", 'ppa': 0.0, 'shp': 0.0, 'colissage': 1.0
-    }
-    for col, default in cols_to_fix.items():
-        if col not in st.session_state.inv_work_df.columns:
-            st.session_state.inv_work_df[col] = default
+    required = ['Terrain (Vrac)', 'Terrain (Colis)', 'Mini (Colis)', 'colissage']
+    # Si une colonne vitale manque, on vide la session pour forcer la re-création propre
+    if not all(c in st.session_state.inv_work_df.columns for c in required):
+        del st.session_state.inv_work_df
+        st.rerun()
 
 col_t1, col_t2 = st.columns([4, 1])
 with col_t1: st.title("📋 Inventaire Triple & Confrontation")
