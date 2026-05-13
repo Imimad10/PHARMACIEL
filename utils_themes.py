@@ -238,6 +238,34 @@ def apply_theme_css(theme: dict):
         padding: 12px !important;
     }}
 
+    /* --- CACHER LE MENU STREAMLIT (Look APK/App) --- */
+    #MainMenu {visibility: hidden; display: none !important;}
+    header {visibility: hidden; display: none !important;}
+    footer {visibility: hidden; display: none !important;}
+    [data-testid="stHeader"] {display: none !important;}
+    [data-testid="stDecoration"] {display: none !important;}
+    [data-testid="stStatusWidget"] {display: none !important;}
+    .stDeployButton {display: none !important;}
+
+    /* --- MOBILE RESPONSIVE TWEAKS --- */
+    @media (max-width: 768px) {
+        .main .block-container {
+            padding: 1rem 0.5rem !important;
+        }
+        [data-testid="stMetric"] {
+            padding: 12px !important;
+        }
+        .stButton > button {
+            width: 100% !important;
+            min-height: 48px !important;
+            font-size: 16px !important;
+        }
+        /* Masquer certains éléments inutiles sur mobile pour gagner de la place */
+        [data-testid="stSidebarNavSeparator"] {
+            display: none !important;
+        }
+    }
+
     /* --- TITRES GRADIENT --- */
     h1, h2, h3 {{
         background: linear-gradient(135deg, #5b6cf9, #9b6fd4, #1ab8c4);
@@ -253,6 +281,29 @@ def apply_theme_css(theme: dict):
         vertical-align: middle;
         margin-right: 8px;
     }}
+</style>
+
+<!-- SPLASH SCREEN ANIMATION (APK Style) -->
+<div id="app-splash-screen" style="position:fixed; inset:0; z-index:999999; background: #eef0f8; display:flex; flex-direction:column; align-items:center; justify-content:center; animation: fadeOutSplash 1s forwards 2.5s;">
+    <div style="font-size: 80px; animation: pulseLogo 1.5s infinite;">💊</div>
+    <h1 style="color: #1a1f3c; font-family: 'Nunito', sans-serif; font-weight: 900; margin-top: 20px;">DARPHARM PRO</h1>
+    <p style="color: #6b7299; font-family: 'Nunito', sans-serif; font-weight: 700;">Initialisation sécurisée...</p>
+    <div style="width: 200px; height: 4px; background: #d0d4e8; border-radius: 2px; overflow: hidden; margin-top: 20px;">
+        <div style="width: 0%; height: 100%; background: #5b6cf9; animation: loadProgress 2.2s ease-in-out forwards;"></div>
+    </div>
+</div>
+
+<script>
+    setTimeout(function() {
+        var splash = document.getElementById('app-splash-screen');
+        if (splash) splash.style.display = 'none';
+    }, 3500);
+</script>
+
+<style>
+    @keyframes fadeOutSplash {{ from {{ opacity: 1; visibility: visible; }} to {{ opacity: 0; visibility: hidden; }} }}
+    @keyframes pulseLogo {{ 0% {{ transform: scale(1); }} 50% {{ transform: scale(1.1); }} 100% {{ transform: scale(1); }} }}
+    @keyframes loadProgress {{ 0% {{ width: 0%; }} 100% {{ width: 100%; }} }}
 </style>
 """
     st.markdown(css, unsafe_allow_html=True)
