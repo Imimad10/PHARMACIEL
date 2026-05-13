@@ -14,7 +14,18 @@ st.markdown("### Gérez vos 8h de travail efficacement")
 
 # --- 1. CHARGEMENT DONNÉES ---
 df_tasks = load_gs_data(TASKS_WORKSHEET, TASKS_FALLBACK, COLS_TASKS)
-agents = ["Ayoub", "Islem", "Imad", "Seif"]
+
+# Chargement dynamique des agents depuis la base utilisateurs
+try:
+    from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+    df_users_coord = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "nom", "prenom", "role"])
+    agents = df_users_coord['username'].dropna().tolist() if not df_users_coord.empty else ["Ayoub", "Islem", "Imad", "Seif"]
+except:
+    agents = ["Ayoub", "Islem", "Imad", "Seif"]
+
+current_user_info = st.session_state.get('current_user', {})
+current_agent = current_user_info.get('username', 'Visiteur')
+is_admin_coord = current_user_info.get('role', '') in ['Admin', 'Superviseur']
 
 # --- 3. AJOUT TÂCHE (SUR LA PAGE PRINCIPALE) ---
 with st.expander("➕ Assigner une nouvelle tâche manuellement", expanded=False):
@@ -88,27 +99,42 @@ st.divider()
 
 # --- 3. DASHBOARD AGENT (ACCEPTATION/REFUS) ---
 st.subheader("📬 Mes Missions & Notifications")
-current_agent = st.session_state.get('current_user', {}).get('username', 'Visiteur')
 
-if current_agent in agents:
+# L'Admin voit TOUTES les missions, les agents voient les leurs
+if is_admin_coord:
+    my_tasks = df_tasks.copy()  # Admin voit tout
+    if not my_tasks.empty:
+        st.info(f"👑 Vue Admin : {len(my_tasks)} mission(s) au total.")
+    else:
+        st.info("Aucune mission en cours.")
+else:
     my_tasks = df_tasks[df_tasks['assigned_to'] == current_agent]
-    for idx, row in my_tasks.iterrows():
-        if row['status'] == "À faire":
-            with st.container(border=True):
-                st.warning(f"🔔 NOUVELLE MISSION : **{row['task']}**")
-                c1, c2 = st.columns(2)
-                if c1.button("✅ Accepter", key=f"acc_{row['id']}", use_container_width=True):
-                    df_tasks.at[idx, 'status'] = "Accepté"
-                    save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
-                    play_sound("notification")  # Ding d'acceptation
-                    st.rerun()
-                if c2.button("❌ Refuser (Passer au suivant)", key=f"ref_{row['id']}", use_container_width=True):
-                    # Passer au suivant libre (logique simplifiée : rotation)
-                    next_idx = (agents.index(current_agent) + 1) % len(agents)
-                    df_tasks.at[idx, 'assigned_to'] = agents[next_idx]
-                    save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
-                    st.info(f"Mission réassignée à {agents[next_idx]}.")
-                    st.rerun()
+    if my_tasks.empty:
+        st.info(f"Aucune mission assignée à **{current_agent}** pour le moment.")
+
+for idx, row in my_tasks.iterrows():
+    if row['status'] in ["À faire", "Accepté"]:
+        with st.container(border=True):
+            assignee_label = f" → **{row['assigned_to']}**" if is_admin_coord else ""
+            st.warning(f"🔔 MISSION{assignee_label} : **{row['task']}**")
+            c1, c2, c3 = st.columns(3)
+            if c1.button("✅ Accepter", key=f"acc_{row['id']}", use_container_width=True):
+                df_tasks.at[idx, 'status'] = "Accepté"
+                save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                play_sound("notification")
+                st.rerun()
+            if c2.button("▶️ Démarrer", key=f"start2_{row['id']}", use_container_width=True):
+                df_tasks.at[idx, 'status'] = "En cours"
+                save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                st.rerun()
+            # Réassignation : seulement si agent valide ou admin
+            available_next = [a for a in agents if a != row['assigned_to']]
+            if available_next and c3.button("🔄 Réassigner", key=f"ref_{row['id']}", use_container_width=True):
+                next_agent = available_next[0]
+                df_tasks.at[idx, 'assigned_to'] = next_agent
+                save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                st.info(f"Mission réassignée à {next_agent}.")
+                st.rerun()
 
 st.divider()
 
