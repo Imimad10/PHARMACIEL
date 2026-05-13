@@ -238,20 +238,56 @@ def apply_theme_css(theme: dict):
         padding: 12px !important;
     }}
 
-    /* --- SIDEBAR GROUP HEADERS (SÉPARATION APPARENTE) --- */
+    /* --- CACHER LE MENU STREAMLIT (Minimalisme) --- */
+    #MainMenu {{visibility: hidden; display: none !important;}}
+    header {{visibility: hidden; display: none !important;}}
+    footer {{visibility: hidden; display: none !important;}}
+    [data-testid="stHeader"] {{display: none !important;}}
+    [data-testid="stDecoration"] {{display: none !important;}}
+    [data-testid="stStatusWidget"] {{display: none !important;}}
+    .stDeployButton {{display: none !important;}}
+
+    /* --- SIDEBAR MINIMALIST & BEAUTIFUL --- */
     [data-testid="stSidebarNav"] li div {{
-        background: linear-gradient(90deg, rgba(91,108,249,0.1), transparent) !important;
-        padding: 10px 15px !important;
-        border-radius: 0 10px 10px 0 !important;
-        margin-top: 25px !important;
-        margin-bottom: 10px !important;
-        color: var(--accent) !important;
+        background: transparent !important;
+        padding: 15px 15px 5px 15px !important;
+        margin-top: 15px !important;
         font-weight: 900 !important;
-        font-size: 0.7rem !important;
+        font-size: 0.75rem !important;
         text-transform: uppercase !important;
-        letter-spacing: 1.5px !important;
-        border-left: 5px solid var(--accent) !important;
-        box-shadow: 2px 2px 5px rgba(0,0,0,0.02) !important;
+        letter-spacing: 2px !important;
+        border-left: none !important;
+        box-shadow: none !important;
+        opacity: 0.8;
+    }}
+
+    /* Accent color per group using nth-of-type logic for the headers */
+    /* Note: indices depend on the number of items, so we target the divs specifically */
+    [data-testid="stSidebarNav"] ul li:nth-child(1) div {{ color: #8b5cf6 !important; border-bottom: 2px solid rgba(139, 92, 246, 0.2) !important; }} /* Profil */
+    [data-testid="stSidebarNav"] ul li:has(a[href*="tableau_de_bord"]) - li div, 
+    [data-testid="stSidebarNav"] ul li:nth-child(3) div {{ color: #3b82f6 !important; border-bottom: 2px solid rgba(59, 130, 246, 0.2) !important; }} /* Supervision */
+    
+    /* Elegant hover for menu items */
+    [data-testid="stSidebarNav"] li a {{
+        border-radius: 12px !important;
+        margin: 3px 12px !important;
+        padding: 8px 12px !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        border: 1px solid transparent !important;
+    }}
+
+    [data-testid="stSidebarNav"] li a:hover {{
+        background: rgba(91,108,249,0.08) !important;
+        border: 1px solid rgba(91,108,249,0.15) !important;
+        transform: translateX(8px) !important;
+        box-shadow: 4px 4px 15px rgba(0,0,0,0.03) !important;
+    }}
+
+    [data-testid="stSidebarNav"] li a[aria-current="page"] {{
+        background: linear-gradient(90deg, rgba(91,108,249,0.15), transparent) !important;
+        border-left: 4px solid var(--accent) !important;
+        font-weight: 800 !important;
+        color: var(--accent) !important;
     }}
 
     /* --- TITRES GRADIENT --- */
