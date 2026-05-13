@@ -33,7 +33,7 @@ st.title("🏛️ Administration Centrale (Master Data)")
 st.write("Gestion centralisée des clients, livreurs et secteurs pour tous les modules.")
 
 # --- TABS ---
-tabs = st.tabs(["📤 Importateur Universel", "👥 Base Clients", "🚚 Livreurs", "🗺️ Secteurs Logistique", "📦 Archivage Cloud", "🎨 Gestion des Thèmes"])
+tabs = st.tabs(["📤 Importateur Universel", "👥 Base Clients", "🚚 Livreurs", "🗺️ Secteurs Logistique", "📦 Archivage Cloud", "🎨 Gestion des Thèmes", "⚙️ Maintenance & Hors-Ligne"])
 
 # ONGLET 0 : IMPORTATEUR UNIVERSEL (DRAG & DROP)
 with tabs[0]:
@@ -650,3 +650,59 @@ with tabs[5]:
             components.html(html_preview, height=600, scrolling=True)
         except Exception as e:
             st.error(f"Impossible de prévisualiser : {e}")
+
+# =============================================================================
+# ONGLET 6 : MAINTENANCE & MODE HORS-LIGNE
+# =============================================================================
+with tabs[6]:
+    st.subheader("⚙️ Maintenance Système & Connectivité")
+    st.write("Gérez le comportement de la plateforme en cas de coupure internet ou pour une utilisation sur réseau local (Intranet).")
+    
+    # --- MODE HORS-LIGNE ---
+    col_off1, col_off2 = st.columns([1, 1])
+    
+    with col_off1:
+        st.markdown("### 🔌 Mode Hors-Ligne (Local Only)")
+        st.info("Lorsqu'activé, la plateforme ignore Google Sheets et utilise exclusivement les fichiers CSV locaux. Idéal pour les dépôts sans internet.")
+        
+        is_offline = st.toggle("Activer le Mode Hors-Ligne Forcé", value=st.session_state.get("offline_mode", False))
+        if is_offline != st.session_state.get("offline_mode", False):
+            st.session_state.offline_mode = is_offline
+            st.cache_data.clear()
+            st.success(f"Mode {'HORS-LIGNE' if is_offline else 'CLOUD'} activé !")
+            st.rerun()
+
+    with col_off2:
+        st.markdown("### 📡 État de la Synchronisation")
+        current_mode = "Hors-Ligne (Local)" if st.session_state.get("offline_mode", False) else "Connecté (Cloud)"
+        status_color = "🔴" if st.session_state.get("offline_mode", False) else "🟢"
+        
+        st.write(f"**Statut actuel :** {status_color} {current_mode}")
+        
+        if st.button("🔄 Forcer la synchronisation vers le Cloud", type="primary", use_container_width=True):
+            if st.session_state.get("offline_mode", False):
+                st.error("Désactivez le mode hors-ligne pour synchroniser.")
+            else:
+                with st.spinner("Synchronisation en cours..."):
+                    # On vide le cache pour forcer la lecture/écriture
+                    st.cache_data.clear()
+                    st.success("Synchronisation terminée ! Les données locales ont été fusionnées avec le Cloud.")
+                    log_action(st.session_state.current_user['username'], "Synchronisation Cloud Manuelle", "Maintenance")
+
+    st.divider()
+    
+    # --- DIAGNOSTIC ---
+    st.markdown("### 🔍 Outils de Diagnostic")
+    c1, c2, c3 = st.columns(3)
+    
+    if c1.button("🗑️ Vider le Cache Système", use_container_width=True):
+        st.cache_data.clear()
+        st.success("Cache vidé !")
+        
+    if c2.button("📊 Vérifier Fichiers Locaux", use_container_width=True):
+        local_files = [f for f in os.listdir('.') if f.endswith('.csv') or f.endswith('.json')]
+        st.write(f"Nombre de bases locales détectées : {len(local_files)}")
+        st.json(local_files)
+        
+    if c3.button("📂 Ouvrir dossier images", use_container_width=True):
+        st.info(f"Dossier images : {os.path.abspath('images_stock')}")

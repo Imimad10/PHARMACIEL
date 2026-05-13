@@ -17,6 +17,8 @@ ALWAYS_CLOUD = [DB_USERS_WORKSHEET, "Base_Clients", "Secteurs", "Livreurs", "Sui
 
 def get_storage_mode():
     """Récupère le mode de stockage actuel (Cloud ou Local)."""
+    if st.session_state.get("offline_mode", False):
+        return "Local"
     return st.session_state.get("storage_mode", "Cloud")
 
 @st.cache_resource
@@ -61,16 +63,43 @@ def get_gs_url(worksheet_name=None):
         with open(GS_CONFIG_PATH, "r") as f: return f.read().strip()
     return None
 
+def _load_local_data(fallback_path, columns):
+    """Logique interne de chargement local."""
+    if os.path.exists(fallback_path):
+        try:
+            if fallback_path.endswith('.json'):
+                import json
+                with open(fallback_path, 'r', encoding='utf-8') as f:
+                    raw_data = json.load(f)
+                df = pd.DataFrame(list(raw_data["_default"].values())) if "_default" in raw_data else pd.DataFrame(raw_data)
+            else:
+                try:
+                    df = pd.read_csv(fallback_path, sep=',', encoding='utf-8-sig')
+                    if len(df.columns) <= 1: # Si mal découpé
+                        df = pd.read_csv(fallback_path, sep=';', encoding='utf-8-sig')
+                except:
+                    df = pd.read_csv(fallback_path, sep=';', encoding='utf-8-sig')
+            
+            for col in df.columns:
+                try: df[col] = pd.to_numeric(df[col])
+                except: pass
+            return df.reindex(columns=columns)
+        except: pass
+    return pd.DataFrame(columns=columns)
+
 @st.cache_data(ttl=600)
-def load_gs_data(worksheet_name, fallback_path, columns, force_cloud=False):
+def load_gs_data(worksheet_name, fallback_path, columns=None, force_cloud=False):
     """
-    Charge les données selon le mode choisi.
-    force_cloud=True permet de forcer la lecture depuis GSheets (pour synchro).
+    Charge les données depuis GSheets ou se replie sur le fichier local si hors-ligne.
     """
+    # 0. Mode Hors-Ligne Forcé
+    if st.session_state.get("offline_mode", False) and not force_cloud:
+        return _load_local_data(fallback_path, columns)
+
+    # 1. Tenter le Cloud si mode Cloud, ou si protégé, ou si forcé
     mode = get_storage_mode()
     is_protected = worksheet_name in ALWAYS_CLOUD
-    
-    # 1. Tenter le Cloud si mode Cloud, ou si protégé, ou si forcé
+
     if force_cloud or is_protected or mode == "Cloud":
         client = get_gs_client()
         url = get_gs_url(worksheet_name)
