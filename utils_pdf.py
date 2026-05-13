@@ -138,15 +138,42 @@ def generate_inventory_report_pdf(df_diff, title="RAPPORT D'INVENTAIRE", cols_to
             for _, label, w in cols_config: pdf.cell(w, 8, label, 1, 0, 'C', 1)
             pdf.ln()
             pdf.set_font('Arial', '', 8)
-            
         for i, (key, _, w) in enumerate(cols_config):
-            val = str(row.get(key, ""))[:45]
-            align = 'L' if i == 0 else 'C' # Première colonne à gauche
+            val = str(row.get(key, ""))
+            
+            # Formater la DDP si c'est une date
+            if key in ['ddp', 'ddp_saisi']:
+                try:
+                    dt = pd.to_datetime(val, errors='coerce')
+                    if pd.notna(dt): val = dt.strftime('%m/%y')
+                except: pass
+                
+            # Nettoyer les emojis pour le PDF (FPDF ne supporte pas Unicode par défaut)
+            val = val.replace("❌", "[PERIME]").replace("⚠️", "[CRITIQUE]").replace("🟠", "[VIGILANCE]").replace("✅", "[SAIN]")
+            val = val[:45]
+            
+            align = 'L' if i == 0 else 'C'
             pdf.cell(w, 7, val.encode('latin-1', 'replace').decode('latin-1'), 1, 0, align)
         pdf.ln()
         
-    # Conclusion
+    # --- PLAN DE LIBERATION STRATEGIQUE ---
     pdf.ln(10)
+    pdf.set_font('Arial', 'B', 12)
+    pdf.set_text_color(200, 0, 0)
+    pdf.cell(0, 10, "3. PLAN DE LIBERATION DES PRODUITS", 0, 1)
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font('Arial', '', 9)
+    
+    plan_text = """
+    - ZONE ROUGE (PERIMES) : Retrait immediat des rayons. Mise en quarantaine physique et inventaire de destruction.
+    - ZONE JAUNE (CRITIQUES < 3M) : Action commerciale agressive (Remise -30% a -50%). Placement en 'Tete de Gondole'.
+    - ZONE ORANGE (VIGILANCE 3-6M) : Mise en avant proactive. Verifier les possibilites de retour fournisseur/labo.
+    - ZONE VERTE (SAINS > 6M) : Gestion standard FEFO (Premier expire, premier sorti).
+    """
+    pdf.multi_cell(0, 7, plan_text.encode('latin-1', 'replace').decode('latin-1'))
+    
+    # Conclusion
+    pdf.ln(5)
     pdf.set_font('Arial', 'B', 12)
     pdf.cell(0, 10, "2. VALIDATION", 0, 1)
     pdf.set_font('Arial', 'I', 10)
