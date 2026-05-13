@@ -97,7 +97,6 @@ with tab1:
             st.markdown("### 🖨️ Préparation du Rapport PDF")
             all_statuts = ["❌ Périmé", "⚠️ Critique (< 3 mois)", "🟠 Vigilance (3-6 mois)", "✅ OK (> 6 mois)"]
             
-            # Initialisation de la sélection dans le session_state
             if 'export_filter' not in st.session_state:
                 st.session_state.export_filter = ["❌ Périmé", "⚠️ Critique (< 3 mois)"]
 
@@ -106,27 +105,62 @@ with tab1:
                                             default=st.session_state.export_filter)
             st.session_state.export_filter = selected_statuts
 
-            # Injection CSS pour colorer les rectangles sélectionnés
-            highlight_css = ""
-            if "❌ Périmé" in selected_statuts: highlight_css += "[data-testid='stMetric']:nth-of-type(1) { background: rgba(255,0,0,0.1) !important; border: 2px solid #ff4b4b !important; }"
-            if "⚠️ Critique (< 3 mois)" in selected_statuts: highlight_css += "[data-testid='stMetric']:nth-of-type(2) { background: rgba(255,165,0,0.1) !important; border: 2px solid #ffa500 !important; }"
-            if "🟠 Vigilance (3-6 mois)" in selected_statuts: highlight_css += "[data-testid='stMetric']:nth-of-type(3) { background: rgba(255,140,0,0.1) !important; border: 2px solid #ff8c00 !important; }"
-            if "✅ OK (> 6 mois)" in selected_statuts: highlight_css += "[data-testid='stMetric']:nth-of-type(4) { background: rgba(0,255,0,0.1) !important; border: 2px solid #28a745 !important; }"
-            
-            if highlight_css:
-                st.markdown(f"<style>{highlight_css}</style>", unsafe_allow_html=True)
+            # CSS Robuste pour le coloriage individuel
+            st.markdown("""
+                <style>
+                .sel-card [data-testid="stMetric"] {
+                    border-radius: 20px;
+                    padding: 15px;
+                    transition: all 0.3s ease;
+                    border: 2px solid transparent;
+                }
+                /* Périmé - Rouge Sang */
+                .sel-perime [data-testid="stMetric"] { background-color: #8B0000 !important; border-color: #ff4b4b !important; }
+                .sel-perime [data-testid="stMetricValue"], .sel-perime [data-testid="stMetricLabel"] { color: white !important; }
+                
+                /* Critique - Jaune Poussin */
+                .sel-critique [data-testid="stMetric"] { background-color: #FFD700 !important; border-color: #ffcc00 !important; }
+                .sel-critique [data-testid="stMetricValue"], .sel-critique [data-testid="stMetricLabel"] { color: white !important; }
+                
+                /* Vigilance - Orange */
+                .sel-vigilance [data-testid="stMetric"] { background-color: #FF8C00 !important; border-color: #ffae42 !important; }
+                .sel-vigilance [data-testid="stMetricValue"], .sel-vigilance [data-testid="stMetricLabel"] { color: white !important; }
+                
+                /* Sain - Vert */
+                .sel-sain [data-testid="stMetric"] { background-color: #28a745 !important; border-color: #34ce57 !important; }
+                .sel-sain [data-testid="stMetricValue"], .sel-sain [data-testid="stMetricLabel"] { color: white !important; }
+                </style>
+            """, unsafe_allow_html=True)
 
             c1, c2, c3, c4 = st.columns(4)
-            c1.metric("❌ Périmés", stats.get("❌ Périmé", 0))
-            c2.metric("⚠️ Critiques (< 3m)", stats.get("⚠️ Critique (< 3 mois)", 0))
-            c3.metric("🟠 Vigilance (3-6m)", stats.get("🟠 Vigilance (3-6 mois)", 0))
-            c4.metric("✅ Sains", stats.get("✅ OK (> 6 mois)", 0))
             
-            # Bouton de téléchargement PDF filtré
+            with c1:
+                cls = "sel-card sel-perime" if "❌ Périmé" in selected_statuts else "sel-card"
+                st.markdown(f'<div class="{cls}">', unsafe_allow_html=True)
+                st.metric("❌ Périmés", stats.get("❌ Périmé", 0))
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            with c2:
+                cls = "sel-card sel-critique" if "⚠️ Critique (< 3 mois)" in selected_statuts else "sel-card"
+                st.markdown(f'<div class="{cls}">', unsafe_allow_html=True)
+                st.metric("⚠️ Critiques (< 3m)", stats.get("⚠️ Critique (< 3 mois)", 0))
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+            with c3:
+                cls = "sel-card sel-vigilance" if "🟠 Vigilance (3-6 mois)" in selected_statuts else "sel-card"
+                st.markdown(f'<div class="{cls}">', unsafe_allow_html=True)
+                st.metric("🟠 Vigilance (3-6m)", stats.get("🟠 Vigilance (3-6 mois)", 0))
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+            with c4:
+                cls = "sel-card sel-sain" if "✅ OK (> 6 mois)" in selected_statuts else "sel-card"
+                st.markdown(f'<div class="{cls}">', unsafe_allow_html=True)
+                st.metric("✅ Sains", stats.get("✅ OK (> 6 mois)", 0))
+                st.markdown('</div>', unsafe_allow_html=True)
+            
             df_to_export = df_res[df_res['Statut'].isin(selected_statuts)]
             if not df_to_export.empty:
                 from utils_pdf import generate_inventory_report_pdf
-                # Supprimer les emojis pour éviter les erreurs d'encodage PDF
                 clean_source = source_data.replace("📝", "").replace("📑", "").strip()
                 title_report = f"RAPPORT PEREMPTIONS - {clean_source}"
                 
