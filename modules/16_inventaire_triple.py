@@ -114,7 +114,9 @@ st.title("🛡️ Inventaire Triple & Réconciliation")
 
 if is_admin:
     st.markdown('<div class="admin-box">🛡️ MODE SUPERVISEUR : Accès complet à toutes les zones.</div>', unsafe_allow_html=True)
-    zones_list = ["Toutes"] + sorted(df_m['zone'].unique().tolist())
+    # Correction TypeError : conversion en str et suppression des NaNs avant triage
+    raw_zones = df_m['zone'].dropna().astype(str).unique().tolist()
+    zones_list = ["Toutes"] + sorted(raw_zones)
     selected_zone_filter = st.selectbox("🎯 Filtrer la vue globale par Zone :", zones_list)
 else:
     st.info(f"📍 Votre Zone assignée : **{user_zone}**")
