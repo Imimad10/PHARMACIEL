@@ -239,21 +239,20 @@ def apply_theme_css(theme: dict):
     }}
 
     /* --- TITRES GRADIENT --- */
-    h1, h2, h3 {
+    h1, h2, h3 {{
         background: linear-gradient(135deg, #5b6cf9, #9b6fd4, #1ab8c4);
         -webkit-background-clip: text;
         -webkit-text-fill-color: initial !important; /* Fix for invisible icons/text */
         color: var(--accent) !important;
         font-weight: 900 !important;
-    }
+    }}
 
     /* Style for Material Icons to ensure they are visible and properly sized */
-    .material-symbols-outlined {
+    .material-symbols-outlined {{
         font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
         vertical-align: middle;
         margin-right: 8px;
-    }
-}
+    }}
 </style>
 """
     st.markdown(css, unsafe_allow_html=True)
