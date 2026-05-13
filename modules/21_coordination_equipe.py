@@ -28,6 +28,40 @@ current_user_info = st.session_state.get('current_user', {})
 current_agent = current_user_info.get('username', 'Visiteur')
 is_admin_coord = current_user_info.get('role', '') in ['Admin', 'Superviseur']
 
+# ─────────────────────────────────────────────────────────
+# 🧑‍🤝‍🧑 SÉLECTEUR D'ÉQUIPE DU JOUR
+# ─────────────────────────────────────────────────────────
+st.markdown("#### 🧑‍🤝‍🧑 Équipe disponible aujourd'hui")
+
+if "active_agents" not in st.session_state or not st.session_state.active_agents:
+    st.session_state.active_agents = agents[:]
+
+col_team1, col_team2 = st.columns([4, 1])
+with col_team1:
+    selected_agents = st.multiselect(
+        "👥 Membres présents aujourd'hui :",
+        options=agents,
+        default=[a for a in st.session_state.active_agents if a in agents],
+        placeholder="Sélectionner les agents disponibles..."
+    )
+with col_team2:
+    st.write("")
+    st.write("")
+    if st.button("✅ Confirmer", use_container_width=True, type="primary"):
+        if selected_agents:
+            st.session_state.active_agents = selected_agents
+            play_sound("notification")
+            st.rerun()
+        else:
+            st.warning("Sélectionnez au moins un agent.")
+
+active_agents = st.session_state.get("active_agents", agents) or agents
+if active_agents:
+    agents_present = " · ".join(active_agents)
+    st.caption(f"🟢 Présents : **{agents_present}** ({len(active_agents)} agent(s))")
+
+st.divider()
+
 # ============================================================
 # CATALOGUE COMPLET DES MISSIONS (basé sur tous les modules)
 # ============================================================
@@ -116,7 +150,7 @@ with st.expander("➕ Assigner une nouvelle tâche manuellement", expanded=False
             final_task = f"{selected_template} : {task_input}"
 
         col1, col2 = st.columns(2)
-        assigned = col1.selectbox("👤 Assigner à", agents)
+        assigned = col1.selectbox("👤 Assigner à", active_agents)
         priority = col2.select_slider("🎯 Priorité", options=["Basse", "Moyenne", "Haute", "Critique"], value="Moyenne")
 
         if st.form_submit_button("🚀 Lancer la mission", use_container_width=True, type="primary"):
@@ -139,7 +173,7 @@ with st.expander("➕ Assigner une nouvelle tâche manuellement", expanded=False
 
 # --- ASSISTANT IA PLANIFICATION ---
 with st.expander("🤖 Assistant IA - Planification & Équité", expanded=True):
-    agents_str = ", ".join(agents) if agents else "Ayoub, Islem, Seif, Imad"
+    agents_str = ", ".join(active_agents) if active_agents else "Ayoub, Islem, Seif, Imad"
     st.info(f"L'IA planifie et répartit le travail équitablement entre : **{agents_str}**")
 
     col_ia1, col_ia2 = st.columns([2, 1])
@@ -218,7 +252,7 @@ else:
                 save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
                 st.rerun()
             if c3.button("❌ Refuser", key=f"ref_{row['id']}", use_container_width=True):
-                available_next = [a for a in agents if a != row['assigned_to']]
+                available_next = [a for a in active_agents if a != row['assigned_to']]
                 if available_next:
                     df_tasks.at[idx, 'assigned_to'] = available_next[0]
                     save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
@@ -238,7 +272,7 @@ if is_admin_coord:
                 col_b.write(f"🎯 {row.get('priority','—')}")
                 col_c.write(f"📌 {row['status']}")
                 # Réassignation admin
-                available_agents = [a for a in agents if a != row['assigned_to']]
+                available_agents = [a for a in active_agents if a != row['assigned_to']]
                 if available_agents:
                     new_agent = col_d.selectbox(
                         "Réassigner", 
