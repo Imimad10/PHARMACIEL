@@ -135,93 +135,140 @@ for cat, missions in MISSION_CATALOGUE.items():
     ALL_MISSIONS_FLAT.append(f"── {cat} ──")  # Séparateur de catégorie
     ALL_MISSIONS_FLAT.extend(missions)
 
-# --- AJOUT TÂCHE MANUELLE ---
-with st.expander("➕ Assigner une nouvelle tâche manuellement", expanded=False):
-    with st.form("form_task", clear_on_submit=True):
-        cat_choice = st.selectbox("📂 Catégorie de mission", list(MISSION_CATALOGUE.keys()))
-        selected_template = st.selectbox(
-            "📋 Modèle de mission",
-            ["Personnalisé..."] + MISSION_CATALOGUE[cat_choice]
-        )
-        task_input = st.text_area("✏️ Détails supplémentaires :", placeholder="Zone concernée, quantité, priorité spéciale...")
+# --- AJOUT TÂCHE MANUELLE (ADMIN SEULEMENT) ---
+if is_admin_coord:
+    with st.expander("➕ Assigner une nouvelle tâche manuellement", expanded=False):
+        with st.form("form_task", clear_on_submit=True):
+            cat_choice = st.selectbox("📂 Catégorie de mission", list(MISSION_CATALOGUE.keys()))
+            selected_template = st.selectbox(
+                "📋 Modèle de mission",
+                ["Personnalisé..."] + MISSION_CATALOGUE[cat_choice]
+            )
+            task_input = st.text_area("✏️ Détails supplémentaires :", placeholder="Zone concernée, quantité, priorité spéciale...")
 
-        final_task = task_input if selected_template == "Personnalisé..." else selected_template
-        if selected_template != "Personnalisé..." and task_input:
-            final_task = f"{selected_template} : {task_input}"
+            final_task = task_input if selected_template == "Personnalisé..." else selected_template
+            if selected_template != "Personnalisé..." and task_input:
+                final_task = f"{selected_template} : {task_input}"
 
-        col1, col2 = st.columns(2)
-        assigned = col1.selectbox("👤 Assigner à", active_agents)
-        priority = col2.select_slider("🎯 Priorité", options=["Basse", "Moyenne", "Haute", "Critique"], value="Moyenne")
+            col1, col2 = st.columns(2)
+            assigned = col1.selectbox("👤 Assigner à", active_agents)
+            priority = col2.select_slider("🎯 Priorité", options=["Basse", "Moyenne", "Haute", "Critique"], value="Moyenne")
 
-        if st.form_submit_button("🚀 Lancer la mission", use_container_width=True, type="primary"):
-            if final_task and final_task != "Personnalisé..." and not final_task.startswith("──"):
-                new_row = {
-                    "id": len(df_tasks) + 1,
-                    "creation_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                    "task": final_task,
-                    "assigned_to": assigned,
-                    "priority": priority,
-                    "status": "À faire"
-                }
-                df_tasks = pd.concat([df_tasks, pd.DataFrame([new_row])], ignore_index=True)
-                save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
-                play_sound("mission")
-                st.success(f"✅ Mission assignée à **{assigned}** !")
-                st.rerun()
+            if st.form_submit_button("🚀 Lancer la mission", use_container_width=True, type="primary"):
+                if final_task and final_task != "Personnalisé..." and not final_task.startswith("──"):
+                    new_row = {
+                        "id": len(df_tasks) + 1,
+                        "creation_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        "task": final_task,
+                        "assigned_to": assigned,
+                        "priority": priority,
+                        "status": "À faire"
+                    }
+                    df_tasks = pd.concat([df_tasks, pd.DataFrame([new_row])], ignore_index=True)
+                    save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                    play_sound("mission")
+                    st.success(f"✅ Mission assignée à **{assigned}** !")
+                    st.rerun()
+                else:
+                    st.warning("Veuillez saisir ou choisir une description de mission valide.")
+else:
+    st.info("💡 Vous pouvez consulter, accepter ou terminer vos missions ci-dessous. Seul l'administrateur peut assigner de nouvelles tâches.")
+
+# --- ASSISTANT IA PLANIFICATION (ADMIN SEULEMENT) ---
+if is_admin_coord:
+    with st.expander("🤖 Assistant IA - Planification Stratégique", expanded=True):
+        agents_str = ", ".join(active_agents) if active_agents else "Ayoub, Islem, Seif, Imad"
+        st.info(f"L'IA planifie le travail selon les spécialités. Équipe actuelle : **{agents_str}**")
+
+        col_ia1, col_ia2 = st.columns([2, 1])
+        with col_ia1:
+            situation = st.text_area(
+                "📋 Situation globale de l'entrepôt :",
+                placeholder="Ex: Arrivage important de 300 colis, Islem doit finir les bons avant midi..."
+            )
+        with col_ia2:
+            st.markdown("**🎯 Priorités équipe**")
+            st.caption("- Islem : Bons/Factures/Expédition (9h-17h)\n- Autres : Stocks/Inventaire/Rangement")
+            quick_missions = []
+            for cat, missions in MISSION_CATALOGUE.items():
+                if st.checkbox(cat, key=f"ia_cat_{cat}"):
+                    quick_missions.append(cat)
+
+        if st.button("🧠 Générer Plan Stratégique", use_container_width=True, type="primary"):
+            if situation or quick_missions:
+                with st.spinner("L'IA analyse la situation..."):
+                    missions_context = ""
+                    if quick_missions:
+                        missions_context = "\nMissions prioritaires demandées : " + ", ".join(quick_missions)
+
+                    all_missions_list = "\n".join(
+                        [f"  - {m}" for cat in MISSION_CATALOGUE.values() for m in cat]
+                    )
+                    prompt = f"""Tu es un expert en management logistique pharmaceutique.
+    Situation du jour : {situation}{missions_context}
+    Équipe présente : {agents_str}
+
+    RÈGLES DE RÉPARTITION (CRITIQUES) :
+    1. ISLEM : Se consacre exclusivement à : Préparation bons de commande, Vérification factures, Programme d'expédition, Logistique/Expédition. Ses horaires : 9h00 à 17h00.
+    2. AYOUB, SEIF, IMAD : Agents polyvalents. Ils gèrent tout le reste : Déchargement, Inventaire, Chaîne du froid, Rangement, Qualité, Recouvrement.
+    3. PRIORITÉ : Toujours prioriser la sécurité (Chambre Froide) et la conformité (Péremptions).
+
+    Catalogue des missions :
+    {all_missions_list}
+
+    Propose un plan clair et équitable. Réponds de manière concise avec des emojis."""
+                    conseil = ask_ai(prompt)
+                    play_sound("ai")
+                    st.session_state["ia_suggestion"] = conseil
             else:
-                st.warning("Veuillez saisir ou choisir une description de mission valide.")
+                st.warning("Veuillez décrire la situation.")
 
-# --- ASSISTANT IA PLANIFICATION ---
-with st.expander("🤖 Assistant IA - Planification & Équité", expanded=True):
-    agents_str = ", ".join(active_agents) if active_agents else "Ayoub, Islem, Seif, Imad"
-    st.info(f"L'IA planifie et répartit le travail équitablement entre : **{agents_str}**")
-
-    col_ia1, col_ia2 = st.columns([2, 1])
-    with col_ia1:
-        situation = st.text_area(
-            "📋 Situation globale de l'entrepôt :",
-            placeholder="Ex: Arrivage de 200 colis ce matin, 3 livreurs disponibles, chambre froide à vérifier, 15 réclamations en attente..."
-        )
-    with col_ia2:
-        st.markdown("**🎯 Missions rapides à inclure**")
-        quick_missions = []
-        for cat, missions in MISSION_CATALOGUE.items():
-            if st.checkbox(cat, key=f"qm_{cat}"):
-                quick_missions.append(cat)
-
-    if st.button("🧠 Répartir Équitablement les Missions", use_container_width=True, type="primary"):
-        if situation or quick_missions:
-            with st.spinner("L'IA calcule la meilleure répartition..."):
-                missions_context = ""
-                if quick_missions:
-                    missions_context = "\nMissions prioritaires demandées : " + ", ".join(quick_missions)
-
-                all_missions_list = "\n".join(
-                    [f"  - {m}" for cat in MISSION_CATALOGUE.values() for m in cat]
-                )
-                prompt = f"""Tu es un expert en management logistique d'un grossiste pharmaceutique en Algérie.
-
-Situation du jour : {situation}{missions_context}
-
-Agents disponibles : {agents_str}
-
-Catalogue complet des missions disponibles :
-{all_missions_list}
-
-Règles de répartition :
-1. Priorise les missions CRITIQUE avant tout le reste.
-2. Chaque agent doit avoir un maximum de 3 missions actives simultanément.
-3. Les missions Chambre Froide et Péremptions sont prioritaires pour la conformité.
-4. Les missions Expédition/Dispatching doivent être finies avant 14h.
-5. Répartis équitablement la charge de travail.
-
-Donne un plan de journée clair par agent avec les missions assignées et l'ordre d'exécution recommandé. Utilise des emojis et sois concis."""
-                conseil = ask_ai(prompt)
-                play_sound("ai")
-                st.success("🗓️ Plan de journée IA suggéré :")
-                st.markdown(conseil)
-        else:
-            st.warning("Décrivez la situation ou cochez des catégories de missions.")
+        if "ia_suggestion" in st.session_state:
+            st.markdown("---")
+            st.markdown("### 📋 Plan suggéré par l'IA")
+            st.markdown(st.session_state["ia_suggestion"])
+            
+            st.markdown("#### 🚀 Affectation Rapide")
+            st.caption("Sélectionnez les missions suggérées pour chaque agent pour les ajouter officiellement.")
+            
+            with st.form("bulk_assign_form"):
+                bulk_assignments = []
+                for agent in active_agents:
+                    st.write(f"👤 **{agent}**")
+                    tasks_selected = st.multiselect(
+                        f"Tâches pour {agent}",
+                        options=[m for cat in MISSION_CATALOGUE.values() for m in cat],
+                        key=f"bulk_{agent}"
+                    )
+                    priority_selected = st.select_slider(
+                        f"Priorité {agent}",
+                        options=["Basse", "Moyenne", "Haute", "Critique"],
+                        value="Haute",
+                        key=f"bulk_prio_{agent}"
+                    )
+                    for t in tasks_selected:
+                        bulk_assignments.append({"agent": agent, "task": t, "priority": priority_selected})
+                
+                if st.form_submit_button("✅ Confirmer et Affecter toutes les missions", use_container_width=True):
+                    if bulk_assignments:
+                        new_rows = []
+                        for assign in bulk_assignments:
+                            new_rows.append({
+                                "id": len(df_tasks) + len(new_rows) + 1,
+                                "creation_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                "task": assign["task"],
+                                "assigned_to": assign["agent"],
+                                "priority": assign["priority"],
+                                "status": "À faire"
+                            })
+                        df_tasks = pd.concat([df_tasks, pd.DataFrame(new_rows)], ignore_index=True)
+                        save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                        play_sound("mission")
+                        st.success(f"✅ {len(new_rows)} missions affectées !")
+                        del st.session_state["ia_suggestion"]
+                        st.rerun()
+                    else:
+                        st.error("Aucune tâche sélectionnée.")
 
 st.divider()
 
