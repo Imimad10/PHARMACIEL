@@ -245,53 +245,67 @@ def apply_theme_css(theme: dict):
     [data-testid="stStatusWidget"] {{display: none !important;}}
     .stDeployButton {{display: none !important;}}
 
-    /* --- SIDEBAR MINIMALIST & BEAUTIFUL --- */
+    /* --- SIDEBAR ULTIMATE MINIMALIST --- */
+    [data-testid="stSidebarNav"] {{
+        padding-top: 20px !important;
+    }}
+
+    /* Section Headers */
     [data-testid="stSidebarNav"] li div {{
         background: transparent !important;
-        padding: 15px 15px 5px 15px !important;
-        margin-top: 15px !important;
-        font-weight: 900 !important;
-        font-size: 0.75rem !important;
+        padding: 20px 15px 5px 15px !important;
+        color: var(--text-s) !important;
+        font-weight: 800 !important;
+        font-size: 0.65rem !important;
         text-transform: uppercase !important;
         letter-spacing: 2px !important;
-        border-left: none !important;
-        box-shadow: none !important;
-        opacity: 0.8;
+        border: none !important;
+        opacity: 0.6;
     }}
 
-    /* Accent color per group */
-    /* Target the first header (Profil) */
-    [data-testid="stSidebarNav"] ul li:nth-child(1) div {{ color: #8b5cf6 !important; border-bottom: 2px solid rgba(139, 92, 246, 0.2) !important; }}
-    
-    /* Target subsequent headers (Supervision, etc.) */
-    /* We use a more general approach to avoid index shifts */
-    [data-testid="stSidebarNav"] li div {{
-        color: var(--accent) !important;
-        border-bottom: 1px solid rgba(91,108,249,0.1) !important;
-    }}
-    
-    /* Elegant hover for menu items */
+    /* Navigation Items (Links) */
     [data-testid="stSidebarNav"] li a {{
-        border-radius: 12px !important;
-        margin: 3px 12px !important;
-        padding: 8px 12px !important;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        border: 1px solid transparent !important;
+        background: transparent !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        padding: 10px 20px !important;
+        transition: all 0.2s ease !important;
+        border-left: 3px solid transparent !important;
+        color: var(--text-p) !important;
+        text-decoration: none !important;
     }}
 
+    /* Prevent text truncation */
+    [data-testid="stSidebarNav"] li a span {{
+        white-space: normal !important;
+        line-height: 1.2 !important;
+        font-size: 0.9rem !important;
+        font-weight: 500 !important;
+    }}
+
+    /* Hover State */
     [data-testid="stSidebarNav"] li a:hover {{
-        background: rgba(91,108,249,0.08) !important;
-        border: 1px solid rgba(91,108,249,0.15) !important;
-        transform: translateX(8px) !important;
-        box-shadow: 4px 4px 15px rgba(0,0,0,0.03) !important;
+        background: rgba(91,108,249,0.05) !important;
+        border-left: 3px solid rgba(91,108,249,0.3) !important;
+        transform: translateX(3px);
     }}
 
+    /* Active Page State */
     [data-testid="stSidebarNav"] li a[aria-current="page"] {{
-        background: linear-gradient(90deg, rgba(91,108,249,0.15), transparent) !important;
+        background: rgba(91,108,249,0.08) !important;
         border-left: 4px solid var(--accent) !important;
+        color: var(--accent) !important;
+    }}
+    
+    [data-testid="stSidebarNav"] li a[aria-current="page"] span {{
         font-weight: 800 !important;
         color: var(--accent) !important;
     }}
+
+    /* Specific Group Colors for Headers (Optional but beautiful) */
+    [data-testid="stSidebarNav"] ul li:nth-child(1) div {{ color: #8b5cf6 !important; }}
+    [data-testid="stSidebarNav"] ul li:nth-child(3) div {{ color: #3b82f6 !important; }}
+    [data-testid="stSidebarNav"] ul li:nth-child(9) div {{ color: #10b981 !important; }}
 
     /* --- TITRES GRADIENT --- */
     h1, h2, h3 {{
