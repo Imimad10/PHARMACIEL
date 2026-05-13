@@ -90,15 +90,15 @@ def get_working_master():
     elif is_admin:
         return df_m
     else:
-        return df_m[df_m['zone'].str.contains(user_zone, na=False)]
+        return df_m[df_m['zone'].astype(str).str.upper().str.contains(user_zone, na=False)]
 
 def get_working_entries(df):
     if is_admin and selected_zone_filter != "Toutes":
-        return df[df['zone'] == selected_zone_filter]
+        return df[df['zone'].astype(str) == selected_zone_filter]
     elif is_admin:
         return df
     else:
-        return df[df['zone'].str.contains(user_zone, na=False)]
+        return df[df['zone'].astype(str).str.upper().str.contains(user_zone, na=False)]
 
 t_zone, t_mini, t_final, t_conf = st.tabs(["📍 Saisie Zone", "📦 Saisie Mini", "📊 Compilation", "📉 Confrontation"])
 
