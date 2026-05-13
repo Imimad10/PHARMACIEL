@@ -134,19 +134,21 @@ def get_active_themes(data: dict) -> list:
 
 def get_user_theme(username: str, data: dict) -> dict | None:
     """
-    Retourne le thème affecté à un utilisateur.
-    Priorité : assignation individuelle > thème par défaut actif > None
+    Retourne le thème EXPLICITEMENT affecté à un utilisateur.
+    Retourne None si aucune affectation individuelle n'existe.
+    (Pas de fallback vers un thème par défaut — le thème statique de l'app reste actif.)
     """
     assignments = data.get("user_theme_assignments", {})
     theme_id = assignments.get(username)
 
-    if theme_id:
-        for t in data.get("themes", []):
-            if t["id"] == theme_id and t.get("active", False):
-                return t
-    # Thème par défaut (premier actif)
-    active = get_active_themes(data)
-    return active[0] if active else None
+    if not theme_id:
+        return None  # Aucune affectation → on ne touche pas au thème existant
+
+    for t in data.get("themes", []):
+        if t["id"] == theme_id and t.get("active", False):
+            return t
+
+    return None  # Thème assigné mais désactivé → on ne force rien non plus
 
 
 def apply_theme_css(theme: dict):
@@ -237,14 +239,16 @@ def apply_theme_css(theme: dict):
 
 def apply_user_theme(username: str):
     """
-    Charge et applique le thème de l'utilisateur connecté.
-    À appeler dans app.py ou en début de chaque module.
+    Applique le thème personnalisé de l'utilisateur SEULEMENT s'il en a
+    un affecté explicitement dans l'Admin Centrale.
+    Si aucun thème n'est affecté, on ne fait rien pour ne pas écraser
+    le thème statique de l'application (Clair, Sombre, Chic Animé…).
     """
     if not username:
         return
     data = load_themes_db()
-    theme = get_user_theme(username, data)
-    if theme:
+    theme = get_user_theme(username, data)  # None si pas d'affectation explicite
+    if theme:  # On n'applique le CSS que si une affectation existe
         apply_theme_css(theme)
 
 
