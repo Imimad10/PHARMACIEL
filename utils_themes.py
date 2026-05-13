@@ -289,3 +289,19 @@ def save_premium_dashboard_html(file_bytes: bytes, filename: str = "dashboard_pr
     with open(dest_path, "wb") as f:
         f.write(file_bytes)
     return dest_path
+
+def show_success_animation(title="Action Réussie !", message="Vos données ont été enregistrées avec succès."):
+    """Affiche une animation de succès Premium avec confettis."""
+    st.markdown(f"""
+    <div id="successOverlay" style="position:fixed;inset:0;z-index:99999;background:rgba(238,240,248,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Nunito',sans-serif;animation:fadeIn 0.5s forwards;">
+        <div style="font-size:80px;margin-bottom:20px;filter:drop-shadow(0 10px 20px rgba(0,0,0,0.1));animation:bounce 1s infinite alternate;">✅</div>
+        <h2 style="color:#1e1a5e;font-weight:900;margin:0;text-align:center;">{title}</h2>
+        <p style="color:#6b7299;font-weight:700;text-align:center;padding:0 20px;">{message}</p>
+        <button onclick="this.parentElement.style.display='none'" style="margin-top:30px;background:linear-gradient(135deg,#5b6cf9,#3a47d5);color:white;border:none;padding:12px 40px;border-radius:15px;font-weight:900;cursor:pointer;box-shadow:0 10px 20px rgba(91,108,249,0.3);transition:all 0.2s;">CONTINUER</button>
+    </div>
+    <style>
+        @keyframes fadeIn {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
+        @keyframes bounce {{ from {{ transform: translateY(0); }} to {{ transform: translateY(-20px); }} }}
+    </style>
+    """, unsafe_allow_html=True)
+    st.balloons()

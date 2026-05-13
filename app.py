@@ -255,49 +255,39 @@ apply_theme_css(fluffy)
 
 if st.session_state.get('current_user'):
     u_theme = get_user_theme(st.session_state.current_user.get('username',''), _tdb)
-        # Style Responsive et Bouton Déconnexion
-        st.markdown("""
-        <style>
-            div[data-testid="stBaseButton-btn_logout"] button {
-                background-color: #fee2e2 !important;
-                color: #dc2626 !important;
-                border: 1px solid #fecaca !important;
-                transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
-            }
-            div[data-testid="stBaseButton-btn_logout"] button:hover {
-                background-color: #ef4444 !important;
-                color: #ffffff !important;
-                border-color: #ef4444 !important;
-            }
+    if u_theme:
+        apply_theme_css(u_theme)
+        
+    # Style Responsive et Bouton Déconnexion
+    st.markdown("""
+    <style>
+        div[data-testid="stBaseButton-btn_logout"] button {
+            background-color: #fee2e2 !important;
+            color: #dc2626 !important;
+            border: 1px solid #fecaca !important;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+        }
+        div[data-testid="stBaseButton-btn_logout"] button:hover {
+            background-color: #ef4444 !important;
+            color: #ffffff !important;
+            border-color: #ef4444 !important;
+        }
 
-            /* ==========================================
-               MOBILE-FIRST RESPONSIVE DESIGN
-               ========================================== */
-            @media (max-width: 768px) {
-                .main .block-container {
-                    padding: 1rem 0.75rem 5rem 0.75rem !important;
-                    max-width: 100% !important;
-                }
-                .stButton button {
-                    width: 100% !important;
-                    min-height: 52px !important;
-                    font-size: 16px !important;
-                    margin-bottom: 8px !important;
-                    border-radius: 12px !important;
-                    touch-action: manipulation;
-                }
-                [data-testid="stMetric"] {
-                    padding: 15px !important;
-                }
-                div[data-testid="stExpander"] {
-                    border-radius: 12px !important;
-                }
+        @media (max-width: 768px) {
+            .main .block-container {
+                padding: 1rem 0.75rem 5rem 0.75rem !important;
+                max-width: 100% !important;
             }
-        </style>
-        """, unsafe_allow_html=True)
-        # Fin des styles
-
-        # Style mobile et thèmes appliqués avec succès.
+            .stButton button {
+                width: 100% !important;
+                min-height: 52px !important;
+                font-size: 16px !important;
+                margin-bottom: 8px !important;
+                border-radius: 12px !important;
+            }
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
 # Meta tags PWA pour l'installation sur l'écran d'accueil
 st.markdown("""
