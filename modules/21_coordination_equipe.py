@@ -27,37 +27,99 @@ current_user_info = st.session_state.get('current_user', {})
 current_agent = current_user_info.get('username', 'Visiteur')
 is_admin_coord = current_user_info.get('role', '') in ['Admin', 'Superviseur']
 
-# --- 3. AJOUT TÂCHE (SUR LA PAGE PRINCIPALE) ---
+# ============================================================
+# CATALOGUE COMPLET DES MISSIONS (basé sur tous les modules)
+# ============================================================
+MISSION_CATALOGUE = {
+    "📦 Stocks & Inventaire": [
+        "📦 Déchargement Camion (Arrivage Fournisseur)",
+        "🔍 Vérification Vignettes & État des Produits (Réception)",
+        "📋 Inventaire Triple — Comptage + Saisie Système",
+        "📊 Mise à jour Liste Officielle des Lots (DDP)",
+        "⏳ Analyse des Péremptions — Identifier Périmés & Critiques",
+        "🏷️ Étiquetage Produits Zone Vrac / Sans Étiquette",
+        "🔄 Transfert Stock Gros ➔ Stock Principal",
+        "🗃️ Rangement & Organisation des Rayons par Zone",
+        "📝 Rédaction Fiches de Vérification (Bon de Réception)",
+        "🔢 Comptage Physique des Unités (Zone Détail)",
+    ],
+    "❄️ Chaîne du Froid": [
+        "❄️ Relevé Températures Chambre Froide (Matin)",
+        "❄️ Relevé Températures Chambre Froide (Après-midi)",
+        "🌡️ Vérification Conformité Température < 8°C",
+        "📋 Inventaire Complet Chambre Froide",
+        "🚨 Alerte Rupture Chaîne Froide — Inspection Urgente",
+        "🔧 Maintenance Matériel Réfrigération (Signalement)",
+    ],
+    "🚚 Expédition & Logistique": [
+        "🚚 Pointage Expédition LogiPharm (Dispatching)",
+        "📦 Préparation Colis Réclamations (DEPOSER / ECHANGE)",
+        "🏷️ Génération Étiquettes Réclamation & Impression",
+        "🗺️ Organisation Tournée Livreur (Ordre de Route)",
+        "🖨️ Génération Feuille de Route PDF (par Secteur)",
+        "📲 Scan QR Code Arrivage & Validation",
+        "✅ Validation Dispatching par Région",
+        "📊 Suivi Statut Livraisons (En cours / Livrés)",
+    ],
+    "💰 Recouvrement & Finance": [
+        "💰 Pointage Factures Clients Non Réglées",
+        "📞 Relance Téléphonique Clients en Retard",
+        "💳 Encaissement & Validation Paiement Reçu",
+        "📄 Archivage Dossier Recouvrement (Clôturé)",
+        "📊 Rapport Mensuel des Créances",
+        "🔁 Mise à jour Statut Paiement (Partiel / Réglé)",
+    ],
+    "⚠️ Qualité & Conformité": [
+        "🛡️ Contrôle Qualité — Vérification Conformité Produits",
+        "⏳ Retrait Produits Périmés (Quarantaine)",
+        "📋 Rapport Litige Fournisseur (Produits Non Conformes)",
+        "🏷️ Mise en Place Plan de Libération des Stocks Critiques",
+        "📊 Analyse DDP — Rapport Péremptions PDF",
+        "🔴 Zone Rouge — Destruction / Retour Produits Périmés",
+    ],
+    "🤖 IA & Numérique": [
+        "🤖 Briefing IA — Consulter l'Assistant DarPharm",
+        "☁️ Synchronisation Cloud GSheets (Export Données)",
+        "📲 Vérification Mode Hors-Ligne / Connectivité",
+        "📈 Consultation Tableau de Bord (KPIs du jour)",
+        "🔔 Vérification Centre de Notifications IA",
+    ],
+    "👥 Administration & Équipe": [
+        "📢 Briefing Matinal Équipe (Planification 8h)",
+        "👤 Formation Nouveau Collaborateur (Prise en Main)",
+        "🧹 Nettoyage & Rangement Zone de Travail",
+        "📝 Rédaction Rapport Journalier d'Activité",
+        "🏆 Évaluation Performance Mensuelle Équipe",
+        "🔑 Gestion Accès Utilisateurs (Admin)",
+    ],
+}
+
+# Flatten pour le selectbox
+ALL_MISSIONS_FLAT = ["Personnalisé..."]
+for cat, missions in MISSION_CATALOGUE.items():
+    ALL_MISSIONS_FLAT.append(f"── {cat} ──")  # Séparateur de catégorie
+    ALL_MISSIONS_FLAT.extend(missions)
+
+# --- AJOUT TÂCHE MANUELLE ---
 with st.expander("➕ Assigner une nouvelle tâche manuellement", expanded=False):
-    # Missions prédéfinies pour faciliter le choix
-    COMMON_MISSIONS = [
-        "Personnalisé...",
-        "📦 Déchargement Camion (Arrivage)",
-        "🔍 Vérification Vignettes & État",
-        "❄️ Inventaire Chambre Froide",
-        "🛒 Préparation de Commande (Picking)",
-        "🔄 Transfert Gros ➔ Principal",
-        "📝 Rédaction Fiches de Vérification",
-        "🚚 Pointage Expédition",
-        "🏢 Gestion Réclamation Fournisseur",
-        "🧹 Nettoyage & Rangement Zone"
-    ]
-    
     with st.form("form_task", clear_on_submit=True):
-        selected_template = st.selectbox("Choisir un modèle de mission :", COMMON_MISSIONS)
-        task_input = st.text_area("Description ou détails de la mission :", placeholder="Ajoutez des détails si nécessaire...")
-        
-        # Logique pour utiliser le modèle ou le texte saisi
+        cat_choice = st.selectbox("📂 Catégorie de mission", list(MISSION_CATALOGUE.keys()))
+        selected_template = st.selectbox(
+            "📋 Modèle de mission",
+            ["Personnalisé..."] + MISSION_CATALOGUE[cat_choice]
+        )
+        task_input = st.text_area("✏️ Détails supplémentaires :", placeholder="Zone concernée, quantité, priorité spéciale...")
+
         final_task = task_input if selected_template == "Personnalisé..." else selected_template
         if selected_template != "Personnalisé..." and task_input:
             final_task = f"{selected_template} : {task_input}"
 
         col1, col2 = st.columns(2)
-        assigned = col1.selectbox("Assigner à", agents)
-        priority = col2.select_slider("Priorité", options=["Basse", "Moyenne", "Haute", "Critique"], value="Moyenne")
-        
-        if st.form_submit_button("🚀 Lancer la mission", use_container_width=True):
-            if final_task and final_task != "Personnalisé...":
+        assigned = col1.selectbox("👤 Assigner à", agents)
+        priority = col2.select_slider("🎯 Priorité", options=["Basse", "Moyenne", "Haute", "Critique"], value="Moyenne")
+
+        if st.form_submit_button("🚀 Lancer la mission", use_container_width=True, type="primary"):
+            if final_task and final_task != "Personnalisé..." and not final_task.startswith("──"):
                 new_row = {
                     "id": len(df_tasks) + 1,
                     "creation_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -68,32 +130,63 @@ with st.expander("➕ Assigner une nouvelle tâche manuellement", expanded=False
                 }
                 df_tasks = pd.concat([df_tasks, pd.DataFrame([new_row])], ignore_index=True)
                 save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
-                play_sound("mission")  # Double ping à la création de mission
-                st.success("Mission ajoutée !")
+                play_sound("mission")
+                st.success(f"✅ Mission assignée à **{assigned}** !")
                 st.rerun()
+            else:
+                st.warning("Veuillez saisir ou choisir une description de mission valide.")
 
-# --- 2. ASSISTANT IA POUR LE CHEF D'ÉQUIPE (LOGIQUE ÉQUITABLE) ---
+# --- ASSISTANT IA PLANIFICATION ---
 with st.expander("🤖 Assistant IA - Planification & Équité", expanded=True):
-    st.info("L'IA répartit le travail équitablement selon les spécialités : Islem (Préparation/Bons), Ayoub & Seif (Généralistes).")
-    situation = st.text_area("Situation globale de l'entrepôt :", placeholder="Décrivez les urgences du jour...")
-    
-    if st.button("🧠 Répartir Équitablement les Missions", use_container_width=True):
-        if situation:
+    agents_str = ", ".join(agents) if agents else "Ayoub, Islem, Seif, Imad"
+    st.info(f"L'IA planifie et répartit le travail équitablement entre : **{agents_str}**")
+
+    col_ia1, col_ia2 = st.columns([2, 1])
+    with col_ia1:
+        situation = st.text_area(
+            "📋 Situation globale de l'entrepôt :",
+            placeholder="Ex: Arrivage de 200 colis ce matin, 3 livreurs disponibles, chambre froide à vérifier, 15 réclamations en attente..."
+        )
+    with col_ia2:
+        st.markdown("**🎯 Missions rapides à inclure**")
+        quick_missions = []
+        for cat, missions in MISSION_CATALOGUE.items():
+            if st.checkbox(cat, key=f"qm_{cat}"):
+                quick_missions.append(cat)
+
+    if st.button("🧠 Répartir Équitablement les Missions", use_container_width=True, type="primary"):
+        if situation or quick_missions:
             with st.spinner("L'IA calcule la meilleure répartition..."):
-                prompt = f"""
-                Tu es un expert en management logistique. Situation : {situation}.
-                Agents : Ayoub, Islem, Imad, Seif.
-                Règles : 
-                1. Islem est prioritaire sur la PREPARATION DE COMMANDE, DEBON et FICHES DE VERIF. S'il est libre, il aide Ayoub et Seif.
-                2. Ayoub et Seif sont polyvalents et font tout le reste.
-                3. Répartis équitablement pour ne pas surcharger un agent.
-                Donne un plan clair.
-                """
+                missions_context = ""
+                if quick_missions:
+                    missions_context = "\nMissions prioritaires demandées : " + ", ".join(quick_missions)
+
+                all_missions_list = "\n".join(
+                    [f"  - {m}" for cat in MISSION_CATALOGUE.values() for m in cat]
+                )
+                prompt = f"""Tu es un expert en management logistique d'un grossiste pharmaceutique en Algérie.
+
+Situation du jour : {situation}{missions_context}
+
+Agents disponibles : {agents_str}
+
+Catalogue complet des missions disponibles :
+{all_missions_list}
+
+Règles de répartition :
+1. Priorise les missions CRITIQUE avant tout le reste.
+2. Chaque agent doit avoir un maximum de 3 missions actives simultanément.
+3. Les missions Chambre Froide et Péremptions sont prioritaires pour la conformité.
+4. Les missions Expédition/Dispatching doivent être finies avant 14h.
+5. Répartis équitablement la charge de travail.
+
+Donne un plan de journée clair par agent avec les missions assignées et l'ordre d'exécution recommandé. Utilise des emojis et sois concis."""
                 conseil = ask_ai(prompt)
-                play_sound("ai")  # Chime IA à la réception du plan
-                st.success("Plan stratégique suggéré :")
+                play_sound("ai")
+                st.success("🗓️ Plan de journée IA suggéré :")
                 st.markdown(conseil)
-        else: st.warning("Décrivez la situation.")
+        else:
+            st.warning("Décrivez la situation ou cochez des catégories de missions.")
 
 st.divider()
 
