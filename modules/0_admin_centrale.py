@@ -4,6 +4,11 @@ import os
 from datetime import datetime
 from utils_gsheets import load_gs_data, save_gs_data, get_gs_client, get_gs_url
 from utils import log_action
+from utils_themes import (
+    load_themes_db, save_themes_db, get_active_themes,
+    toggle_theme_active, set_user_theme, remove_user_theme,
+    save_premium_dashboard_html
+)
 
 # --- CONFIGURATION ---
 DATA_CLIENTS = "base_clients.csv"
@@ -28,7 +33,7 @@ st.title("🏛️ Administration Centrale (Master Data)")
 st.write("Gestion centralisée des clients, livreurs et secteurs pour tous les modules.")
 
 # --- TABS ---
-tabs = st.tabs(["📤 Importateur Universel", "👥 Base Clients", "🚚 Livreurs", "🗺️ Secteurs Logistique", "📦 Archivage Cloud"])
+tabs = st.tabs(["📤 Importateur Universel", "👥 Base Clients", "🚚 Livreurs", "🗺️ Secteurs Logistique", "📦 Archivage Cloud", "🎨 Gestion des Thèmes"])
 
 # ONGLET 0 : IMPORTATEUR UNIVERSEL (DRAG & DROP)
 with tabs[0]:
@@ -386,3 +391,262 @@ with tabs[4]:
                 st.cache_data.clear()
         else:
             st.warning("La base sélectionnée est déjà vide.")
+
+# =============================================================================
+# ONGLET 5 : GESTION DES THÈMES
+# =============================================================================
+with tabs[5]:
+    st.subheader("🎨 Gestion des Thèmes Visuels")
+    st.write("Activez ou désactivez les thèmes, affectez-les à vos utilisateurs, et importez votre dashboard premium personnalisé.")
+
+    # Injecter le CSS de la page d'admin des thèmes
+    st.markdown("""
+    <style>
+    .theme-card {
+        background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 16px;
+        padding: 1.2rem;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+    }
+    .theme-card:hover {
+        border-color: rgba(79,142,247,0.5);
+        box-shadow: 0 4px 20px rgba(79,142,247,0.15);
+    }
+    .theme-preview-dot {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: inline-block;
+        border: 3px solid rgba(255,255,255,0.2);
+        flex-shrink: 0;
+    }
+    .badge-active {
+        background: #10b981;
+        color: white;
+        border-radius: 20px;
+        padding: 2px 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .badge-inactive {
+        background: #6b7280;
+        color: white;
+        border-radius: 20px;
+        padding: 2px 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .drop-zone {
+        border: 2px dashed rgba(79,142,247,0.5);
+        border-radius: 16px;
+        padding: 2rem;
+        text-align: center;
+        background: linear-gradient(135deg, rgba(79,142,247,0.05), rgba(139,92,246,0.05));
+        transition: all 0.3s ease;
+    }
+    .drop-zone:hover {
+        border-color: rgba(79,142,247,0.9);
+        background: rgba(79,142,247,0.1);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    themes_data = load_themes_db()
+    all_themes = themes_data.get("themes", [])
+    user_assignments = themes_data.get("user_theme_assignments", {})
+
+    # --- SECTION 1 : ACTIVER / DÉSACTIVER LES THÈMES ---
+    st.markdown("### 🎛️ Catalogue des Thèmes")
+    st.caption("Activez les thèmes disponibles pour vos utilisateurs.")
+
+    cols_themes = st.columns(min(3, len(all_themes)) if all_themes else 1)
+    theme_changed = False
+
+    for idx, theme in enumerate(all_themes):
+        col = cols_themes[idx % 3]
+        with col:
+            is_active = theme.get("active", False)
+            badge = "<span class='badge-active'>✅ Actif</span>" if is_active else "<span class='badge-inactive'>⏸ Inactif</span>"
+
+            st.markdown(f"""
+            <div class='theme-card'>
+                <div style='display:flex; align-items:center; gap:12px; margin-bottom:8px;'>
+                    <div class='theme-preview-dot' style='background:{theme.get('preview_color','#333')};'></div>
+                    <div>
+                        <strong style='font-size:1rem;'>{theme.get('name','Thème')}</strong><br>
+                        {badge}
+                    </div>
+                </div>
+                <p style='font-size:0.8rem; opacity:0.7; margin:0;'>{theme.get('description','')}</p>
+                <div style='margin-top:8px;'>
+                    <span style='display:inline-block; width:16px; height:16px; border-radius:50%; background:{theme.get('accent_color','#fff')}; border:2px solid rgba(255,255,255,0.3); vertical-align:middle;'></span>
+                    <span style='font-size:0.75rem; opacity:0.6;'> Couleur accent</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            btn_label = "⏸ Désactiver" if is_active else "▶️ Activer"
+            btn_type = "secondary" if is_active else "primary"
+            if st.button(btn_label, key=f"toggle_theme_{theme['id']}", use_container_width=True, type=btn_type):
+                themes_data = toggle_theme_active(theme["id"], themes_data)
+                save_themes_db(themes_data)
+                action_txt = "Désactivé" if is_active else "Activé"
+                st.success(f"{action_txt} le thème **{theme['name']}**")
+                log_action(st.session_state.current_user['username'], f"Thème {action_txt}: {theme['name']}", "Admin Thèmes")
+                theme_changed = True
+
+    if theme_changed:
+        st.rerun()
+
+    st.divider()
+
+    # --- SECTION 2 : AFFECTER LES THÈMES AUX UTILISATEURS ---
+    st.markdown("### 👥 Affectation des Thèmes aux Utilisateurs")
+    st.caption("Choisissez un thème personnalisé pour chaque utilisateur. Sans affectation, l'utilisateur voit le thème par défaut.")
+
+    # Charger la liste des utilisateurs
+    from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+    df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK,
+                            ["username", "nom", "prenom", "role"])
+
+    active_themes = get_active_themes(themes_data)
+    theme_options = {t["id"]: t["name"] for t in active_themes}
+    theme_options_list = ["— Défaut (aucun) —"] + list(theme_options.values())
+    theme_ids_list = [None] + list(theme_options.keys())
+
+    if df_users.empty:
+        st.info("Aucun utilisateur trouvé. Vérifiez la connexion à la base utilisateurs.")
+    elif not active_themes:
+        st.warning("⚠️ Aucun thème actif. Activez au moins un thème ci-dessus pour pouvoir l'affecter.")
+    else:
+        assign_changed = False
+
+        # En-têtes du tableau d'affectation
+        hcols = st.columns([2, 2, 2, 3, 2])
+        hcols[0].markdown("**Utilisateur**")
+        hcols[1].markdown("**Nom**")
+        hcols[2].markdown("**Rôle**")
+        hcols[3].markdown("**Thème affecté**")
+        hcols[4].markdown("**Action**")
+        st.markdown("<hr style='margin:4px 0;'>", unsafe_allow_html=True)
+
+        for _, urow in df_users.iterrows():
+            username = str(urow.get("username", ""))
+            if not username:
+                continue
+            nom_complet = f"{str(urow.get('prenom',''))} {str(urow.get('nom',''))}".strip()
+            role_user = str(urow.get("role", ""))
+            current_theme_id = user_assignments.get(username)
+            current_theme_name = theme_options.get(current_theme_id, "— Défaut —")
+
+            ucols = st.columns([2, 2, 2, 3, 2])
+            ucols[0].write(f"👤 `{username}`")
+            ucols[1].write(nom_complet or "—")
+            ucols[2].write(role_user)
+
+            # Sélecteur de thème
+            default_idx = theme_ids_list.index(current_theme_id) if current_theme_id in theme_ids_list else 0
+            selected_label = ucols[3].selectbox(
+                "Thème",
+                options=theme_options_list,
+                index=default_idx,
+                key=f"theme_sel_{username}",
+                label_visibility="collapsed"
+            )
+
+            selected_idx = theme_options_list.index(selected_label)
+            selected_theme_id = theme_ids_list[selected_idx]
+
+            if ucols[4].button("💾 Appliquer", key=f"apply_theme_{username}", use_container_width=True):
+                if selected_theme_id is None:
+                    themes_data = remove_user_theme(username, themes_data)
+                    msg = f"Thème par défaut restauré pour **{username}**"
+                else:
+                    themes_data = set_user_theme(username, selected_theme_id, themes_data)
+                    msg = f"Thème **{theme_options[selected_theme_id]}** affecté à **{username}**"
+                save_themes_db(themes_data)
+                log_action(st.session_state.current_user['username'], msg, "Admin Thèmes")
+                st.success(f"✅ {msg}")
+                assign_changed = True
+
+        if assign_changed:
+            st.rerun()
+
+        # Résumé des affectations actuelles
+        st.divider()
+        st.markdown("#### 📋 Résumé des Affectations")
+        if user_assignments:
+            rows_summary = []
+            for uname, tid in user_assignments.items():
+                tname = theme_options.get(tid, f"(id: {tid})")
+                rows_summary.append({"Utilisateur": uname, "Thème": tname})
+            st.dataframe(pd.DataFrame(rows_summary), use_container_width=True, hide_index=True)
+        else:
+            st.info("Aucune affectation individuelle. Tous les utilisateurs utilisent le thème par défaut.")
+
+    st.divider()
+
+    # --- SECTION 3 : DRAG & DROP — DASHBOARD PREMIUM HTML ---
+    st.markdown("### 💎 Dashboard Premium — Import du fichier HTML")
+    st.caption("Déposez le fichier HTML de votre dashboard premium. Il sera utilisé dans le module **Tableau Premium**.")
+
+    st.markdown("""
+    <div class='drop-zone'>
+        <div style='font-size:2.5rem;'>📂</div>
+        <div style='font-size:1.1rem; font-weight:600; margin:0.5rem 0;'>Glissez et déposez votre fichier HTML ici</div>
+        <div style='font-size:0.85rem; opacity:0.6;'>Format accepté : .html · Taille max recommandée : 5 Mo</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Vérifier si un fichier premium existe déjà
+    premium_path_default = os.path.join(os.getcwd(), "assets", "dashboard_premium.html")
+    premium_path_desktop = r"C:\Users\DARPHARM DEPOT 2\Desktop\DARNA_integrated.html"
+
+    existing_path = None
+    if os.path.exists(premium_path_default):
+        existing_path = premium_path_default
+    elif os.path.exists(premium_path_desktop):
+        existing_path = premium_path_desktop
+
+    if existing_path:
+        fsize = os.path.getsize(existing_path) / 1024
+        fmod = datetime.fromtimestamp(os.path.getmtime(existing_path)).strftime("%d/%m/%Y %H:%M")
+        st.success(f"✅ Fichier actuel : `{os.path.basename(existing_path)}` — {fsize:.1f} Ko — Modifié le {fmod}")
+    else:
+        st.warning("⚠️ Aucun fichier HTML premium trouvé. Veuillez en importer un ci-dessous.")
+
+    uploaded_html = st.file_uploader(
+        "Sélectionner le fichier HTML du dashboard premium",
+        type=["html"],
+        key="upload_premium_html",
+        help="Le fichier sera sauvegardé dans le dossier assets/ du projet et utilisé automatiquement par le module Tableau Premium."
+    )
+
+    if uploaded_html is not None:
+        col_prev, col_btn = st.columns([3, 1])
+        col_prev.info(f"📄 Fichier sélectionné : **{uploaded_html.name}** — {uploaded_html.size / 1024:.1f} Ko")
+
+        if col_btn.button("📥 Importer", type="primary", use_container_width=True, key="btn_import_html"):
+            file_bytes = uploaded_html.read()
+            dest = save_premium_dashboard_html(file_bytes, filename="dashboard_premium.html")
+            st.success(f"✅ Dashboard premium importé avec succès !")
+            st.code(dest, language="text")
+            log_action(
+                st.session_state.current_user['username'],
+                f"Import Dashboard Premium HTML : {uploaded_html.name}",
+                "Admin Thèmes"
+            )
+            st.balloons()
+            st.rerun()
+
+    # Aperçu rapide du fichier HTML importé
+    if existing_path and st.checkbox("👁️ Prévisualiser le dashboard premium", key="preview_premium_html"):
+        try:
+            with open(existing_path, "r", encoding="utf-8") as f:
+                html_preview = f.read()
+            import streamlit.components.v1 as components
+            components.html(html_preview, height=600, scrolling=True)
+        except Exception as e:
+            st.error(f"Impossible de prévisualiser : {e}")
