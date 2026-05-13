@@ -635,38 +635,73 @@ ALL_PAGES = {
 if is_ia_enabled():
     ALL_PAGES["Automatisation"] = st.Page("modules/9_automatisation.py", title="Automatisation & IA", icon="🤖")
 
-# Filtrer selon les privilèges
+# --- FILTRAGE ET REGROUPEMENT PAR CATÉGORIES ---
 pages_to_show = {}
-nav_list = []
 
-# On s'assure que Dashboard est en premier, Profil en second, et Assistant IA à la fin
-ordered_user_pages = user_pages.copy()
-if "Profil" not in ordered_user_pages:
-    ordered_user_pages.insert(0, "Profil")
-    
-if "Dashboard" in ordered_user_pages:
-    ordered_user_pages.remove("Dashboard")
-    ordered_user_pages.insert(0, "Dashboard")
+# 1. PROFIL (Toujours en premier et seul)
+if "Profil" in user_pages:
+    pages_to_show["👤 MON PROFIL"] = [ALL_PAGES["Profil"]]
 
-if "Dashboard Premium" not in ordered_user_pages:
-    ordered_user_pages.insert(1, "Dashboard Premium")
-    
-if "Assistant IA" not in ordered_user_pages:
-    ordered_user_pages.append("Assistant IA")
+# 2. SUPERVISION & DASHBOARD
+supervision = []
+for p in ["Dashboard", "Dashboard Premium", "Analyse Rotation", "Prévisions", "Suivi"]:
+    if p in user_pages and p in ALL_PAGES:
+        supervision.append(ALL_PAGES[p])
+if supervision:
+    pages_to_show["📊 SUPERVISION"] = supervision
 
-for p_name in ordered_user_pages:
-    if p_name in ALL_PAGES:
-        nav_list.append(ALL_PAGES[p_name])
+# 3. INVENTAIRES (Groupe demandé)
+inventaires = []
+for p in ["Inventaire", "Inventaire Détail", "Inventaire Triple", "Péremptions", "Liste des Lots", "Catalogue Produits"]:
+    if p in user_pages and p in ALL_PAGES:
+        inventaires.append(ALL_PAGES[p])
+if inventaires:
+    pages_to_show["📦 GESTION DES STOCKS"] = inventaires
 
-if nav_list:
-    pages_to_show["Mes Modules"] = nav_list
+# 4. POINTAGE (Groupe demandé)
+pointage = []
+for p in ["Pointage", "Pointage Expéditeur", "Pointage Marchandise", "Recouvrement", "Logistique"]:
+    if p in user_pages and p in ALL_PAGES:
+        pointage.append(ALL_PAGES[p])
+if pointage:
+    pages_to_show["📝 POINTAGES & FLUX"] = pointage
 
+# 5. INTELLIGENCE ARTIFICIELLE (Groupe demandé)
+ia_group = []
+for p in ["Assistant IA", "Qualité IA", "Briefing IA", "Automatisation"]:
+    if p in user_pages and p in ALL_PAGES:
+        ia_group.append(ALL_PAGES[p])
+if ia_group:
+    pages_to_show["🤖 DARPHARM IA"] = ia_group
+
+# 6. ADMINISTRATION & RH (Groupe demandé : RH dans Admin Central)
+admin_group = []
+# On ajoute d'abord l'Admin Centrale si l'utilisateur est Admin
 if is_admin:
-    # Page cachée ou dédiée à l'administration
-    pages_to_show["Administration Centrale"] = [
-        st.Page("modules/0_admin_centrale.py", title="Admin Centrale (Data)", icon="🏛️"),
-        st.Page("modules/5_admin.py", title="Gestion des Accès", icon="⚙️")
-    ]
+    admin_group.append(st.Page("modules/0_admin_centrale.py", title="Admin Centrale (Data)", icon="🏛️"))
+    admin_group.append(st.Page("modules/5_admin.py", title="Gestion des Accès", icon="⚙️"))
+
+# On ajoute le RH dans ce groupe comme demandé
+if "RH" in user_pages:
+    admin_group.append(ALL_PAGES["RH"])
+
+if admin_group:
+    pages_to_show["🏛️ ADMINISTRATION"] = admin_group
+
+# 7. AUTRES MODULES (S'il en reste)
+autres = []
+assigned_pages = []
+for cat in pages_to_show.values():
+    for p in cat:
+        # On extrait le titre de la page pour comparer
+        assigned_pages.append(p.title)
+
+for p_key, p_obj in ALL_PAGES.items():
+    if p_key in user_pages and p_obj.title not in assigned_pages:
+        autres.append(p_obj)
+
+if autres:
+    pages_to_show["🧩 MODULES COMPLÉMENTAIRES"] = autres
 
 if not pages_to_show:
     st.warning("Vous n'avez accès à aucun module. Contactez l'administrateur.")
