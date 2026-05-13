@@ -9,226 +9,210 @@ import difflib
 import re
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Inventaire Triple - Pharmaciel", layout="wide")
+st.set_page_config(page_title="Inventaire Triple Pro - Pharmaciel", layout="wide")
 
 from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui
 
-# --- SÉCURITÉ CRITIQUE : RESET SESSION SI ANCIENNE VERSION ---
-REQUIRED_COLS = ['Terrain (Vrac)', 'Terrain (Colis)', 'Mini (Colis)', 'mv', 'colissage']
-if "inv_work_df" in st.session_state:
-    if not all(c in st.session_state.inv_work_df.columns for c in REQUIRED_COLS):
-        # On force la suppression et le reload si la structure est obsolète
-        del st.session_state.inv_work_df
-        st.cache_data.clear()
-        st.rerun()
-
-MASTER_DIR = "data_inventaire_detail"
+# --- CONFIGURATION DES BASES ---
 MASTER_WORKSHEET = "Master_Inventaire_Zone"
-MASTER_FALLBACK = os.path.join(MASTER_DIR, "master_detail.csv")
-INV_TRIPLE_WORKSHEET = "Inventaire_Triple"
-INV_TRIPLE_FALLBACK = "data/db_inv_triple.csv"
-os.makedirs(MASTER_DIR, exist_ok=True)
+MASTER_FALLBACK = "data_inventaire_detail/master_detail.csv"
 
-if 'current_user' not in st.session_state:
-    st.warning("⚠️ Veuillez vous connecter depuis la page d'accueil.")
-    st.stop()
+# Séparation des bases Zone et Mini
+WS_ZONE = "Triple_Saisie_Zone"
+FB_ZONE = "data/db_triple_zone.csv"
+WS_MINI = "Triple_Saisie_Mini"
+FB_MINI = "data/db_triple_mini.csv"
 
 COLS_MASTER = ["depot", "zone", "produit", "lot", "qte_logi", "colissage"]
-COLS_INV_TRIPLE = ["produit", "lot", "tv", "tc", "mv", "mc", "col", "ddp", "ppa", "shp"]
+# Structure commune pour les deux saisies
+COLS_ENTRY = ["produit", "lot", "qte", "ddp", "ppa", "shp", "agent"]
 
-show_sync_ui(MASTER_WORKSHEET, MASTER_FALLBACK, COLS_MASTER)
-show_sync_ui(INV_TRIPLE_WORKSHEET, INV_TRIPLE_FALLBACK, COLS_INV_TRIPLE)
+if 'current_user' not in st.session_state:
+    st.warning("⚠️ Veuillez vous connecter.")
+    st.stop()
 
 # --- STYLE CSS ---
 st.markdown("""
     <style>
-    .main { background-color: #f8f9fa; }
     .entry-card {
         background: white;
-        padding: 25px;
-        border-radius: 15px;
+        padding: 20px;
+        border-radius: 12px;
         border: 1px solid #eef2f6;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.03);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
         margin-bottom: 20px;
     }
-    .section-header {
-        color: #1877f2;
-        font-weight: 800;
-        font-size: 1.1rem;
-        margin-bottom: 15px;
-        border-bottom: 2px solid #e7f3ff;
-        padding-bottom: 8px;
-    }
+    .error-row { background-color: #ffebee !important; color: #c62828 !important; }
+    .section-title { color: #1877f2; font-weight: bold; border-bottom: 2px solid #e7f3ff; padding-bottom: 5px; margin-bottom: 15px; }
     </style>
 """, unsafe_allow_html=True)
 
 def normalize_text(text):
     if not isinstance(text, str): return str(text)
-    text = unicodedata.normalize('NFD', text).encode('ascii', 'ignore').decode('utf-8').lower()
-    text = re.sub(r'\s+', ' ', text).strip()
-    return text
+    return unicodedata.normalize('NFD', text).encode('ascii', 'ignore').decode('utf-8').upper().strip()
 
-def robust_num(val):
-    try: return float(val) if not pd.isna(val) else 0.0
-    except: return 0.0
-
-@st.cache_data(ttl=3600)
-def get_master_df():
+# --- CHARGEMENT ---
+@st.cache_data(ttl=600)
+def get_master():
     df = load_gs_data(MASTER_WORKSHEET, MASTER_FALLBACK, COLS_MASTER)
-    if df.empty: return None
-    mapping = {
-        'dépôt': 'depot', 'depot': 'depot', 'produit': 'produit', 'désignation': 'produit',
-        'n°lot': 'lot', 'lot': 'lot', 'batch': 'lot', 'quantité': 'qte_logi', 'zone': 'zone', 'colis': 'colissage'
-    }
-    current_cols = {normalize_text(c): c for c in df.columns}
-    rename_dict = {}
-    for key, target in mapping.items():
-        if key in current_cols: rename_dict[current_cols[key]] = target
-    df = df.rename(columns=rename_dict)
+    if df.empty: return pd.DataFrame(columns=COLS_MASTER)
+    # Nettoyage
+    df.columns = [c.lower() for c in df.columns]
+    mapping = {'dépôt':'depot', 'désignation':'produit', 'n°lot':'lot', 'quantité':'qte_logi', 'colis':'colissage'}
+    df = df.rename(columns=mapping)
     for c in COLS_MASTER:
         if c not in df.columns: df[c] = ""
     df['produit'] = df['produit'].astype(str).str.upper()
     df['lot'] = df['lot'].astype(str).str.upper()
-    df['qte_logi'] = df['qte_logi'].apply(robust_num)
-    df['colissage'] = df['colissage'].apply(robust_num).replace(0, 1)
+    try: df['qte_logi'] = pd.to_numeric(df['qte_logi'], errors='coerce').fillna(0)
+    except: df['qte_logi'] = 0
     return df[COLS_MASTER]
 
-# --- INITIALISATION ---
-df_master = get_master_df()
-df_inv_triple = load_gs_data(INV_TRIPLE_WORKSHEET, INV_TRIPLE_FALLBACK, COLS_INV_TRIPLE)
+df_m = get_master()
+df_z = load_gs_data(WS_ZONE, FB_ZONE, COLS_ENTRY)
+df_mi = load_gs_data(WS_MINI, FB_MINI, COLS_ENTRY)
 
-# --- FONCTION FILTRAGE ZONES ---
-def get_user_data(selected_zone_override=None):
-    if df_master is None: return pd.DataFrame()
-    df = df_master.copy()
-    user_role = st.session_state.current_user.get('role', 'Saisie')
-    user_zone = str(st.session_state.current_user.get('zone', 'Aucune')).strip().upper()
-    if selected_zone_override and selected_zone_override != "Toutes":
-        user_zone = selected_zone_override.strip().upper()
-        user_role = 'Saisie'
-    if user_role not in ['Admin', 'Superviseur']:
-        if not user_zone or user_zone == 'AUCUNE': return df.iloc[0:0]
-        if 'zone' in df.columns:
-            df['z_c'] = df['zone'].astype(str).str.strip().str.upper()
-            df = df[df['z_c'].str.contains(user_zone, na=False, regex=False)]
-    return df
+def get_user_zone_df():
+    u_z = str(st.session_state.current_user.get('zone', '')).upper()
+    role = st.session_state.current_user.get('role')
+    if role == 'Admin': return df_m
+    return df_m[df_m['zone'].astype(str).str.upper().str.contains(u_z, na=False)]
 
-# Initialisation du work_df
-if "inv_work_df" not in st.session_state and df_master is not None:
-    wdf = df_master.copy()
-    for c in REQUIRED_COLS: wdf[c] = 0.0 if c != 'colissage' else 1.0
-    wdf['ddp'] = ""; wdf['ppa'] = 0.0; wdf['shp'] = 0.0
-    if not df_inv_triple.empty:
-        for _, e in df_inv_triple.iterrows():
-            m = (wdf['produit'] == e.get('produit')) & (wdf['lot'] == e.get('lot'))
-            if m.any():
-                wdf.loc[m, 'Terrain (Vrac)'] = e.get('tv', 0.0)
-                wdf.loc[m, 'Terrain (Colis)'] = e.get('tc', 0.0)
-                wdf.loc[m, 'Mini (Colis)'] = e.get('mc', 0.0)
-                wdf.loc[m, 'mv'] = e.get('mv', 0.0)
-                wdf.loc[m, 'ddp'] = e.get('ddp', "")
-                wdf.loc[m, 'ppa'] = e.get('ppa', 0.0)
-                wdf.loc[m, 'shp'] = e.get('shp', 0.0)
-                if 'col' in e: wdf.loc[m, 'colissage'] = e.get('col')
-    st.session_state.inv_work_df = wdf
+# --- INTERFACE TABS ---
+st.title("📋 Inventaire Triple Stratégique")
+t_zone, t_mini, t_final, t_conf = st.tabs(["📍 Saisie en Zone", "📦 Saisie Mini Stock", "📊 Saisie Final", "📉 Confrontation"])
 
-col_t1, col_t2 = st.columns([4, 1])
-with col_t1: 
-    uz = st.session_state.current_user.get('zone', 'Aucune')
-    st.title("📋 Inventaire Triple & Confrontation")
-    st.info(f"📍 Zone : **{uz}**")
-with col_t2:
-    if st.button("♻️ Actualiser", use_container_width=True):
-        st.cache_data.clear(); del st.session_state.inv_work_df; st.rerun()
+# --- TAB 1 & 2 : LOGIQUE COMMUNE ---
+def render_saisie_tab(df_entries, ws_name, fb_path, title):
+    st.subheader(title)
+    u_df = get_user_zone_df()
+    if u_df.empty:
+        st.warning("Aucun produit dans votre zone.")
+        return df_entries
 
-tabs = st.tabs(["📊 Dashboard", "⚡ Saisie", "📉 Analyse Écarts", "⚙️ Gestion"])
+    prods = sorted(u_df['produit'].unique().tolist())
+    c1, c2 = st.columns([3, 1])
+    sel_p = c1.selectbox(f"Produit ({title})", prods, key=f"p_{ws_name}")
+    
+    lots_m = sorted(u_df[u_df['produit'] == sel_p]['lot'].unique().tolist())
+    sel_l_m = c2.selectbox(f"Lot Master", lots_m, key=f"l_m_{ws_name}")
+    
+    st.markdown('<div class="entry-card">', unsafe_allow_html=True)
+    f1, f2, f3 = st.columns([1, 1, 1])
+    lot_r = f1.text_input("Lot Réel (Corriger si besoin)", value=sel_l_m, key=f"lr_{ws_name}")
+    qte = f2.number_input("Quantité Saisie", min_value=0.0, step=1.0, key=f"q_{ws_name}")
+    ddp = f3.text_input("DDP (MM/AAAA)", key=f"d_{ws_name}")
+    
+    f4, f5 = st.columns(2)
+    ppa = f4.number_input("PPA", min_value=0.0, key=f"pp_{ws_name}")
+    shp = f5.number_input("SHP", min_value=0.0, key=f"sh_{ws_name}")
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    if st.button(f"💾 Enregistrer {title}", type="primary", use_container_width=True, key=f"b_{ws_name}"):
+        new = {
+            "produit": sel_p, "lot": lot_r.upper(), "qte": qte, 
+            "ddp": ddp, "ppa": ppa, "shp": shp, 
+            "agent": st.session_state.current_user.get('username')
+        }
+        # Upsert
+        mask = (df_entries['produit'] == sel_p) & (df_entries['lot'] == lot_r.upper())
+        if mask.any():
+            for k, v in new.items(): df_entries.loc[mask, k] = v
+        else:
+            df_entries = pd.concat([df_entries, pd.DataFrame([new])], ignore_index=True)
+        
+        save_gs_data(df_entries, ws_name, fb_path)
+        st.success(f"Enregistré dans {title} !")
+        st.rerun()
+    
+    st.divider()
+    st.write(f"### Historique {title}")
+    st.dataframe(df_entries[df_entries['produit'] == sel_p], use_container_width=True)
+    return df_entries
 
-# --- DASHBOARD ---
-with tabs[0]:
-    zo = None
-    if st.session_state.current_user.get('role') in ['Admin', 'Superviseur']:
-        zo = st.selectbox("👁️ Voir zone :", ["Toutes"] + sorted(df_master['zone'].unique().tolist()))
-    ddf = get_user_data(zo)
-    if ddf.empty: st.info("Aucune donnée.")
+with t_zone:
+    df_z = render_saisie_tab(df_z, WS_ZONE, FB_ZONE, "Saisie en Zone (Vrac)")
+
+with t_mini:
+    df_mi = render_saisie_tab(df_mi, WS_MINI, FB_MINI, "Saisie Mini Stock (Colis)")
+
+# --- TAB 3 : SAISIE FINAL ---
+with t_final:
+    st.subheader("📊 Compilation & Réconciliation Final")
+    
+    # On merge les deux bases
+    df_final = pd.merge(
+        df_z, df_mi, on=['produit', 'lot'], how='outer', suffixes=('_zone', '_mini')
+    ).fillna(0)
+    
+    if df_final.empty:
+        st.info("Aucune donnée saisie pour le moment.")
     else:
-        work = st.session_state.inv_work_df
-        ddf = ddf.merge(work[['produit', 'lot', 'Terrain (Vrac)', 'Terrain (Colis)', 'Mini (Colis)', 'mv']], on=['produit', 'lot'], how='left')
-        total = len(ddf)
-        cnt = ((ddf['Terrain (Vrac)'] > 0) | (ddf['Terrain (Colis)'] > 0) | (ddf['Mini (Colis)'] > 0) | (ddf['mv'] > 0)).sum()
-        c1, c2, c3 = st.columns(3)
-        c1.metric("📦 Produits", total); c2.metric("✅ Comptés", cnt); c3.progress(cnt/total if total>0 else 0)
+        # Calculs
+        df_final['Total Qte'] = df_final['qte_zone'] + df_final['qte_mini']
+        
+        # Check incohérences (DDP, PPA, SHP)
+        def check_diff(row):
+            issues = []
+            if str(row['ddp_zone']) != str(row['ddp_mini']) and row['qte_zone'] > 0 and row['qte_mini'] > 0: issues.append("DDP")
+            if row['ppa_zone'] != row['ppa_mini'] and row['qte_zone'] > 0 and row['qte_mini'] > 0: issues.append("PPA")
+            if row['shp_zone'] != row['shp_mini'] and row['qte_zone'] > 0 and row['qte_mini'] > 0: issues.append("SHP")
+            return ", ".join(issues) if issues else "OK"
 
-# --- SAISIE ---
-with tabs[1]:
-    zso = None
-    if st.session_state.current_user.get('role') in ['Admin', 'Superviseur']:
-        zso = st.selectbox("📍 Travailler zone :", ["Toutes"] + sorted(df_master['zone'].unique().tolist()), key="zss")
-    adv = get_user_data(zso)
-    if adv.empty: st.error("❌ Aucune zone.")
+        df_final['Incohérence'] = df_final.apply(check_diff, axis=1)
+        
+        # Styling
+        def style_final(row):
+            return ['background-color: #ffebee' if row['Incohérence'] != "OK" else '' for _ in row]
+
+        st.write("Détail des saisies compilées :")
+        cols_disp = ['produit', 'lot', 'qte_zone', 'qte_mini', 'Total Qte', 'Incohérence', 'ddp_zone', 'ddp_mini', 'ppa_zone', 'ppa_mini']
+        st.dataframe(df_final[cols_disp].style.apply(style_final, axis=1), use_container_width=True)
+        
+        if st.button("📥 Exporter la Saisie Final pour Confrontation", type="primary"):
+            st.session_state.compiled_triple = df_final
+            st.success("Données envoyées à l'onglet Confrontation !")
+
+# --- TAB 4 : CONFRONTATION ---
+with t_conf:
+    st.subheader("📉 Confrontation Final avec Master Logipharm")
+    
+    if 'compiled_triple' not in st.session_state:
+        st.info("Veuillez compiler les données dans l'onglet 'Saisie Final' d'abord.")
     else:
-        aid = st.session_state.get('ai_triple', {})
-        lp = sorted(adv['produit'].unique().tolist())
-        idx_p = 0
-        if aid.get('designation'):
-            m = difflib.get_close_matches(aid['designation'].upper(), lp, n=1, cutoff=0.3)
-            if m: idx_p = lp.index(m[0])
-        cp1, cp2 = st.columns([3, 1])
-        sp = cp1.selectbox("🔍 Produit :", lp, index=idx_p)
-        la = sorted(adv[adv['produit'] == sp]['lot'].unique().tolist())
-        idx_l = 0
-        if aid.get('lot'):
-            lm = difflib.get_close_matches(aid['lot'].upper(), la, n=1, cutoff=0.5)
-            if lm: idx_l = la.index(lm[0])
-        sl = cp2.selectbox("📦 Lot :", la, index=idx_l)
-        if sp and sl:
-            work = st.session_state.inv_work_df
-            mask = (work['produit'] == sp) & (work['lot'] == sl)
-            curr = work[mask].iloc[0]
-            st.markdown('<div class="entry-card"><div class="section-header">📍 ZONE 1 : VRAC</div>', unsafe_allow_html=True)
-            c1, c2, c3 = st.columns(3)
-            tv = c1.number_input("Vrac", value=float(curr['Terrain (Vrac)']), key="tvv")
-            tc = c2.number_input("Colis", value=float(curr['Terrain (Colis)']), key="tcv")
-            clv = c3.number_input("U/Colis", value=float(curr['colissage']), key="clv", min_value=1.0)
-            st.markdown('<div class="section-header">📦 ZONE 2 : MINI</div>', unsafe_allow_html=True)
-            mmini = st.radio("Mode :", ["Colis", "Unités"], horizontal=True, key="mm")
-            c4, c5, cx = st.columns([1,1,1])
-            if mmini == "Colis":
-                mc = c4.number_input("Colis Mini", value=float(curr['Mini (Colis)']), key="mcv")
-                clm = c5.number_input("U/Colis Mini", value=float(curr['colissage']), key="clm", min_value=1.0)
-                mv = mc * clm; cx.metric("Total Mini", f"{mv:,.0f}")
-            else:
-                mv = c4.number_input("Unités Mini", value=float(curr['mv']), key="mvv"); mc = 0.0; cx.info("Direct")
-            ddp = st.text_input("DDP", value=str(curr['ddp']), key="ddpv")
-            st.markdown('<div class="section-header">💰 PRIX</div>', unsafe_allow_html=True)
-            c6, c7 = st.columns(2)
-            ppa = c6.number_input("PPA", value=float(curr['ppa']), key="ppv")
-            shp = c7.number_input("SHP", value=float(curr['shp']), key="shv")
-            st.markdown('</div>', unsafe_allow_html=True)
-            if st.button("✅ Valider", type="primary", use_container_width=True):
-                st.session_state.inv_work_df.loc[mask, REQUIRED_COLS+['ddp','ppa','shp']] = [tv, tc, mc, mv, clv, ddp, ppa, shp]
-                e = {'produit': sp, 'lot': sl, 'tv': tv, 'tc': tc, 'mv': mv, 'mc': mc, 'col': clv, 'ddp': ddp, 'ppa': ppa, 'shp': shp}
-                dit = load_gs_data(INV_TRIPLE_WORKSHEET, INV_TRIPLE_FALLBACK, COLS_INV_TRIPLE)
-                ms = (dit['produit'] == sp) & (dit['lot'] == sl)
-                if ms.any():
-                    for k, v in e.items(): dit.loc[ms, k] = v
-                else: dit = pd.concat([dit, pd.DataFrame([e])], ignore_index=True)
-                save_gs_data(dit, INV_TRIPLE_WORKSHEET, INV_TRIPLE_FALLBACK)
-                st.success("Enregistré !"); st.rerun()
+        comp = st.session_state.compiled_triple
+        # On compare avec le Master
+        master_zone = get_user_zone_df()
+        
+        final_table = pd.merge(
+            master_zone, comp[['produit', 'lot', 'Total Qte', 'Incohérence']], 
+            on=['produit', 'lot'], how='left'
+        ).fillna(0)
+        
+        final_table['Ecart'] = final_table['Total Qte'] - final_table['qte_logi']
+        
+        st.write("Résultats de la confrontation :")
+        c_disp = ['zone', 'produit', 'lot', 'qte_logi', 'Total Qte', 'Ecart', 'Incohérence']
+        
+        def highlight_ecart(val):
+            color = 'red' if val < 0 else ('green' if val > 0 else 'black')
+            return f'color: {color}; font-weight: bold'
 
-# --- ANALYSE ---
-with tabs[2]:
-    rdf = get_user_data(zo)
-    if not rdf.empty:
-        work = st.session_state.inv_work_df
-        rdf = rdf.merge(work[['produit', 'lot', 'Terrain (Vrac)', 'Terrain (Colis)', 'Mini (Colis)', 'mv', 'colissage']], on=['produit', 'lot'], how='left')
-        rdf['Total'] = rdf['Terrain (Vrac)'] + (rdf['Terrain (Colis)'] * rdf['colissage']) + rdf['mv'] + (rdf['Mini (Colis)'] * rdf['colissage'])
-        rdf['Ecart'] = rdf['Total'] - rdf['qte_logi']
-        diff = rdf[rdf['Ecart'] != 0]
-        st.metric("Écarts", len(diff))
-        st.dataframe(diff[['depot', 'zone', 'produit', 'lot', 'qte_logi', 'Total', 'Ecart']], use_container_width=True)
+        st.dataframe(
+            final_table[c_disp].style.applymap(highlight_ecart, subset=['Ecart']),
+            use_container_width=True
+        )
+        
+        # Export PDF
+        if st.button("📄 Générer Rapport d'Inventaire Triple (PDF)"):
+            from utils_pdf import generate_inventory_report_pdf
+            pdf = generate_inventory_report_pdf(final_table, "RAPPORT D'INVENTAIRE TRIPLE RÉCONCILIÉ")
+            st.download_button("📥 Télécharger le Rapport", pdf, "Inventaire_Triple.pdf", "application/pdf")
 
-# --- GESTION ---
-with tabs[3]:
+    # Bouton reset admin
     if st.session_state.current_user.get('role') == 'Admin':
-        if st.button("🗑️ Réinitialiser tout", type="secondary"):
-            save_gs_data(pd.DataFrame(columns=COLS_INV_TRIPLE), INV_TRIPLE_WORKSHEET, INV_TRIPLE_FALLBACK); st.rerun()
+        st.divider()
+        if st.button("🗑️ Réinitialiser TOUTES les saisies (Zone & Mini)"):
+            save_gs_data(pd.DataFrame(columns=COLS_ENTRY), WS_ZONE, FB_ZONE)
+            save_gs_data(pd.DataFrame(columns=COLS_ENTRY), WS_MINI, FB_MINI)
+            st.rerun()
