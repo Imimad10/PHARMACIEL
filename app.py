@@ -720,6 +720,26 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
     
+    # --- SÉLECTEUR DE THÈME (Placé en haut pour visibilité) ---
+    themes_disponibles = ["Clair", "Sombre", "Chic Animé", "USMH", "CRB", "USMA", "MCA"]
+    current_index = themes_disponibles.index(st.session_state.theme) if st.session_state.theme in themes_disponibles else 0
+    new_theme = st.selectbox("🎨 Thème d'affichage", themes_disponibles, index=current_index, key="sidebar_theme_selector")
+    if new_theme != st.session_state.theme:
+        st.session_state.theme = new_theme
+        st.rerun()
+
+    # Afficher le thème actif de l'utilisateur (depuis la base admin)
+    _td = load_themes_db()
+    _at = get_active_themes(_td)
+    _uname = user.get('username', '')
+    _uid = _td.get('user_theme_assignments', {}).get(_uname)
+    if _uid:
+        _tname = next((t['name'] for t in _at if t['id'] == _uid), None)
+        if _tname:
+            st.caption(f"🎨 Thème attribué : **{_tname}**")
+    
+    st.markdown("<div style='margin: 10px 0;'></div>", unsafe_allow_html=True)
+    
     # --- AJOUTS RÉCENTS (RECH. & NOTIFS) ---
     show_notification_center()
     show_search_bar()
@@ -741,27 +761,6 @@ with st.sidebar:
         st.warning("⚡ Mode Local : N'oubliez pas d'exporter vos données vers le Cloud.")
     
     st.divider()
-    # Sélecteur de thème statique
-    themes_disponibles = ["Clair", "Sombre", "Chic Animé", "USMH", "CRB", "USMA", "MCA"]
-    current_index = themes_disponibles.index(st.session_state.theme) if st.session_state.theme in themes_disponibles else 0
-    new_theme = st.selectbox("🎨 Thème d'affichage", themes_disponibles, index=current_index)
-    if new_theme != st.session_state.theme:
-        st.session_state.theme = new_theme
-        st.rerun()
-
-    # Afficher le thème actif de l'utilisateur (depuis la base admin)
-    _td = load_themes_db()
-    _at = get_active_themes(_td)
-    _uname = user.get('username', '')
-    _uid = _td.get('user_theme_assignments', {}).get(_uname)
-    if _uid:
-        _tname = next((t['name'] for t in _at if t['id'] == _uid), None)
-        if _tname:
-            st.caption(f"🎨 Thème attribué : **{_tname}**")
-    elif _at:
-        st.caption(f"🎨 Thème actif : **{_at[0]['name']}** (défaut)")
-    st.divider()
-
 
     st.divider()
     if st.button("📱 Mode Mobile", use_container_width=True, key="btn_mobile"):
