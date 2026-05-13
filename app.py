@@ -219,21 +219,37 @@ else:
     card_bg = "rgba(0, 0, 0, 0.02)"
     sidebar_bg = "#f0f2f5"
 
-# --- THEME DARPHARM FLUFFY ---
+# --- APPLICATION DU THÈME ---
 from utils_themes import get_user_theme, load_themes_db, apply_theme_css
 
-# Splash Screen temporairement désactivé pour diagnostic
-# st.markdown(""" ... """, unsafe_allow_html=True)
-
-# Application du thème DarPharm Fluffy
 _tdb = load_themes_db()
-fluffy = next((t for t in _tdb["themes"] if t["id"] == "theme_darpharm_fluffy"), None)
-apply_theme_css(fluffy)
+applied_theme = False
 
-if st.session_state.get('current_user'):
+# 1. Priorité au thème choisi manuellement dans le sidebar
+if st.session_state.get('theme') and st.session_state.theme != "Clair":
+    # Si c'est un thème spécial (Club ou Chic), on injecte son CSS spécifique
+    if extra_css:
+        st.markdown(f"<style>{extra_css}</style>", unsafe_allow_html=True)
+        applied_theme = True
+    
+    # Si le thème existe aussi dans la DB des thèmes pro, on l'applique
+    theme_obj = next((t for t in _tdb["themes"] if t["name"] == st.session_state.theme), None)
+    if theme_obj:
+        apply_theme_css(theme_obj)
+        applied_theme = True
+
+# 2. Si non choisi manuellement, priorité au thème assigné à l'utilisateur
+if not applied_theme and st.session_state.get('current_user'):
     u_theme = get_user_theme(st.session_state.current_user.get('username',''), _tdb)
     if u_theme:
         apply_theme_css(u_theme)
+        applied_theme = True
+
+# 3. Fallback sur le thème DarPharm Fluffy (Défaut) si rien d'autre n'est appliqué
+if not applied_theme:
+    fluffy = next((t for t in _tdb["themes"] if t["id"] == "theme_darpharm_fluffy"), None)
+    if fluffy:
+        apply_theme_css(fluffy)
         
     # Style Responsive et Bouton Déconnexion
     st.markdown("""
