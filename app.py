@@ -713,7 +713,12 @@ if st.session_state.current_user is None:
                     st.session_state.current_user = user_data
                     if rester_connecte:
                         st.session_state.remember_me = True
-                        controller.set("user_token", user_data['username'], max_age=86400 * 30) # Valide 30 jours
+                        try:
+                            # Correction du TypeError : on s'assure que la valeur est une chaîne
+                            controller.set("user_token", str(user_data['username']), max_age=86400 * 30) 
+                        except Exception as e:
+                            # On ne bloque pas la connexion si le cookie échoue
+                            st.warning(f"Note : Connexion auto non enregistrée ({e})")
                     else:
                         st.session_state.remember_me = False
                         try:
