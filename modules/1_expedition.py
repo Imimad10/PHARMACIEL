@@ -331,7 +331,7 @@ with tab_exp:
                         if c4.button("🏷️ Étiquette", key=f"label_{row['N° Doc']}"):
                             try:
                                 # Format A6 paysage (148x105mm) pour une étiquette lisible
-                                lpdf = FPDF(orientation='L', unit='mm', format='A6')
+                                lpdf = FPDF(orientation='L', unit='mm', format=(148, 105))
                                 lpdf.set_margins(8, 8, 8)
                                 lpdf.add_page()
                                 
