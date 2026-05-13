@@ -133,7 +133,12 @@ def load_gs_data(worksheet_name, fallback_path, columns, force_cloud=False):
                     raw_data = json.load(f)
                 df = pd.DataFrame(list(raw_data["_default"].values())) if "_default" in raw_data else pd.DataFrame(raw_data)
             else:
-                df = pd.read_csv(fallback_path, sep=',', encoding='utf-8-sig')
+                try:
+                    df = pd.read_csv(fallback_path, sep=',', encoding='utf-8-sig')
+                    if len(df.columns) <= 1: # Si mal découpé
+                        df = pd.read_csv(fallback_path, sep=';', encoding='utf-8-sig')
+                except:
+                    df = pd.read_csv(fallback_path, sep=';', encoding='utf-8-sig')
             
             for col in df.columns:
                 try: df[col] = pd.to_numeric(df[col])
