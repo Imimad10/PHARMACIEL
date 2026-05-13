@@ -134,26 +134,34 @@ if is_ia_enabled():
 # 2. KPIs PRINCIPAUX
 # ═══════════════════════════════════════════
 st.subheader("📊 Indicateurs Clés")
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("💰 Total à Recouvrer", f"{kpis.get('rec_total_du',0):,.0f} DA",
-            delta=f"{kpis.get('rec_en_attente',0)} en attente", delta_color="inverse")
-col2.metric("✅ Dossiers Archivés", kpis.get('arch_count', 0),
-            delta=f"{kpis.get('arch_recouvre',0):,.0f} DA récupérés")
-col3.metric("📝 Saisies Inventaire", kpis.get('inv_saisies', 0),
-            delta=f"{kpis.get('inv_produits_uniques',0)} produits uniques")
-col4.metric("📋 Inventaire Triple", kpis.get('inv_triple_count', 0),
-            delta="Lignes modifiées")
+
+def kpi_card(label, value, delta, icon, color="#5b6cf9"):
+    st.markdown(f"""
+        <div style="background: var(--bg-card); padding: 20px; border-radius: 20px; box-shadow: var(--shadow-neu); border-left: 5px solid {color}; height: 100%;">
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
+                <div style="font-size: 2.2rem;">{icon}</div>
+                <div>
+                    <div style="font-size: 0.8rem; color: var(--text-s); font-weight: 700; text-transform: uppercase;">{label}</div>
+                    <div style="font-size: 1.6rem; font-weight: 900; color: var(--text-p);">{value}</div>
+                </div>
+            </div>
+            <div style="font-size: 0.85rem; color: #6b7299; font-weight: 600;">{delta}</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+c1, c2, c3, c4 = st.columns(4)
+with c1: kpi_card("Total à Recouvrer", f"{kpis.get('rec_total_du',0):,.0f} DA", f"↑ {kpis.get('rec_en_attente',0)} en attente", "💰", "#f59e0b")
+with c2: kpi_card("Dossiers Archivés", f"{kpis.get('arch_count', 0)}", f"↑ {kpis.get('arch_recouvre',0):,.0f} DA récup.", "✅", "#10b981")
+with c3: kpi_card("Saisies Inventaire", f"{kpis.get('inv_saisies', 0)}", f"↑ {kpis.get('inv_produits_uniques',0)} produits", "📝", "#3b82f6")
+with c4: kpi_card("Inventaire Triple", f"{kpis.get('inv_triple_count', 0)}", "Lignes modifiées", "📋", "#8b5cf6")
 
 st.markdown("<br>", unsafe_allow_html=True)
-col5, col6, col7, col8 = st.columns(4)
-col5.metric("🚚 Pointages Exp.", kpis.get('pointages_total', 0),
-            delta=f"{kpis.get('pointages_today',0)} aujourd'hui")
-col6.metric("⚠️ Litiges SAV", kpis.get('reclams_total', 0),
-            delta=f"{kpis.get('reclams_encours',0)} en cours", delta_color="inverse")
-col7.metric("⏳ Périmés / Critiques", kpis.get('peremptions_critiques', 0),
-            delta="Moins de 3 mois", delta_color="inverse")
-col8.metric("🚚 Missions Liv.", kpis.get('missions_total', 0),
-            delta=f"{kpis.get('missions_en_cours',0)} en cours")
+c5, c6, c7, c8 = st.columns(4)
+with c5: kpi_card("Pointages Exp.", f"{kpis.get('pointages_total', 0)}", f"↑ {kpis.get('pointages_today',0)} aujourd'hui", "🚚", "#3b82f6")
+with c6: kpi_card("Litiges SAV", f"{kpis.get('reclams_total', 0)}", f"↑ {kpis.get('reclams_encours',0)} en cours", "⚠️", "#ef4444")
+with c7: kpi_card("Périmés / Critiques", f"{kpis.get('peremptions_critiques', 0)}", "Moins de 3 mois", "⏳", "#f06585")
+with c8: kpi_card("Missions Liv.", f"{kpis.get('missions_total', 0)}", f"↑ {kpis.get('missions_en_cours',0)} en cours", "🚚", "#10b981")
+
 
 st.divider()
 

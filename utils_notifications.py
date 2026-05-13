@@ -74,12 +74,23 @@ def show_notification_center():
     with st.sidebar.expander("🔔 Notifications & Alertes", expanded=False):
         notifs = check_notifications()
         if not notifs:
-            st.success("Système stable ✅")
+            st.markdown("""
+                <div style="padding: 10px; border-radius: 10px; background: rgba(45,184,138,0.1); color: #2db88a; font-weight: 700; font-size: 0.9rem;">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">check_circle</span> Système stable
+                </div>
+            """, unsafe_allow_html=True)
         else:
             for n in notifs:
-                if n['type'] == "error":
-                    st.error(f"{n['icon']} **{n['title']}**\n{n['message']}")
-                elif n['type'] == "warning":
-                    st.warning(f"{n['icon']} **{n['title']}**\n{n['message']}")
-                else:
-                    st.info(f"{n['icon']} **{n['title']}**\n{n['message']}")
+                icon_name = "error" if n['type'] == "error" else "warning" if n['type'] == "warning" else "info"
+                color = "#f06585" if n['type'] == "error" else "#e8a020" if n['type'] == "warning" else "#5b6cf9"
+                bg = "rgba(240,101,133,0.1)" if n['type'] == "error" else "rgba(232,160,32,0.1)" if n['type'] == "warning" else "rgba(91,108,249,0.1)"
+                
+                st.markdown(f"""
+                    <div style="padding: 10px; border-radius: 10px; background: {bg}; color: {color}; margin-bottom: 8px; border-left: 3px solid {color};">
+                        <div style="font-weight: 800; font-size: 0.85rem;">
+                            <span class="material-symbols-outlined" style="font-size: 16px;">{icon_name}</span> {n['title']}
+                        </div>
+                        <div style="font-size: 0.75rem; opacity: 0.8;">{n['message']}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+

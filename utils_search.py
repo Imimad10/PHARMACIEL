@@ -46,7 +46,8 @@ def global_search(query):
 def show_search_bar():
     with st.sidebar:
         st.write("---")
-        search_query = st.text_input("🔍 Recherche Universelle", placeholder="Client, Facture, Produit...", key="global_search_input")
+        st.markdown('<p style="font-weight: 800; margin-bottom: -15px; font-size: 0.9rem;"><span class="material-symbols-outlined" style="font-size: 18px; vertical-align: bottom;">search</span> RECHERCHE UNIVERSELLE</p>', unsafe_allow_html=True)
+        search_query = st.text_input("", placeholder="Client, Facture, Produit...", key="global_search_input", label_visibility="collapsed")
         if search_query:
             results = global_search(search_query)
             if results:

@@ -238,16 +238,45 @@ if st.session_state.get('current_user'):
     # Style Responsive et Bouton Déconnexion
     st.markdown("""
     <style>
+        /* Modern Sidebar Navigation Styles */
+        [data-testid="stSidebarNav"] ul {
+            padding-top: 10px !important;
+        }
+        [data-testid="stSidebarNav"] span {
+            font-size: 1.1rem !important;
+            font-weight: 600 !important;
+            transition: all 0.3s ease !important;
+        }
+        [data-testid="stSidebarNav"] a:hover span {
+            transform: translateX(5px) scale(1.05) !important;
+            color: #5b6cf9 !important;
+        }
+        
+        /* Sidebar Group Headers */
+        [data-testid="stSidebarNav"] div[data-testid="stSidebarNavSeparator"] + div {
+            margin-top: 20px !important;
+            margin-bottom: 10px !important;
+            padding-left: 15px !important;
+            font-weight: 900 !important;
+            text-transform: uppercase !important;
+            font-size: 0.75rem !important;
+            letter-spacing: 1.5px !important;
+            color: #5b6cf9 !important;
+            opacity: 0.8;
+        }
+
         div[data-testid="stBaseButton-btn_logout"] button {
             background-color: #fee2e2 !important;
             color: #dc2626 !important;
             border: 1px solid #fecaca !important;
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+            border-radius: 12px !important;
         }
         div[data-testid="stBaseButton-btn_logout"] button:hover {
             background-color: #ef4444 !important;
             color: #ffffff !important;
             border-color: #ef4444 !important;
+            transform: translateY(-2px);
         }
 
         @media (max-width: 768px) {
@@ -650,20 +679,38 @@ if not pages_to_show:
 from utils_notifications import show_notification_center
 from utils_search import show_search_bar
 
+# Initialiser la navigation
 pg = st.navigation(pages_to_show)
 
 with st.sidebar:
+    # Titre ou Logo avec style premium
     if os.path.exists("logo.png"):
         st.image("logo.png", use_container_width=True)
     else:
-        st.title("💊 Darpharm Solution")
-    st.write(f"Connecté: **{user['username']}** ({user.get('role', 'Saisie')})")
+        st.markdown("""
+            <div style="text-align: center; padding: 10px 0; border-bottom: 2px solid rgba(91,108,249,0.1); margin-bottom: 15px;">
+                <h1 style="font-size: 1.8rem; margin: 0; background: linear-gradient(135deg, #5b6cf9, #1ab8c4); -webkit-background-clip: text; -webkit-text-fill-color: initial; color: #5b6cf9 !important;">
+                    <span class="material-symbols-outlined">pill</span> DarPharm
+                </h1>
+            </div>
+        """, unsafe_allow_html=True)
+        
+    st.markdown(f"""
+        <div style="background: rgba(91,108,249,0.05); padding: 12px; border-radius: 12px; margin-bottom: 10px; border-left: 4px solid #5b6cf9;">
+            <p style="margin: 0; font-size: 0.85rem; color: #6b7299;">Utilisateur connecté</p>
+            <p style="margin: 0; font-weight: 800; color: #1a1f3c;">
+                <span class="material-symbols-outlined" style="font-size: 18px;">person</span> {user['username']} 
+                <span style="font-weight: 400; font-size: 0.8rem; color: #6b7299;">({user.get('role', 'Saisie')})</span>
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
     
     # --- AJOUTS RÉCENTS (RECH. & NOTIFS) ---
     show_notification_center()
     show_search_bar()
     
-    st.divider()
+    st.markdown("<div style='margin: 15px 0;'></div>", unsafe_allow_html=True)
+
     # Sélecteur de Mode de Stockage
     if "storage_mode" not in st.session_state:
         st.session_state.storage_mode = "Cloud"
