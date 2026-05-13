@@ -28,12 +28,40 @@ if 'current_user' not in st.session_state:
     st.warning("⚠️ Veuillez vous connecter.")
     st.stop()
 
-# --- STYLE CSS ---
+# --- STYLE CSS PREMIUM ---
 st.markdown("""
     <style>
-    .entry-card { background: white; padding: 20px; border-radius: 12px; border: 1px solid #eef2f6; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
-    .section-title { color: #1877f2; font-weight: bold; border-bottom: 2px solid #e7f3ff; padding-bottom: 5px; margin-bottom: 15px; }
-    .admin-box { background: #fffde7; padding: 10px; border-radius: 8px; border: 1px solid #fff59d; margin-bottom: 15px; }
+    .stApp { background-color: #f8faff; }
+    .entry-card { 
+        background: white; 
+        padding: 25px; 
+        border-radius: 16px; 
+        border: 1px solid #e0e6ed; 
+        box-shadow: 0 8px 30px rgba(0,0,0,0.04); 
+        margin-bottom: 20px; 
+    }
+    .section-title { color: #1877f2; font-weight: 800; font-size: 1.2rem; border-left: 5px solid #1877f2; padding-left: 15px; margin-bottom: 20px; }
+    .admin-box { 
+        background: linear-gradient(135deg, #fffde7 0%, #fff9c4 100%); 
+        padding: 15px; 
+        border-radius: 12px; 
+        border: 1px solid #fff176; 
+        margin-bottom: 20px;
+        color: #827717;
+        font-weight: 600;
+    }
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; background: transparent; }
+    .stTabs [data-baseweb="tab"] { 
+        background-color: white; 
+        border-radius: 10px; 
+        padding: 10px 25px; 
+        border: 1px solid #e0e6ed;
+    }
+    .stTabs [aria-selected="true"] { 
+        background-color: #1877f2 !important; 
+        color: white !important; 
+        border: 1px solid #1877f2 !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -67,23 +95,17 @@ user_role = st.session_state.current_user.get('role', 'Saisie')
 is_admin = user_role in ['Admin', 'Superviseur']
 user_zone = str(st.session_state.current_user.get('zone', '')).upper()
 
-def filter_by_permissions(df, zone_col='zone'):
-    if is_admin: return df
-    if zone_col not in df.columns: return df
-    return df[df[zone_col].astype(str).str.upper().str.contains(user_zone, na=False)]
+# --- INTERFACE HEADER ---
+st.title("🛡️ Inventaire Triple & Réconciliation")
 
-# --- INTERFACE ---
-st.title("📋 Inventaire Triple & Zonage")
-
-# Sélecteur de zone global pour Admin
-selected_zone_filter = "Toutes"
 if is_admin:
-    with st.container():
-        st.markdown('<div class="admin-box">🛡️ **Mode Superviseur** : Vous voyez toutes les zones.</div>', unsafe_allow_html=True)
-        zones_list = ["Toutes"] + sorted(df_m['zone'].unique().tolist())
-        selected_zone_filter = st.selectbox("🎯 Filtrer la vue globale par Zone :", zones_list)
+    st.markdown('<div class="admin-box">🛡️ MODE SUPERVISEUR : Accès complet à toutes les zones.</div>', unsafe_allow_html=True)
+    zones_list = ["Toutes"] + sorted(df_m['zone'].unique().tolist())
+    selected_zone_filter = st.selectbox("🎯 Filtrer la vue globale par Zone :", zones_list)
+else:
+    st.info(f"📍 Votre Zone assignée : **{user_zone}**")
+    selected_zone_filter = user_zone
 
-# Application du filtrage pour la session
 def get_working_master():
     if is_admin and selected_zone_filter != "Toutes":
         return df_m[df_m['zone'] == selected_zone_filter]
@@ -100,29 +122,61 @@ def get_working_entries(df):
     else:
         return df[df['zone'].astype(str).str.upper().str.contains(user_zone, na=False)]
 
+# --- FICHES VIERGES ---
+with st.expander("🖨️ Impression des Fiches Terrain"):
+    from utils_pdf import generate_blank_inventory_pdf
+    st.write("Générez une fiche vierge pour le comptage papier.")
+    if st.download_button("📥 Télécharger Fiche Vierge (Zone Actuelle)", generate_blank_inventory_pdf(get_working_master(), "Triple", [('produit','Produit',55),('lot','Lot',25)]), "Fiche_Vierge.pdf", "application/pdf"):
+        st.success("Généré !")
+
 t_zone, t_mini, t_final, t_conf = st.tabs(["📍 Saisie Zone", "📦 Saisie Mini", "📊 Compilation", "📉 Confrontation"])
 
 # --- LOGIQUE DE SAISIE ---
 def render_saisie(df_full, ws_name, fb_path, title, key_prefix):
+    st.markdown(f'<div class="section-title">{title}</div>', unsafe_allow_html=True)
+    
+    # AI SCANNER
+    if is_ia_scanner_enabled():
+        with st.expander("📷 Scanner IA (Vignette/Produit)", expanded=False):
+            img = st.camera_input(f"Photo {title}", key=f"cam_{key_prefix}")
+            if img and st.button("🔍 Analyser Photo", key=f"btn_ia_{key_prefix}"):
+                b64 = base64.b64encode(img.getvalue()).decode()
+                res = ask_ai_vision("Extrais JSON: {\"designation\": \"...\", \"lot\": \"...\"}", b64)
+                try:
+                    data = json.loads(re.search(r'\{.*\}', res, re.DOTALL).group())
+                    st.session_state[f'ai_{key_prefix}'] = data
+                    st.success(f"Détecté : {data.get('designation')}")
+                except: st.error("Erreur lecture IA")
+
     master_w = get_working_master()
     if master_w.empty:
         st.warning("Aucun produit à saisir dans ce périmètre.")
         return df_full
 
-    prods = sorted(master_w['produit'].unique().tolist())
+    lp = sorted(master_w['produit'].unique().tolist())
+    ai_d = st.session_state.get(f'ai_{key_prefix}', {})
+    
+    idx_p = 0
+    if ai_d.get('designation'):
+        matches = difflib.get_close_matches(ai_d['designation'].upper(), lp, n=1, cutoff=0.3)
+        if matches: idx_p = lp.index(matches[0])
+
     c1, c2 = st.columns([3, 1])
-    sel_p = c1.selectbox(f"Produit ({title})", prods, key=f"p_{key_prefix}")
+    sp = c1.selectbox(f"Produit", lp, index=idx_p, key=f"p_{key_prefix}")
     
-    # On filtre les lots master pour ce produit et cette zone
-    lots_m = sorted(master_w[master_w['produit'] == sel_p]['lot'].unique().tolist())
-    # On récupère la zone du produit sélectionné
-    p_zone = master_w[master_w['produit'] == sel_p]['zone'].iloc[0]
+    lm_list = sorted(master_w[master_w['produit'] == sp]['lot'].unique().tolist())
+    p_zone = master_w[master_w['produit'] == sp]['zone'].iloc[0]
     
-    sel_l_m = c2.selectbox(f"Lot Master", lots_m, key=f"lm_{key_prefix}")
+    idx_l = 0
+    if ai_d.get('lot'):
+        l_matches = difflib.get_close_matches(ai_d['lot'].upper(), lm_list, n=1, cutoff=0.5)
+        if l_matches: idx_l = lm_list.index(l_matches[0])
+
+    slm = c2.selectbox(f"Lot Master", lm_list, index=idx_l, key=f"lm_{key_prefix}")
     
     st.markdown('<div class="entry-card">', unsafe_allow_html=True)
     f1, f2, f3 = st.columns([1, 1, 1])
-    lot_r = f1.text_input("Lot Réel", value=sel_l_m, key=f"lr_{key_prefix}")
+    lot_r = f1.text_input("Lot Réel", value=slm, key=f"lr_{key_prefix}")
     qte = f2.number_input("Quantité", min_value=0.0, step=1.0, key=f"q_{key_prefix}")
     ddp = f3.text_input("DDP (MM/AAAA)", key=f"d_{key_prefix}")
     
@@ -131,89 +185,88 @@ def render_saisie(df_full, ws_name, fb_path, title, key_prefix):
     shp = f5.number_input("SHP", min_value=0.0, key=f"sh_{key_prefix}")
     st.markdown('</div>', unsafe_allow_html=True)
     
-    if st.button(f"💾 Enregistrer {title}", type="primary", use_container_width=True, key=f"btn_{key_prefix}"):
+    if st.button(f"💾 Enregistrer Saisie", type="primary", use_container_width=True, key=f"btn_s_{key_prefix}"):
         new = {
-            "zone": p_zone, "produit": sel_p, "lot": lot_r.upper(), 
+            "zone": p_zone, "produit": sp, "lot": lot_r.upper(), 
             "qte": qte, "ddp": ddp, "ppa": ppa, "shp": shp, 
             "agent": st.session_state.current_user.get('username')
         }
-        # Upsert global
-        mask = (df_full['produit'] == sel_p) & (df_full['lot'] == lot_r.upper())
+        mask = (df_full['produit'] == sp) & (df_full['lot'] == lot_r.upper())
         if mask.any():
             for k, v in new.items(): df_full.loc[mask, k] = v
         else:
             df_full = pd.concat([df_full, pd.DataFrame([new])], ignore_index=True)
         
         save_gs_data(df_full, ws_name, fb_path)
-        st.success(f"Saisie {title} enregistrée !")
+        st.success("Saisie enregistrée avec succès !")
+        if f'ai_{key_prefix}' in st.session_state: del st.session_state[f'ai_{key_prefix}']
         st.rerun()
     
-    # Affichage historique local
-    st.write(f"### Vos dernières saisies ({title})")
+    st.write("---")
     hist = get_working_entries(df_full)
-    st.dataframe(hist[hist['produit'] == sel_p], use_container_width=True)
+    st.dataframe(hist[hist['produit'] == sp], use_container_width=True)
     return df_full
 
 with t_zone:
-    df_z = render_saisie(df_z, WS_ZONE, FB_ZONE, "Zone (Vrac)", "z")
+    df_z = render_saisie(df_z, WS_ZONE, FB_ZONE, "Saisie en Zone (Vrac)", "z")
 
 with t_mini:
-    df_mi = render_saisie(df_mi, WS_MINI, FB_MINI, "Mini Stock (Colis)", "m")
+    df_mi = render_saisie(df_mi, WS_MINI, FB_MINI, "Saisie Mini Stock (Colis)", "m")
 
 # --- COMPILATION ---
 with t_final:
-    st.subheader("📊 Réconciliation Finale")
+    st.markdown('<div class="section-title">📊 Réconciliation & Compilation</div>', unsafe_allow_html=True)
     w_z = get_working_entries(df_z)
     w_mi = get_working_entries(df_mi)
     
-    df_comp = pd.merge(w_z, w_mi, on=['produit', 'lot'], how='outer', suffixes=('_z', '_m')).fillna(0)
+    df_c = pd.merge(w_z, w_mi, on=['produit', 'lot'], how='outer', suffixes=('_z', '_m')).fillna(0)
     
-    if df_comp.empty:
-        st.info("Aucune donnée à compiler pour ce périmètre.")
+    if df_c.empty:
+        st.info("Aucune donnée saisie pour le moment.")
     else:
-        # Zone harmonisée (si absent d'un côté, on prend l'autre)
-        df_comp['zone'] = df_comp.apply(lambda r: r['zone_z'] if r['zone_z'] != 0 else r['zone_m'], axis=1)
-        df_comp['Total'] = df_comp['qte_z'] + df_comp['qte_m']
+        df_c['zone'] = df_c.apply(lambda r: r['zone_z'] if r['zone_z'] != 0 else r['zone_m'], axis=1)
+        df_c['Total'] = df_c['qte_z'] + df_c['qte_m']
         
-        def detect_err(r):
+        def check_inc(r):
             if r['qte_z'] > 0 and r['qte_m'] > 0:
-                errs = []
-                if str(r['ddp_z']) != str(r['ddp_m']): errs.append("DDP")
-                if r['ppa_z'] != r['ppa_m']: errs.append("PPA")
-                if r['shp_z'] != r['shp_m']: errs.append("SHP")
-                return ", ".join(errs) if errs else "OK"
+                e = []
+                if str(r['ddp_z']) != str(r['ddp_m']): e.append("DDP")
+                if r['ppa_z'] != r['ppa_m']: e.append("PPA")
+                if r['shp_z'] != r['shp_m']: e.append("SHP")
+                return ", ".join(e) if e else "OK"
             return "OK"
         
-        df_comp['Incohérence'] = df_comp.apply(detect_err, axis=1)
+        df_c['Incohérence'] = df_c.apply(check_inc, axis=1)
         
-        c_disp = ['zone', 'produit', 'lot', 'qte_z', 'qte_m', 'Total', 'Incohérence', 'ddp_z', 'ddp_m']
-        st.dataframe(df_comp[c_disp].style.apply(lambda r: ['background-color: #ffebee' if r['Incohérence'] != "OK" else '' for _ in r], axis=1), use_container_width=True)
+        cols_final = ['zone', 'produit', 'lot', 'qte_z', 'qte_m', 'Total', 'Incohérence', 'agent_z', 'agent_m']
+        st.dataframe(df_c[cols_final].style.apply(lambda r: ['background-color: #ffebee' if r['Incohérence'] != "OK" else '' for _ in r], axis=1), use_container_width=True)
         
-        if st.button("📥 Valider la compilation pour confrontation"):
-            st.session_state.it_ready = df_comp
-            st.success("Données compilées !")
+        if st.button("📥 Valider pour Confrontation"):
+            st.session_state.it_ready = df_c
+            st.success("Compilation validée !")
 
 # --- CONFRONTATION ---
 with t_conf:
-    st.subheader("📉 Confrontation avec Master Logipharm")
+    st.markdown('<div class="section-title">📉 Confrontation avec Logipharm</div>', unsafe_allow_html=True)
     if 'it_ready' not in st.session_state:
-        st.info("Compilez d'abord les données.")
+        st.info("Veuillez d'abord valider la compilation dans l'onglet précédent.")
     else:
-        comp = st.session_state.it_ready
+        ready = st.session_state.it_ready
         m_w = get_working_master()
         
-        conf = pd.merge(m_w, comp[['produit', 'lot', 'Total', 'Incohérence']], on=['produit', 'lot'], how='left').fillna(0)
-        conf['Ecart'] = conf['Total'] - conf['qte_logi']
+        final = pd.merge(m_w, ready[['produit', 'lot', 'Total', 'Incohérence']], on=['produit', 'lot'], how='left').fillna(0)
+        final['Ecart'] = final['Total'] - final['qte_logi']
         
-        st.dataframe(conf[['zone', 'produit', 'lot', 'qte_logi', 'Total', 'Ecart', 'Incohérence']].style.applymap(lambda v: 'color: red' if v<0 else ('color: green' if v>0 else ''), subset=['Ecart']), use_container_width=True)
+        c_show = ['zone', 'produit', 'lot', 'qte_logi', 'Total', 'Ecart', 'Incohérence']
+        st.dataframe(final[c_show].style.applymap(lambda v: 'color: red' if v<0 else ('color: green' if v>0 else ''), subset=['Ecart']), use_container_width=True)
         
         if st.button("📄 Rapport Final PDF"):
             from utils_pdf import generate_inventory_report_pdf
-            st.download_button("Télécharger PDF", generate_inventory_report_pdf(conf, f"RAPPORT TRIPLE - {selected_zone_filter}"), "Inventaire.pdf", "application/pdf")
+            st.download_button("Télécharger le Rapport", generate_inventory_report_pdf(final, f"RAPPORT TRIPLE - {selected_zone_filter}"), f"Rapport_Triple_{selected_zone_filter}.pdf", "application/pdf")
 
     if is_admin:
         st.divider()
-        if st.button("🗑️ Vider toutes les bases (Action Irréversible)"):
+        if st.button("🗑️ Vider les bases (RESET COMPLET)", type="secondary"):
             save_gs_data(pd.DataFrame(columns=COLS_ENTRY), WS_ZONE, FB_ZONE)
             save_gs_data(pd.DataFrame(columns=COLS_ENTRY), WS_MINI, FB_MINI)
             st.rerun()
