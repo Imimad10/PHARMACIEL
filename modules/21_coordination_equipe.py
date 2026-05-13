@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 from utils_gsheets import load_gs_data, save_gs_data
 from utils_sound import play_sound
+from utils_ia import ask_ai, is_ia_enabled
 
 # --- CONFIGURATION ---
 TASKS_WORKSHEET = "DB_Tasks_Team"
