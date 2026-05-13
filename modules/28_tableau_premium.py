@@ -278,8 +278,35 @@ data = get_dashboard_data()
 template = Template(HTML_TEMPLATE)
 final_html = template.render(**data)
 
-# Communication entre Iframe et Streamlit pour le bouton IA
-components.html(final_html, height=1200, scrolling=True)
+# Communication entre Iframe et Streamlit pour# --- BOUTONS D'ACTION FLUFFY (Streamlit Natif pour assurer le fonctionnement) ---
+st.markdown("""
+<style>
+    .stButton > button {
+        width: 100%;
+        background: linear-gradient(135deg, #7c3aed, #4c1d95) !important;
+        color: white !important;
+        border-radius: 20px !important;
+        padding: 20px !important;
+        font-weight: 900 !important;
+        font-size: 1.2rem !important;
+        border: none !important;
+        box-shadow: 0 10px 25px rgba(124, 58, 237, 0.3) !important;
+        transition: all 0.3s ease !important;
+        margin-top: 20px;
+    }
+    .stButton > button:hover {
+        transform: translateY(-3px) !important;
+        box-shadow: 0 15px 35px rgba(124, 58, 237, 0.4) !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-if st.button("📊 Forcer la mise à jour des statistiques"):
-    st.rerun()
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("🤖 LANCER LE SCAN IA (INTELLIGENT SCAN)"):
+        st.session_state.current_page = "7_scanneur_qr" # Ou le module de scan IA dédié
+        st.rerun()
+
+with col2:
+    if st.button("📊 ACTUALISER LES STATISTIQUES LIVE"):
+        st.rerun()

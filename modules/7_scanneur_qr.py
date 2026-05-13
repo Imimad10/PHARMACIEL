@@ -1,140 +1,106 @@
 import streamlit as st
-import pandas as pd
-import plotly.express as px
-from datetime import datetime
-import os
-from utils_ia import ask_ai, is_ia_enabled
-from utils_gsheets import load_gs_data, save_gs_data
+import streamlit.components.v1 as components
 
-# Configuration GSheets
-POINTAGES_WORKSHEET = "Pointages"
-POINTAGES_FALLBACK = "data/db_pointages.csv"
-MISSIONS_WORKSHEET = "Missions"
-MISSIONS_FALLBACK = "data_expedition/missions.csv"
-COLS_MISSIONS = ["ID", "Livreur", "Début", "Fin", "Nb Factures", "Durée"]
-COLS_POINTAGES = ['date_pointage', 'date_feuille', 'livreur', 'rotation', 'reference', 'client', 'region', 'statut_karim']
+# --- CONFIGURATION ---
+st.set_page_config(page_title="Scanner IA Premium", layout="wide")
 
-st.title("🔍 Scanneur QR & Performance")
+st.markdown("""
+<style>
+    .stApp { background: #eef0f8; }
+    .main .block-container { padding: 0; }
+</style>
+""", unsafe_allow_html=True)
 
-# --- 0. SCANNEUR QR ---
-with st.container(border=True):
-    st.subheader("📸 Scanner une Feuille de Route")
-    st.write("Utilisez votre caméra pour scanner le QR Code présent sur la feuille de route.")
-    cam_input = st.camera_input("Prendre une photo du QR")
-    
-    if cam_input:
-        try:
-            import cv2
-            import numpy as np
-            file_bytes = np.asarray(bytearray(cam_input.read()), dtype=np.uint8)
-            opencv_image = cv2.imdecode(file_bytes, 1)
-            detector = cv2.QRCodeDetector()
-            data, bbox, _ = detector.detectAndDecode(opencv_image)
+# --- MOTEUR DE SCAN HTML/JS (Inspiré de votre code) ---
+SCANNER_HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; font-family: 'Nunito', sans-serif; background: #eef0f8; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+        #video-container { position: relative; flex: 1; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        
+        .overlay { 
+            position: absolute; border: 3px solid #5b6cf9; border-radius: 20px;
+            width: 80%; height: 150px; box-shadow: 0 0 0 1000px rgba(0,0,0,0.5);
+            pointer-events: none; display: flex; align-items: center; justify-content: center;
+        }
+        .overlay::after { content: "PLACER LE LOT / DDP ICI"; color: #5b6cf9; font-weight: 900; font-size: 0.8rem; background: white; padding: 2px 10px; border-radius: 10px; margin-top: 180px; }
+
+        .results-panel { 
+            background: #eef0f8; padding: 20px; border-radius: 30px 30px 0 0;
+            box-shadow: 0 -10px 20px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 15px;
+        }
+        .res-row { display: flex; justify-content: space-between; align-items: center; }
+        .res-val { background: white; padding: 10px 20px; border-radius: 15px; box-shadow: inset 2px 2px 5px #c0c5dc; font-weight: 900; color: #5b6cf9; }
+        
+        button { 
+            background: linear-gradient(135deg, #5b6cf9, #3a47d5); color: white; border: none; 
+            padding: 15px; border-radius: 20px; font-weight: 900; cursor: pointer;
+            box-shadow: 0 5px 15px rgba(91,108,249,0.4);
+        }
+    </style>
+</head>
+<body>
+    <div id="video-container">
+        <video id="video" autoplay playsinline></video>
+        <div class="overlay"></div>
+    </div>
+
+    <div class="results-panel">
+        <div class="res-row">
+            <span>PRODUIT DÉTECTÉ</span>
+            <div id="res-prod" class="res-val">---</div>
+        </div>
+        <div class="res-row">
+            <span>LOT / DDP</span>
+            <div id="res-lot" class="res-val">EN ATTENTE...</div>
+        </div>
+        <button onclick="startOCR()">🤖 ANALYSER MAINTENANT</button>
+        <button style="background: #e2e8f0; color: #64748b; margin-top:5px;" onclick="window.parent.location.reload()">RETOUR</button>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const resLot = document.getElementById('res-lot');
+
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+            .then(stream => { video.srcObject = stream; });
+
+        async function startOCR() {
+            resLot.innerText = "ANALYSE...";
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
             
-            # Tentative de secours en Noir & Blanc si échec
-            if not data:
-                gray = cv2.cvtColor(opencv_image, cv2.COLOR_BGR2GRAY)
-                data, _, _ = detector.detectAndDecode(gray)
+            const { data: { text } } = await Tesseract.recognize(canvas, 'eng', { logger: m => console.log(m) });
             
-            if data:
-                st.success(f"✅ QR Code détecté !")
-                
-                # Parsing des données du QR
-                info = {}
-                try:
-                    for item in data.split('|'):
-                        k, v = item.split(':')
-                        info[k] = v
-                except:
-                    st.error("Format de QR Code non reconnu.")
-                    st.stop()
-                
-                mission_id = info.get('ID')
-                livreur = info.get('Livreur')
-                nb_factures = info.get('Nb', 0)
-                
-                st.write(f"**Livreur :** {livreur} | **Mission :** {mission_id}")
-                
-                # --- LOGIQUE DE POINTAGE ---
-                df_missions = load_gs_data(MISSIONS_WORKSHEET, MISSIONS_FALLBACK, COLS_MISSIONS)
-                
-                if mission_id not in df_missions['ID'].values:
-                    if st.button(f"🏁 Démarrer la tournée ({livreur})", type="primary", use_container_width=True):
-                        new_row = pd.DataFrame([{
-                            "ID": mission_id, "Livreur": livreur, 
-                            "Début": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            "Fin": "", "Nb Factures": nb_factures, "Durée": ""
-                        }])
-                        save_gs_data(pd.concat([df_missions, new_row], ignore_index=True), MISSIONS_WORKSHEET, MISSIONS_FALLBACK)
-                        st.success("Tournée démarrée ! Bonne route.")
-                else:
-                    # Mission existante, on vérifie si elle est déjà finie
-                    idx = df_missions[df_missions['ID'] == mission_id].index[0]
-                    if df_missions.at[idx, 'Fin'] == "":
-                        if st.button(f"🛑 Clôturer la tournée ({livreur})", type="secondary", use_container_width=True):
-                            fin_time = datetime.now()
-                            debut_time = datetime.strptime(df_missions.at[idx, 'Début'], "%Y-%m-%d %H:%M:%S")
-                            duree = fin_time - debut_time
-                            
-                            df_missions.at[idx, 'Fin'] = fin_time.strftime("%Y-%m-%d %H:%M:%S")
-                            df_missions.at[idx, 'Durée'] = str(duree).split('.')[0] # HH:MM:SS
-                            save_gs_data(df_missions, MISSIONS_WORKSHEET, MISSIONS_FALLBACK)
-                            st.success(f"Tournée terminée ! Durée : {df_missions.at[idx, 'Durée']}")
-                    else:
-                        st.warning("Cette mission est déjà clôturée.")
-            else:
-                st.warning("Aucun QR Code valide détecté. Assurez-vous qu'il soit bien visible.")
-        except Exception as e:
-            st.error(f"Erreur lors du scan : {e}")
+            // Extraction simple (Ex: Lot, DDP)
+            const lotMatch = text.match(/[A-Z0-9]{5,10}/);
+            const ddpMatch = text.match(/[0-9]{2}\\/[0-9]{2,4}/);
+            
+            resLot.innerText = (lotMatch ? lotMatch[0] : "") + " " + (ddpMatch ? ddpMatch[0] : "LOT NON TROUVÉ");
+            
+            // Envoyer à Streamlit
+            window.parent.postMessage({
+                type: 'streamlit:setComponentValue',
+                value: { lot: lotMatch ? lotMatch[0] : "", ddp: ddpMatch ? ddpMatch[0] : "", raw: text }
+            }, '*');
+        }
+    </script>
+</body>
+</html>
+"""
 
-# --- 1. CHARGEMENT DES DONNÉES ---
-df_p = load_gs_data(POINTAGES_WORKSHEET, POINTAGES_FALLBACK, COLS_POINTAGES)
-if df_p.empty:
-    st.info("En attente de données de pointage pour l'analyse de performance.")
-    st.stop()
-df_p['date_dt'] = pd.to_datetime(df_p['date_pointage'], format="%d/%m/%Y %H:%M", errors='coerce')
+st.markdown('<h2 style="text-align:center; color:#5b6cf9; font-weight:900;">Robot Scan DarPharm 🤖</h2>', unsafe_allow_html=True)
 
-# --- 2. FILTRES ---
-col_f1, col_f2 = st.columns(2)
-with col_f1:
-    df_p['mois'] = df_p['date_dt'].dt.strftime('%B %Y')
-    mois_list = ["Tous"] + sorted(df_p['mois'].unique().tolist())
-    mois_sel = st.selectbox("📅 Période", mois_list)
+# Affichage du scanner haute performance
+scan_result = components.html(SCANNER_HTML, height=700, scrolling=False)
 
-if mois_sel != "Tous":
-    df_p = df_p[df_p['mois'] == mois_sel]
-
-# --- 3. KPIs ---
-st.divider()
-c1, c2, c3 = st.columns(3)
-c1.metric("Factures Pointées", len(df_p))
-c2.metric("Livreurs Actifs", df_p['livreur'].nunique())
-c3.metric("Clients Servis", df_p['client'].nunique())
-
-# --- ANALYSES GRAPHIQUES ---
-st.divider()
-col_g1, col_g2 = st.columns(2)
-
-with col_g1:
-    st.subheader("🚚 Activité par Livreur")
-    df_liv = df_p.groupby('livreur').size().reset_index(name='Nombre')
-    fig_liv = px.bar(df_liv, x='livreur', y='Nombre', color='Nombre', 
-                     color_continuous_scale='Reds', template="plotly_dark")
-    st.plotly_chart(fig_liv, use_container_width=True)
-
-with col_g2:
-    st.subheader("📍 Répartition par Secteur")
-    df_reg = df_p.groupby('region').size().reset_index(name='Nombre')
-    fig_reg = px.pie(df_reg, values='Nombre', names='region', hole=0.4)
-    st.plotly_chart(fig_reg, use_container_width=True)
-
-# Assistant IA
-if is_ia_enabled():
-    with st.expander("🤖 Assistant IA Performance", expanded=False):
-        question = st.text_input("Posez une question sur les performances :")
-        if st.button("Analyser"):
-            with st.spinner("Analyse en cours..."):
-                top_liv = df_p['livreur'].value_counts().head(3).to_dict()
-                context = f"Données du mois : {len(df_p)} factures, Top livreurs : {top_liv}"
-                prompt = f"Analyse ces données de performance : {context}. Réponds à : {question}"
-                st.info(ask_ai(prompt))
+if scan_result:
+    st.success(f"Données extraites : {scan_result}")
+    # Logique pour enregistrer le résultat

@@ -28,39 +28,53 @@ if 'current_user' not in st.session_state:
     st.warning("⚠️ Veuillez vous connecter.")
     st.stop()
 
-# --- STYLE CSS PREMIUM ---
+# --- STYLE CSS PREMIUM FLUFFY ---
 st.markdown("""
     <style>
-    .stApp { background-color: #f8faff; }
+    .stApp { background-color: var(--bg) !important; }
     .entry-card { 
-        background: white; 
+        background: var(--bg); 
         padding: 25px; 
-        border-radius: 16px; 
-        border: 1px solid #e0e6ed; 
-        box-shadow: 0 8px 30px rgba(0,0,0,0.04); 
-        margin-bottom: 20px; 
+        border-radius: 24px; 
+        box-shadow: var(--neu-shadow); 
+        margin-bottom: 25px; 
     }
-    .section-title { color: #1877f2; font-weight: 800; font-size: 1.2rem; border-left: 5px solid #1877f2; padding-left: 15px; margin-bottom: 20px; }
+    .section-title { 
+        color: var(--primary); 
+        font-weight: 900; 
+        font-size: 1.4rem; 
+        margin-bottom: 25px; 
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
     .admin-box { 
-        background: linear-gradient(135deg, #fffde7 0%, #fff9c4 100%); 
-        padding: 15px; 
-        border-radius: 12px; 
-        border: 1px solid #fff176; 
-        margin-bottom: 20px;
-        color: #827717;
-        font-weight: 600;
+        background: var(--bg); 
+        padding: 20px; 
+        border-radius: 20px; 
+        box-shadow: var(--neu-shadow-inset); 
+        margin-bottom: 25px;
+        color: #6b7299;
+        font-weight: 800;
+        border-left: 5px solid var(--primary);
     }
-    .stTabs [data-baseweb="tab-list"] { gap: 10px; background: transparent; }
+    .stTabs [data-baseweb="tab-list"] { 
+        gap: 15px; 
+        background: transparent; 
+        padding: 10px;
+    }
     .stTabs [data-baseweb="tab"] { 
-        background-color: white; 
-        border-radius: 10px; 
-        padding: 10px 25px; 
-        border: 1px solid #e0e6ed;
+        background-color: var(--bg); 
+        border-radius: 15px; 
+        padding: 12px 30px; 
+        box-shadow: var(--neu-shadow);
+        border: none !important;
+        font-weight: 800 !important;
     }
     .stTabs [aria-selected="true"] { 
-        background-color: #1877f2 !important; 
+        background: linear-gradient(135deg, #7c8fff, #5b6cf9) !important; 
         color: white !important; 
-        border: 1px solid #1877f2 !important;
+        box-shadow: 0 8px 15px rgba(91,108,249,0.3) !important;
     }
     </style>
 """, unsafe_allow_html=True)
