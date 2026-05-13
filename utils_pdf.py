@@ -6,10 +6,12 @@ import io
 class InventoryPDF(FPDF):
     def header(self):
         self.set_font('Arial', 'B', 15)
-        self.cell(0, 10, self.title_text, 0, 1, 'C')
+        safe_title = self.title_text.encode('latin-1', 'replace').decode('latin-1')
+        self.cell(0, 10, safe_title, 0, 1, 'C')
         if hasattr(self, 'subtitle_text') and self.subtitle_text:
             self.set_font('Arial', 'B', 10)
-            self.cell(0, 8, self.subtitle_text, 0, 1, 'C')
+            safe_subtitle = self.subtitle_text.encode('latin-1', 'replace').decode('latin-1')
+            self.cell(0, 8, safe_subtitle, 0, 1, 'C')
         self.set_font('Arial', 'I', 9)
         self.cell(0, 8, f"Date d'édition : {datetime.now().strftime('%d/%m/%Y %H:%M')}", 0, 1, 'R')
         self.ln(2)

@@ -126,8 +126,10 @@ with tab1:
             df_to_export = df_res[df_res['Statut'].isin(selected_statuts)]
             if not df_to_export.empty:
                 from utils_pdf import generate_inventory_report_pdf
-                # On adapte le titre du rapport
-                title_report = f"RAPPORT PEREMPTIONS - {source_data}"
+                # Supprimer les emojis pour éviter les erreurs d'encodage PDF
+                clean_source = source_data.replace("📝", "").replace("📑", "").strip()
+                title_report = f"RAPPORT PEREMPTIONS - {clean_source}"
+                
                 if st.download_button("📥 Télécharger le Rapport PDF Filtré", 
                                     generate_inventory_report_pdf(df_to_export, title_report, cols_to_include=['designation', 'lot', date_col, 'Statut']), 
                                     f"Rapport_Peremptions_{datetime.now().strftime('%Y%m%d')}.pdf", 
