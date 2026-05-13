@@ -96,7 +96,6 @@ with tab1:
             # --- EXPORT & FILTRAGE INTERACTIF ---
             st.markdown("### 🖨️ Préparation du Rapport PDF")
             all_statuts = ["❌ Périmé", "⚠️ Critique (< 3 mois)", "🟠 Vigilance (3-6 mois)", "✅ OK (> 6 mois)"]
-            
             if 'export_filter' not in st.session_state:
                 st.session_state.export_filter = ["❌ Périmé", "⚠️ Critique (< 3 mois)"]
 
@@ -105,58 +104,45 @@ with tab1:
                                             default=st.session_state.export_filter)
             st.session_state.export_filter = selected_statuts
 
-            # CSS Robuste pour le coloriage individuel
-            st.markdown("""
-                <style>
-                .sel-card [data-testid="stMetric"] {
-                    border-radius: 20px;
-                    padding: 15px;
-                    transition: all 0.3s ease;
-                    border: 2px solid transparent;
-                }
-                /* Périmé - Rouge Sang */
-                .sel-perime [data-testid="stMetric"] { background-color: #8B0000 !important; border-color: #ff4b4b !important; }
-                .sel-perime [data-testid="stMetricValue"], .sel-perime [data-testid="stMetricLabel"] { color: white !important; }
-                
-                /* Critique - Jaune Poussin */
-                .sel-critique [data-testid="stMetric"] { background-color: #FFD700 !important; border-color: #ffcc00 !important; }
-                .sel-critique [data-testid="stMetricValue"], .sel-critique [data-testid="stMetricLabel"] { color: white !important; }
-                
-                /* Vigilance - Orange */
-                .sel-vigilance [data-testid="stMetric"] { background-color: #FF8C00 !important; border-color: #ffae42 !important; }
-                .sel-vigilance [data-testid="stMetricValue"], .sel-vigilance [data-testid="stMetricLabel"] { color: white !important; }
-                
-                /* Sain - Vert */
-                .sel-sain [data-testid="stMetric"] { background-color: #28a745 !important; border-color: #34ce57 !important; }
-                .sel-sain [data-testid="stMetricValue"], .sel-sain [data-testid="stMetricLabel"] { color: white !important; }
-                </style>
-            """, unsafe_allow_html=True)
-
             c1, c2, c3, c4 = st.columns(4)
             
+            def draw_status_card(label, value, icon, color, is_selected):
+                bg = color if is_selected else "var(--bg-card)"
+                txt = "white" if is_selected else "var(--text-primary)"
+                border = color if is_selected else "rgba(0,0,0,0.05)"
+                
+                st.markdown(f"""
+                    <div style="
+                        background-color: {bg}; 
+                        color: {txt}; 
+                        padding: 20px; 
+                        border-radius: 24px; 
+                        border: 2px solid {border};
+                        box-shadow: var(--neu-shadow);
+                        transition: all 0.3s ease;
+                    ">
+                        <div style="font-size: 1rem; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                            <span>{icon}</span> {label}
+                        </div>
+                        <div style="font-size: 2.2rem; font-weight: 900; margin-top: 10px;">
+                            {value}
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+
             with c1:
-                cls = "sel-card sel-perime" if "❌ Périmé" in selected_statuts else "sel-card"
-                st.markdown(f'<div class="{cls}">', unsafe_allow_html=True)
-                st.metric("❌ Périmés", stats.get("❌ Périmé", 0))
-                st.markdown('</div>', unsafe_allow_html=True)
+                draw_status_card("Périmés", stats.get("❌ Périmé", 0), "❌", "#8B0000", "❌ Périmé" in selected_statuts)
             
             with c2:
-                cls = "sel-card sel-critique" if "⚠️ Critique (< 3 mois)" in selected_statuts else "sel-card"
-                st.markdown(f'<div class="{cls}">', unsafe_allow_html=True)
-                st.metric("⚠️ Critiques (< 3m)", stats.get("⚠️ Critique (< 3 mois)", 0))
-                st.markdown('</div>', unsafe_allow_html=True)
+                draw_status_card("Critiques (< 3m)", stats.get("⚠️ Critique (< 3 mois)", 0), "⚠️", "#FFD700", "⚠️ Critique (< 3 mois)" in selected_statuts)
                 
             with c3:
-                cls = "sel-card sel-vigilance" if "🟠 Vigilance (3-6 mois)" in selected_statuts else "sel-card"
-                st.markdown(f'<div class="{cls}">', unsafe_allow_html=True)
-                st.metric("🟠 Vigilance (3-6m)", stats.get("🟠 Vigilance (3-6 mois)", 0))
-                st.markdown('</div>', unsafe_allow_html=True)
+                draw_status_card("Vigilance (3-6m)", stats.get("🟠 Vigilance (3-6 mois)", 0), "🟠", "#FF8C00", "🟠 Vigilance (3-6 mois)" in selected_statuts)
                 
             with c4:
-                cls = "sel-card sel-sain" if "✅ OK (> 6 mois)" in selected_statuts else "sel-card"
-                st.markdown(f'<div class="{cls}">', unsafe_allow_html=True)
-                st.metric("✅ Sains", stats.get("✅ OK (> 6 mois)", 0))
-                st.markdown('</div>', unsafe_allow_html=True)
+                draw_status_card("Sains", stats.get("✅ OK (> 6 mois)", 0), "✅", "#28a745", "✅ OK (> 6 mois)" in selected_statuts)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
             
             df_to_export = df_res[df_res['Statut'].isin(selected_statuts)]
             if not df_to_export.empty:
