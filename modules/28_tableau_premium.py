@@ -11,20 +11,16 @@ from utils_themes import apply_user_theme
 # --- CONFIGURATION ---
 def get_dashboard_data():
     """Collecte et prépare les données pour le dashboard HTML."""
-    # 1. Données Inventaire (Lots & Quantités)
     df_inv = load_gs_data("Saisie_Inventaire", "data_inventaire/saisie.csv", 
                           ["designation", "n°lot", "ddp", "qte_saisie", "ppa", "laboratoire"])
     
-    inventory_summary = []
     total_valeur = 0
     total_produits = 0
     expired_soon = 0
-    
     now = datetime.now()
+    inventory_summary = []
     
     if not df_inv.empty:
-        # Nettoyage des colonnes (certaines CSV utilisent ';' d'autres ',')
-        # load_gs_data gère normalement cela mais on s'assure du type
         for _, row in df_inv.iterrows():
             try:
                 qte = float(row.get('qte_saisie', 0))
@@ -48,188 +44,191 @@ def get_dashboard_data():
                     "name": str(row.get('designation', 'Inconnu')),
                     "lot": str(row.get('n°lot', '—')),
                     "qte": int(qte),
-                    "expiry": expiry_str,
                     "status": status,
-                    "valeur": f"{qte * ppa:,.2f} DA"
+                    "valeur": f"{qte * ppa:,.0f} DA"
                 })
             except: continue
 
-    # 2. Dernières Activités (Logs)
     df_logs = load_gs_data("Logs", "data/db_logs.csv", ["timestamp", "user", "action", "module"])
     recent_actions = []
     if not df_logs.empty:
-        # On prend les 8 dernières actions
         for _, row in df_logs.tail(8).iloc[::-1].iterrows():
             recent_actions.append({
-                "time": str(row.get('timestamp', ''))[-8:], # HH:MM:SS
+                "time": str(row.get('timestamp', ''))[-8:], 
                 "user": str(row.get('user', 'User')),
                 "action": str(row.get('action', '')),
                 "module": str(row.get('module', ''))
             })
 
-    # 3. CRM / Interactions (Optionnel)
-    df_crm = load_gs_data("CRM", "data/db_crm.csv", ["Date", "Client", "Type", "Note"])
-    recent_crm = []
-    if not df_crm.empty:
-        for _, row in df_crm.tail(5).iloc[::-1].iterrows():
-            recent_crm.append({
-                "date": str(row.get('Date', '')),
-                "client": str(row.get('Client', '')),
-                "type": str(row.get('Type', '')),
-                "note": str(row.get('Note', ''))[:40] + "..."
-            })
-
-    # 4. Statistiques pour les graphiques
-    # Simulation de tendance si pas assez de données historiques
     stats = {
         "labels": ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"],
-        "data_stock": [total_produits * 0.8, total_produits * 0.85, total_produits * 0.9, total_produits, total_produits * 1.1, total_produits, total_produits * 0.95],
-        "data_valeur": [total_valeur * 0.7, total_valeur * 0.75, total_valeur * 0.8, total_valeur * 0.85, total_valeur, total_valeur * 0.9, total_valeur * 0.85]
+        "data_stock": [total_produits * 0.8, total_produits * 0.85, total_produits * 0.9, total_produits, total_produits * 1.1, total_produits, total_produits * 0.95]
     }
 
     return {
-        "inventory": inventory_summary[:15], # Top 15 pour l'affichage
+        "inventory": inventory_summary[:10],
         "kpis": {
-            "total_valeur": f"{total_valeur:,.2f} DA",
+            "total_valeur": f"{total_valeur:,.0f} DA",
             "total_produits": f"{int(total_produits):,}",
             "expired_soon": expired_soon,
             "active_users": df_logs['user'].nunique() if not df_logs.empty else 1
         },
         "actions": recent_actions,
-        "crm": recent_crm,
         "stats": stats,
         "user": st.session_state.current_user.get('username', 'Admin'),
         "date": datetime.now().strftime("%d/%m/%Y")
     }
 
-# --- TEMPLATE HTML PREMIUM ---
+# --- TEMPLATE HTML FLUFFY PREMIUM (Inspiré de votre code) ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" dir="ltr">
 <head>
     <meta charset="UTF-8">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #4f8ef7;
-            --secondary: #6366f1;
-            --accent: #e94560;
-            --bg: #0f111a;
-            --card: #161b2b;
-            --text: #f8fafc;
-            --text-dim: #94a3b8;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
+            --bg: #eef0f8;
+            --primary: #5b6cf9;
+            --neu-shadow: 7px 7px 18px #c0c5dc, -7px -7px 18px #ffffff;
+            --neu-shadow-inset: inset 4px 4px 12px #c0c5dc, inset -4px -4px 12px #ffffff;
+            --text: #1a1f3c;
+            --muted: #6b7299;
+            --green: #2db88a;
+            --red: #f06585;
+            --yellow: #e8a020;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
-        body { background: var(--bg); color: var(--text); padding: 20px; overflow-x: hidden; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Nunito', sans-serif; }
+        body { background: var(--bg); color: var(--text); padding: 25px; }
 
-        .dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
 
         /* Header */
-        .header { grid-column: span 4; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .welcome h1 { font-size: 1.8rem; font-weight: 800; background: linear-gradient(to right, #fff, var(--primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .date-badge { background: var(--card); padding: 8px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); font-size: 0.9rem; color: var(--text-dim); }
-
-        /* KPI Cards */
-        .kpi-card { background: var(--card); padding: 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05); transition: transform 0.3s ease; }
-        .kpi-card:hover { transform: translateY(-5px); border-color: var(--primary); }
-        .kpi-label { color: var(--text-dim); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-        .kpi-value { font-size: 1.5rem; font-weight: 800; margin: 10px 0; }
-        .kpi-trend { font-size: 0.8rem; color: var(--success); }
-
-        /* Charts Section */
-        .chart-container { grid-column: span 2; background: var(--card); padding: 20px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.05); height: 350px; }
+        .header { grid-column: span 4; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .welcome h1 { font-size: 2rem; font-weight: 900; color: var(--primary); }
         
-        /* Tables Section */
-        .data-panel { grid-column: span 2; background: var(--card); padding: 20px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.05); }
-        .panel-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 15px; display: flex; justify-content: space-between; }
+        /* KPI Cards Neumorphic */
+        .stat-card { 
+            background: var(--bg); padding: 20px; border-radius: 24px; 
+            box-shadow: var(--neu-shadow); display: flex; align-items: center; gap: 15px;
+            transition: transform 0.2s;
+        }
+        .stat-card:hover { transform: translateY(-5px); }
+        .stat-icon { 
+            width: 55px; height: 55px; border-radius: 18px; 
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: var(--neu-shadow); font-size: 24px;
+        }
+        .blue { background: linear-gradient(135deg, #7c8fff, #5b6cf9); color: white; }
+        .green { background: linear-gradient(135deg, #34d399, #2db88a); color: white; }
+        .yellow { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: white; }
         
+        .stat-val { font-size: 1.6rem; font-weight: 900; }
+        .stat-lbl { font-size: 0.8rem; color: var(--muted); font-weight: 700; }
+
+        /* Robot AI Scan Button */
+        .ai-scan-btn {
+            grid-column: span 4;
+            background: linear-gradient(135deg, #7c3aed, #4c1d95);
+            padding: 20px; border-radius: 20px; color: white;
+            display: flex; align-items: center; justify-content: center; gap: 15px;
+            cursor: pointer; box-shadow: 0 10px 30px rgba(124,58,237,0.4);
+            font-weight: 900; font-size: 1.2rem; margin: 10px 0;
+            border: none;
+        }
+        .ai-scan-btn:active { transform: scale(0.98); }
+
+        /* Panels */
+        .panel { 
+            grid-column: span 2; background: var(--bg); padding: 25px; 
+            border-radius: 28px; box-shadow: var(--neu-shadow); 
+        }
+        .panel-title { font-weight: 900; font-size: 1.1rem; margin-bottom: 20px; color: var(--primary); }
+
         table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; color: var(--text-dim); font-size: 0.75rem; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        td { padding: 12px 10px; font-size: 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.02); }
+        td, th { padding: 12px; text-align: left; font-size: 0.9rem; }
+        th { color: var(--muted); font-weight: 800; border-bottom: 2px solid #e2e8f0; }
+        tr:last-child td { border: none; }
         
-        .badge { padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; }
-        .badge-ok { background: rgba(16, 185, 129, 0.1); color: var(--success); }
-        .badge-soon { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
-        .badge-expired { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 800; }
+        .badge-ok { background: #d4f5ea; color: var(--green); }
+        .badge-soon { background: #fef5dc; color: var(--yellow); }
+        .badge-expired { background: #fde8ef; color: var(--red); }
 
         /* Feed */
-        .feed { grid-column: span 1; background: var(--card); padding: 20px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.05); }
-        .feed-item { display: flex; gap: 12px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.02); }
-        .feed-icon { width: 35px; height: 35px; border-radius: 10px; background: rgba(79, 142, 247, 0.1); display: flex; align-items: center; justify-content: center; color: var(--primary); font-weight: 800; font-size: 0.7rem; flex-shrink: 0; }
-        .feed-info { flex: 1; }
-        .feed-user { font-weight: 700; font-size: 0.85rem; }
-        .feed-action { font-size: 0.75rem; color: var(--text-dim); }
-        .feed-time { font-size: 0.7rem; color: var(--primary); margin-top: 4px; }
-
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 10px; }
+        .feed-item { display: flex; gap: 12px; padding: 15px 0; border-bottom: 1px solid #e2e8f0; }
+        .feed-icon { 
+            width: 40px; height: 40px; border-radius: 12px; 
+            background: var(--bg); box-shadow: var(--neu-shadow);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 900; color: var(--primary);
+        }
     </style>
 </head>
 <body>
-    <div class="dashboard">
-        <div class="header">
-            <div class="welcome">
-                <h1>Hello, {{ user }} 👋</h1>
-                <p style="color: var(--text-dim); font-size: 0.9rem;">Voici l'état actuel de Darpharm au {{ date }}</p>
-            </div>
-            <div class="date-badge">⚡ Live System Connected</div>
+    <div class="header">
+        <div class="welcome">
+            <h1>Bonjour, {{ user }} 👋</h1>
+            <p style="color: var(--muted); font-weight: 700;">Dashboard DarPharm Fluffy • {{ date }}</p>
         </div>
+        <div class="stat-icon blue" style="width: auto; padding: 0 20px; border-radius: 12px; font-size: 14px; font-weight: 800;">⚡ SYSTÈME LIVE</div>
+    </div>
 
+    <div class="dashboard-grid">
         <!-- KPIs -->
-        <div class="kpi-card">
-            <div class="kpi-label">Valeur du Stock</div>
-            <div class="kpi-value" style="color: var(--primary);">{{ kpis.total_valeur }}</div>
-            <div class="kpi-trend">↗ +2.4% vs hier</div>
+        <div class="stat-card">
+            <div class="stat-icon blue">💰</div>
+            <div class="stat-info">
+                <div class="stat-val">{{ kpis.total_valeur }}</div>
+                <div class="stat-lbl">VALEUR STOCK</div>
+            </div>
         </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Quantité Totale</div>
-            <div class="kpi-value">{{ kpis.total_produits }}</div>
-            <div class="kpi-trend">Unités physiques</div>
+        <div class="stat-card">
+            <div class="stat-icon green">📦</div>
+            <div class="stat-info">
+                <div class="stat-val">{{ kpis.total_produits }}</div>
+                <div class="stat-lbl">UNITÉS TOTALES</div>
+            </div>
         </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Alerte Péremption</div>
-            <div class="kpi-value" style="color: var(--warning);">{{ kpis.expired_soon }}</div>
-            <div class="kpi-trend" style="color: var(--danger);">Lots critiques (<6m)</div>
+        <div class="stat-card">
+            <div class="stat-icon yellow">🔔</div>
+            <div class="stat-info">
+                <div class="stat-val">{{ kpis.expired_soon }}</div>
+                <div class="stat-lbl">PÉREMPTIONS PROCHES</div>
+            </div>
         </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Agents Actifs</div>
-            <div class="kpi-value">{{ kpis.active_users }}</div>
-            <div class="kpi-trend">En session</div>
-        </div>
-
-        <!-- Charts -->
-        <div class="chart-container">
-            <div class="panel-title">Tendance du Stock</div>
-            <canvas id="stockChart"></canvas>
-        </div>
-        <div class="chart-container">
-            <div class="panel-title">Flux de Valeur</div>
-            <canvas id="valueChart"></canvas>
+        <div class="stat-card">
+            <div class="stat-icon blue">👥</div>
+            <div class="stat-info">
+                <div class="stat-val">{{ kpis.active_users }}</div>
+                <div class="stat-lbl">AGENTS ACTIFS</div>
+            </div>
         </div>
 
-        <!-- Data Panels -->
-        <div class="data-panel">
-            <div class="panel-title">Liste des Lots (Aperçu)</div>
+        <!-- Robot AI Scan Button -->
+        <button class="ai-scan-btn" onclick="parent.postMessage('open_ai_scan', '*')">
+            🤖 MASQUER & SCAN INTELLIGENT — (AI SMART SCAN)
+        </button>
+
+        <!-- Charts & Tables -->
+        <div class="panel">
+            <div class="panel-title">📈 Tendance du Stock</div>
+            <canvas id="stockChart" style="max-height: 250px;"></canvas>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">📋 Inventaire (Aperçu)</div>
             <table>
                 <thead>
-                    <tr>
-                        <th>Produit</th>
-                        <th>Lot</th>
-                        <th>Qte</th>
-                        <th>Status</th>
-                    </tr>
+                    <tr><th>Produit</th><th>Lot</th><th>Statut</th></tr>
                 </thead>
                 <tbody>
                     {% for item in inventory %}
                     <tr>
-                        <td style="font-weight: 600;">{{ item.name }}</td>
-                        <td style="color: var(--text-dim);">{{ item.lot }}</td>
-                        <td>{{ item.qte }}</td>
+                        <td style="font-weight: 800;">{{ item.name }}</td>
+                        <td style="color: var(--muted);">{{ item.lot }}</td>
                         <td><span class="badge badge-{{ item.status }}">{{ item.status | upper }}</span></td>
                     </tr>
                     {% endfor %}
@@ -237,43 +236,23 @@ HTML_TEMPLATE = """
             </table>
         </div>
 
-        <div class="feed">
-            <div class="panel-title">Activités Récentes</div>
+        <div class="panel">
+            <div class="panel-title">🔄 Activités Récentes</div>
             {% for action in actions %}
             <div class="feed-item">
                 <div class="feed-icon">{{ action.user[0] | upper }}</div>
                 <div class="feed-info">
-                    <div class="feed-user">{{ action.user }}</div>
-                    <div class="feed-action">{{ action.action }}</div>
-                    <div class="feed-time">{{ action.time }} • {{ action.module }}</div>
+                    <div style="font-weight: 800; font-size: 0.9rem;">{{ action.user }}</div>
+                    <div style="font-size: 0.8rem; color: var(--muted);">{{ action.action }}</div>
+                    <div style="font-size: 0.75rem; color: var(--primary); font-weight: 700;">{{ action.time }} • {{ action.module }}</div>
                 </div>
             </div>
             {% endfor %}
-        </div>
-        
-        <div class="feed" style="grid-column: span 1;">
-            <div class="panel-title">Derniers CRM</div>
-            {% if crm %}
-                {% for log in crm %}
-                <div class="feed-item">
-                    <div class="feed-icon" style="background: rgba(16, 185, 129, 0.1); color: var(--success);">C</div>
-                    <div class="feed-info">
-                        <div class="feed-user">{{ log.client }}</div>
-                        <div class="feed-action">{{ log.type }} : {{ log.note }}</div>
-                        <div class="feed-time">{{ log.date }}</div>
-                    </div>
-                </div>
-                {% endfor %}
-            {% else %}
-                <p style="color: var(--text-dim); font-size: 0.8rem;">Aucune interaction CRM</p>
-            {% endif %}
         </div>
     </div>
 
     <script>
         const ctxStock = document.getElementById('stockChart').getContext('2d');
-        const ctxValue = document.getElementById('valueChart').getContext('2d');
-
         new Chart(ctxStock, {
             type: 'line',
             data: {
@@ -281,51 +260,26 @@ HTML_TEMPLATE = """
                 datasets: [{
                     label: 'Unités',
                     data: {{ stats.data_stock | safe }},
-                    borderColor: '#4f8ef7',
-                    tension: 0.4,
+                    borderColor: '#5b6cf9',
+                    backgroundColor: 'rgba(91, 108, 249, 0.1)',
                     fill: true,
-                    backgroundColor: 'rgba(79, 142, 247, 0.1)'
+                    tension: 0.4
                 }]
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false } } } }
-        });
-
-        new Chart(ctxValue, {
-            type: 'bar',
-            data: {
-                labels: {{ stats.labels | safe }},
-                datasets: [{
-                    label: 'Valeur',
-                    data: {{ stats.data_valeur | safe }},
-                    backgroundColor: '#6366f1',
-                    borderRadius: 8
-                }]
-            },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false } } } }
+            options: { plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false } } } }
         });
     </script>
 </body>
 </html>
 """
 
-# --- RENDU STREAMLIT ---
-st.set_page_config(page_title="Dashboard Premium", layout="wide")
-
-# Application automatique du thème
-if "current_user" in st.session_state and st.session_state.current_user:
-    apply_user_theme(st.session_state.current_user.get("username", ""))
-
-# Récupération des données
-data_context = get_dashboard_data()
-
-# Rendu du template
+# --- RENDU ---
+data = get_dashboard_data()
 template = Template(HTML_TEMPLATE)
-final_html = template.render(**data_context)
+final_html = template.render(**data)
 
-# Affichage du composant
+# Communication entre Iframe et Streamlit pour le bouton IA
 components.html(final_html, height=1200, scrolling=True)
 
-# Bouton de rafraîchissement
-if st.button("🔄 Rafraîchir les données en temps réel"):
+if st.button("📊 Forcer la mise à jour des statistiques"):
     st.rerun()
-

@@ -257,17 +257,22 @@ if st.session_state.get('current_user'):
     u_theme = get_user_theme(st.session_state.current_user.get('username',''), _tdb)
     if u_theme:
         apply_theme_css(u_theme)
-        div[data-testid="stBaseButton-btn_logout"] button {{
-            background-color: #fee2e2 !important;
-            color: #dc2626 !important;
-            border: 1px solid #fecaca !important;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
-        }}
-        div[data-testid="stBaseButton-btn_logout"] button:hover {{
-            background-color: #ef4444 !important;
-            color: #ffffff !important;
-            border-color: #ef4444 !important;
-        }}
+        # Style pour le bouton déconnexion
+        st.markdown("""
+        <style>
+            div[data-testid="stBaseButton-btn_logout"] button {
+                background-color: #fee2e2 !important;
+                color: #dc2626 !important;
+                border: 1px solid #fecaca !important;
+                transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+            }
+            div[data-testid="stBaseButton-btn_logout"] button:hover {
+                background-color: #ef4444 !important;
+                color: #ffffff !important;
+                border-color: #ef4444 !important;
+            }
+        </style>
+        """, unsafe_allow_html=True)
 
         /* ==========================================
            MOBILE-FIRST RESPONSIVE DESIGN
