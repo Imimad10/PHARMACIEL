@@ -343,7 +343,12 @@ with tab_exp:
                                 lpdf.set_font("Arial", 'B', 20)
                                 lpdf.cell(0, 15, f"COLIS: {row['Qte Colis']}", 1, 1, 'C')
                                 
-                                label_bytes = lpdf.output(dest='S').encode('latin-1', 'replace')
+                                raw_out = lpdf.output(dest='S')
+                                if isinstance(raw_out, str):
+                                    label_bytes = raw_out.encode('latin-1', 'replace')
+                                else:
+                                    label_bytes = bytes(raw_out)
+                                
                                 st.download_button("📥 Télécharger Étiquette", data=label_bytes, file_name=f"Etiquette_{row['N° Doc']}.pdf", key=f"dl_label_{row['N° Doc']}")
                             except Exception as le:
                                 st.error(f"Erreur Étiquette : {le}")
