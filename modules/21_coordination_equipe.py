@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from utils_gsheets import load_gs_data, save_gs_data
+from utils_sound import play_sound
 
 # --- CONFIGURATION ---
 TASKS_WORKSHEET = "DB_Tasks_Team"
@@ -56,6 +57,7 @@ with st.expander("➕ Assigner une nouvelle tâche manuellement", expanded=False
                 }
                 df_tasks = pd.concat([df_tasks, pd.DataFrame([new_row])], ignore_index=True)
                 save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                play_sound("mission")  # Double ping à la création de mission
                 st.success("Mission ajoutée !")
                 st.rerun()
 
@@ -77,6 +79,7 @@ with st.expander("🤖 Assistant IA - Planification & Équité", expanded=True):
                 Donne un plan clair.
                 """
                 conseil = ask_ai(prompt)
+                play_sound("ai")  # Chime IA à la réception du plan
                 st.success("Plan stratégique suggéré :")
                 st.markdown(conseil)
         else: st.warning("Décrivez la situation.")
@@ -97,6 +100,7 @@ if current_agent in agents:
                 if c1.button("✅ Accepter", key=f"acc_{row['id']}", use_container_width=True):
                     df_tasks.at[idx, 'status'] = "Accepté"
                     save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                    play_sound("notification")  # Ding d'acceptation
                     st.rerun()
                 if c2.button("❌ Refuser (Passer au suivant)", key=f"ref_{row['id']}", use_container_width=True):
                     # Passer au suivant libre (logique simplifiée : rotation)
@@ -136,6 +140,7 @@ with tabs[0]:
                 if st.button("✅ Terminer", key=f"done_{row['id']}"):
                     df_tasks.at[idx, 'status'] = "Terminé"
                     save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                    play_sound("success")  # Accord montant sur tâche terminée
                     st.rerun()
 
     with col_done:

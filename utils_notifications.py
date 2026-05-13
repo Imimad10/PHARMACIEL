@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from utils_gsheets import load_gs_data
 from datetime import datetime
+from utils_sound import play_sound
 
 def parse_ddp_local(ddp_str):
     if pd.isna(ddp_str) or ddp_str == "": return None
@@ -78,9 +79,28 @@ def show_notification_center():
     with st.sidebar.expander("🔔 Centre de Notifications IA", expanded=False):
         notifs = check_notifications()
         
+        # --- SON INTELLIGENT basé sur la sévérité ---
+        # On utilise session_state pour ne jouer le son qu'une seule fois par changement d'état
+        notif_key = str(sorted([n['title'] for n in notifs]))
+        prev_key = st.session_state.get("_last_notif_key", "")
+        
+        if notif_key != prev_key and notifs:
+            st.session_state["_last_notif_key"] = notif_key
+            has_error = any(n['type'] == 'error' for n in notifs)
+            if has_error:
+                play_sound("warning")   # Son grave pour les alertes critiques (périmés)
+            else:
+                play_sound("notification")  # Ding pour les avertissements
+        
         # Briefing IA
         st.markdown("### 🤖 Briefing Assistant")
         briefing = get_ai_briefing(notifs)
+        
+        # Son doux lors de la réception de la réponse IA
+        if briefing and briefing != st.session_state.get("_last_briefing", ""):
+            st.session_state["_last_briefing"] = briefing
+            play_sound("ai")
+        
         st.markdown(f"""
             <div style="font-style: italic; font-size: 0.85rem; color: #5b6cf9; background: rgba(91,108,249,0.05); padding: 12px; border-radius: 12px; border-left: 3px solid #5b6cf9; margin-bottom: 15px;">
                 "{briefing}"

@@ -4,6 +4,7 @@ import json
 import os
 from utils_ia import ask_ai, is_ia_enabled
 from utils_gsheets import load_gs_data
+from utils_sound import play_sound
 
 st.set_page_config(page_title="Assistant IA - DarPharm", page_icon="🤖", layout="wide")
 
@@ -91,6 +92,7 @@ if prompt := st.chat_input("Posez votre question à l'assistant DarPharm..."):
             response = ask_ai(full_prompt)
             
         message_placeholder.markdown(response)
+        play_sound("ai")  # Son doux à la réception de la réponse IA
         
     # Ajouter à l'historique
     st.session_state.messages_pharmaciel.append({"role": "assistant", "content": response})
