@@ -60,12 +60,41 @@ with tab_analyse:
             col_rot = "ROTATION"
             col_qty = st.selectbox("Colonne Quantité", [c for c in df_st.columns if "QTE" in c or "QUANTITE" in c or "STOCK" in c] or df_st.columns)
             
-            # Classification
-            threshold = st.slider("Seuil Slow-Moving (Rotation < X)", 0.0, 50.0, 1.0, step=0.1)
+            # Classification & Filtres
+            st.markdown("#### 🛠️ Filtres & Options d'Export")
+            col_f1, col_f2 = st.columns([2, 1])
+            with col_f1:
+                threshold = st.slider("Seuil Slow-Moving (Rotation < X)", 0.0, 50.0, 1.0, step=0.1)
+                df_res = df_st.copy()
+                df_res['STATUT_ROTATION'] = df_res[col_rot].apply(lambda x: "🟥 Dormant" if x < threshold else ("🟧 Actif" if x < threshold*5 else "🟩 Star"))
+                
+                selected_status = st.multiselect(
+                    "Filtrer par statut de rotation :",
+                    ["🟥 Dormant", "🟧 Actif", "🟩 Star"],
+                    default=["🟥 Dormant"]
+                )
+                df_filtered = df_res[df_res['STATUT_ROTATION'].isin(selected_status)].sort_values(by=col_rot)
             
-            df_res = df_st.copy()
-            df_res['STATUT_ROTATION'] = df_res[col_rot].apply(lambda x: "🟥 Dormant" if x < threshold else ("🟧 Actif" if x < threshold*5 else "🟩 Star"))
-            
+            with col_f2:
+                include_ia = st.checkbox("Inclure l'analyse IA dans le PDF", value=True)
+                if st.button("📄 Télécharger le Rapport PDF", use_container_width=True, type="primary"):
+                    if not df_filtered.empty:
+                        from utils_pdf import generate_rotation_report_pdf
+                        ia_text = st.session_state.get("ia_analysis_text", "") if include_ia else ""
+                        pdf_bytes = generate_rotation_report_pdf(
+                            df_filtered[[col_prod, col_qty, col_rot, 'STATUT_ROTATION']],
+                            module_name="Analyse Rotation",
+                            ia_analysis=ia_text
+                        )
+                        st.download_button(
+                            "📥 Cliquez ici pour enregistrer le PDF",
+                            data=pdf_bytes,
+                            file_name=f"Rapport_Rotation_{datetime.now().strftime('%d_%m_%Y')}.pdf",
+                            mime="application/pdf"
+                        )
+                    else:
+                        st.warning("Aucune donnée à exporter avec les filtres actuels.")
+
             st.divider()
             
             # KPI
@@ -75,14 +104,14 @@ with tab_analyse:
             c2.metric("Rotation Moyenne", round(df_res[col_rot].mean(), 2))
             c3.metric("Top Rotation", round(df_res[col_rot].max(), 2))
             
-            # Graphique
-            fig = px.histogram(df_res, x=col_rot, color="STATUT_ROTATION", 
-                               title="Distribution de la Rotation des Stocks",
+            # Graphique (sur les données filtrées)
+            fig = px.histogram(df_filtered, x=col_rot, color="STATUT_ROTATION", 
+                               title=f"Distribution de la Rotation ({', '.join(selected_status)})",
                                color_discrete_map={"🟥 Dormant": "#ef4444", "🟧 Actif": "#f59e0b", "🟩 Star": "#10b981"},
                                template="plotly_dark")
             st.plotly_chart(fig, use_container_width=True)
             
-            st.dataframe(df_res[[col_prod, col_qty, col_rot, 'STATUT_ROTATION']].sort_values(by=col_rot), use_container_width=True)
+            st.dataframe(df_filtered[[col_prod, col_qty, col_rot, 'STATUT_ROTATION']], use_container_width=True)
             
             if is_ia_enabled():
                 if st.button("🤖 Analyse Stratégique IA (Slow-Moving)"):
@@ -90,7 +119,9 @@ with tab_analyse:
                     prompt = f"""En tant qu'expert logistique DarPharm, analyse ces produits ayant une rotation critique (< {threshold}) : {list_dormants}.
                     Explique pourquoi ces produits dorment (ex: prix trop élevé, saisonnalité, concurrence) et propose un plan d'action de déstockage urgent."""
                     with st.chat_message("assistant"):
-                        st.write(ask_ai(prompt))
+                        analysis = ask_ai(prompt)
+                        st.write(analysis)
+                        st.session_state["ia_analysis_text"] = analysis
                     play_sound("ai")
 
         elif "df_sales_rot" in st.session_state:

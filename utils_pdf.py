@@ -291,3 +291,69 @@ def generate_reception_pdf(reception_data):
     if isinstance(raw, (bytes, bytearray)):
         return bytes(raw)
     return raw.encode('latin-1', 'replace')
+
+def generate_rotation_report_pdf(df, module_name, ia_analysis=""):
+    pdf = InventoryPDF()
+    pdf.title_text = f"RAPPORT DE ROTATION - {module_name.upper()}"
+    pdf.alias_nb_pages()
+    pdf.add_page()
+    
+    # Header du tableau
+    pdf.set_fill_color(31, 41, 55) # Dark gray
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font('Arial', 'B', 10)
+    
+    # Largeurs : Désignation (100), Qte (30), Rotation (30), Statut (30)
+    pdf.cell(100, 10, "Designation", 1, 0, 'C', 1)
+    pdf.cell(30, 10, "Stock", 1, 0, 'C', 1)
+    pdf.cell(30, 10, "Rotation", 1, 0, 'C', 1)
+    pdf.cell(30, 10, "Statut", 1, 1, 'C', 1)
+    
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font('Arial', '', 9)
+    
+    for _, row in df.iterrows():
+        if pdf.get_y() > 260:
+            pdf.add_page()
+            pdf.set_fill_color(31, 41, 55)
+            pdf.set_text_color(255, 255, 255)
+            pdf.set_font('Arial', 'B', 10)
+            pdf.cell(100, 10, "Designation", 1, 0, 'C', 1)
+            pdf.cell(30, 10, "Stock", 1, 0, 'C', 1)
+            pdf.cell(30, 10, "Rotation", 1, 0, 'C', 1)
+            pdf.cell(30, 10, "Statut", 1, 1, 'C', 1)
+            pdf.set_text_color(0, 0, 0)
+            pdf.set_font('Arial', '', 9)
+
+        # Désignation multi-ligne si nécessaire
+        designation = str(row.iloc[0])
+        qte = str(row.iloc[1])
+        rot = str(row.iloc[2])
+        statut = str(row.iloc[3])
+        
+        # Coloration selon statut
+        if "Dormant" in statut: pdf.set_text_color(200, 0, 0)
+        elif "Star" in statut: pdf.set_text_color(0, 150, 0)
+        else: pdf.set_text_color(0, 0, 0)
+        
+        pdf.cell(100, 8, designation[:45].encode('latin-1', 'replace').decode('latin-1'), 1)
+        pdf.set_text_color(0, 0, 0)
+        pdf.cell(30, 8, qte, 1, 0, 'C')
+        pdf.cell(30, 8, rot, 1, 0, 'C')
+        pdf.cell(30, 8, statut.split(' ')[-1], 1, 1, 'C') # On garde juste le texte après l'emoji
+
+    # Bloc IA si présent
+    if ia_analysis:
+        pdf.ln(10)
+        if pdf.get_y() > 230: pdf.add_page()
+        pdf.set_font('Arial', 'B', 12)
+        pdf.set_text_color(91, 108, 249) # IA blue
+        pdf.cell(0, 10, "ANALYSE STRATEGIQUE DE L'ASSISTANT IA", 0, 1, 'L')
+        pdf.set_font('Arial', 'I', 10)
+        pdf.set_text_color(0, 0, 0)
+        pdf.multi_cell(0, 6, ia_analysis.encode('latin-1', 'replace').decode('latin-1'), 1)
+
+    raw = pdf.output(dest='S')
+    if isinstance(raw, (bytes, bytearray)):
+        return bytes(raw)
+    return raw.encode('latin-1', 'replace')
