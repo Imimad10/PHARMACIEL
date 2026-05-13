@@ -196,7 +196,7 @@ if is_admin_coord:
 
         if st.button("🧠 Générer Plan Stratégique", use_container_width=True, type="primary"):
             if situation or quick_missions:
-                with st.spinner("L'IA analyse la situation..."):
+                with st.spinner("L'IA analyse la situation et prépare les ordres..."):
                     missions_context = ""
                     if quick_missions:
                         missions_context = "\nMissions prioritaires demandées : " + ", ".join(quick_missions)
@@ -208,15 +208,25 @@ if is_admin_coord:
     Situation du jour : {situation}{missions_context}
     Équipe présente : {agents_str}
 
-    RÈGLES DE RÉPARTITION (CRITIQUES) :
-    1. ISLEM : Se consacre exclusivement à : Préparation bons de commande, Vérification factures, Programme d'expédition, Logistique/Expédition. Ses horaires : 9h00 à 17h00.
-    2. AYOUB, SEIF, IMAD : Agents polyvalents. Ils gèrent tout le reste : Déchargement, Inventaire, Chaîne du froid, Rangement, Qualité, Recouvrement.
-    3. PRIORITÉ : Toujours prioriser la sécurité (Chambre Froide) et la conformité (Péremptions).
+    RÈGLES MÉTIER :
+    1. ISLEM : Uniquement : Bons de commande, Factures, Expédition/Logistique (9h-17h).
+    2. AYOUB, SEIF, IMAD : Tout le reste (Stock, Inventaire, Froid, etc.).
+    3. Max 3 missions actives par agent.
 
     Catalogue des missions :
     {all_missions_list}
 
-    Propose un plan clair et équitable. Réponds de manière concise avec des emojis."""
+    TA MISSION :
+    1. Propose un plan de journée stratégique en français avec des emojis.
+    2. À la fin de ta réponse, ajoute IMPÉRATIVEMENT un bloc JSON contenant la liste technique des missions à créer, exactement sous ce format :
+    ```json
+    [
+      {{"agent": "Nom", "task": "Nom exact de la mission du catalogue", "priority": "Haute"}},
+      ...
+    ]
+    ```
+    N'utilise que les noms de missions présents dans le catalogue."""
+                    
                     conseil = ask_ai(prompt)
                     play_sound("ai")
                     st.session_state["ia_suggestion"] = conseil
@@ -224,51 +234,54 @@ if is_admin_coord:
                 st.warning("Veuillez décrire la situation.")
 
         if "ia_suggestion" in st.session_state:
+            conseil_raw = st.session_state["ia_suggestion"]
+            
+            # Séparer le texte du JSON
+            import re
+            json_match = re.search(r"```json\s*(.*?)\s*```", conseil_raw, re.DOTALL)
+            text_plan = conseil_raw
+            suggested_tasks = []
+            
+            if json_match:
+                text_plan = conseil_raw.replace(json_match.group(0), "").strip()
+                try:
+                    import json
+                    suggested_tasks = json.loads(json_match.group(1))
+                except: pass
+
             st.markdown("---")
-            st.markdown("### 📋 Plan suggéré par l'IA")
-            st.markdown(st.session_state["ia_suggestion"])
+            st.markdown("### 📋 Plan Stratégique Suggéré")
+            st.markdown(text_plan)
             
-            st.markdown("#### 🚀 Affectation Rapide")
-            st.caption("Sélectionnez les missions suggérées pour chaque agent pour les ajouter officiellement.")
-            
-            with st.form("bulk_assign_form"):
-                bulk_assignments = []
-                for agent in active_agents:
-                    st.write(f"👤 **{agent}**")
-                    tasks_selected = st.multiselect(
-                        f"Tâches pour {agent}",
-                        options=[m for cat in MISSION_CATALOGUE.values() for m in cat],
-                        key=f"bulk_{agent}"
-                    )
-                    priority_selected = st.select_slider(
-                        f"Priorité {agent}",
-                        options=["Basse", "Moyenne", "Haute", "Critique"],
-                        value="Haute",
-                        key=f"bulk_prio_{agent}"
-                    )
-                    for t in tasks_selected:
-                        bulk_assignments.append({"agent": agent, "task": t, "priority": priority_selected})
-                
-                if st.form_submit_button("✅ Confirmer et Affecter toutes les missions", use_container_width=True):
-                    if bulk_assignments:
+            if suggested_tasks:
+                st.markdown(f"#### ⚡ Action Rapide : {len(suggested_tasks)} missions détectées")
+                cols = st.columns([2, 1])
+                with cols[0]:
+                    st.info("L'IA a préparé les ordres de mission pour l'équipe.")
+                with cols[1]:
+                    if st.button("🚀 Appliquer & Affecter Automatiquement", use_container_width=True, type="primary"):
                         new_rows = []
-                        for assign in bulk_assignments:
-                            new_rows.append({
-                                "id": len(df_tasks) + len(new_rows) + 1,
-                                "creation_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                                "task": assign["task"],
-                                "assigned_to": assign["agent"],
-                                "priority": assign["priority"],
-                                "status": "À faire"
-                            })
-                        df_tasks = pd.concat([df_tasks, pd.DataFrame(new_rows)], ignore_index=True)
-                        save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
-                        play_sound("mission")
-                        st.success(f"✅ {len(new_rows)} missions affectées !")
-                        del st.session_state["ia_suggestion"]
-                        st.rerun()
-                    else:
-                        st.error("Aucune tâche sélectionnée.")
+                        for task_data in suggested_tasks:
+                            # Vérifier si l'agent est présent
+                            if task_data.get("agent") in active_agents:
+                                new_rows.append({
+                                    "id": len(df_tasks) + len(new_rows) + 1,
+                                    "creation_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                    "task": task_data.get("task", "Mission personnalisée"),
+                                    "assigned_to": task_data.get("agent"),
+                                    "priority": task_data.get("priority", "Moyenne"),
+                                    "status": "À faire"
+                                })
+                        
+                        if new_rows:
+                            df_tasks = pd.concat([df_tasks, pd.DataFrame(new_rows)], ignore_index=True)
+                            save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                            play_sound("mission")
+                            st.success(f"✅ {len(new_rows)} missions ont été créées et envoyées aux agents !")
+                            del st.session_state["ia_suggestion"]
+                            st.rerun()
+            else:
+                st.warning("⚠️ L'IA n'a pas pu générer le format technique automatique. Veuillez utiliser l'ajout manuel.")
 
 st.divider()
 
