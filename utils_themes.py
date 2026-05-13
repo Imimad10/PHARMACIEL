@@ -172,47 +172,47 @@ def apply_theme_css(theme: dict):
     accent = theme.get("accent_color", "#4f8ef7")
     bg = theme.get("preview_color", "#0f111a")
     
-    css = f"""
+    css = """
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
     @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
 
-    :root {{
-        --bg-main: {v.get('--bg-main', bg)};
-        --bg-sidebar: {v.get('--bg-sidebar', bg)};
-        --bg-card: {v.get('--bg-card', 'rgba(255,255,255,0.05)')};
-        --text-p: {v.get('--text-primary', '#1a1f3c')};
-        --text-s: {v.get('--text-secondary', '#6b7299')};
-        --accent: {accent};
-        --accent-h: {v.get('--accent-hover', accent)};
+    :root {
+        --bg-main: __BG_MAIN__;
+        --bg-sidebar: __BG_SIDEBAR__;
+        --bg-card: __BG_CARD__;
+        --text-p: __TEXT_P__;
+        --text-s: __TEXT_S__;
+        --accent: __ACCENT__;
+        --accent-h: __ACCENT_H__;
         --font: 'Nunito', sans-serif;
-        --shadow-neu: {v.get('--shadow-neu', '0 4px 12px rgba(0,0,0,0.1)')};
-        --shadow-neu-inset: {v.get('--shadow-neu-inset', 'none')};
-    }}
+        --shadow-neu: __SHADOW_NEU__;
+        --shadow-neu-inset: __SHADOW_NEU_INSET__;
+    }
 
-    .stApp {{
+    .stApp {
         background-color: var(--bg-main) !important;
         font-family: var(--font) !important;
-    }}
+    }
 
-    [data-testid="stSidebar"] {{
+    [data-testid="stSidebar"] {
         background-color: var(--bg-sidebar) !important;
         border-right: 2px solid #d0d4e8 !important;
         box-shadow: 4px 0 15px rgba(0,0,0,0.05) !important;
-    }}
+    }
 
     /* --- EFFET NEUMORPHIC SUR LES CARTES ET METRICS --- */
-    [data-testid="stMetric"], .stMetric, .stMarkdown div[data-testid="stVerticalBlock"] > div {{
+    [data-testid="stMetric"], .stMetric, .stMarkdown div[data-testid="stVerticalBlock"] > div {
         background-color: var(--bg-card) !important;
         border-radius: 20px !important;
         padding: 20px !important;
         box-shadow: var(--shadow-neu) !important;
         border: none !important;
         margin-bottom: 15px !important;
-    }}
+    }
 
     /* --- BOUTONS FLUFFY --- */
-    .stButton > button {{
+    .stButton > button {
         background: linear-gradient(135deg, var(--accent), var(--accent-h)) !important;
         color: white !important;
         border: none !important;
@@ -221,66 +221,66 @@ def apply_theme_css(theme: dict):
         font-weight: 800 !important;
         box-shadow: 4px 4px 10px rgba(91,108,249,0.3), -2px -2px 8px rgba(255,255,255,0.8) !important;
         transition: all 0.2s ease !important;
-    }}
+    }
 
-    .stButton > button:active {{
+    .stButton > button:active {
         transform: scale(0.97) !important;
         box-shadow: inset 3px 3px 8px rgba(0,0,0,0.2) !important;
-    }}
+    }
 
     /* --- INPUTS INSET --- */
-    .stTextInput input, .stSelectbox select, .stNumberInput input {{
+    .stTextInput input, .stSelectbox select, .stNumberInput input {
         background-color: var(--bg-main) !important;
         box-shadow: var(--shadow-neu-inset) !important;
         border: none !important;
         border-radius: 12px !important;
         color: var(--text-p) !important;
         padding: 12px !important;
-    }}
+    }
 
     /* --- CACHER LE MENU STREAMLIT (Look APK/App) --- */
-    #MainMenu {{visibility: hidden; display: none !important;}}
-    header {{visibility: hidden; display: none !important;}}
-    footer {{visibility: hidden; display: none !important;}}
-    [data-testid="stHeader"] {{display: none !important;}}
-    [data-testid="stDecoration"] {{display: none !important;}}
-    [data-testid="stStatusWidget"] {{display: none !important;}}
-    .stDeployButton {{display: none !important;}}
+    #MainMenu {visibility: hidden; display: none !important;}
+    header {visibility: hidden; display: none !important;}
+    footer {visibility: hidden; display: none !important;}
+    [data-testid="stHeader"] {display: none !important;}
+    [data-testid="stDecoration"] {display: none !important;}
+    [data-testid="stStatusWidget"] {display: none !important;}
+    .stDeployButton {display: none !important;}
 
     /* --- MOBILE RESPONSIVE TWEAKS --- */
-    @media (max-width: 768px) {{
-        .main .block-container {{
+    @media (max-width: 768px) {
+        .main .block-container {
             padding: 1rem 0.5rem !important;
-        }}
-        [data-testid="stMetric"] {{
+        }
+        [data-testid="stMetric"] {
             padding: 12px !important;
-        }}
-        .stButton > button {{
+        }
+        .stButton > button {
             width: 100% !important;
             min-height: 48px !important;
             font-size: 16px !important;
-        }}
+        }
         /* Masquer certains éléments inutiles sur mobile pour gagner de la place */
-        [data-testid="stSidebarNavSeparator"] {{
+        [data-testid="stSidebarNavSeparator"] {
             display: none !important;
-        }}
-    }}
+        }
+    }
 
     /* --- TITRES GRADIENT --- */
-    h1, h2, h3 {{
+    h1, h2, h3 {
         background: linear-gradient(135deg, #5b6cf9, #9b6fd4, #1ab8c4);
         -webkit-background-clip: text;
         -webkit-text-fill-color: initial !important; /* Fix for invisible icons/text */
         color: var(--accent) !important;
         font-weight: 900 !important;
-    }}
+    }
 
     /* Style for Material Icons to ensure they are visible and properly sized */
-    .material-symbols-outlined {{
+    .material-symbols-outlined {
         font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
         vertical-align: middle;
         margin-right: 8px;
-    }}
+    }
 </style>
 
 <!-- SPLASH SCREEN ANIMATION (APK Style) -->
@@ -301,11 +301,21 @@ def apply_theme_css(theme: dict):
 </script>
 
 <style>
-    @keyframes fadeOutSplash {{ from {{ opacity: 1; visibility: visible; }} to {{ opacity: 0; visibility: hidden; }} }}
-    @keyframes pulseLogo {{ 0% {{ transform: scale(1); }} 50% {{ transform: scale(1.1); }} 100% {{ transform: scale(1); }} }}
-    @keyframes loadProgress {{ 0% {{ width: 0%; }} 100% {{ width: 100%; }} }}
+    @keyframes fadeOutSplash { from { opacity: 1; visibility: visible; } to { opacity: 0; visibility: hidden; } }
+    @keyframes pulseLogo { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+    @keyframes loadProgress { 0% { width: 0%; } 100% { width: 100%; } }
 </style>
 """
+    css = css.replace("__BG_MAIN__", v.get('--bg-main', bg))
+    css = css.replace("__BG_SIDEBAR__", v.get('--bg-sidebar', bg))
+    css = css.replace("__BG_CARD__", v.get('--bg-card', 'rgba(255,255,255,0.05)'))
+    css = css.replace("__TEXT_P__", v.get('--text-primary', '#1a1f3c'))
+    css = css.replace("__TEXT_S__", v.get('--text-secondary', '#6b7299'))
+    css = css.replace("__ACCENT__", accent)
+    css = css.replace("__ACCENT_H__", v.get('--accent-hover', accent))
+    css = css.replace("__SHADOW_NEU__", v.get('--shadow-neu', '0 4px 12px rgba(0,0,0,0.1)'))
+    css = css.replace("__SHADOW_NEU_INSET__", v.get('--shadow-neu-inset', 'none'))
+    
     st.markdown(css, unsafe_allow_html=True)
 
 
