@@ -253,14 +253,14 @@ def apply_theme_css(theme: dict):
     /* Section Headers */
     [data-testid="stSidebarNav"] li div {{
         background: transparent !important;
-        padding: 20px 15px 5px 15px !important;
-        color: var(--text-s) !important;
-        font-weight: 800 !important;
-        font-size: 0.65rem !important;
+        padding: 25px 15px 8px 15px !important;
+        color: var(--text-p) !important;
+        font-weight: 900 !important;
+        font-size: 0.75rem !important;
         text-transform: uppercase !important;
         letter-spacing: 2px !important;
         border: none !important;
-        opacity: 0.6;
+        opacity: 0.95 !important;
     }}
 
     /* Navigation Items (Links) */
@@ -268,26 +268,28 @@ def apply_theme_css(theme: dict):
         background: transparent !important;
         border-radius: 0 !important;
         margin: 0 !important;
-        padding: 10px 20px !important;
+        padding: 12px 20px !important;
         transition: all 0.2s ease !important;
-        border-left: 3px solid transparent !important;
-        color: var(--text-p) !important;
+        border-left: 4px solid transparent !important;
+        color: #1a1f3c !important; /* Dark solid color for better contrast */
         text-decoration: none !important;
     }}
 
-    /* Prevent text truncation */
+    /* Text Style */
     [data-testid="stSidebarNav"] li a span {{
         white-space: normal !important;
-        line-height: 1.2 !important;
-        font-size: 0.9rem !important;
-        font-weight: 500 !important;
+        line-height: 1.3 !important;
+        font-size: 0.95rem !important;
+        font-weight: 700 !important; /* Bolder text */
+        color: #1a1f3c !important;
+        letter-spacing: 0.3px !important;
     }}
 
     /* Hover State */
     [data-testid="stSidebarNav"] li a:hover {{
-        background: rgba(91,108,249,0.05) !important;
-        border-left: 3px solid rgba(91,108,249,0.3) !important;
-        transform: translateX(3px);
+        background: rgba(91,108,249,0.06) !important;
+        border-left: 4px solid rgba(91,108,249,0.4) !important;
+        transform: translateX(5px);
     }}
 
     /* Active Page State */
