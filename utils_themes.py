@@ -238,6 +238,22 @@ def apply_theme_css(theme: dict):
         padding: 12px !important;
     }}
 
+    /* --- SIDEBAR GROUP HEADERS (SÉPARATION APPARENTE) --- */
+    [data-testid="stSidebarNav"] li div {{
+        background: linear-gradient(90deg, rgba(91,108,249,0.1), transparent) !important;
+        padding: 10px 15px !important;
+        border-radius: 0 10px 10px 0 !important;
+        margin-top: 25px !important;
+        margin-bottom: 10px !important;
+        color: var(--accent) !important;
+        font-weight: 900 !important;
+        font-size: 0.7rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1.5px !important;
+        border-left: 5px solid var(--accent) !important;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.02) !important;
+    }}
+
     /* --- TITRES GRADIENT --- */
     h1, h2, h3 {{
         background: linear-gradient(135deg, #5b6cf9, #9b6fd4, #1ab8c4);

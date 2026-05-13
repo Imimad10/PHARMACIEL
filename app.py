@@ -634,32 +634,54 @@ ALL_PAGES = {
 if is_ia_enabled():
     ALL_PAGES["Automatisation"] = st.Page("modules/9_automatisation.py", title="Automatisation & IA", icon="🤖")
 
-# Filtrer selon les privilèges
+# --- REGROUPEMENT ROBUSTE DES MODULES ---
 pages_to_show = {}
-nav_list = []
+assigned_keys = []
 
-# On s'assure que Dashboard est en premier, Profil en second, et Assistant IA à la fin
-ordered_user_pages = user_pages.copy()
-if "Profil" not in ordered_user_pages:
-    ordered_user_pages.insert(0, "Profil")
-    
-if "Dashboard" in ordered_user_pages:
-    ordered_user_pages.remove("Dashboard")
-    ordered_user_pages.insert(0, "Dashboard")
+# Définition des groupes et de leurs membres (clés de ALL_PAGES)
+CATEGORIES = {
+    "👤 MON PROFIL": ["Profil"],
+    "📊 SUPERVISION": ["Dashboard", "Analyse Rotation", "Prévisions", "Suivi", "Dashboard Premium"],
+    "📦 GESTION DES STOCKS": ["Inventaire", "Inventaire Détail", "Inventaire Triple", "Péremptions", "Liste des Lots", "Catalogue Produits"],
+    "📝 POINTAGES & FLUX": ["Pointage", "Pointage Expéditeur", "Pointage Marchandise", "Recouvrement", "Logistique", "Scanneur QR", "Scan Mobile", "Transferts"],
+    "🤖 DARPHARM IA": ["Assistant IA", "Qualité IA", "Briefing IA", "Automatisation", "Coordination", "Académie"],
+    "🏛️ ADMINISTRATION": ["Admin Centrale", "Gestion des Accès", "RH"]
+}
 
-for p_name in ordered_user_pages:
-    if p_name in ALL_PAGES:
-        nav_list.append(ALL_PAGES[p_name])
+# 1. On remplit les groupes définis
+for cat_name, members in CATEGORIES.items():
+    cat_list = []
+    for m in members:
+        if m in user_pages and m in ALL_PAGES:
+            cat_list.append(ALL_PAGES[m])
+            assigned_keys.append(m)
+    if cat_list:
+        pages_to_show[cat_name] = cat_list
 
-if nav_list:
-    pages_to_show["Mes Modules"] = nav_list
+# 2. Sécurité : On ajoute TOUT ce qui reste dans "AUTRES" pour ne rien perdre
+autres_list = []
+for p_key in user_pages:
+    if p_key in ALL_PAGES and p_key not in assigned_keys:
+        autres_list.append(ALL_PAGES[p_key])
 
-if is_admin:
-    # Page cachée ou dédiée à l'administration
-    pages_to_show["Administration Centrale"] = [
+if autres_list:
+    pages_to_show["🧩 AUTRES MODULES"] = autres_list
+
+# 3. Ajout spécial Admin Centrale si non déjà fait
+if is_admin and "🏛️ ADMINISTRATION" not in pages_to_show:
+    pages_to_show["🏛️ ADMINISTRATION"] = [
         st.Page("modules/0_admin_centrale.py", title="Admin Centrale (Data)", icon="🏛️"),
         st.Page("modules/5_admin.py", title="Gestion des Accès", icon="⚙️")
     ]
+elif is_admin:
+    # On s'assure que les pages d'admin pur sont présentes
+    admin_pages = [
+        st.Page("modules/0_admin_centrale.py", title="Admin Centrale (Data)", icon="🏛️"),
+        st.Page("modules/5_admin.py", title="Gestion des Accès", icon="⚙️")
+    ]
+    for ap in admin_pages:
+        if ap not in pages_to_show["🏛️ ADMINISTRATION"]:
+            pages_to_show["🏛️ ADMINISTRATION"].insert(0, ap)
 
 if not pages_to_show:
     st.warning("Vous n'avez accès à aucun module. Contactez l'administrateur.")
