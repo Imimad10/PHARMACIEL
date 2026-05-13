@@ -140,7 +140,7 @@ if "inv_work_df" not in st.session_state and df_master is not None:
                     work_df.loc[mask, 'colissage'] = entry.get('col')
     st.session_state.inv_work_df = work_df
 
-# --- SÉCURITÉ : Vérification des colonnes en session ---
+# SÉCURITÉ COLONNES
 if "inv_work_df" in st.session_state:
     for col in ['ddp', 'ppa', 'shp']:
         if col not in st.session_state.inv_work_df.columns:
@@ -157,6 +157,21 @@ with col_t2:
 if df_master is None:
     st.warning("⚠️ Aucun fichier Master détecté.")
     st.stop()
+
+# --- FICHES VIERGES ---
+with st.expander("🖨️ Impression des Fiches Terrain"):
+    from utils_pdf import generate_blank_inventory_pdf
+    col_p1, col_p2 = st.columns(2)
+    with col_p1:
+        type_f = st.radio("Type :", ["Global", "Par Zone"], horizontal=True)
+    df_p = df_master.copy()
+    if type_f == "Par Zone":
+        zs = sorted(df_p['zone'].unique())
+        sz = col_p2.selectbox("Zone :", zs)
+        df_p = df_p[df_p['zone'] == sz]
+    
+    if st.download_button("📥 Télécharger Fiche Vierge (PDF)", generate_blank_inventory_pdf(df_p, "Triple", [('produit','Produit',55),('lot','Lot',28)]), f"Fiche_{type_f}.pdf", "application/pdf"):
+        st.success("Généré !")
 
 tabs = st.tabs(["📊 Dashboard", "⚡ Saisie Inventaire", "📉 Analyse Écarts", "⚙️ Gestion"])
 
@@ -176,15 +191,42 @@ with tabs[0]:
 
 # --- SAISIE ---
 with tabs[1]:
+    # AI SCANNER
+    if is_ia_scanner_enabled():
+        with st.expander("📷 Scanner IA", expanded=False):
+            img = st.camera_input("Prendre une photo")
+            if img and st.button("🔍 Analyser"):
+                b64 = base64.b64encode(img.getvalue()).decode()
+                res = ask_ai_vision("Extrais JSON: {\"designation\": \"...\", \"lot\": \"...\"}", b64)
+                try:
+                    data = json.loads(re.search(r'\{.*\}', res, re.DOTALL).group())
+                    st.session_state.ai_triple = data
+                    st.success(f"Détecté: {data['designation']}")
+                except: st.error("Échec lecture IA")
+
     available_data = get_user_data()
     if available_data.empty:
-        st.error("❌ Aucune zone ne vous est attribuée.")
+        st.error("❌ Aucune zone attribuée.")
     else:
-        col_p1, col_p2 = st.columns([3, 1])
+        ai_d = st.session_state.get('ai_triple', {})
         list_prods = sorted(available_data['produit'].unique().tolist())
-        selected_prod = col_p1.selectbox("🔍 Produit :", list_prods)
+        
+        # Recherche auto si scan IA
+        idx_p = 0
+        if ai_d.get('designation'):
+            matches = difflib.get_close_matches(ai_d['designation'].upper(), list_prods, n=1, cutoff=0.3)
+            if matches: idx_p = list_prods.index(matches[0])
+
+        col_p1, col_p2 = st.columns([3, 1])
+        selected_prod = col_p1.selectbox("🔍 Produit :", list_prods, index=idx_p)
         lots_avail = sorted(available_data[available_data['produit'] == selected_prod]['lot'].unique().tolist())
-        selected_lot = col_p2.selectbox("📦 Lot :", lots_avail)
+        
+        idx_l = 0
+        if ai_d.get('lot'):
+            l_matches = difflib.get_close_matches(ai_d['lot'].upper(), lots_avail, n=1, cutoff=0.5)
+            if l_matches: idx_l = lots_avail.index(l_matches[0])
+            
+        selected_lot = col_p2.selectbox("📦 Lot :", lots_avail, index=idx_l)
 
         if selected_prod and selected_lot:
             work = st.session_state.inv_work_df
@@ -219,11 +261,22 @@ with tabs[1]:
                 else: df_it = pd.concat([df_it, pd.DataFrame([entry])], ignore_index=True)
                 save_gs_data(df_it, INV_TRIPLE_WORKSHEET, INV_TRIPLE_FALLBACK)
                 st.success("Enregistré !")
+                if 'ai_triple' in st.session_state: del st.session_state.ai_triple
                 st.rerun()
 
     with st.expander("🏁 Clôturer l'Inventaire de Zone"):
-        if st.button("🔴 Tout terminer (Mise à zéro des non saisis)", use_container_width=True):
-            st.success("Zone clôturée avec succès !")
+        st.write("Ceci génère votre bon de validation et met à zéro les produits non trouvés.")
+        if st.button("🔴 Terminer ma zone et Générer Bon de Validation", use_container_width=True):
+            # Logique de mise à zéro forcée
+            user_d = get_user_data()
+            work = st.session_state.inv_work_df
+            df_final = user_d.merge(work[['produit', 'lot', 'Terrain (Vrac)', 'Terrain (Colis)', 'Mini (Colis)', 'colissage', 'ddp', 'ppa', 'shp']], on=['produit', 'lot'], how='left')
+            
+            # Génération Bon PDF (Utilise le rapport d'inventaire existant)
+            from utils_pdf import generate_inventory_report_pdf
+            pdf = generate_inventory_report_pdf(df_final, f"BON DE VALIDATION - ZONE {st.session_state.current_user.get('zone')}")
+            st.download_button("📥 Télécharger votre Bon de Validation", pdf, "Bon_Validation.pdf", "application/pdf")
+            st.success("Zone clôturée !")
             st.balloons()
 
 # --- ANALYSE ---
@@ -231,7 +284,7 @@ with tabs[2]:
     res_df = get_user_data()
     if not res_df.empty:
         work = st.session_state.inv_work_df
-        res_df = res_df.merge(work[['produit', 'lot', 'Terrain (Vrac)', 'Terrain (Colis)', 'Mini (Colis)', 'colissage']], on=['produit', 'lot'], how='left', suffixes=('', '_w'))
+        res_df = res_df.merge(work[['produit', 'lot', 'Terrain (Vrac)', 'Terrain (Colis)', 'Mini (Colis)', 'colissage']], on=['produit', 'lot'], how='left')
         res_df['Total'] = res_df['Terrain (Vrac)'] + (res_df['Terrain (Colis)'] * res_df['colissage']) + (res_df['Mini (Colis)'] * res_df['colissage'])
         res_df['Ecart'] = res_df['Total'] - res_df['qte_logi']
         diff = res_df[res_df['Ecart'] != 0]
@@ -240,7 +293,7 @@ with tabs[2]:
 
 # --- GESTION ---
 with tabs[3]:
-    if user_role == 'Admin':
+    if st.session_state.current_user.get('role') == 'Admin':
         if st.button("🗑️ Réinitialiser tout l'Inventaire Triple", type="secondary"):
             save_gs_data(pd.DataFrame(columns=COLS_INV_TRIPLE), INV_TRIPLE_WORKSHEET, INV_TRIPLE_FALLBACK)
             st.rerun()
