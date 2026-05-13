@@ -656,7 +656,7 @@ assigned_keys = []
 
 # Définition des groupes et de leurs membres (clés de ALL_PAGES)
 CATEGORIES = {
-    "👤 MON PROFIL": ["Profil"],
+    "👤 MON PROFIL": ["Profil", "Mon Coin"],
     "📊 SUPERVISION": ["Dashboard", "Analyse Rotation", "Prévisions", "Suivi", "Dashboard Premium"],
     "📦 GESTION DES STOCKS": ["Inventaire", "Inventaire Détail", "Inventaire Triple", "Péremptions", "Liste des Lots", "Catalogue Produits"],
     "📝 POINTAGES & FLUX": ["Pointage", "Pointage Expéditeur", "Pointage Marchandise", "Recouvrement", "Logistique", "Scanneur QR", "Scan Mobile", "Transferts"],
