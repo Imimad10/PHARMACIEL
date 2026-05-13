@@ -4,6 +4,7 @@ import json
 import os
 from utils_ia import is_ia_enabled
 from streamlit_cookies_controller import CookieController
+from utils_themes import apply_user_theme, load_themes_db, get_active_themes
 
 # --- 1. CONFIGURATION & THÈME ---
 st.set_page_config(page_title="Darpharm Solution - Portail", layout="wide", page_icon="💊")
@@ -523,6 +524,8 @@ if st.session_state.current_user:
     res = df_users[df_users['username'] == st.session_state.current_user['username']]
     if not res.empty:
         st.session_state.current_user = res.iloc[0].to_dict()
+    # Appliquer le thème personnalisé de l'utilisateur (depuis la base de thèmes)
+    apply_user_theme(st.session_state.current_user.get('username', ''))
 
 # --- 4. ÉCRAN DE CONNEXION ---
 if st.session_state.current_user is None:
@@ -849,13 +852,25 @@ with st.sidebar:
         st.warning("⚡ Mode Local : N'oubliez pas d'exporter vos données vers le Cloud.")
     
     st.divider()
-    # Sélecteur de thème
+    # Sélecteur de thème statique
     themes_disponibles = ["Clair", "Sombre", "Chic Animé", "USMH", "CRB", "USMA", "MCA"]
     current_index = themes_disponibles.index(st.session_state.theme) if st.session_state.theme in themes_disponibles else 0
     new_theme = st.selectbox("🎨 Thème d'affichage", themes_disponibles, index=current_index)
     if new_theme != st.session_state.theme:
         st.session_state.theme = new_theme
         st.rerun()
+
+    # Afficher le thème actif de l'utilisateur (depuis la base admin)
+    _td = load_themes_db()
+    _at = get_active_themes(_td)
+    _uname = user.get('username', '')
+    _uid = _td.get('user_theme_assignments', {}).get(_uname)
+    if _uid:
+        _tname = next((t['name'] for t in _at if t['id'] == _uid), None)
+        if _tname:
+            st.caption(f"🎨 Thème attribué : **{_tname}**")
+    elif _at:
+        st.caption(f"🎨 Thème actif : **{_at[0]['name']}** (défaut)")
     st.divider()
 
 
