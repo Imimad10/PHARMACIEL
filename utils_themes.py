@@ -201,8 +201,8 @@ def apply_theme_css(theme: dict):
         box-shadow: 4px 0 15px rgba(0,0,0,0.05) !important;
     }}
 
-    /* --- EFFET NEUMORPHIC SUR LES CARTES ET METRICS --- */
-    [data-testid="stMetric"], .stMetric, .stMarkdown div[data-testid="stVerticalBlock"] > div {{
+    /* --- EFFET NEUMORPHIC SUR LES METRICS --- */
+    [data-testid="stMetric"], .stMetric {{
         background-color: var(--bg-card) !important;
         border-radius: 20px !important;
         padding: 20px !important;
