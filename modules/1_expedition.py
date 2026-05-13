@@ -48,9 +48,9 @@ def save_motifs(motifs):
 
 # --- INITIALISATION ÉTAT ---
 if "rows" not in st.session_state:
-    st.session_state.rows = pd.DataFrame(columns=["Client", "Ville", "Secteur", "N° Doc", "Info", "Statut", "Signature"])
+    st.session_state.rows = pd.DataFrame(columns=["Client", "Ville", "Secteur", "N° Doc", "Info", "Statut", "Signature", "Qte Colis"])
 
-def add_or_merge_row(client, ville, ref, info, statut, signature, mode, secteur=""):
+def add_or_merge_row(client, ville, ref, info, statut, signature, mode, secteur="", qte_colis=0):
     """Ajoute une ligne pour chaque réclamation/commande (évite les doublons par référence)."""
     client = str(client).strip()
     ref = str(ref).strip()
@@ -58,11 +58,11 @@ def add_or_merge_row(client, ville, ref, info, statut, signature, mode, secteur=
     # Vérification si la référence existe déjà dans le tableau actuel (session)
     if not st.session_state.rows.empty:
         if ref in st.session_state.rows['N° Doc'].astype(str).values:
-            return False # Indique que la ligne n'a pas été ajoutée car doublon
+            return False 
 
     # Pour les réclamations, on enregistre en base persistante si pas déjà présent
     if mode == "Réclamation":
-        df_sav = load_gs_data("Litiges_SAV", "data/db_sav.csv", COLS_SAV)
+        df_sav = load_gs_data("Litiges_SAV", "data/db_sav.csv", COLS_SAV + ["qte_colis"])
         if df_sav.empty or ref not in df_sav['ref'].astype(str).values:
             new_sav = pd.DataFrame([{
                 "client": client,
@@ -71,7 +71,8 @@ def add_or_merge_row(client, ville, ref, info, statut, signature, mode, secteur=
                 "motif": info,
                 "date_crea": datetime.now().strftime("%Y-%m-%d %H:%M"),
                 "statut": "En cours",
-                "signature": signature
+                "signature": signature,
+                "qte_colis": qte_colis
             }])
             df_sav = pd.concat([df_sav, new_sav], ignore_index=True)
             save_gs_data(df_sav, "Litiges_SAV", "data/db_sav.csv")
@@ -84,7 +85,8 @@ def add_or_merge_row(client, ville, ref, info, statut, signature, mode, secteur=
         "N° Doc": ref, 
         "Info": info, 
         "Statut": statut, 
-        "Signature": signature
+        "Signature": signature,
+        "Qte Colis": qte_colis
     }])
     st.session_state.rows = pd.concat([st.session_state.rows, new_row], ignore_index=True)
     return True
@@ -205,7 +207,7 @@ with tab_exp:
                     st.error(f"Erreur : {e}")
 
     # Formulaire d'ajout manuel
-    c1, c2, c3, c4 = st.columns([2, 1.5, 1.5, 1])
+    c1, c2, c3, c4, c5 = st.columns([2, 1.5, 1.5, 1, 1])
     with c1:
         new_client = st.selectbox("Client", client_list_filtered, index=None, placeholder="Rechercher ou sélectionner un client...")
     with c2:
@@ -213,14 +215,17 @@ with tab_exp:
     with c3:
         if mode == "Commande":
             val_info = st.text_input("Colissage")
+            qte_colis_val = 0
         else:
             liste_motifs = load_motifs()
             val_motif = st.selectbox("Motif", liste_motifs)
             if val_motif == "MANQUE":
                 extra_colis = st.text_input("📦 Colissage (Manque)")
                 val_info = f"MANQUE: {extra_colis}" if extra_colis else "MANQUE"
+                qte_colis_val = 0
             else:
                 val_info = val_motif
+                qte_colis_val = st.number_input("Nb Colis à déposer", min_value=0, value=0)
     with c4:
         st.write("###")
         btn_ajouter = st.button("➕ Ajouter")
@@ -230,12 +235,11 @@ with tab_exp:
             annee = datetime.now().strftime('%y')
             prefixe = "RC" if mode == "Réclamation" else "BL"
             full_ref = f"{annee}/{prefixe}/{ref_bon}"
-            # Récupération de la ville et du secteur du client depuis la base complète
             client_data = df_clients[df_clients['Client'] == new_client]
             ville = client_data['Ville'].values[0] if not client_data.empty else ""
             secteur_client = str(client_data['Secteur'].values[0]).strip().lower() if not client_data.empty else ""
             
-            add_or_merge_row(new_client, ville, full_ref, val_info, "En cours", "", mode=mode, secteur=secteur_client)
+            add_or_merge_row(new_client, ville, full_ref, val_info, "En cours", "", mode=mode, secteur=secteur_client, qte_colis=qte_colis_val)
             st.rerun()
         elif not new_client:
             st.error("Veuillez sélectionner un client.")
@@ -295,18 +299,19 @@ with tab_exp:
     # --- AFFICHAGE DU TABLEAU AVEC BOUTONS ---
     if not df_visible.empty:
         # En-têtes du tableau
-        h1, h2, h3, h4, h5, h6 = st.columns([2.5, 1.5, 2.5, 1.5, 1.5, 0.5])
+        h1, h2, h3, h4, h5, h6, h7 = st.columns([2.5, 1, 2, 1, 0.8, 1, 0.5])
         h1.markdown("**Client**")
         h2.markdown("**Ville**")
         h3.markdown("**N° Doc**")
         h4.markdown(f"**{col_label}**")
-        h5.markdown("**Statut**")
-        h6.markdown("") # Poubelle
+        h5.markdown("**Nb**")
+        h6.markdown("**Statut**")
+        h7.markdown("") # Poubelle
         
         # Lignes du tableau
         for i, row in df_visible.iterrows():
             with st.container():
-                c1, c2, c3, c4, c5, c6 = st.columns([2.5, 1.5, 2.5, 1.5, 1.5, 0.5])
+                c1, c2, c3, c4, c5, c6, c7 = st.columns([2.5, 1, 2, 1, 0.8, 1, 0.5])
                 c1.write(row['Client'])
                 c2.write(row['Ville'])
                 c3.write(f"`{row['N° Doc']}`")
@@ -319,6 +324,30 @@ with tab_exp:
                     except:
                         idx_m = 0
                     new_info = c4.selectbox("Info", motifs_disp, index=idx_m, key=f"info_{row['N° Doc']}", label_visibility="collapsed")
+                    
+                    # Bouton Étiquette si DEPOSER ou ECHANGE
+                    motif_up = str(row['Info']).upper()
+                    if "DEPOSER" in motif_up or "ECHANGE" in motif_up:
+                        if c4.button("🏷️ Étiquette", key=f"label_{row['N° Doc']}"):
+                            try:
+                                lpdf = FPDF(orientation='L', unit='mm', format=(100, 60)) # Format étiquette 10x6cm
+                                lpdf.add_page()
+                                lpdf.set_font("Arial", 'B', 16)
+                                lpdf.cell(0, 10, "RECLAMATION", 1, 1, 'C')
+                                lpdf.ln(2)
+                                lpdf.set_font("Arial", 'B', 12)
+                                lpdf.cell(0, 8, f"CLIENT: {str(row['Client'])[:25]}", 0, 1)
+                                lpdf.set_font("Arial", '', 10)
+                                lpdf.cell(0, 6, f"REF: {row['N° Doc']}", 0, 1)
+                                lpdf.ln(2)
+                                lpdf.set_font("Arial", 'B', 20)
+                                lpdf.cell(0, 15, f"COLIS: {row['Qte Colis']}", 1, 1, 'C')
+                                
+                                label_bytes = lpdf.output(dest='S').encode('latin-1', 'replace')
+                                st.download_button("📥 Télécharger Étiquette", data=label_bytes, file_name=f"Etiquette_{row['N° Doc']}.pdf", key=f"dl_label_{row['N° Doc']}")
+                            except Exception as le:
+                                st.error(f"Erreur Étiquette : {le}")
+
                 else:
                     new_info = c4.text_input("Info", value=str(row['Info']), key=f"info_{row['N° Doc']}", label_visibility="collapsed")
                 
@@ -326,8 +355,14 @@ with tab_exp:
                     st.session_state.rows.loc[st.session_state.rows['N° Doc'] == row['N° Doc'], 'Info'] = new_info
                     st.rerun()
 
+                # Nb Colis (modifiable)
+                new_qte = c5.number_input("Nb", min_value=0, value=int(row.get('Qte Colis', 0)), key=f"qte_{row['N° Doc']}", label_visibility="collapsed")
+                if new_qte != int(row.get('Qte Colis', 0)):
+                    st.session_state.rows.loc[st.session_state.rows['N° Doc'] == row['N° Doc'], 'Qte Colis'] = new_qte
+                    st.rerun()
+
                 # Statut modifiable
-                new_statut = c5.selectbox(
+                new_statut = c6.selectbox(
                     "Statut", 
                     ["En cours", "Livré", "Reporté", "Annulé"], 
                     index=["En cours", "Livré", "Reporté", "Annulé"].index(row['Statut']),
@@ -339,7 +374,7 @@ with tab_exp:
                     st.rerun()
 
                 # Bouton Poubelle
-                if c6.button("🗑️", key=f"del_{row['N° Doc']}", help="Supprimer cette ligne"):
+                if c7.button("🗑️", key=f"del_{row['N° Doc']}", help="Supprimer cette ligne"):
                     st.session_state.to_delete = row['N° Doc']
                     st.rerun()
                 st.divider()
