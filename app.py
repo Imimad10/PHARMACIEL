@@ -620,7 +620,6 @@ ALL_PAGES = {
     "Catalogue Produits": st.Page("modules/17_catalogue_produits.py", title="Catalogue Produits", icon="📚"),
     "Pointage Marchandise": st.Page("modules/18_reception.py", title="Pointage Marchandise", icon="📦"),
     "Assistant IA": st.Page("modules/19_chat_pharmaciel.py", title="Assistant IA (Chat)", icon="🤖"),
-    "Dashboard Premium": st.Page("modules/28_tableau_premium.py", title="Dashboard Premium", icon="💎"),
     "Transferts": st.Page("modules/20_transferts.py", title="Transferts (Zéro Papier)", icon="🔄"),
     "Coordination": st.Page("modules/21_coordination_equipe.py", title="Coordination Équipe", icon="🤝"),
     "Qualité IA": st.Page("modules/22_controle_qualite_ia.py", title="Contrôle Qualité IA", icon="🛡️"),
@@ -644,7 +643,7 @@ if "Profil" in user_pages:
 
 # 2. SUPERVISION & DASHBOARD
 supervision = []
-for p in ["Dashboard", "Dashboard Premium", "Analyse Rotation", "Prévisions", "Suivi"]:
+for p in ["Dashboard", "Analyse Rotation", "Prévisions", "Suivi"]:
     if p in user_pages and p in ALL_PAGES:
         supervision.append(ALL_PAGES[p])
 if supervision:
