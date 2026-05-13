@@ -139,6 +139,14 @@ for idx, row in my_tasks.iterrows():
 st.divider()
 
 # --- 4. KANBAN GLOBAL & RÉCOMPENSES ---
+# Filtrage selon le rôle : Admin voit tout, les autres voient leurs tâches uniquement
+if is_admin_coord:
+    df_kanban = df_tasks.copy()
+    st.caption("👑 Vue Admin — Toutes les missions de tous les agents.")
+else:
+    df_kanban = df_tasks[df_tasks['assigned_to'] == current_agent].copy()
+    st.caption(f"👤 Vos missions personnelles — **{current_agent}**")
+
 tabs = st.tabs(["📋 Tableau de Bord", "🏆 Programme de Récompenses"])
 
 with tabs[0]:
@@ -146,11 +154,16 @@ with tabs[0]:
     
     with col_todo:
         st.markdown("#### 🟥 En attente / Accepté")
-        tasks = df_tasks[df_tasks['status'].isin(["À faire", "Accepté"])]
+        tasks = df_kanban[df_kanban['status'].isin(["À faire", "Accepté"])]
+        if tasks.empty:
+            st.info("Aucune tâche.")
         for idx, row in tasks.iterrows():
             with st.container(border=True):
                 st.write(f"**{row['task']}**")
-                st.caption(f"👤 {row['assigned_to']} | {row['status']}")
+                if is_admin_coord:
+                    st.caption(f"👤 {row['assigned_to']} | {row['priority']} | {row['status']}")
+                else:
+                    st.caption(f"🎯 {row['priority']} | {row['status']}")
                 if row['status'] == "Accepté" and st.button("▶️ Démarrer", key=f"start_{row['id']}"):
                     df_tasks.at[idx, 'status'] = "En cours"
                     save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
@@ -158,35 +171,57 @@ with tabs[0]:
 
     with col_doing:
         st.markdown("#### 🟧 En cours")
-        tasks = df_tasks[df_tasks['status'] == "En cours"]
+        tasks = df_kanban[df_kanban['status'] == "En cours"]
+        if tasks.empty:
+            st.info("Aucune tâche.")
         for idx, row in tasks.iterrows():
             with st.container(border=True):
                 st.write(f"**{row['task']}**")
-                st.caption(f"👤 {row['assigned_to']}")
+                if is_admin_coord:
+                    st.caption(f"👤 {row['assigned_to']}")
                 if st.button("✅ Terminer", key=f"done_{row['id']}"):
                     df_tasks.at[idx, 'status'] = "Terminé"
                     save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
-                    play_sound("success")  # Accord montant sur tâche terminée
+                    play_sound("success")
                     st.rerun()
 
     with col_done:
-        st.markdown("#### 🟩 Historique (Fini)")
-        tasks = df_tasks[df_tasks['status'] == "Terminé"]
+        st.markdown("#### 🟩 Terminées")
+        tasks = df_kanban[df_kanban['status'] == "Terminé"]
+        if tasks.empty:
+            st.info("Aucune tâche terminée.")
         for idx, row in tasks.iterrows():
-            st.write(f"✅ {row['task']} (par {row['assigned_to']})")
+            agent_label = f" (par {row['assigned_to']})" if is_admin_coord else ""
+            st.write(f"✅ {row['task']}{agent_label}")
 
 with tabs[1]:
     st.subheader("🌟 Performance & Primes (Mois en cours)")
-    if not df_tasks.empty:
-        stats = df_tasks[df_tasks['status'] == "Terminé"]['assigned_to'].value_counts().reset_index()
+    
+    if is_admin_coord:
+        # L'Admin voit les stats de toute l'équipe
+        df_stats_base = df_tasks
+        st.info("📊 Vue globale de l'équipe.")
+    else:
+        # Chaque agent ne voit que ses propres stats
+        df_stats_base = df_tasks[df_tasks['assigned_to'] == current_agent]
+        st.info(f"📊 Vos statistiques personnelles — **{current_agent}**")
+    
+    if not df_stats_base.empty:
+        stats = df_stats_base[df_stats_base['status'] == "Terminé"]['assigned_to'].value_counts().reset_index()
         stats.columns = ['Agent', 'Missions Terminées']
-        st.bar_chart(stats, x='Agent', y='Missions Terminées')
         
-        # Calcul de la prime suggérée
-        st.markdown("#### 💰 Calculateur de Prime Suggéré")
-        for _, r in stats.iterrows():
-            points = r['Missions Terminées'] * 100
-            st.write(f"**{r['Agent']}** : {r['Missions Terminées']} missions ➡️ **{points} DA de prime suggérée**")
+        if not stats.empty:
+            st.bar_chart(stats, x='Agent', y='Missions Terminées')
             
-        if st.button("📄 Générer Rapport de Primes (PDF)"):
+            st.markdown("#### 💰 Calculateur de Prime Suggéré")
+            for _, r in stats.iterrows():
+                points = r['Missions Terminées'] * 100
+                prime_label = f"**{r['Agent']}** : " if is_admin_coord else "Vous : "
+                st.write(f"{prime_label}{r['Missions Terminées']} missions ➡️ **{points} DA de prime suggérée**")
+        else:
+            st.info("Aucune mission terminée pour le moment.")
+            
+        if is_admin_coord and st.button("📄 Générer Rapport de Primes (PDF)"):
             st.success("Rapport mensuel généré. Vous pouvez le présenter à la direction.")
+    else:
+        st.info("Aucune donnée disponible.")
