@@ -153,84 +153,136 @@ def get_user_theme(username: str, data: dict) -> dict | None:
 
 def apply_theme_css(theme: dict):
     """
-    Injecte le CSS du thème dans la page Streamlit via st.markdown.
+    Injecte le CSS du thème dans la page Streamlit pour un changement TOTAL.
+    Couvre la sidebar, le fond, les boutons, les inputs, les tableaux et les textes.
     """
     if not theme:
         return
-    vars_css = "\n".join(
-        f"    {k}: {v};" for k, v in theme.get("css_vars", {}).items()
-    )
+    
+    v = theme.get("css_vars", {})
     accent = theme.get("accent_color", "#4f8ef7")
-    bg = theme.get("preview_color", "#1a1a2e")
-
+    bg = theme.get("preview_color", "#0f111a")
+    
+    # Construction d'un CSS complet et "agressif" (!important partout pour gagner sur Streamlit)
     css = f"""
 <style>
-    /* === THEME: {theme.get('name', 'Default')} === */
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+
     :root {{
-{vars_css}
+        --bg-main: {v.get('--bg-main', bg)};
+        --bg-sidebar: {v.get('--bg-sidebar', bg)};
+        --bg-card: {v.get('--bg-card', 'rgba(255,255,255,0.05)')};
+        --text-p: {v.get('--text-primary', '#f8fafc')};
+        --text-s: {v.get('--text-secondary', '#94a3b8')};
+        --accent: {accent};
+        --accent-h: {v.get('--accent-hover', accent)};
+        --font: 'Plus Jakarta Sans', sans-serif;
     }}
 
-    /* App background */
+    /* --- FOND GLOBAL --- */
     .stApp {{
-        background-color: var(--bg-main, {bg}) !important;
-        color: var(--text-primary, #eaeaea) !important;
+        background-color: var(--bg-main) !important;
+        background-image: none !important;
+        font-family: var(--font) !important;
     }}
 
-    /* Sidebar */
-    section[data-testid="stSidebar"] {{
-        background-color: var(--bg-sidebar, {bg}) !important;
+    /* --- SIDEBAR --- */
+    [data-testid="stSidebar"] {{
+        background-color: var(--bg-sidebar) !important;
+        border-right: 1px solid rgba(255,255,255,0.05) !important;
     }}
-    section[data-testid="stSidebar"] * {{
-        color: var(--text-primary, #eaeaea) !important;
+    [data-testid="stSidebar"] * {{
+        color: var(--text-p) !important;
+        font-family: var(--font) !important;
     }}
-
-    /* Cards / Containers */
-    div[data-testid="stVerticalBlock"] > div[style*="background"],
-    div.stMetric, div[data-testid="metric-container"] {{
-        background-color: var(--bg-card, rgba(255,255,255,0.05)) !important;
-        border-radius: 12px;
-        padding: 8px;
+    [data-testid="stSidebarNav"] span {{
+        color: var(--text-p) !important;
     }}
 
-    /* Buttons */
+    /* --- TEXTES & TITRES --- */
+    h1, h2, h3, h4, h5, h6, p, label, span, li {{
+        color: var(--text-p) !important;
+        font-family: var(--font) !important;
+    }}
+    .stMarkdown {{ color: var(--text-p) !important; }}
+    small {{ color: var(--text-s) !important; }}
+
+    /* --- BOUTONS --- */
     .stButton > button {{
-        background-color: var(--accent, {accent}) !important;
-        color: #fff !important;
+        background: var(--accent) !important;
+        color: white !important;
         border: none !important;
-        border-radius: 8px !important;
-        transition: background 0.2s ease;
+        border-radius: 12px !important;
+        padding: 0.6rem 1.2rem !important;
+        font-weight: 700 !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+        width: 100%;
     }}
     .stButton > button:hover {{
-        background-color: var(--accent-hover, {accent}) !important;
-        filter: brightness(1.1);
+        background: var(--accent-h) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.2) !important;
     }}
 
-    /* Tabs */
+    /* --- INPUTS & WIDGETS --- */
+    .stTextInput input, .stSelectbox select, .stTextArea textarea, .stNumberInput input {{
+        background-color: var(--bg-card) !important;
+        color: var(--text-p) !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+        border-radius: 10px !important;
+        padding: 10px !important;
+    }}
+    .stTextInput input:focus {{
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 0 2px var(--accent) !important;
+    }}
+
+    /* --- CARTES & METRICS --- */
+    [data-testid="stMetric"], .stMetric {{
+        background-color: var(--bg-card) !important;
+        border: 1px solid rgba(255,255,255,0.05) !important;
+        border-radius: 16px !important;
+        padding: 15px !important;
+    }}
+    [data-testid="stMetricValue"] {{
+        color: var(--accent) !important;
+        font-weight: 800 !important;
+    }}
+
+    /* --- TABLEAUX --- */
+    .stDataFrame, [data-testid="stTable"] {{
+        background-color: var(--bg-card) !important;
+        border-radius: 12px !important;
+        border: 1px solid rgba(255,255,255,0.05) !important;
+    }}
+
+    /* --- TABS --- */
+    .stTabs [data-baseweb="tab-list"] {{
+        background-color: transparent !important;
+        gap: 10px !important;
+    }}
     .stTabs [data-baseweb="tab"] {{
-        color: var(--text-secondary, #a0aec0) !important;
+        background-color: var(--bg-card) !important;
+        border-radius: 8px 8px 0 0 !important;
+        color: var(--text-s) !important;
+        border: none !important;
     }}
     .stTabs [data-baseweb="tab"][aria-selected="true"] {{
-        color: var(--accent, {accent}) !important;
-        border-bottom-color: var(--accent, {accent}) !important;
+        color: var(--accent) !important;
+        border-bottom: 3px solid var(--accent) !important;
     }}
 
-    /* Text */
-    p, h1, h2, h3, h4, label, span, .stMarkdown {{
-        color: var(--text-primary, #eaeaea) !important;
-    }}
+    /* --- SCROLLBARS --- */
+    ::-webkit-scrollbar {{ width: 8px; height: 8px; }}
+    ::-webkit-scrollbar-track {{ background: var(--bg-main); }}
+    ::-webkit-scrollbar-thumb {{ background: var(--accent); border-radius: 10px; }}
+    ::-webkit-scrollbar-thumb:hover {{ background: var(--accent-h); }}
 
-    /* Inputs */
-    .stTextInput input, .stSelectbox select, .stTextArea textarea {{
-        background-color: var(--bg-card, rgba(255,255,255,0.05)) !important;
-        color: var(--text-primary, #eaeaea) !important;
-        border-color: var(--accent, {accent}) !important;
-        border-radius: 8px;
-    }}
-
-    /* DataFrames */
-    .stDataFrame {{
-        border-radius: 10px;
-        overflow: hidden;
+    /* Correction pour les boites de dialogue */
+    .stDialog > div:first-child {{
+        background-color: var(--bg-main) !important;
+        border: 1px solid var(--accent) !important;
     }}
 </style>
 """

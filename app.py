@@ -219,8 +219,17 @@ else:
     card_bg = "rgba(0, 0, 0, 0.02)"
     sidebar_bg = "#f0f2f5"
 
-# Injection CSS
-st.markdown(f"""
+# Déterminer si un thème personnalisé doit être appliqué
+from utils_themes import get_user_theme, load_themes_db
+has_custom_theme = False
+if st.session_state.current_user:
+    _tdb = load_themes_db()
+    if get_user_theme(st.session_state.current_user.get('username',''), _tdb):
+        has_custom_theme = True
+
+# Injection CSS (Seulement si pas de thème personnalisé Admin)
+if not has_custom_theme:
+    st.markdown(f"""
     <style>
         .stApp {{
             background: {bg_style};
