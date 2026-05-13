@@ -219,76 +219,44 @@ else:
     card_bg = "rgba(0, 0, 0, 0.02)"
     sidebar_bg = "#f0f2f5"
 
-# Déterminer si un thème personnalisé doit être appliqué
-from utils_themes import get_user_theme, load_themes_db
-has_custom_theme = False
+# --- THEME DARPHARM FLUFFY & SPLASH SCREEN ---
+from utils_themes import get_user_theme, load_themes_db, apply_theme_css
+
+# Splash Screen 3D Fluffy (Code extrait de votre fichier)
+st.markdown("""
+<div id="splashScreen" style="position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#eef0f8;overflow:hidden;transition:opacity 0.8s ease;">
+    <div style="font-family:'Nunito',sans-serif;font-size:42px;font-weight:900;letter-spacing:5px;color:#1e1a5e;text-shadow:3px 3px 0px #a5b4fc,5px 6px 0px rgba(91,108,249,0.25);">DARPHARM</div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
+      <span style="background:linear-gradient(135deg,#7c8fff,#5b6cf9);color:white;font-size:11px;font-weight:800;padding:4px 12px;border-radius:20px;">مخزن</span>
+      <span style="background:linear-gradient(135deg,#c084fc,#9b6fd4);color:white;font-size:11px;font-weight:800;padding:4px 12px;border-radius:20px;">التوزيع</span>
+    </div>
+    <div style="margin-top:34px;width:180px;height:10px;background:#e8edf5;border-radius:20px;box-shadow:inset 3px 3px 8px #c5ccd8, inset -3px -3px 8px #ffffff;overflow:hidden;">
+        <div id="splashBar" style="height:100%;width:0%;background:linear-gradient(90deg,#7c8fff,#c084fc,#34d399);animation:loadBar 2s forwards;"></div>
+    </div>
+</div>
+<style>
+@keyframes loadBar { from { width: 0%; } to { width: 100%; } }
+</style>
+<script>
+    setTimeout(() => {
+        const ss = window.parent.document.getElementById('splashScreen');
+        if(ss) {
+            ss.style.opacity = '0';
+            setTimeout(() => { ss.style.display = 'none'; }, 800);
+        }
+    }, 2500);
+</script>
+""", unsafe_allow_html=True)
+
+# Application du thème DarPharm Fluffy
+_tdb = load_themes_db()
+fluffy = next((t for t in _tdb["themes"] if t["id"] == "theme_darpharm_fluffy"), None)
+apply_theme_css(fluffy)
+
 if st.session_state.get('current_user'):
-    _tdb = load_themes_db()
-    if get_user_theme(st.session_state.current_user.get('username',''), _tdb):
-        has_custom_theme = True
-
-# Injection CSS (Seulement si pas de thème personnalisé Admin)
-if not has_custom_theme:
-    st.markdown(f"""
-    <style>
-        .stApp {{
-            background: {bg_style};
-        }}
-        [data-testid="stSidebar"] {{
-            background-color: {sidebar_bg} !important;
-        }}
-        [data-testid="stHeader"] {{
-            background: rgba(0,0,0,0);
-        }}
-        
-        /* Optimisations mobiles globales */
-        @media (max-width: 768px) {{
-            .stButton button {{
-            }}
-        }}
-
-        /* Fix visibility for metrics and text */
-        [data-testid="stMetricLabel"] {{
-            color: {text_color} !important;
-            opacity: 0.9;
-            font-weight: 600 !important;
-        }}
-        [data-testid="stMetricValue"] {{
-            color: {text_color} !important;
-            font-weight: 800 !important;
-        }}
-        h1, h2, h3, h4, h5, h6, p, span {{
-            color: {text_color};
-        }}
-
-        /* BOUTON ACTUALISER */
-        div[data-testid="stBaseButton-btn_refresh"] button {{
-            background-color: #e0f2fe !important;
-            color: #0369a1 !important;
-            border: 1px solid #bae6fd !important;
-            transition: all 0.3s ease !important;
-        }}
-        div[data-testid="stBaseButton-btn_refresh"] button:hover {{
-            background-color: #f3f4f6 !important;
-            color: #374151 !important;
-            border-color: #d1d5db !important;
-            transform: scale(1.02);
-        }}
-
-        /* BOUTON MOBILE */
-        div[data-testid="stBaseButton-btn_mobile"] button {{
-            background-color: #f9fafb !important;
-            color: #374151 !important;
-            border: 1px solid #e5e7eb !important;
-            transition: all 0.3s ease !important;
-        }}
-        div[data-testid="stBaseButton-btn_mobile"] button:hover {{
-            background-color: #1f2937 !important;
-            color: #ffffff !important;
-            transform: translateY(-2px);
-        }}
-
-        /* BOUTON DÉCONNEXION */
+    u_theme = get_user_theme(st.session_state.current_user.get('username',''), _tdb)
+    if u_theme:
+        apply_theme_css(u_theme)
         div[data-testid="stBaseButton-btn_logout"] button {{
             background-color: #fee2e2 !important;
             color: #dc2626 !important;

@@ -79,20 +79,22 @@ THEMES_DEFAULT = {
             }
         },
         {
-            "id": "theme_sunset",
-            "name": "Sunset Orange",
-            "description": "Thème chaleureux — tons orangés et dynamiques",
-            "preview_color": "#431407",
-            "accent_color": "#f97316",
-            "active": False,
+            "id": "theme_darpharm_fluffy",
+            "name": "DarPharm Fluffy",
+            "description": "Style Neumorphism doux — Ombre 3D et couleurs pastel",
+            "preview_color": "#eef0f8",
+            "accent_color": "#5b6cf9",
+            "active": True,
             "css_vars": {
-                "--bg-main": "#431407",
-                "--bg-sidebar": "#7c2d12",
-                "--bg-card": "#9a3412",
-                "--text-primary": "#fff7ed",
-                "--text-secondary": "#fed7aa",
-                "--accent": "#f97316",
-                "--accent-hover": "#ea580c"
+                "--bg-main": "#eef0f8",
+                "--bg-sidebar": "#eef0f8",
+                "--bg-card": "#eef0f8",
+                "--text-primary": "#1a1f3c",
+                "--text-secondary": "#6b7299",
+                "--accent": "#5b6cf9",
+                "--accent-hover": "#3a47d5",
+                "--shadow-neu": "7px 7px 18px #c0c5dc, -7px -7px 18px #ffffff",
+                "--shadow-neu-inset": "inset 4px 4px 12px #c0c5dc, inset -4px -4px 12px #ffffff"
             }
         }
     ],
@@ -163,126 +165,77 @@ def apply_theme_css(theme: dict):
     accent = theme.get("accent_color", "#4f8ef7")
     bg = theme.get("preview_color", "#0f111a")
     
-    # Construction d'un CSS complet et "agressif" (!important partout pour gagner sur Streamlit)
     css = f"""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
 
     :root {{
         --bg-main: {v.get('--bg-main', bg)};
         --bg-sidebar: {v.get('--bg-sidebar', bg)};
         --bg-card: {v.get('--bg-card', 'rgba(255,255,255,0.05)')};
-        --text-p: {v.get('--text-primary', '#f8fafc')};
-        --text-s: {v.get('--text-secondary', '#94a3b8')};
+        --text-p: {v.get('--text-primary', '#1a1f3c')};
+        --text-s: {v.get('--text-secondary', '#6b7299')};
         --accent: {accent};
         --accent-h: {v.get('--accent-hover', accent)};
-        --font: 'Plus Jakarta Sans', sans-serif;
+        --font: 'Nunito', sans-serif;
+        --shadow-neu: {v.get('--shadow-neu', '0 4px 12px rgba(0,0,0,0.1)')};
+        --shadow-neu-inset: {v.get('--shadow-neu-inset', 'none')};
     }}
 
-    /* --- FOND GLOBAL --- */
     .stApp {{
         background-color: var(--bg-main) !important;
-        background-image: none !important;
         font-family: var(--font) !important;
     }}
 
-    /* --- SIDEBAR --- */
     [data-testid="stSidebar"] {{
         background-color: var(--bg-sidebar) !important;
-        border-right: 1px solid rgba(255,255,255,0.05) !important;
-    }}
-    [data-testid="stSidebar"] * {{
-        color: var(--text-p) !important;
-        font-family: var(--font) !important;
-    }}
-    [data-testid="stSidebarNav"] span {{
-        color: var(--text-p) !important;
+        border-right: 2px solid #d0d4e8 !important;
+        box-shadow: 4px 0 15px rgba(0,0,0,0.05) !important;
     }}
 
-    /* --- TEXTES & TITRES --- */
-    h1, h2, h3, h4, h5, h6, p, label, span, li {{
-        color: var(--text-p) !important;
-        font-family: var(--font) !important;
+    /* --- EFFET NEUMORPHIC SUR LES CARTES ET METRICS --- */
+    [data-testid="stMetric"], .stMetric, .stMarkdown div[data-testid="stVerticalBlock"] > div {{
+        background-color: var(--bg-card) !important;
+        border-radius: 20px !important;
+        padding: 20px !important;
+        box-shadow: var(--shadow-neu) !important;
+        border: none !important;
+        margin-bottom: 15px !important;
     }}
-    .stMarkdown {{ color: var(--text-p) !important; }}
-    small {{ color: var(--text-s) !important; }}
 
-    /* --- BOUTONS --- */
+    /* --- BOUTONS FLUFFY --- */
     .stButton > button {{
-        background: var(--accent) !important;
+        background: linear-gradient(135deg, var(--accent), var(--accent-h)) !important;
         color: white !important;
         border: none !important;
-        border-radius: 12px !important;
-        padding: 0.6rem 1.2rem !important;
-        font-weight: 700 !important;
-        transition: all 0.3s ease !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
-        width: 100%;
-    }}
-    .stButton > button:hover {{
-        background: var(--accent-h) !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.2) !important;
-    }}
-
-    /* --- INPUTS & WIDGETS --- */
-    .stTextInput input, .stSelectbox select, .stTextArea textarea, .stNumberInput input {{
-        background-color: var(--bg-card) !important;
-        color: var(--text-p) !important;
-        border: 1px solid rgba(255,255,255,0.1) !important;
-        border-radius: 10px !important;
-        padding: 10px !important;
-    }}
-    .stTextInput input:focus {{
-        border-color: var(--accent) !important;
-        box-shadow: 0 0 0 2px var(--accent) !important;
-    }}
-
-    /* --- CARTES & METRICS --- */
-    [data-testid="stMetric"], .stMetric {{
-        background-color: var(--bg-card) !important;
-        border: 1px solid rgba(255,255,255,0.05) !important;
-        border-radius: 16px !important;
-        padding: 15px !important;
-    }}
-    [data-testid="stMetricValue"] {{
-        color: var(--accent) !important;
+        border-radius: 15px !important;
+        padding: 12px 25px !important;
         font-weight: 800 !important;
+        box-shadow: 4px 4px 10px rgba(91,108,249,0.3), -2px -2px 8px rgba(255,255,255,0.8) !important;
+        transition: all 0.2s ease !important;
     }}
 
-    /* --- TABLEAUX --- */
-    .stDataFrame, [data-testid="stTable"] {{
-        background-color: var(--bg-card) !important;
-        border-radius: 12px !important;
-        border: 1px solid rgba(255,255,255,0.05) !important;
+    .stButton > button:active {{
+        transform: scale(0.97) !important;
+        box-shadow: inset 3px 3px 8px rgba(0,0,0,0.2) !important;
     }}
 
-    /* --- TABS --- */
-    .stTabs [data-baseweb="tab-list"] {{
-        background-color: transparent !important;
-        gap: 10px !important;
-    }}
-    .stTabs [data-baseweb="tab"] {{
-        background-color: var(--bg-card) !important;
-        border-radius: 8px 8px 0 0 !important;
-        color: var(--text-s) !important;
-        border: none !important;
-    }}
-    .stTabs [data-baseweb="tab"][aria-selected="true"] {{
-        color: var(--accent) !important;
-        border-bottom: 3px solid var(--accent) !important;
-    }}
-
-    /* --- SCROLLBARS --- */
-    ::-webkit-scrollbar {{ width: 8px; height: 8px; }}
-    ::-webkit-scrollbar-track {{ background: var(--bg-main); }}
-    ::-webkit-scrollbar-thumb {{ background: var(--accent); border-radius: 10px; }}
-    ::-webkit-scrollbar-thumb:hover {{ background: var(--accent-h); }}
-
-    /* Correction pour les boites de dialogue */
-    .stDialog > div:first-child {{
+    /* --- INPUTS INSET --- */
+    .stTextInput input, .stSelectbox select, .stNumberInput input {{
         background-color: var(--bg-main) !important;
-        border: 1px solid var(--accent) !important;
+        box-shadow: var(--shadow-neu-inset) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        color: var(--text-p) !important;
+        padding: 12px !important;
+    }}
+
+    /* --- TITRES GRADIENT --- */
+    h1, h2, h3 {{
+        background: linear-gradient(135deg, #5b6cf9, #9b6fd4, #1ab8c4);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 900 !important;
     }}
 </style>
 """
