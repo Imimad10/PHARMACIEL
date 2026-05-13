@@ -142,9 +142,13 @@ if "inv_work_df" not in st.session_state and df_master is not None:
 
 # SÉCURITÉ COLONNES
 if "inv_work_df" in st.session_state:
-    for col in ['ddp', 'ppa', 'shp']:
+    cols_to_fix = {
+        'Terrain (Vrac)': 0.0, 'Terrain (Colis)': 0.0, 'Mini (Colis)': 0.0,
+        'ddp': "", 'ppa': 0.0, 'shp': 0.0, 'colissage': 1.0
+    }
+    for col, default in cols_to_fix.items():
         if col not in st.session_state.inv_work_df.columns:
-            st.session_state.inv_work_df[col] = "" if col == 'ddp' else 0.0
+            st.session_state.inv_work_df[col] = default
 
 col_t1, col_t2 = st.columns([4, 1])
 with col_t1: st.title("📋 Inventaire Triple & Confrontation")
