@@ -103,20 +103,27 @@ THEMES_DEFAULT = {
 
 
 def load_themes_db() -> dict:
-    """Charge la base de données des thèmes depuis le fichier JSON."""
+    """Charge la base de données des thèmes et fusionne les nouveaux thèmes par défaut."""
+    data = THEMES_DEFAULT.copy()
     if os.path.exists(THEMES_DB_PATH):
         try:
             with open(THEMES_DB_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                # S'assurer que les clés nécessaires existent
-                if "themes" not in data:
-                    data["themes"] = THEMES_DEFAULT["themes"]
-                if "user_theme_assignments" not in data:
-                    data["user_theme_assignments"] = {}
-                return data
+                file_data = json.load(f)
+                # Fusionner les thèmes du fichier avec ceux par défaut
+                existing_ids = [t["id"] for t in data["themes"]]
+                for t in file_data.get("themes", []):
+                    if t["id"] not in existing_ids:
+                        data["themes"].append(t)
+                    else:
+                        # Mettre à jour les thèmes existants (optionnel, selon besoin)
+                        idx = existing_ids.index(t["id"])
+                        data["themes"][idx] = t
+                
+                if "user_theme_assignments" in file_data:
+                    data["user_theme_assignments"] = file_data["user_theme_assignments"]
         except Exception:
             pass
-    return THEMES_DEFAULT.copy()
+    return data
 
 
 def save_themes_db(data: dict):
