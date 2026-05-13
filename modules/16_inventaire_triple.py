@@ -140,6 +140,12 @@ if "inv_work_df" not in st.session_state and df_master is not None:
                     work_df.loc[mask, 'colissage'] = entry.get('col')
     st.session_state.inv_work_df = work_df
 
+# --- SÉCURITÉ : Vérification des colonnes en session ---
+if "inv_work_df" in st.session_state:
+    for col in ['ddp', 'ppa', 'shp']:
+        if col not in st.session_state.inv_work_df.columns:
+            st.session_state.inv_work_df[col] = "" if col == 'ddp' else 0.0
+
 col_t1, col_t2 = st.columns([4, 1])
 with col_t1: st.title("📋 Inventaire Triple & Confrontation")
 with col_t2:
