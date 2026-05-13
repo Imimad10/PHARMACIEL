@@ -97,26 +97,22 @@ with st.expander("🤖 Assistant IA - Planification & Équité", expanded=True):
 
 st.divider()
 
-# --- 3. DASHBOARD AGENT (ACCEPTATION/REFUS) ---
+# --- 3. MES MISSIONS PERSONNELLES (filtré par utilisateur, même pour l'Admin) ---
 st.subheader("📬 Mes Missions & Notifications")
 
-# L'Admin voit TOUTES les missions, les agents voient les leurs
-if is_admin_coord:
-    my_tasks = df_tasks.copy()  # Admin voit tout
-    if not my_tasks.empty:
-        st.info(f"👑 Vue Admin : {len(my_tasks)} mission(s) au total.")
-    else:
-        st.info("Aucune mission en cours.")
-else:
-    my_tasks = df_tasks[df_tasks['assigned_to'] == current_agent]
-    if my_tasks.empty:
-        st.info(f"Aucune mission assignée à **{current_agent}** pour le moment.")
+my_tasks = df_tasks[df_tasks['assigned_to'] == current_agent]
 
-for idx, row in my_tasks.iterrows():
-    if row['status'] in ["À faire", "Accepté"]:
+if my_tasks.empty:
+    st.info(f"Aucune mission assignée à **{current_agent}** pour le moment.")
+else:
+    pending = my_tasks[my_tasks['status'].isin(["À faire", "Accepté"])]
+    if pending.empty:
+        st.success("✅ Toutes vos missions sont en cours ou terminées.")
+    
+    for idx, row in pending.iterrows():
         with st.container(border=True):
-            assignee_label = f" → **{row['assigned_to']}**" if is_admin_coord else ""
-            st.warning(f"🔔 MISSION{assignee_label} : **{row['task']}**")
+            st.warning(f"🔔 **{row['task']}**")
+            st.caption(f"🎯 Priorité : {row.get('priority', '—')} | Créé le : {row.get('creation_date', '—')}")
             c1, c2, c3 = st.columns(3)
             if c1.button("✅ Accepter", key=f"acc_{row['id']}", use_container_width=True):
                 df_tasks.at[idx, 'status'] = "Accepté"
@@ -127,14 +123,41 @@ for idx, row in my_tasks.iterrows():
                 df_tasks.at[idx, 'status'] = "En cours"
                 save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
                 st.rerun()
-            # Réassignation : seulement si agent valide ou admin
-            available_next = [a for a in agents if a != row['assigned_to']]
-            if available_next and c3.button("🔄 Réassigner", key=f"ref_{row['id']}", use_container_width=True):
-                next_agent = available_next[0]
-                df_tasks.at[idx, 'assigned_to'] = next_agent
-                save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
-                st.info(f"Mission réassignée à {next_agent}.")
-                st.rerun()
+            if c3.button("❌ Refuser", key=f"ref_{row['id']}", use_container_width=True):
+                available_next = [a for a in agents if a != row['assigned_to']]
+                if available_next:
+                    df_tasks.at[idx, 'assigned_to'] = available_next[0]
+                    save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                    st.info(f"Mission réassignée à {available_next[0]}.")
+                    st.rerun()
+
+# --- VUE ADMIN : Gestion de toute l'équipe ---
+if is_admin_coord:
+    with st.expander("👑 Vue Admin — Gestion de toutes les missions", expanded=False):
+        df_all_pending = df_tasks[df_tasks['status'].isin(["À faire", "Accepté", "En cours"])]
+        if df_all_pending.empty:
+            st.info("Aucune mission active dans l'équipe.")
+        else:
+            for idx, row in df_all_pending.iterrows():
+                col_a, col_b, col_c, col_d = st.columns([3, 1.5, 1.5, 1.5])
+                col_a.write(f"**{row['task']}** — 👤 {row['assigned_to']}")
+                col_b.write(f"🎯 {row.get('priority','—')}")
+                col_c.write(f"📌 {row['status']}")
+                # Réassignation admin
+                available_agents = [a for a in agents if a != row['assigned_to']]
+                if available_agents:
+                    new_agent = col_d.selectbox(
+                        "Réassigner", 
+                        ["—"] + available_agents, 
+                        key=f"admin_reassign_{row['id']}", 
+                        label_visibility="collapsed"
+                    )
+                    if new_agent != "—":
+                        df_tasks.at[idx, 'assigned_to'] = new_agent
+                        save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                        st.success(f"Réassigné à {new_agent} !")
+                        st.rerun()
+
 
 st.divider()
 
