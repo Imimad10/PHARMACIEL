@@ -32,8 +32,10 @@ st.divider()
 # 1. COLLECTE DES KPIs DE TOUS LES MODULES
 # ═══════════════════════════════════════════
 @st.cache_data(ttl=60)  # Rafraîchissement auto toutes les 60 secondes
+@st.cache_data(ttl=60)  # Rafraîchissement auto toutes les 60 secondes
 def collect_all_kpis():
     kpis = {}
+    now = datetime.now()
 
     # --- RECOUVREMENT ---
     df_rec = load_gs_data("Recouvrement", "data_recouvrement.csv", ["Reste à payer", "Statut", "Livreur"])
@@ -56,47 +58,40 @@ def collect_all_kpis():
         kpis['arch_recouvre'] = pd.to_numeric(df_arch['Montant Initial'], errors='coerce').fillna(0).sum()
     else: kpis['arch_count'] = kpis['arch_recouvre'] = 0
 
-    # --- INVENTAIRE MASTER ---
+    # --- INVENTAIRE MASTER (Saisies récentes) ---
     df_inv = load_gs_data("Saisie_Inventaire", "data_inventaire/saisie.csv", ["designation", "ddp_saisi"])
-    if not df_inv.empty:
-        kpis['inv_saisies'] = len(df_inv)
-        kpis['inv_produits_uniques'] = df_inv['designation'].nunique() if 'designation' in df_inv.columns else 0
-    else: kpis['inv_saisies'] = kpis['inv_produits_uniques'] = 0
+    kpis['inv_saisies'] = len(df_inv) if not df_inv.empty else 0
+    kpis['inv_produits_uniques'] = df_inv['designation'].nunique() if not df_inv.empty and 'designation' in df_inv.columns else 0
 
-    # --- INVENTAIRE DÉTAIL ---
-    df_det = load_gs_data("Saisie_Inventaire_Zone", "data_inventaire_detail/saisie_detail.csv", ["zone"])
-    if not df_det.empty:
-        kpis['inv_det_saisies'] = len(df_det)
-        kpis['inv_det_zones'] = df_det['zone'].nunique() if 'zone' in df_det.columns else 0
-    else: kpis['inv_det_saisies'] = kpis['inv_det_zones'] = 0
-
-    # --- POINTAGES ---
-    df_p = load_gs_data("Pointages", "data/db_pointages.csv", ["date_pointage"])
-    if not df_p.empty:
-        kpis['pointages_total'] = len(df_p)
-        today_s = datetime.now().strftime("%d/%m/%Y")
-        kpis['pointages_today'] = len(df_p[df_p['date_pointage'].str.contains(today_s, na=False)])
-    else: kpis['pointages_total'] = kpis['pointages_today'] = 0
-
-    # --- LITIGES SAV ---
-    df_r = load_gs_data("Litiges_SAV", "data/db_reclamations.csv", ["statut"])
-    if not df_r.empty:
-        kpis['reclams_total'] = len(df_r)
-        kpis['reclams_encours'] = len(df_r[df_r['statut'] == 'En cours'])
-    else: kpis['reclams_total'] = kpis['reclams_encours'] = 0
-    
     # --- INVENTAIRE TRIPLE ---
     df_triple = load_gs_data("Inventaire_Triple", "data/db_inv_triple.csv", ["produit"])
     kpis['inv_triple_count'] = len(df_triple) if not df_triple.empty else 0
+
+    # --- POINTAGES EXPEDITEURS (Historique Dispatch) ---
+    df_p_exp = load_gs_data("Historique_Pointage", "data/db_pointage_hist.csv", ["date_dispatch"])
+    if not df_p_exp.empty:
+        kpis['pointages_total'] = len(df_p_exp)
+        today_s = now.strftime("%d/%m/%Y")
+        kpis['pointages_today'] = len(df_p_exp[df_p_exp['date_dispatch'].astype(str).str.contains(today_s, na=False)])
+    else: kpis['pointages_total'] = kpis['pointages_today'] = 0
+
+    # --- LITIGES SAV (Expédition) ---
+    df_sav = load_gs_data("Litiges_SAV", "data/db_sav.csv", ["statut"])
+    if not df_sav.empty:
+        kpis['reclams_total'] = len(df_sav)
+        kpis['reclams_encours'] = len(df_sav[df_sav['statut'] == 'En cours'])
+    else: kpis['reclams_total'] = kpis['reclams_encours'] = 0
     
-    # --- PÉREMPTIONS (Basé sur Saisie_Inventaire) ---
-    if not df_inv.empty and 'ddp_saisi' in df_inv.columns:
-        now = datetime.now()
+    # --- PÉREMPTIONS (Basé sur la Liste Officielle des Lots) ---
+    df_lots = load_gs_data("Master_Inventaire_Zone", "data_inventaire_detail/master_detail.csv", ["ddp"])
+    if not df_lots.empty:
         critiques = 0
-        for d in df_inv['ddp_saisi'].dropna():
+        for d in df_lots['ddp'].dropna():
             try:
-                dt = pd.to_datetime(d, format='%m/%Y')
-                if (dt.year - now.year)*12 + dt.month - now.month <= 3:
+                # On supporte MM/AA, YYYY-MM-DD, etc. via parse_ddp_local style
+                from utils_notifications import parse_ddp_local
+                dt = parse_ddp_local(d)
+                if dt and (dt.year - now.year)*12 + dt.month - now.month <= 3:
                     critiques += 1
             except: pass
         kpis['peremptions_critiques'] = critiques
@@ -113,8 +108,8 @@ def collect_all_kpis():
     # --- LOGS ---
     df_logs = load_gs_data("Logs", "data/db_logs.csv", ["timestamp", "user", "action", "module"])
     if not df_logs.empty:
-        today_s = datetime.now().strftime("%Y-%m-%d")
-        kpis['logs_today'] = len(df_logs[df_logs['timestamp'].str.contains(today_s, na=False)])
+        today_s = now.strftime("%Y-%m-%d")
+        kpis['logs_today'] = len(df_logs[df_logs['timestamp'].astype(str).str.contains(today_s, na=False)])
         kpis['logs_all'] = df_logs.tail(20).to_dict('records')
     else: kpis['logs_today'] = 0; kpis['logs_all'] = []
 
