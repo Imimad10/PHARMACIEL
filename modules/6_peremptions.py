@@ -49,14 +49,48 @@ def analyze_peremptions(df, date_col='ddp'):
 
 st.title("⏳ Gestion des Péremptions")
 
+# --- SOURCE DE DONNÉES ---
+source_data = st.radio("📂 Source des données à analyser :", 
+                      ["📝 Saisies Terrain (Inventaire)", "📑 Liste des Lots (Système)"], 
+                      horizontal=True)
+
 tab1, tab2 = st.tabs(["📊 Tableau de Bord (DDP)", "🏢 Analyse Multi-Dépôts"])
 
 with tab1:
-    st.subheader("Vue Globale des Péremptions (DDP)")
-    df_inv = load_gs_data(SAISIE_WORKSHEET, SAISIE_FALLBACK, COLS_SAISIE)
-    if not df_inv.empty:
-        # L'inventaire utilise 'ddp_saisi'
-        df_res = analyze_peremptions(df_inv, date_col='ddp_saisi')
+    if source_data == "📝 Saisies Terrain (Inventaire)":
+        st.subheader("Analyse des Saisies Manuelles")
+        df_raw = load_gs_data(SAISIE_WORKSHEET, SAISIE_FALLBACK, COLS_SAISIE)
+        date_col = 'ddp_saisi'
+    else:
+        st.subheader("Analyse de la Liste Officielle des Lots")
+        # On utilise le master de Liste des Lots
+        MASTER_WORKSHEET = "Master_Inventaire_Zone"
+        MASTER_FALLBACK = "data_inventaire_detail/master_detail.csv"
+        df_raw = load_gs_data(MASTER_WORKSHEET, MASTER_FALLBACK, None)
+        
+        # Mappage des colonnes du Master vers le format attendu
+        if not df_raw.empty:
+            mapping = {
+                'produit': 'designation', 'designation': 'designation',
+                'n°lot': 'lot', 'lot': 'lot',
+                'peremption': 'ddp', 'ddp': 'ddp',
+                'qte_logi': 'qte_saisie', 'quantite': 'qte_saisie', 'stock_theorique': 'qte_saisie'
+            }
+            # Nettoyage minimaliste
+            new_cols = []
+            for c in df_raw.columns:
+                norm = str(c).lower().strip()
+                target = None
+                for k, v in mapping.items():
+                    if k in norm: target = v; break
+                new_cols.append(target if target else norm)
+            df_raw.columns = new_cols
+            date_col = 'ddp'
+        else:
+            st.warning("⚠️ La Liste des Lots est vide ou non synchronisée.")
+
+    if not df_raw.empty:
+        df_res = analyze_peremptions(df_raw, date_col=date_col)
         if not df_res.empty:
             stats = df_res['Statut'].value_counts()
             c1, c2, c3, c4 = st.columns(4)
@@ -70,9 +104,11 @@ with tab1:
             col_list, col_action = st.columns([2, 1])
             with col_list:
                 st.markdown("### 📋 Liste détaillée des produits")
-                df_sorted = df_res.sort_values('expiry_date')[['designation', 'lot', 'ddp_saisi', 'Statut', 'mois_restants']]
+                # Utiliser date_col dynamiquement
+                cols_to_show = ['designation', 'lot', date_col, 'Statut', 'mois_restants']
+                df_sorted = df_res.sort_values('expiry_date')[cols_to_show]
                 # Formater la date pour affichage
-                df_sorted['ddp_saisi'] = pd.to_datetime(df_sorted['ddp_saisi']).dt.strftime('%d/%m/%Y')
+                df_sorted[date_col] = pd.to_datetime(df_sorted[date_col], errors='coerce').dt.strftime('%m/%Y')
                 st.dataframe(df_sorted, use_container_width=True, hide_index=True)
                 
             with col_action:

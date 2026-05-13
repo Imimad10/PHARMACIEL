@@ -114,7 +114,6 @@ st.title("🛡️ Inventaire Triple & Réconciliation")
 
 if is_admin:
     st.markdown('<div class="admin-box">🛡️ MODE SUPERVISEUR : Accès complet à toutes les zones.</div>', unsafe_allow_html=True)
-    # Correction TypeError : conversion en str et suppression des NaNs avant triage
     raw_zones = df_m['zone'].dropna().astype(str).unique().tolist()
     zones_list = ["Toutes"] + sorted(raw_zones)
     selected_zone_filter = st.selectbox("🎯 Filtrer la vue globale par Zone :", zones_list)
@@ -145,7 +144,7 @@ with st.expander("🖨️ Impression des Fiches Terrain"):
     if st.download_button("📥 Télécharger Fiche Vierge (Zone Actuelle)", generate_blank_inventory_pdf(get_working_master(), "Triple", [('produit','Produit',55),('lot','Lot',25)]), "Fiche_Vierge.pdf", "application/pdf"):
         st.success("Généré !")
 
-t_zone, t_mini, t_final, t_conf = st.tabs(["📍 Saisie Zone", "📦 Saisie Mini", "📊 Compilation", "📉 Confrontation"])
+t_zone, t_mini, t_final, t_conf, t_admin = st.tabs(["📍 Saisie Zone", "📦 Saisie Mini", "📊 Compilation", "📉 Confrontation", "⚙️ Gestion Admin"])
 
 # --- LOGIQUE DE SAISIE ---
 def render_saisie(df_full, ws_name, fb_path, title, key_prefix):
@@ -280,9 +279,32 @@ with t_conf:
             from utils_pdf import generate_inventory_report_pdf
             st.download_button("Télécharger le Rapport", generate_inventory_report_pdf(final, f"RAPPORT TRIPLE - {selected_zone_filter}"), f"Rapport_Triple_{selected_zone_filter}.pdf", "application/pdf")
 
-    if is_admin:
-        st.divider()
-        if st.button("🗑️ Vider les bases (RESET COMPLET)", type="secondary"):
-            save_gs_data(pd.DataFrame(columns=COLS_ENTRY), WS_ZONE, FB_ZONE)
-            save_gs_data(pd.DataFrame(columns=COLS_ENTRY), WS_MINI, FB_MINI)
-            st.rerun()
+# --- GESTION ADMIN ---
+with t_admin:
+    st.markdown('<div class="section-title">⚙️ Administration de l\'Inventaire</div>', unsafe_allow_html=True)
+    if not is_admin:
+        st.error("Accès réservé aux administrateurs.")
+    else:
+        st.warning("⚠️ Attention : Les actions ci-dessous sont irréversibles.")
+        
+        with st.expander("🗑️ Réinitialisation des données", expanded=False):
+            st.write("Voulez-vous vider toutes les saisies effectuées (Zone + Mini) pour recommencer à zéro ?")
+            confirm = st.checkbox("Je confirme vouloir tout supprimer")
+            if st.button("🚨 VIDER TOUT L'INVENTAIRE", type="primary", disabled=not confirm):
+                save_gs_data(pd.DataFrame(columns=COLS_ENTRY), WS_ZONE, FB_ZONE)
+                save_gs_data(pd.DataFrame(columns=COLS_ENTRY), WS_MINI, FB_MINI)
+                if 'it_ready' in st.session_state: del st.session_state.it_ready
+                st.success("Toutes les bases ont été vidées.")
+                st.rerun()
+        
+        with st.expander("📊 Export de secours", expanded=False):
+            st.write("Téléchargez une sauvegarde Excel avant de vider les bases.")
+            try:
+                import io
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                    df_z.to_excel(writer, sheet_name="Zone", index=False)
+                    df_mi.to_excel(writer, sheet_name="Mini", index=False)
+                st.download_button("📥 Télécharger Sauvegarde Excel", output.getvalue(), "backup_inventaire.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            except Exception as e:
+                st.error(f"Erreur d'export : {e}")
