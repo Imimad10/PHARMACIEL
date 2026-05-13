@@ -5,6 +5,7 @@ import os
 from datetime import datetime
 import streamlit.components.v1 as components
 from utils_gsheets import load_gs_data
+from utils_themes import apply_user_theme
 
 # Configuration de la page (si lancée seule, mais généralement incluse dans app.py)
 # st.set_page_config(page_title="Dashboard Premium", layout="wide")
@@ -81,17 +82,19 @@ def get_premium_dashboard():
             })
 
     # 3. Chargement et Modification du HTML
-    # On utilise le chemin absolu vers le bureau de l'utilisateur comme source si possible
-    # Sinon on demande de le mettre dans le projet.
-    html_path = r"C:\Users\DARPHARM DEPOT 2\Desktop\DARNA_integrated.html"
-    
+    # Priorité 1 : assets/ (importé via Admin Centrale)
+    html_path = os.path.join(os.getcwd(), "assets", "dashboard_premium.html")
+
+    # Priorité 2 : Bureau (chemin historique)
     if not os.path.exists(html_path):
-        # Fallback si le fichier a été déplacé dans le projet
-        html_path = os.path.join(os.getcwd(), "assets", "dashboard_premium.html")
-        if not os.path.exists(html_path):
-            st.error(f"Fichier HTML non trouvé à : {html_path}")
-            st.info("Veuillez copier le fichier 'DARNA_integrated.html' dans un dossier 'assets' de votre projet.")
-            return
+        html_path = r"C:\Users\DARPHARM DEPOT 2\Desktop\DARNA_integrated.html"
+
+    if not os.path.exists(html_path):
+        st.error(f"❌ Aucun fichier HTML premium trouvé.")
+        st.info("💡 **Solution :** Allez dans **Administration Centrale** → onglet **🎨 Gestion des Thèmes** → section **📂 Dashboard Premium** pour importer votre fichier HTML.")
+        if st.button("📂 Aller à l'Administration Centrale"):
+            st.switch_page("modules/0_admin_centrale.py")
+        return
 
     with open(html_path, 'r', encoding='utf-8') as f:
         html_content = f.read()
@@ -142,4 +145,9 @@ def get_premium_dashboard():
 
 # Interface Streamlit
 st.title("💎 Dashboard Premium — Darpharm")
+
+# Application automatique du thème de l'utilisateur
+if "current_user" in st.session_state and st.session_state.current_user:
+    apply_user_theme(st.session_state.current_user.get("username", ""))
+
 get_premium_dashboard()
