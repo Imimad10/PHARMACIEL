@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import os
+from datetime import datetime
 from utils_ia import ask_ai, is_ia_enabled
 from utils_sound import play_sound
 
