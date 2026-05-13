@@ -96,6 +96,74 @@ THEMES_DEFAULT = {
                 "--shadow-neu": "7px 7px 18px #c0c5dc, -7px -7px 18px #ffffff",
                 "--shadow-neu-inset": "inset 4px 4px 12px #c0c5dc, inset -4px -4px 12px #ffffff"
             }
+        },
+        {
+            "id": "theme_usmh_yellow",
+            "name": "USMH - El Harrach",
+            "description": "Jaune et Noir — L'esprit de Maison Carrée",
+            "preview_color": "#facc15",
+            "accent_color": "#facc15",
+            "active": True,
+            "css_vars": {
+                "--bg-main": "#111827",
+                "--bg-sidebar": "#000000",
+                "--bg-card": "#1f2937",
+                "--text-primary": "#ffffff",
+                "--text-secondary": "#9ca3af",
+                "--accent": "#facc15",
+                "--accent-hover": "#eab308"
+            }
+        },
+        {
+            "id": "theme_crb_red",
+            "name": "CRB - Belouizdad",
+            "description": "Rouge et Blanc — Le Chabab de Laquiba",
+            "preview_color": "#dc2626",
+            "accent_color": "#dc2626",
+            "active": True,
+            "css_vars": {
+                "--bg-main": "#ffffff",
+                "--bg-sidebar": "#dc2626",
+                "--bg-card": "#fee2e2",
+                "--text-primary": "#111827",
+                "--text-secondary": "#4b5563",
+                "--accent": "#dc2626",
+                "--accent-hover": "#b91c1c"
+            }
+        },
+        {
+            "id": "theme_usma_black_red",
+            "name": "USMA - Alger",
+            "description": "Noir et Rouge — Soustara et les Rouge et Noir",
+            "preview_color": "#000000",
+            "accent_color": "#ef4444",
+            "active": True,
+            "css_vars": {
+                "--bg-main": "#000000",
+                "--bg-sidebar": "#111827",
+                "--bg-card": "#ef444422",
+                "--text-primary": "#ffffff",
+                "--text-secondary": "#d1d5db",
+                "--accent": "#ef4444",
+                "--accent-hover": "#dc2626"
+            }
+        },
+        {
+            "id": "theme_mca_green_red",
+            "name": "MCA - Mouloudia",
+            "description": "Vert et Rouge — Le Doyen d'Algérie",
+            "preview_color": "#16a34a",
+            "accent_color": "#16a34a",
+            "active": True,
+            "css_vars": {
+                "--bg-main": "#064e3b",
+                "--bg-sidebar": "#991b1b",
+                "--bg-card": "#065f46",
+                "--text-primary": "#ffffff",
+                "--text-secondary": "#d1fae5",
+                "--accent": "#16a34a",
+                "--accent-hover": "#15803d"
+            }
         }
     ],
     "user_theme_assignments": {}

@@ -12,6 +12,56 @@ st.set_page_config(page_title="Darpharm Solution - Portail", layout="wide", page
 if "theme" not in st.session_state:
     st.session_state.theme = "Clair"
 
+# --- 1.1 INJECTION PWA & CONNECTIVITÉ ---
+st.markdown(
+    """
+    <link rel="manifest" href="/manifest.json">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/service-worker.js').then(function(registration) {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                }, function(err) {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+    </script>
+    """,
+    unsafe_allow_html=True
+)
+
+# Petit indicateur de connexion (JS simple)
+st.markdown(
+    """
+    <script>
+        const updateOnlineStatus = () => {
+            const status = navigator.onLine ? 'online' : 'offline';
+            document.body.setAttribute('data-connection', status);
+            // On pourrait envoyer l'info à Streamlit via un query param ou autre si besoin
+        };
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+        updateOnlineStatus();
+    </script>
+    <style>
+        body[data-connection='offline']::after {
+            content: "⚠️ MODE HORS-LIGNE ACTIVÉ";
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background: #ef4444;
+            color: white;
+            text-align: center;
+            font-weight: bold;
+            z-index: 9999;
+            padding: 5px;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # Définition des styles selon le thème
 extra_css = ""
 if st.session_state.theme == "Sombre":

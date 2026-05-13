@@ -432,7 +432,37 @@ with tabs[1]:
         else:
             st.info("Aucune mission terminée pour le moment.")
             
-        if is_admin_coord and st.button("📄 Générer Rapport de Primes (PDF)"):
-            st.success("Rapport mensuel généré. Vous pouvez le présenter à la direction.")
+        if is_admin_coord:
+            st.divider()
+            st.markdown("### 📝 Rapport de Fin de Journée (IA)")
+            if st.button("📊 Générer le Bilan Quotidien", use_container_width=True, type="secondary"):
+                with st.spinner("L'IA analyse les performances de la journée..."):
+                    done_count = len(df_tasks[df_tasks['status'] == "Terminé"])
+                    pending_count = len(df_tasks[df_tasks['status'].isin(["À faire", "En cours", "Accepté"])])
+                    
+                    # Détails par agent
+                    agent_summary = ""
+                    for agent in active_agents:
+                        a_done = len(df_tasks[(df_tasks['assigned_to'] == agent) & (df_tasks['status'] == "Terminé")])
+                        a_total = len(df_tasks[df_tasks['assigned_to'] == agent])
+                        agent_summary += f"- {agent} : {a_done}/{a_total} missions terminées.\n"
+
+                    prompt_eod = f"""Tu es un expert en management logistique. 
+                    Bilan de la journée :
+                    - Total missions terminées : {done_count}
+                    - Missions restantes : {pending_count}
+                    
+                    Détail par agent :
+                    {agent_summary}
+                    
+                    Donne un résumé motivant, analyse l'efficacité de l'équipe et donne 2 conseils pour demain pour améliorer la cadence. Utilise des emojis."""
+                    
+                    report = ask_ai(prompt_eod)
+                    play_sound("ai")
+                    st.success("📉 Bilan Stratégique du Jour :")
+                    st.markdown(report)
+            
+            if st.button("📄 Exporter Rapport de Primes (PDF)", use_container_width=True):
+                st.success("Rapport mensuel généré. Vous pouvez le présenter à la direction.")
     else:
         st.info("Aucune donnée disponible.")
