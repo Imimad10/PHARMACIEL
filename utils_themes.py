@@ -239,32 +239,32 @@ def apply_theme_css(theme: dict):
     }}
 
     /* --- CACHER LE MENU STREAMLIT (Look APK/App) --- */
-    #MainMenu {visibility: hidden; display: none !important;}
-    header {visibility: hidden; display: none !important;}
-    footer {visibility: hidden; display: none !important;}
-    [data-testid="stHeader"] {display: none !important;}
-    [data-testid="stDecoration"] {display: none !important;}
-    [data-testid="stStatusWidget"] {display: none !important;}
-    .stDeployButton {display: none !important;}
+    #MainMenu {{visibility: hidden; display: none !important;}}
+    header {{visibility: hidden; display: none !important;}}
+    footer {{visibility: hidden; display: none !important;}}
+    [data-testid="stHeader"] {{display: none !important;}}
+    [data-testid="stDecoration"] {{display: none !important;}}
+    [data-testid="stStatusWidget"] {{display: none !important;}}
+    .stDeployButton {{display: none !important;}}
 
     /* --- MOBILE RESPONSIVE TWEAKS --- */
-    @media (max-width: 768px) {
-        .main .block-container {
+    @media (max-width: 768px) {{
+        .main .block-container {{
             padding: 1rem 0.5rem !important;
-        }
-        [data-testid="stMetric"] {
+        }}
+        [data-testid="stMetric"] {{
             padding: 12px !important;
-        }
-        .stButton > button {
+        }}
+        .stButton > button {{
             width: 100% !important;
             min-height: 48px !important;
             font-size: 16px !important;
-        }
+        }}
         /* Masquer certains éléments inutiles sur mobile pour gagner de la place */
-        [data-testid="stSidebarNavSeparator"] {
+        [data-testid="stSidebarNavSeparator"] {{
             display: none !important;
-        }
-    }
+        }}
+    }}
 
     /* --- TITRES GRADIENT --- */
     h1, h2, h3 {{
