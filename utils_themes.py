@@ -240,9 +240,7 @@ def apply_theme_css(theme: dict):
 
     /* --- CACHER LE MENU STREAMLIT (Minimalisme) --- */
     #MainMenu {{visibility: hidden; display: none !important;}}
-    header {{visibility: hidden; display: none !important;}}
     footer {{visibility: hidden; display: none !important;}}
-    [data-testid="stHeader"] {{display: none !important;}}
     [data-testid="stDecoration"] {{display: none !important;}}
     [data-testid="stStatusWidget"] {{display: none !important;}}
     .stDeployButton {{display: none !important;}}
@@ -261,11 +259,16 @@ def apply_theme_css(theme: dict):
         opacity: 0.8;
     }}
 
-    /* Accent color per group using nth-of-type logic for the headers */
-    /* Note: indices depend on the number of items, so we target the divs specifically */
-    [data-testid="stSidebarNav"] ul li:nth-child(1) div {{ color: #8b5cf6 !important; border-bottom: 2px solid rgba(139, 92, 246, 0.2) !important; }} /* Profil */
-    [data-testid="stSidebarNav"] ul li:has(a[href*="tableau_de_bord"]) - li div, 
-    [data-testid="stSidebarNav"] ul li:nth-child(3) div {{ color: #3b82f6 !important; border-bottom: 2px solid rgba(59, 130, 246, 0.2) !important; }} /* Supervision */
+    /* Accent color per group */
+    /* Target the first header (Profil) */
+    [data-testid="stSidebarNav"] ul li:nth-child(1) div {{ color: #8b5cf6 !important; border-bottom: 2px solid rgba(139, 92, 246, 0.2) !important; }}
+    
+    /* Target subsequent headers (Supervision, etc.) */
+    /* We use a more general approach to avoid index shifts */
+    [data-testid="stSidebarNav"] li div {{
+        color: var(--accent) !important;
+        border-bottom: 1px solid rgba(91,108,249,0.1) !important;
+    }}
     
     /* Elegant hover for menu items */
     [data-testid="stSidebarNav"] li a {{
