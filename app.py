@@ -220,8 +220,12 @@ else:
     sidebar_bg = "#f0f2f5"
 
 # Déterminer si un thème personnalisé doit être appliqué
-from utils_themes import get_user_theme, load_themes_db
+from utils_themes import get_user_theme, load_themes_db, apply_global_premium_effects
 has_custom_theme = False
+
+# Application automatique des effets Premium Globaux (Glassmorphism + Animations)
+apply_global_premium_effects()
+
 if st.session_state.get('current_user'):
     _tdb = load_themes_db()
     if get_user_theme(st.session_state.current_user.get('username',''), _tdb):

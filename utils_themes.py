@@ -289,6 +289,70 @@ def apply_theme_css(theme: dict):
     st.markdown(css, unsafe_allow_html=True)
 
 
+def apply_global_premium_effects():
+    """
+    Injecte des effets visuels de haut niveau (JS + CSS) sur TOUTE la plateforme.
+    Inclut un fond animé dynamique et un style Glassmorphism global.
+    """
+    premium_html = """
+<style>
+    /* --- GLASSMORPHISM GLOBAL --- */
+    .stApp {
+        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%) !important;
+        overflow: hidden;
+    }
+
+    /* Animation de fond dynamique */
+    .premium-bg {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        z-index: -1;
+        background: radial-gradient(circle at 50% 50%, rgba(79, 70, 229, 0.1) 0%, transparent 50%),
+                    radial-gradient(circle at 80% 20%, rgba(236, 72, 153, 0.05) 0%, transparent 40%);
+        animation: bgMove 20s ease-in-out infinite alternate;
+    }
+
+    @keyframes bgMove {
+        0% { transform: scale(1) translate(0, 0); }
+        100% { transform: scale(1.1) translate(2%, 2%); }
+    }
+
+    /* Widgets en mode "Glass" */
+    [data-testid="stSidebar"], [data-testid="stMetric"], .stButton > button, 
+    .stTextInput input, .stSelectbox select, .stTabs [data-baseweb="tab-panel"] {
+        background: rgba(255, 255, 255, 0.03) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
+    }
+
+    /* Boutons Lumineux */
+    .stButton > button {
+        background: linear-gradient(90deg, #4f46e5, #ec4899) !important;
+        border: none !important;
+        color: white !important;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 800 !important;
+    }
+
+    .stButton > button:hover {
+        box-shadow: 0 0 20px rgba(79, 70, 229, 0.6) !important;
+        transform: translateY(-2px);
+    }
+</style>
+
+<div class="premium-bg"></div>
+
+<script>
+    // Injection de particules ou effets JS si nécessaire
+    console.log("PHARMACIEL Premium Engine Loaded");
+</script>
+"""
+    st.markdown(premium_html, unsafe_allow_html=True)
+
+
 def apply_user_theme(username: str):
     """
     Applique le thème personnalisé de l'utilisateur SEULEMENT s'il en a
