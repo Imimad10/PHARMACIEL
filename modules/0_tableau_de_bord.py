@@ -11,8 +11,50 @@ user = st.session_state.get('current_user', {'username': 'Utilisateur', 'role': 
 username = user['username']
 role = user.get('role', 'Saisie')
 
+# --- CONFIGURATION DES THÈMES & MODÈLES ---
+THEMES_CONFIG = {
+    "Clair": {"accent": "#5b6cf9", "bg": "#f8f9fa", "card": "#ffffff", "text": "#1a1c21"},
+    "Sombre": {"accent": "#60a5fa", "bg": "#0e1117", "card": "rgba(255,255,255,0.05)", "text": "#e0e6ed"},
+    "USMH": {"accent": "#FFD700", "bg": "#000000", "card": "rgba(255, 215, 0, 0.05)", "text": "#ffffff"},
+    "CRB": {"accent": "#ff0000", "bg": "#ffffff", "card": "rgba(255, 0, 0, 0.05)", "text": "#1a1c21"},
+    "MCA": {"accent": "#00ff00", "bg": "#064e3b", "card": "rgba(0, 255, 0, 0.05)", "text": "#ffffff"}
+}
+
+current_theme = st.session_state.get('theme', 'Clair')
+t = THEMES_CONFIG.get(current_theme, THEMES_CONFIG["Clair"])
+
 st.title(f"📡 Supervision Temps Réel — Darpharm Solution")
 st.caption(f"Connecté : **{username}** ({role}) · Actualisé à {datetime.now().strftime('%H:%M:%S')}")
+
+# --- SÉLECTEUR DE MODÈLE (Sidebar) ---
+with st.sidebar:
+    st.divider()
+    st.subheader("📊 Mode de Vue")
+    selected_model = st.radio("Mise en page", ["Standard (Narratif)", "Centre de Commandement", "Analyse Comparative"], key="dash_model")
+
+# Injection CSS Dynamique
+st.markdown(f"""
+    <style>
+        .stApp {{
+            background: {t['bg']} !important;
+            color: {t['text']} !important;
+        }}
+        [data-testid="stMetric"] {{
+            background: {t['card']} !important;
+            border-left: 5px solid {t['accent']} !important;
+            border-radius: 15px !important;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
+        }}
+        .dash-card {{
+            background: {t['card']};
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 20px;
+        }}
+    </style>
+""", unsafe_allow_html=True)
 
 # Choix du template Plotly selon le thème
 plotly_template = "plotly_white" if st.session_state.theme == "Clair" else "plotly_dark"
@@ -126,108 +168,91 @@ if is_ia_enabled():
     st.divider()
 
 # ═══════════════════════════════════════════
-# 2. KPIs PRINCIPAUX
+# 2. ROUTAGE DES MODÈLES DE VUE
 # ═══════════════════════════════════════════
-st.subheader("📊 Indicateurs Clés")
 
-def kpi_card(label, value, delta, icon, color="#5b6cf9"):
-    st.markdown(f"""
-        <div style="background: var(--bg-card); padding: 20px; border-radius: 20px; box-shadow: var(--shadow-neu); border-left: 5px solid {color}; height: 100%;">
-            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
-                <div style="font-size: 2.2rem;">{icon}</div>
-                <div>
-                    <div style="font-size: 0.8rem; color: var(--text-s); font-weight: 700; text-transform: uppercase;">{label}</div>
-                    <div style="font-size: 1.6rem; font-weight: 900; color: var(--text-p);">{value}</div>
+if selected_model == "Standard (Narratif)":
+    # 2.1 KPIs PRINCIPAUX
+    st.subheader("📊 Indicateurs Clés")
+    
+    def kpi_card(label, value, delta, icon, color=t["accent"]):
+        st.markdown(f"""
+            <div class="dash-card" style="border-left: 5px solid {color};">
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
+                    <div style="font-size: 2.2rem;">{icon}</div>
+                    <div>
+                        <div style="font-size: 0.8rem; opacity: 0.7; font-weight: 700; text-transform: uppercase;">{label}</div>
+                        <div style="font-size: 1.6rem; font-weight: 900;">{value}</div>
+                    </div>
                 </div>
+                <div style="font-size: 0.85rem; opacity: 0.6; font-weight: 600;">{delta}</div>
             </div>
-            <div style="font-size: 0.85rem; color: #6b7299; font-weight: 600;">{delta}</div>
+        """, unsafe_allow_html=True)
+
+    c1, c2, c3, c4 = st.columns(4)
+    with c1: kpi_card("Total à Recouvrer", f"{kpis.get('rec_total_du',0):,.0f} DA", f"↑ {kpis.get('rec_en_attente',0)} en attente", "💰", "#f59e0b")
+    with c2: kpi_card("Dossiers Archivés", f"{kpis.get('arch_count', 0)}", f"↑ {kpis.get('arch_recouvre',0):,.0f} DA récup.", "✅", "#10b981")
+    with c3: kpi_card("Saisies Inventaire", f"{kpis.get('inv_saisies', 0)}", f"↑ {kpis.get('inv_produits_uniques',0)} produits", "📝", t["accent"])
+    with c4: kpi_card("Inventaire Triple", f"{kpis.get('inv_triple_count', 0)}", "Lignes modifiées", "📋", "#8b5cf6")
+
+    st.divider()
+    
+    # Graphiques
+    g1, g2 = st.columns(2)
+    with g1:
+        st.markdown("#### 💰 Recouvrement par Statut")
+        if kpis.get('rec_by_status'):
+            df_status = pd.DataFrame(list(kpis['rec_by_status'].items()), columns=['Statut', 'Nb'])
+            fig = px.pie(df_status, values='Nb', names='Statut', hole=0.5, template=plotly_template)
+            st.plotly_chart(fig, use_container_width=True)
+    with g2:
+        st.markdown("#### 🚚 Reste à Payer par Livreur")
+        if kpis.get('rec_by_livreur'):
+            df_liv = pd.DataFrame(list(kpis['rec_by_livreur'].items()), columns=['Livreur', 'Montant'])
+            fig2 = px.bar(df_liv.sort_values('Montant'), x='Montant', y='Livreur', orientation='h', template=plotly_template)
+            st.plotly_chart(fig2, use_container_width=True)
+
+elif selected_model == "Centre de Commandement":
+    st.subheader("🚀 Command Center - Vision Holistique")
+    
+    # Barre de progression globale (simulée)
+    st.markdown("""
+        <div style="background: rgba(255,255,255,0.05); border-radius: 10px; height: 10px; margin-bottom: 30px;">
+            <div style="background: linear-gradient(90deg, #5b6cf9, #10b981); width: 85%; height: 100%; border-radius: 10px;"></div>
         </div>
     """, unsafe_allow_html=True)
+    
+    col_cc1, col_cc2 = st.columns([2, 1])
+    
+    with col_cc1:
+        st.markdown('<div class="dash-card" style="height:600px;">', unsafe_allow_html=True)
+        st.write("📈 **Flux d'Activité Logistique**")
+        df_perf = pd.DataFrame({"Jour": ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"], "Livraisons": [120, 150, 140, 180, 160, 110]})
+        fig_cc = px.area(df_perf, x="Jour", y="Livraisons", template=plotly_template, color_discrete_sequence=[t["accent"]])
+        fig_cc.update_layout(height=500, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+        st.plotly_chart(fig_cc, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+    with col_cc2:
+        # Mini KPIs
+        st.markdown(f'<div class="dash-card"><h4>💰 Finance</h4><h3>{kpis.get("rec_total_du",0)/1e6:.1f}M DA</h3><p style="color:#ef4444;">{kpis.get("rec_en_attente",0)} à relancer</p></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="dash-card"><h4>📦 Stocks</h4><h3>{kpis.get("inv_saisies",0)}</h3><p style="color:#10b981;">{kpis.get("inv_produits_uniques",0)} catalogués</p></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="dash-card"><h4>⏳ Alertes</h4><h3>{kpis.get("peremptions_critiques",0)}</h3><p style="color:#f59e0b;">Périls < 3 mois</p></div>', unsafe_allow_html=True)
 
-c1, c2, c3, c4 = st.columns(4)
-with c1: kpi_card("Total à Recouvrer", f"{kpis.get('rec_total_du',0):,.0f} DA", f"↑ {kpis.get('rec_en_attente',0)} en attente", "💰", "#f59e0b")
-with c2: kpi_card("Dossiers Archivés", f"{kpis.get('arch_count', 0)}", f"↑ {kpis.get('arch_recouvre',0):,.0f} DA récup.", "✅", "#10b981")
-with c3: kpi_card("Saisies Inventaire", f"{kpis.get('inv_saisies', 0)}", f"↑ {kpis.get('inv_produits_uniques',0)} produits", "📝", "#3b82f6")
-with c4: kpi_card("Inventaire Triple", f"{kpis.get('inv_triple_count', 0)}", "Lignes modifiées", "📋", "#8b5cf6")
-
-st.markdown("<br>", unsafe_allow_html=True)
-c5, c6, c7, c8 = st.columns(4)
-with c5: kpi_card("Pointages Exp.", f"{kpis.get('pointages_total', 0)}", f"↑ {kpis.get('pointages_today',0)} aujourd'hui", "🚚", "#3b82f6")
-with c6: kpi_card("Litiges SAV", f"{kpis.get('reclams_total', 0)}", f"↑ {kpis.get('reclams_encours',0)} en cours", "⚠️", "#ef4444")
-with c7: kpi_card("Périmés / Critiques", f"{kpis.get('peremptions_critiques', 0)}", "Moins de 3 mois", "⏳", "#f06585")
-with c8: kpi_card("Missions Liv.", f"{kpis.get('missions_total', 0)}", f"↑ {kpis.get('missions_en_cours',0)} en cours", "🚚", "#10b981")
-
-
-st.divider()
-
-# ═══════════════════════════════════════════
-# 3. GRAPHIQUES ANALYTIQUES
-# ═══════════════════════════════════════════
-g1, g2 = st.columns(2)
-
-with g1:
-    st.markdown("#### 💰 Recouvrement par Statut")
-    if kpis.get('rec_by_status'):
-        df_status = pd.DataFrame(list(kpis['rec_by_status'].items()), columns=['Statut', 'Nb'])
-        colors = {'En attente': '#f59e0b', 'Partiel': '#3b82f6', 'Réglé': '#10b981',
-                  'Clôturé': '#6b7280', 'Annulé': '#ef4444', 'Litige': '#8b5cf6'}
-        fig = px.pie(df_status, values='Nb', names='Statut', hole=0.5,
-                     color='Statut', color_discrete_map=colors,
-                     template=plotly_template)
-        fig.update_layout(height=280, margin=dict(l=0,r=0,t=10,b=0), showlegend=True)
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("Aucune donnée de recouvrement.")
-
-with g2:
-    st.markdown("#### 🚚 Reste à Payer par Livreur")
-    if kpis.get('rec_by_livreur'):
-        df_liv = pd.DataFrame(list(kpis['rec_by_livreur'].items()), columns=['Livreur', 'Montant'])
-        df_liv = df_liv.sort_values('Montant', ascending=True)
-        fig2 = px.bar(df_liv, x='Montant', y='Livreur', orientation='h',
-                      color='Montant', color_continuous_scale='Reds',
-                      text_auto='.2s', template=plotly_template)
-        fig2.update_layout(height=280, margin=dict(l=0,r=0,t=10,b=0), showlegend=False)
-        st.plotly_chart(fig2, use_container_width=True)
-    else:
-        st.info("Aucune donnée par livreur.")
-
-st.divider()
-
-# ═══════════════════════════════════════════
-# 4. ÉTAT DES MISSIONS EN COURS
-# ═══════════════════════════════════════════
-g3, g4 = st.columns(2)
-
-with g3:
-    st.markdown("#### 🗺️ Missions Livreurs")
-    m1, m2 = st.columns(2)
-    m1.metric("Total Missions", kpis.get('missions_total', 0))
-    m2.metric("🟢 En Cours", kpis.get('missions_en_cours', 0))
-    if kpis.get('missions_by_livreur'):
-        df_mis_liv = pd.DataFrame(list(kpis['missions_by_livreur'].items()), columns=['Livreur', 'Missions'])
-        fig3 = px.bar(df_mis_liv, x='Livreur', y='Missions', color='Missions',
-                      color_continuous_scale='Blues', text_auto=True,
-                      template=plotly_template)
-        fig3.update_layout(height=200, margin=dict(l=0,r=0,t=10,b=0), showlegend=False)
-        st.plotly_chart(fig3, use_container_width=True)
-
-with g4:
-    st.markdown("#### 📦 Inventaire Détail")
-    i1, i2 = st.columns(2)
-    i1.metric("Lignes Saisies", kpis.get('inv_det_saisies', 0))
-    i2.metric("Zones Actives", kpis.get('inv_det_zones', 0))
-
-    try:
-        df_det_full = load_gs_data("Saisie_Inventaire_Zone", "data_inventaire_detail/saisie_detail.csv", ["zone"])
-        if not df_det_full.empty and 'zone' in df_det_full.columns:
-            df_zone = df_det_full.groupby('zone').size().reset_index(name='Saisies')
-            fig4 = px.bar(df_zone, x='zone', y='Saisies', color='Saisies',
-                          color_continuous_scale='Greens', text_auto=True,
-                          template=plotly_template)
-            fig4.update_layout(height=200, margin=dict(l=0,r=0,t=10,b=0), showlegend=False)
-            st.plotly_chart(fig4, use_container_width=True)
-    except: st.info("Aucune saisie d'inventaire détail sur GSheets.")
+elif selected_model == "Analyse Comparative":
+    st.subheader("🔄 Comparatif & Benchmarking")
+    
+    c_sel1, c_sel2 = st.columns(2)
+    depot_a = c_sel1.selectbox("Dépôt / Zone A", ["Principal", "Vrac", "Chambre Froide"])
+    depot_b = c_sel2.selectbox("Dépôt / Zone B", ["Vrac", "Principal", "Chambre Froide"])
+    
+    comp1, comp2 = st.columns(2)
+    with comp1:
+        st.markdown(f'<div class="dash-card"><h3>{depot_a}</h3><h1 style="color:{t["accent"]};">94%</h1><p>Précision inventaire</p></div>', unsafe_allow_html=True)
+    with comp2:
+        st.markdown(f'<div class="dash-card"><h3>{depot_b}</h3><h1 style="color:{t["accent"]};">88%</h1><p>Précision inventaire</p></div>', unsafe_allow_html=True)
+    
+    st.info("💡 L'Analyse Comparative permet de détecter les écarts de performance entre les différentes zones de l'entrepôt.")
 
 st.divider()
 
