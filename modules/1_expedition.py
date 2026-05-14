@@ -116,15 +116,33 @@ with tab_exp:
 
     with col_g1:
         # Sélection libre du secteur (Région)
-        secteur_affichage = st.selectbox("🌍 Région / Secteur à traiter", ["Tous"] + all_sectors)
+        secteur_affichage = st.selectbox("🌍 Région / Secteur à traiter", ["Tous"] + all_sectors, key="exp_sector_sel")
         
-        # Sélection libre du livreur (Indépendante du secteur)
-        livreur_choisi = st.selectbox("👤 Choisir le livreur pour cette mission", liste_livreurs)
+        # --- FIX: TOUJOURS AFFICHER TOUS LES LIVREURS (PAS DE FILTRAGE PAR SECTEUR) ---
+        df_all_livreurs = load_livreurs()
+        if not df_all_livreurs.empty:
+            # On trie pour que les livreurs du secteur soient en haut (optionnel mais utile)
+            if secteur_affichage != "Tous":
+                mask_secteur = df_all_livreurs['Secteur'].astype(str).str.strip().str.lower() == secteur_affichage.lower()
+                livreurs_secteur = df_all_livreurs[mask_secteur]['Nom'].tolist()
+                autres_livreurs = df_all_livreurs[~mask_secteur]['Nom'].tolist()
+                full_list_display = sorted(livreurs_secteur) + ["--- AUTRES SECTEURS ---"] + sorted(autres_livreurs)
+            else:
+                full_list_display = sorted(df_all_livreurs['Nom'].tolist())
+        else:
+            full_list_display = []
+
+        livreur_choisi = st.selectbox("👤 Choisir le livreur pour cette mission", 
+                                      full_list_display, 
+                                      key="exp_livreur_sel",
+                                      help="Tous les livreurs sont affichés ici, peu importe le secteur choisi.")
         
         if secteur_affichage != "Tous":
             st.success(f"📍 Secteur actif : **{secteur_affichage.upper()}**")
         else:
             st.info("🔓 Toutes les régions affichées")
+        
+        st.caption("✅ Mode Libre : Vous pouvez attribuer n'importe quel livreur à n'importe quel secteur.")
 
     with col_d1:
         date_exp = st.date_input("Date d'expédition")
