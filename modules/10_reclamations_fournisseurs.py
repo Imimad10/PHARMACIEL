@@ -9,6 +9,7 @@ from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui
 from generator_pdf import generate_reclam_pdf, generate_multi_reclam_pdf
 from utils_ia import ask_ai, ask_ai_vision, is_ia_enabled
 import base64
+import plotly.express as px
 
 # --- CONFIGURATION ---
 WORKSHEET_NAME = "Litiges"
