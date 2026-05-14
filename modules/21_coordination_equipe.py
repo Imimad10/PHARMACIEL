@@ -20,9 +20,9 @@ df_tasks = load_gs_data(TASKS_WORKSHEET, TASKS_FALLBACK, COLS_TASKS)
 try:
     from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
     df_users_coord = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "nom", "prenom", "role"])
-    agents = df_users_coord['username'].dropna().tolist() if not df_users_coord.empty else ["Ayoub", "Islem", "Imad", "Seif"]
+    agents = df_users_coord['username'].dropna().tolist() if not df_users_coord.empty else ["Ayoub", "Islem", "admin_imad", "Seif"]
 except:
-    agents = ["Ayoub", "Islem", "Imad", "Seif"]
+    agents = ["Ayoub", "Islem", "admin_imad", "Seif"]
 
 current_user_info = st.session_state.get('current_user', {})
 current_agent = current_user_info.get('username', 'Visiteur')
@@ -33,8 +33,14 @@ is_admin_coord = current_user_info.get('role', '') in ['Admin', 'Superviseur']
 # ─────────────────────────────────────────────────────────
 st.markdown("#### 🧑‍🤝‍🧑 Équipe disponible aujourd'hui")
 
+# Membres suggérés (L'équipe de base)
+core_team_suggestions = ["Ayoub", "Islem", "Seif"]
+if current_agent not in core_team_suggestions and current_agent != "Visiteur":
+    core_team_suggestions.append(current_agent)
+
 if "active_agents" not in st.session_state or not st.session_state.active_agents:
-    st.session_state.active_agents = agents[:]
+    # Par défaut, on suggère uniquement l'équipe de base (mes éléments)
+    st.session_state.active_agents = [a for a in core_team_suggestions if a in agents]
 
 col_team1, col_team2 = st.columns([4, 1])
 with col_team1:
@@ -177,7 +183,7 @@ else:
 # --- ASSISTANT IA PLANIFICATION (ADMIN SEULEMENT) ---
 if is_admin_coord:
     with st.expander("🤖 Assistant IA - Planification Stratégique", expanded=True):
-        agents_str = ", ".join(active_agents) if active_agents else "Ayoub, Islem, Seif, Imad"
+        agents_str = ", ".join(active_agents) if active_agents else "Ayoub, Islem, Seif, admin_imad"
         st.info(f"L'IA planifie le travail selon les spécialités. Équipe actuelle : **{agents_str}**")
 
         col_ia1, col_ia2 = st.columns([2, 1])
@@ -210,7 +216,7 @@ if is_admin_coord:
 
     RÈGLES MÉTIER :
     1. ISLEM : Uniquement : Bons de commande, Factures, Expédition/Logistique (9h-17h).
-    2. AYOUB, SEIF, IMAD : Tout le reste (Stock, Inventaire, Froid, etc.).
+    2. AYOUB, SEIF, admin_imad : Tout le reste (Stock, Inventaire, Froid, etc.).
     3. Max 3 missions actives par agent.
 
     Catalogue des missions :
