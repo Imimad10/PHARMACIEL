@@ -59,7 +59,15 @@ def generate_cover_pdf(fournisseur, date_recep, nb_factures, observation):
     pdf.set_text_color(150, 150, 150)
     pdf.cell(0, 10, f"Généré par Pharmaciel Pro le {datetime.now().strftime('%d/%m/%Y à %H:%M')}", align='C')
 
-    return pdf.output(dest='S').encode('latin-1', 'replace')
+    # On gère les différentes versions de FPDF (dest='S' ou retour direct)
+    try:
+        raw = pdf.output(dest='S')
+    except:
+        raw = pdf.output()
+        
+    if isinstance(raw, str):
+        return raw.encode('latin-1', 'replace')
+    return bytes(raw)
 
 # --- INTERFACE ---
 st.markdown("""
