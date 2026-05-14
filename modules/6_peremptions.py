@@ -49,10 +49,19 @@ def analyze_peremptions(df, date_col='ddp'):
 
 st.title("⏳ Gestion des Péremptions")
 
-# --- SOURCE DE DONNÉES ---
 source_data = st.radio("📂 Source des données à analyser :", 
                       ["📝 Saisies Terrain (Inventaire)", "📑 Liste des Lots (Système)"], 
                       horizontal=True)
+
+# --- BARRE DE DEPOT CIBLE ---
+df_for_depots = load_gs_data("Master_Inventaire_Zone", "data_inventaire_detail/master_detail.csv", None)
+depots_list = ["Tous"]
+if not df_for_depots.empty:
+    col_depot = next((c for c in df_for_depots.columns if str(c).lower() in ['depot', 'dépôt', 'zone']), None)
+    if col_depot:
+        depots_list += sorted([str(d) for d in df_for_depots[col_depot].dropna().unique() if str(d).strip()])
+
+depot_cible = st.selectbox("🏢 Dépôt / Zone Cible :", depots_list, index=0, help="Filtre l'analyse pour un dépôt ou une zone spécifique.")
 
 tab1, tab2 = st.tabs(["📊 Tableau de Bord (DDP)", "🏢 Analyse Multi-Dépôts"])
 
@@ -61,6 +70,12 @@ with tab1:
         st.subheader("Analyse des Saisies Manuelles")
         df_raw = load_gs_data(SAISIE_WORKSHEET, SAISIE_FALLBACK, COLS_SAISIE)
         date_col = 'ddp_saisi'
+        
+        # FILTRAGE PAR DEPOT CIBLE (Si colonne zone/depot existe)
+        if depot_cible != "Tous" and not df_raw.empty:
+            col_d = next((c for c in df_raw.columns if str(c).lower() in ['depot', 'dépôt', 'zone']), None)
+            if col_d:
+                df_raw = df_raw[df_raw[col_d].astype(str) == depot_cible]
     else:
         st.subheader("Analyse de la Liste Officielle des Lots")
         # On utilise le master de Liste des Lots
@@ -86,6 +101,12 @@ with tab1:
                 new_cols.append(target if target else norm)
             df_raw.columns = new_cols
             date_col = 'ddp'
+            
+            # FILTRAGE PAR DEPOT CIBLE
+            if depot_cible != "Tous":
+                col_d = next((c for c in df_raw.columns if str(c).lower() in ['depot', 'dépôt', 'zone']), None)
+                if col_d:
+                    df_raw = df_raw[df_raw[col_d].astype(str) == depot_cible]
         else:
             st.warning("⚠️ La Liste des Lots est vide ou non synchronisée.")
 
