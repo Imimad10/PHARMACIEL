@@ -14,90 +14,99 @@ st.set_page_config(page_title="DarPharm Keynote Engine", layout="wide", initial_
 # --- CSS: EBLOUISSANTES TRANSITIONS & ANIMATIONS ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Playfair+Display:wght@700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700&display=swap');
     
     .stApp {
-        background: #000000 !important;
-        color: white !important;
-        font-family: 'Outfit', sans-serif;
+        background: #f8f9fa !important;
+        color: #1d1d1f !important;
+        font-family: 'Inter', sans-serif;
     }
     
-    /* Background FX */
+    /* Light Bokeh Background */
     .bokeh-bg {
         position: fixed;
         top: 0; left: 0; width: 100%; height: 100%;
-        background: radial-gradient(circle at 20% 30%, rgba(91, 108, 249, 0.15) 0%, transparent 50%),
-                    radial-gradient(circle at 80% 70%, rgba(168, 85, 247, 0.1) 0%, transparent 50%);
+        background: radial-gradient(circle at 10% 20%, rgba(124, 58, 237, 0.05) 0%, transparent 40%),
+                    radial-gradient(circle at 90% 80%, rgba(59, 130, 246, 0.05) 0%, transparent 40%);
         z-index: -1;
     }
 
     /* Slide Transitions */
     .slide-container {
-        animation: slideUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+        animation: slideInRight 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
         padding: 40px;
         min-height: 80vh;
     }
     
-    @keyframes slideUp {
-        from { transform: translateY(50px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
+    @keyframes slideInRight {
+        from { transform: translateX(30px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
     }
     
     .slide-title {
         font-family: 'Playfair Display', serif;
-        font-size: 4.5rem;
+        font-size: 4rem;
         margin-bottom: 30px;
-        background: linear-gradient(to right, #fff, #94a3b8);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        color: #1d1d1f;
+        font-weight: 800;
     }
     
-    /* Executive Cards */
+    /* Executive Light Cards */
     .glass-card {
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.8);
         backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(124, 58, 237, 0.1);
         border-radius: 32px;
         padding: 40px;
         margin-bottom: 20px;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.03);
     }
     
     .metric-hero {
-        font-size: 6rem;
+        font-size: 5.5rem;
         font-weight: 800;
         letter-spacing: -3px;
-        color: #5b6cf9;
-        text-shadow: 0 0 30px rgba(91, 108, 249, 0.3);
+        color: #7c3aed;
+        text-shadow: 2px 2px 0px rgba(124, 58, 237, 0.05);
     }
     
-    /* Navigation Bar */
+    /* Navigation Bar Light */
     .nav-dock {
         position: fixed;
         bottom: 30px;
         left: 50%;
         transform: translateX(-50%);
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(15px);
         padding: 10px 30px;
         border-radius: 50px;
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(124, 58, 237, 0.2);
         display: flex;
         gap: 20px;
         z-index: 1000;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
     }
     
     .stButton button {
         border-radius: 50px !important;
-        background: rgba(255,255,255,0.1) !important;
-        border: 1px solid rgba(255,255,255,0.2) !important;
-        color: white !important;
+        background: white !important;
+        border: 1px solid #e2e8f0 !important;
+        color: #1d1d1f !important;
         padding: 10px 25px !important;
         height: 50px !important;
+        font-weight: 600 !important;
     }
     .stButton button:hover {
-        background: rgba(255,255,255,0.2) !important;
-        border-color: #5b6cf9 !important;
+        border-color: #7c3aed !important;
+        color: #7c3aed !important;
+        transform: translateY(-2px);
+    }
+    
+    /* Table Styling */
+    .stTable {
+        background: white;
+        border-radius: 15px;
+        overflow: hidden;
     }
 </style>
 <div class="bokeh-bg"></div>
