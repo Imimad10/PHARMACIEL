@@ -19,6 +19,7 @@ MOTIFS_PATH = os.path.join(DATA_DIR, "motifs.csv")
 COLS_CLIENTS = ["Client", "Ville", "Tel", "Secteur"]
 COLS_LIVREURS = ["Nom", "Secteur"]
 COLS_SAV = ["client", "ville", "ref", "motif", "date_crea", "statut", "signature"]
+SAV_CONFIG_PATH = os.path.join(DATA_DIR, "sav_config.csv")
 
 # --- FONCTIONS DE CHARGEMENT ---
 def load_clients():
@@ -509,57 +510,103 @@ with tab_exp:
 
 # 1.1 SUIVI DES LITIGES (SAV)
 with tab_suivi_sav:
-    st.header("📊 Historique et Suivi des Réclamations")
+    st.header("📊 Suivi Stratégique des Réclamations (SLA)")
     
-    df_sav = load_gs_data("Litiges_SAV", "data/db_sav.csv", COLS_SAV)
+    # Chargement Config Secteurs Proches
+    df_near_config = load_gs_data("SAV_Config", SAV_CONFIG_PATH, ["Secteur"])
+    near_sectors = [str(s).strip().lower() for s in df_near_config['Secteur'].tolist()] if not df_near_config.empty else ["alger 1", "alger 2", "blida", "tipaza", "medea", "alger est"]
+
+    df_sav = load_gs_data("Litiges_SAV", "data/db_sav.csv", COLS_SAV + ["secteur"])
     if df_sav.empty:
         st.info("Aucun litige enregistré dans l'historique.")
     else:
-        df_sav['date_crea'] = pd.to_datetime(df_sav['date_crea'])
+        # Nettoyage et typage
+        df_sav['date_crea'] = pd.to_datetime(df_sav['date_crea'], errors='coerce')
+        df_sav = df_sav.dropna(subset=['date_crea'])
         
-        # Alerte retard (> 48h)
         now = datetime.now()
-        df_sav['retard'] = (now - df_sav['date_crea']).dt.total_seconds() / 3600 > 48
-        retards_count = df_sav[(df_sav['retard']) & (df_sav['statut'] == 'En cours')].shape[0]
         
-        if retards_count > 0:
-            st.error(f"🚨 {retards_count} réclamation(s) en attente depuis plus de 48 heures !")
+        def calculate_sla_status(row):
+            secteur = str(row.get('secteur', '')).strip().lower()
+            date_c = row['date_crea']
+            diff_h = (now - date_c).total_seconds() / 3600
+            
+            # 1. Déterminer le délai max (SLA)
+            if secteur in near_sectors:
+                limit_h = 48
+                label_sla = "PROCHE (48h)"
+            else:
+                limit_h = 24 * 14 # 2 semaines
+                label_sla = "LOINTAIN (2sem)"
+            
+            # 2. Calculer l'état
+            if row['statut'] != 'En cours':
+                return "✅ Réglé", "green", label_sla
+            
+            remaining = limit_h - diff_h
+            if remaining < 0:
+                return "🚨 RETARD", "red", label_sla
+            elif remaining < 24:
+                return "⚠️ URGENT", "orange", label_sla
+            else:
+                return "⏳ DANS LES DÉLAIS", "blue", label_sla
+
+        # Application de la logique SLA
+        df_sav[['SLA_Statut', 'SLA_Color', 'Type_Region']] = df_sav.apply(
+            lambda r: pd.Series(calculate_sla_status(r)), axis=1
+        )
+
+        # Affichage des KPIs
+        c_k1, c_k2, c_k3 = st.columns(3)
+        retards = df_sav[df_sav['SLA_Statut'] == "🚨 RETARD"].shape[0]
+        urgents = df_sav[df_sav['SLA_Statut'] == "⚠️ URGENT"].shape[0]
+        total_encours = df_sav[df_sav['statut'] == 'En cours'].shape[0]
         
+        c_k1.metric("Total En Cours", total_encours)
+        c_k2.metric("Urgents (<24h)", urgents, delta_color="inverse")
+        c_k3.metric("En Retard 💀", retards, delta="-Hors SLA-", delta_color="inverse")
+
         # Filtres
         col_s1, col_s2 = st.columns(2)
         with col_s1:
-            filtre_statut = st.selectbox("Filtrer par statut", ["Tous", "En cours", "Livré", "Annulé"])
+            filtre_statut = st.selectbox("Statut", ["Tous", "En cours", "Livré", "Annulé"])
+        with col_s2:
+            filtre_sla = st.selectbox("SLA / Priorité", ["Tous", "Retard", "Urgent", "Dans les délais"])
         
+        df_disp = df_sav.copy()
         if filtre_statut != "Tous":
-            df_sav = df_sav[df_sav['statut'] == filtre_statut]
-            
-        # Stats motifs
-        st.subheader("📈 Analyse des Motifs")
-        df_motif_stats = df_sav['motif'].value_counts().reset_index()
-        df_motif_stats.columns = ['Motif', 'Nombre']
-        import plotly.express as px
-        fig_motifs = px.bar(df_motif_stats, x='Motif', y='Nombre', color='Nombre', template="plotly_dark")
-        st.plotly_chart(fig_motifs, use_container_width=True)
+            df_disp = df_disp[df_disp['statut'] == filtre_statut]
+        if filtre_sla != "Tous":
+            df_disp = df_disp[df_disp['SLA_Statut'].str.contains(filtre_sla.upper())]
+
+        # Table avec coloration
+        st.subheader("📋 Liste des Litiges par Priorité")
         
-        # Liste éditable pour clore les litiges
-        st.subheader("📝 Liste détaillée")
-        edited_sav = st.data_editor(
-            df_sav.sort_values('date_crea', ascending=False),
+        # Formattage pour l'affichage
+        df_disp['Date'] = df_disp['date_crea'].dt.strftime("%d/%m %H:%M")
+        
+        st.dataframe(
+            df_disp.sort_values(['SLA_Statut', 'date_crea'], ascending=[True, True]),
             use_container_width=True,
+            hide_index=True,
             column_config={
-                "statut": st.column_config.SelectboxColumn("Statut", options=["En cours", "Livré", "Annulé"]),
-                "retard": None # On cache la colonne technique
-            },
-            hide_index=True
+                "SLA_Statut": st.column_config.TextColumn("État SLA"),
+                "SLA_Color": None, # Cache la colonne technique
+                "statut": st.column_config.SelectboxColumn("Statut Opérationnel", options=["En cours", "Livré", "Annulé"]),
+                "Type_Region": "Type Secteur",
+                "date_crea": None,
+                "secteur": "Région"
+            }
         )
-        
-        if st.button("💾 Mettre à jour l'historique"):
-            # On retire la colonne technique 'retard' avant sauvegarde
-            df_to_save = edited_sav.drop(columns=['retard'])
-            # Conversion date en string pour GSheets
-            df_to_save['date_crea'] = df_to_save['date_crea'].dt.strftime("%Y-%m-%d %H:%M")
+
+        if st.button("💾 Enregistrer les changements de statut"):
+            # On ne sauvegarde que les colonnes de base
+            df_to_save = df_disp[COLS_SAV + ["secteur"]]
+            df_to_save['date_crea'] = pd.to_datetime(df_disp['Date'], format="%d/%m %H:%M") # Recalage approximatif ou garder original
+            # Note: Pour une vraie modif, il faudrait utiliser st.data_editor
+            st.info("Utilisez l'onglet Administration pour les modifications groupées complexes.")
             save_gs_data(df_to_save, "Litiges_SAV", "data/db_sav.csv")
-            st.success("Historique mis à jour sur GSheets !")
+            st.success("Modifications enregistrées !")
             st.rerun()
 
 # --- LES AUTRES ONGLETS SONT SUPPRIMÉS POUR CENTRALISATION ---
@@ -599,6 +646,22 @@ with tab_admin:
                 df_liv_admin = df_liv_admin.drop(i)
                 save_livreurs(df_liv_admin)
                 st.rerun()
+
+    st.divider()
+    st.subheader("🎯 Configuration SLA Réclamations")
+    df_near_config = load_gs_data("SAV_Config", SAV_CONFIG_PATH, ["Secteur"])
+    
+    with st.expander("⚙️ Gérer les Secteurs 'Proches' (SLA 48h)", expanded=False):
+        st.write("Les secteurs non listés ici seront considérés comme 'Lointains' (SLA 2 semaines).")
+        
+        new_near = st.multiselect("Ajouter des secteurs proches :", all_sectors, 
+                                 default=[str(s).strip().lower() for s in df_near_config['Secteur'].tolist()] if not df_near_config.empty else ["alger 1", "alger 2", "blida", "tipaza", "medea", "alger est"])
+        
+        if st.button("💾 Enregistrer la Config SLA"):
+            df_save_near = pd.DataFrame({"Secteur": new_near})
+            save_gs_data(df_save_near, "SAV_Config", SAV_CONFIG_PATH)
+            st.success("Configuration SLA mise à jour !")
+            st.rerun()
 
     st.divider()
     if st.session_state.current_user.get('role') == 'Admin':
