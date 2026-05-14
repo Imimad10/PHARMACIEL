@@ -304,7 +304,7 @@ if not applied_theme:
     # Style Responsive et Bouton Déconnexion
     st.markdown("""
     <style>
-        /* Modern Sidebar Navigation Styles - RADICAL COMPACT */
+        /* Modern Sidebar Navigation Styles - BALANCED COMPACT */
         [data-testid="stSidebarNav"] {
             padding-top: 0px !important;
         }
@@ -312,50 +312,51 @@ if not applied_theme:
             padding-top: 0px !important;
         }
         [data-testid="stSidebarNav"] li {
-            padding: 0px 4px !important;
-            margin: 0px !important;
-            height: 32px !important;
+            padding: 0px 8px !important;
+            margin: 2px 0px !important; /* Espace entre les modules */
+            height: 38px !important;
         }
         [data-testid="stSidebarNav"] a {
-            padding: 0px 8px !important;
+            padding: 0px 12px !important;
             margin: 0px !important;
-            height: 28px !important;
-            line-height: 28px !important;
-            border-radius: 6px !important;
+            height: 34px !important;
+            line-height: 34px !important;
+            border-radius: 8px !important;
             display: flex !important;
             align-items: center !important;
             background-color: transparent !important;
+            transition: all 0.2s ease !important;
         }
         [data-testid="stSidebarNav"] a[aria-current="page"] {
-            background-color: rgba(91, 108, 249, 0.1) !important;
-            border-left: 2px solid #5b6cf9 !important;
+            background-color: rgba(91, 108, 249, 0.12) !important;
+            border-left: 4px solid #5b6cf9 !important;
         }
         [data-testid="stSidebarNav"] span {
-            font-size: 0.8rem !important;
+            font-size: 0.88rem !important;
             font-weight: 600 !important;
-            line-height: 1 !important;
+            line-height: 1.2 !important;
             color: #4b5563 !important;
         }
         [data-testid="stSidebarNav"] a[aria-current="page"] span {
             color: #5b6cf9 !important;
         }
         
-        /* Sidebar Group Headers - RADICAL COMPACT */
+        /* Sidebar Group Headers - BALANCED COMPACT */
         [data-testid="stSidebarNavSeparator"] {
-            margin-top: 25px !important;
-            margin-bottom: 2px !important;
-            border-bottom: 1px solid rgba(0,0,0,0.05) !important;
+            margin-top: 35px !important; /* Encore plus d'espace avant le groupe suivant */
+            margin-bottom: 5px !important;
+            border-bottom: 1px solid rgba(0,0,0,0.06) !important;
         }
         [data-testid="stSidebarNav"] div[data-testid="stSidebarNavSeparator"] + div {
             margin-top: 15px !important;
-            margin-bottom: 6px !important;
+            margin-bottom: 8px !important;
             padding-left: 10px !important;
             font-weight: 800 !important;
             text-transform: uppercase !important;
-            font-size: 0.65rem !important;
-            letter-spacing: 0.5px !important;
+            font-size: 0.68rem !important;
+            letter-spacing: 0.8px !important;
             color: #5b6cf9 !important;
-            opacity: 0.8;
+            opacity: 0.9;
             display: block !important;
             clear: both !important;
         }
