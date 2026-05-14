@@ -603,19 +603,21 @@ if st.session_state.current_user is None:
                 max-width: 500px;
             }}
             
-            /* Styles de la carte de connexion */
-            .login-card {{
-                background: {card_bg_color};
+            /* Styles de la carte de connexion (Ciblage direct de la colonne) */
+            [data-testid="column"]:nth-of-type(2) > div {{
+                background: {card_bg_color} !important;
                 {card_backdrop}
-                padding: 30px 20px 25px 20px;
-                border-radius: 15px;
-                box-shadow: {card_shadow};
-                border: 1px solid rgba(255,255,255,0.1);
+                padding: 40px 30px !important;
+                border-radius: 20px !important;
+                box-shadow: {card_shadow} !important;
+                border: 1px solid rgba(255,255,255,0.1) !important;
                 animation: float3D 6s infinite ease-in-out;
             }}
-            .login-card:hover {{
-                transform: translateY(-5px);
-                box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            
+            /* Supprimer les marges par défaut entre les widgets dans la carte */
+            [data-testid="column"]:nth-of-type(2) [data-testid="stVerticalBlock"] > div {{
+                padding-bottom: 0px !important;
+                margin-bottom: -5px !important;
             }}
             
             /* Style des inputs Streamlit */
@@ -683,46 +685,40 @@ if st.session_state.current_user is None:
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
-        # On utilise un container unique pour tout le bloc de droite
-        with st.container():
-            st.markdown('<div class="login-card">', unsafe_allow_html=True)
-            
-            # Thème selector très compact
-            themes_login = ["Clair", "Sombre", "Chic Animé", "USMH", "CRB", "USMA", "MCA"]
-            idx_theme = themes_login.index(st.session_state.theme) if st.session_state.theme in themes_login else 0
-            choix_theme = st.selectbox("Thème", themes_login, index=idx_theme, key="login_theme_selector", label_visibility="collapsed")
-            if choix_theme != st.session_state.theme:
-                st.session_state.theme = choix_theme
-                st.rerun()
+        # Thème selector très compact
+        themes_login = ["Clair", "Sombre", "Chic Animé", "USMH", "CRB", "USMA", "MCA"]
+        idx_theme = themes_login.index(st.session_state.theme) if st.session_state.theme in themes_login else 0
+        choix_theme = st.selectbox("Thème", themes_login, index=idx_theme, key="login_theme_selector", label_visibility="collapsed")
+        if choix_theme != st.session_state.theme:
+            st.session_state.theme = choix_theme
+            st.rerun()
 
-            u = st.text_input("Username", placeholder="Nom d'utilisateur", label_visibility="collapsed", key="login_u")
-            p = st.text_input("Password", type="password", placeholder="Mot de passe", label_visibility="collapsed", key="login_p")
-            
-            c_login1, c_login2 = st.columns([1, 1])
-            rester_connecte = c_login1.checkbox("Rester connecté", value=True)
-            
-            if st.button("Se connecter", type="primary", use_container_width=True):
-                res = df_users[(df_users['username'] == u) & (df_users['password'] == p)]
-                if not res.empty:
-                    user_data = res.iloc[0].to_dict()
-                    st.session_state.current_user = user_data
-                    if rester_connecte:
-                        st.session_state.remember_me = True
-                        try:
-                            controller.set("user_token", str(user_data['username']), max_age=86400 * 30) 
-                        except Exception as e:
-                            st.warning(f"Note : Connexion auto non enregistrée ({e})")
-                    else:
-                        st.session_state.remember_me = False
-                        try:
-                            if controller.get("user_token"):
-                                controller.remove("user_token")
-                        except Exception:
-                            pass
-                    st.rerun()
+        u = st.text_input("Username", placeholder="Nom d'utilisateur", label_visibility="collapsed", key="login_u")
+        p = st.text_input("Password", type="password", placeholder="Mot de passe", label_visibility="collapsed", key="login_p")
+        
+        rester_connecte = st.checkbox("Rester connecté", value=True)
+        
+        if st.button("Se connecter", type="primary", use_container_width=True):
+            res = df_users[(df_users['username'] == u) & (df_users['password'] == p)]
+            if not res.empty:
+                user_data = res.iloc[0].to_dict()
+                st.session_state.current_user = user_data
+                if rester_connecte:
+                    st.session_state.remember_me = True
+                    try:
+                        controller.set("user_token", str(user_data['username']), max_age=86400 * 30) 
+                    except Exception as e:
+                        st.warning(f"Note : Connexion auto non enregistrée ({e})")
                 else:
-                    st.error("Identifiants incorrects.")
-            st.markdown('</div>', unsafe_allow_html=True)
+                    st.session_state.remember_me = False
+                    try:
+                        if controller.get("user_token"):
+                            controller.remove("user_token")
+                    except Exception:
+                        pass
+                st.rerun()
+            else:
+                st.error("Identifiants incorrects.")
 
     st.stop()
 
