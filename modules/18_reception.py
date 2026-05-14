@@ -49,13 +49,20 @@ st.markdown("""
 def load_produits_reception():
     if os.path.exists(DB_PRODUITS_RECEPTION):
         try:
-            # Essayer plusieurs encodages et séparateurs
-            try:
-                df = pd.read_csv(DB_PRODUITS_RECEPTION, sep=',', encoding='utf-8-sig')
-                if len(df.columns) <= 1: df = pd.read_csv(DB_PRODUITS_RECEPTION, sep=';', encoding='utf-8-sig')
-            except:
-                df = pd.read_csv(DB_PRODUITS_RECEPTION, sep=';', encoding='latin-1')
+            # Essayer plusieurs encodages et séparateurs avec une tolérance accrue
+            df = None
+            for sep in [',', ';']:
+                for enc in ['utf-8-sig', 'latin-1', 'cp1252']:
+                    try:
+                        df = pd.read_csv(DB_PRODUITS_RECEPTION, sep=sep, encoding=enc, engine='python', on_bad_lines='skip')
+                        if len(df.columns) > 1: break
+                    except: continue
+                if df is not None and len(df.columns) > 1: break
             
+            if df is None:
+                # Dernier recours : lecture brute sans séparateur
+                df = pd.read_csv(DB_PRODUITS_RECEPTION, sep='\t', on_bad_lines='skip')
+
             # Normalisation des colonnes
             mapping = {
                 'designation': 'Designation', 'produit': 'Designation', 'article': 'Designation',
@@ -72,7 +79,6 @@ def load_produits_reception():
             
             # Vérifier si Designation existe
             if 'Designation' not in df.columns:
-                # Fallback : si une seule colonne, on l'appelle Designation
                 if len(df.columns) == 1: df.columns = ['Designation']
             
             return df
