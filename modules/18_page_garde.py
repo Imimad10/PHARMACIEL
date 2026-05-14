@@ -7,42 +7,62 @@ import io
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Générateur de Page de Garde", layout="centered", page_icon="📄")
 
-def generate_cover_pdf(fournisseur, date_recep, nb_factures, observation):
+def generate_cover_pdf(fournisseur, date_recep, nb_factures, observation, model="Classique"):
     # Création du PDF en orientation paysage (L)
     pdf = FPDF(orientation='L', unit='mm', format='A4')
     pdf.add_page()
     
-    # Bordure décorative
-    pdf.set_line_width(2)
-    pdf.rect(10, 10, 277, 190)
-    pdf.set_line_width(0.5)
-    pdf.rect(12, 12, 273, 186)
+    # --- STYLES PAR MODÈLE ---
+    theme_color = (91, 108, 249) # Bleu par défaut
+    if model == "Urgent / Alerte":
+        theme_color = (255, 75, 75) # Rouge
+    elif model == "Épuré":
+        theme_color = (100, 100, 100) # Gris
+    elif model == "Moderne / Chic":
+        theme_color = (233, 69, 96) # Rose/Rouge Chic
+    
+    # Bordure décorative (sauf pour épuré)
+    if model != "Épuré":
+        pdf.set_draw_color(*theme_color)
+        pdf.set_line_width(2)
+        pdf.rect(10, 10, 277, 190)
+        pdf.set_line_width(0.5)
+        pdf.rect(12, 12, 273, 186)
 
-    # Logo / Nom Entreprise (En haut à gauche)
+    # Logo / Nom Entreprise
     pdf.set_font("Arial", 'B', 20)
-    pdf.set_text_color(91, 108, 249)
+    pdf.set_text_color(*theme_color)
     pdf.cell(0, 15, "DARPHARM SOLUTION", ln=True, align='L')
     
-    pdf.ln(20)
+    pdf.ln(10)
+    
+    # Badge Urgent
+    if model == "Urgent / Alerte":
+        pdf.set_font("Arial", 'B', 40)
+        pdf.set_text_color(255, 75, 75)
+        pdf.cell(0, 20, "!!! URGENT !!!", ln=True, align='C')
+    
+    pdf.ln(10)
     
     # Titre Central
-    pdf.set_font("Arial", 'B', 45)
+    pdf.set_font("Arial", 'B', 40)
     pdf.set_text_color(0, 0, 0)
     pdf.cell(0, 30, "PAGE DE GARDE RÉCEPTION", ln=True, align='C')
     
     pdf.ln(10)
     
     # Fournisseur (Très Gros)
-    pdf.set_font("Arial", 'B', 60)
-    pdf.cell(0, 40, fournisseur.upper(), ln=True, align='C')
+    pdf.set_font("Arial", 'B', 70)
+    pdf.cell(0, 45, fournisseur.upper(), ln=True, align='C')
     
     pdf.ln(10)
     
     # Date et Détails
     pdf.set_font("Arial", 'B', 30)
+    pdf.set_text_color(*theme_color)
     pdf.cell(135, 20, f"DATE: {date_recep}", ln=False, align='L')
     if nb_factures:
-        pdf.cell(135, 20, f"NB FACTURES: {nb_factures}", ln=True, align='R')
+        pdf.cell(135, 20, f"FACTURATIONS: {nb_factures}", ln=True, align='R')
     else:
         pdf.ln(20)
         
@@ -86,29 +106,43 @@ with st.container(border=True):
         
     with col2:
         nb_fac = st.text_input("🔢 Nombre de factures dans le lot (Optionnel)")
+        model_sel = st.selectbox("🎨 Modèle Visuel", ["Classique", "Urgent / Alerte", "Épuré", "Moderne / Chic"])
         obs = st.text_area("✍️ Observation particulière", placeholder="Ex: Manque BL, Urgent, etc.")
 
     st.divider()
     
     if fourn:
-        pdf_bytes = generate_cover_pdf(fourn, date_rec.strftime("%d/%m/%Y"), nb_fac, obs)
+        pdf_bytes = generate_cover_pdf(fourn, date_rec.strftime("%d/%m/%Y"), nb_fac, obs, model=model_sel)
         
-        st.success("✅ Page de garde prête !")
+        st.success(f"✅ Modèle '{model_sel}' prêt !")
         st.download_button(
-            label="📥 Télécharger & Imprimer (Paysage)",
+            label=f"📥 Télécharger Page de Garde ({model_sel})",
             data=pdf_bytes,
-            file_name=f"PageGarde_{fourn}_{date_rec}.pdf",
+            file_name=f"PageGarde_{model_sel}_{fourn}_{date_rec}.pdf",
             mime="application/pdf",
             type="primary",
             use_container_width=True
         )
         
-        # Aperçu visuel simplifié
+        # Aperçu visuel simplifié dynamique
+        preview_border = "2px solid #5b6cf9"
+        preview_color = "#5b6cf9"
+        if model_sel == "Urgent / Alerte":
+            preview_border = "5px solid #ff4b4b"
+            preview_color = "#ff4b4b"
+        elif model_sel == "Épuré":
+            preview_border = "1px solid #ccc"
+            preview_color = "#333"
+        elif model_sel == "Moderne / Chic":
+            preview_border = "3px solid #e94560"
+            preview_color = "#e94560"
+
         st.markdown(f"""
-            <div style="border: 2px solid #5b6cf9; border-radius: 10px; padding: 40px; background: white; text-align: center; margin-top: 20px;">
-                <h3 style="color: #64748b; margin: 0;">APERÇU</h3>
-                <h1 style="font-size: 50px; margin: 20px 0;">{fourn.upper()}</h1>
-                <h2 style="color: #5b6cf9;">{date_rec.strftime("%d/%m/%Y")}</h2>
+            <div style="border: {preview_border}; border-radius: 10px; padding: 40px; background: white; text-align: center; margin-top: 20px;">
+                <h3 style="color: #64748b; margin: 0;">APERÇU DU MODÈLE</h3>
+                {f'<h1 style="color: #ff4b4b; font-weight: 900;">!!! URGENT !!!</h1>' if model_sel == "Urgent / Alerte" else ''}
+                <h1 style="font-size: 55px; margin: 20px 0; color: black;">{fourn.upper()}</h1>
+                <h2 style="color: {preview_color};">{date_rec.strftime("%d/%m/%Y")}</h2>
             </div>
         """, unsafe_allow_html=True)
     else:
