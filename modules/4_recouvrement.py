@@ -215,15 +215,14 @@ with tabs[0]:
             statut = st.selectbox("Statut Initial", STATUS_OPTIONS)
             comm = st.text_area("Commentaires / Notes", placeholder="Ex: Promesse de paiement pour lundi...")
             
-            if st.form_submit_button("➕ Ajouter à la liste"):
+            if st.form_submit_button("➕ Ajouter à la liste (Instantané)"):
                 if not nom_sel:
                     st.error("Veuillez sélectionner un client.")
                 else:
-                    db = load_data(DATA_RECOUV, COLS_RECOUV)
                     reste = max(0.0, montant_ini - montant_reg)
-                    new_row = pd.DataFrame([{
+                    new_entry = {
                         "Client": nom_sel, 
-                        "Facture": f"MANUEL_{datetime.now().strftime('%d%m%H%M')}",
+                        "Facture": f"MAN_FAST_{datetime.now().strftime('%d%m%H%M%S')}",
                         "Date": str(datetime.now().date()),
                         "Montant Initial": montant_ini,
                         "Montant Réglé": montant_reg,
@@ -233,10 +232,32 @@ with tabs[0]:
                         "Région": reg_auto, 
                         "Statut": statut,
                         "Commentaires": comm
-                    }])
-                    save_data(pd.concat([db, new_row], ignore_index=True), DATA_RECOUV)
-                    st.success("Dossier créé !")
+                    }
+                    
+                    # --- OPTIMISATION : AJOUT INSTANTANÉ EN SESSION ---
+                    if "pending_rec" not in st.session_state: st.session_state.pending_rec = []
+                    st.session_state.pending_rec.append(new_entry)
+                    st.toast(f"✅ {nom_sel} ajouté au tampon local !", icon="⚡")
                     st.rerun()
+
+    # --- ZONE DE SYNCHRONISATION RAPIDE ---
+    if "pending_rec" in st.session_state and st.session_state.pending_rec:
+        with st.container(border=True):
+            st.markdown(f"⚡ **{len(st.session_state.pending_rec)} dossiers en attente de synchronisation Cloud**")
+            c_s1, c_s2 = st.columns([1, 1])
+            if c_s1.button("🚀 Tout envoyer sur le Cloud (GSheets)", type="primary", use_container_width=True):
+                with st.spinner("Synchronisation groupée en cours..."):
+                    db = load_data(DATA_RECOUV, COLS_RECOUV)
+                    df_pending = pd.DataFrame(st.session_state.pending_rec)
+                    save_data(pd.concat([db, df_pending], ignore_index=True), DATA_RECOUV)
+                    st.session_state.pending_rec = []
+                    st.success("✅ Tout est synchronisé !")
+                    st.rerun()
+            if c_s2.button("🗑️ Annuler les ajouts locaux", use_container_width=True):
+                st.session_state.pending_rec = []
+                st.rerun()
+            
+            st.dataframe(pd.DataFrame(st.session_state.pending_rec)[["Client", "Montant Initial", "Statut"]], hide_index=True)
 
     with col2:
         st.subheader("Import Excel")
