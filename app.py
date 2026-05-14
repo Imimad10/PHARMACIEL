@@ -787,15 +787,15 @@ if not pages_to_show:
         st.rerun()
     st.stop()
 
-# --- 6. NAVIGATION ET SIDEBAR ---
-from utils_notifications import show_notification_center
-from utils_search import show_search_bar
+# --- 6. NAVIGATION ET SIDEBAR (ACCORDÉON) ---
+if "active_group" not in st.session_state:
+    st.session_state.active_group = "📊 SUPERVISION"
 
-# Initialiser la navigation
-pg = st.navigation(pages_to_show)
+# Initialiser la navigation (Masquer le menu par défaut pour notre accordéon)
+pg = st.navigation(pages_to_show, position="hidden")
 
 with st.sidebar:
-    # Titre ou Logo avec style premium
+    # 1. Logo & Header
     if os.path.exists("logo.png"):
         st.image("logo.png", use_container_width=True)
     else:
@@ -807,6 +807,7 @@ with st.sidebar:
             </div>
         """, unsafe_allow_html=True)
         
+    # 2. Infos Utilisateur & Thème
     st.markdown(f"""
         <div style="background: rgba(91,108,249,0.05); padding: 12px; border-radius: 12px; margin-bottom: 10px; border-left: 4px solid #5b6cf9;">
             <p style="margin: 0; font-size: 0.85rem; color: #6b7299;">Utilisateur connecté</p>
@@ -817,7 +818,6 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
     
-    # --- SÉLECTEUR DE THÈME (Placé en haut pour visibilité) ---
     themes_disponibles = ["Clair", "Sombre", "Chic Animé", "USMH", "CRB", "USMA", "MCA"]
     current_index = themes_disponibles.index(st.session_state.theme) if st.session_state.theme in themes_disponibles else 0
     new_theme = st.selectbox("🎨 Thème d'affichage", themes_disponibles, index=current_index, key="sidebar_theme_selector")
@@ -825,51 +825,39 @@ with st.sidebar:
         st.session_state.theme = new_theme
         st.rerun()
 
-    # Afficher le thème actif de l'utilisateur (depuis la base admin)
-    _td = load_themes_db()
-    _at = get_active_themes(_td)
-    _uname = user.get('username', '')
-    _uid = _td.get('user_theme_assignments', {}).get(_uname)
-    if _uid:
-        _tname = next((t['name'] for t in _at if t['id'] == _uid), None)
-        if _tname:
-            st.caption(f"🎨 Thème attribué : **{_tname}**")
-    
-    st.markdown("<div style='margin: 10px 0;'></div>", unsafe_allow_html=True)
-    
-    # --- AJOUTS RÉCENTS (RECH. & NOTIFS) ---
     show_notification_center()
     show_search_bar()
     
-    st.markdown("<div style='margin: 15px 0;'></div>", unsafe_allow_html=True)
-
-    # Sélecteur de Mode de Stockage
-    if "storage_mode" not in st.session_state:
-        st.session_state.storage_mode = "Cloud"
-    
-    st.session_state.storage_mode = st.radio(
-        "📂 Mode de Stockage", 
-        ["Cloud", "Local"], 
-        index=0 if st.session_state.storage_mode == "Cloud" else 1,
-        help="Cloud: Synchronisation directe. Local: Travail sur PC avec synchro manuelle."
-    )
-    
-    if st.session_state.storage_mode == "Local":
-        st.warning("⚡ Mode Local : N'oubliez pas d'exporter vos données vers le Cloud.")
-    
     st.divider()
 
-    st.divider()
-    if st.button("📱 Mode Mobile", use_container_width=True, key="btn_mobile"):
-        st.switch_page("modules/12_mobile_scan.py")
+    # 3. ACCORDÉON DE NAVIGATION
+    st.markdown("### 🗺️ Modules")
+    for group_name, pages in pages_to_show.items():
+        is_active = st.session_state.active_group == group_name
         
+        # Bouton Header du Groupe
+        if st.button(group_name, key=f"grp_{group_name}", use_container_width=True, 
+                     type="primary" if is_active else "secondary"):
+            st.session_state.active_group = group_name
+            st.rerun()
+            
+        # Contenu du Groupe (Si Actif)
+        if is_active:
+            st.markdown('<div style="padding-left: 15px; border-left: 2px solid #5b6cf9; margin-top: 5px; margin-bottom: 15px;">', unsafe_allow_html=True)
+            for p in pages:
+                st.page_link(p, label=p.title, icon=p.icon)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    st.divider()
+
+    # 4. Paramètres & Déconnexion
     if st.button("🚪 Déconnexion", use_container_width=True, key="btn_logout"):
         st.session_state.current_user = None
         try:
             if controller.get("user_token"):
                 controller.remove("user_token")
-        except Exception:
-            pass
+        except Exception: pass
         st.rerun()
 
+# Exécuter la page sélectionnée
 pg.run()
