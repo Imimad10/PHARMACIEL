@@ -585,7 +585,7 @@ if st.session_state.current_user is None:
             }}
             
             /* Style du bouton de connexion */
-            div[data-testid="stFormSubmitButton"] button {{
+            .stButton button {
                 background: {btn_bg} !important;
                 color: white !important;
                 font-size: 20px !important;
@@ -597,12 +597,12 @@ if st.session_state.current_user is None:
                 margin-top: 10px !important;
                 transition: all 0.3s ease !important;
                 box-shadow: 0 5px 15px rgba(0,0,0,0.2) !important;
-            }}
-            div[data-testid="stFormSubmitButton"] button:hover {{
+            }
+            .stButton button:hover {
                 background: {btn_hover} !important;
                 transform: translateY(-3px) scale(1.02) !important;
                 box-shadow: 0 8px 25px rgba(0,0,0,0.3) !important;
-            }}
+            }
 
             [data-testid="stForm"] {{
                 border: none !important;
@@ -638,35 +638,34 @@ if st.session_state.current_user is None:
                 st.rerun()
 
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
-        with st.form("login_form"):
-            u = st.text_input("Username", placeholder="Nom d'utilisateur", label_visibility="collapsed")
-            p = st.text_input("Password", type="password", placeholder="Mot de passe", label_visibility="collapsed")
-            rester_connecte = st.checkbox("Rester connecté", value=True)
-            submit = st.form_submit_button("Se connecter")
-            
-            if submit:
-                res = df_users[(df_users['username'] == u) & (df_users['password'] == p)]
-                if not res.empty:
-                    user_data = res.iloc[0].to_dict()
-                    st.session_state.current_user = user_data
-                    if rester_connecte:
-                        st.session_state.remember_me = True
-                        try:
-                            # Correction du TypeError : on s'assure que la valeur est une chaîne
-                            controller.set("user_token", str(user_data['username']), max_age=86400 * 30) 
-                        except Exception as e:
-                            # On ne bloque pas la connexion si le cookie échoue
-                            st.warning(f"Note : Connexion auto non enregistrée ({e})")
-                    else:
-                        st.session_state.remember_me = False
-                        try:
-                            if controller.get("user_token"):
-                                controller.remove("user_token")
-                        except Exception:
-                            pass
-                    st.rerun()
+        u = st.text_input("Username", placeholder="Nom d'utilisateur", label_visibility="collapsed", key="login_u")
+        p = st.text_input("Password", type="password", placeholder="Mot de passe", label_visibility="collapsed", key="login_p")
+        
+        c_login1, c_login2 = st.columns([1, 1])
+        rester_connecte = c_login1.checkbox("Rester connecté", value=True)
+        
+        if st.button("Se connecter", type="primary", use_container_width=True):
+            res = df_users[(df_users['username'] == u) & (df_users['password'] == p)]
+            if not res.empty:
+                user_data = res.iloc[0].to_dict()
+                st.session_state.current_user = user_data
+                if rester_connecte:
+                    st.session_state.remember_me = True
+                    try:
+                        controller.set("user_token", str(user_data['username']), max_age=86400 * 30) 
+                    except Exception as e:
+                        st.warning(f"Note : Connexion auto non enregistrée ({e})")
                 else:
-                    st.error("Identifiants incorrects.")
+                    st.session_state.remember_me = False
+                    try:
+                        if controller.get("user_token"):
+                            controller.remove("user_token")
+                    except Exception:
+                        pass
+                st.rerun()
+            else:
+                st.error("Identifiants incorrects.")
+        st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.stop()
