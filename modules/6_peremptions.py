@@ -202,8 +202,8 @@ with tab1:
                         st.markdown("""
                         - **Promotion Rapide** : Remise commerciale agressive (Ex: -30%).
                         - **Rotation FEFO** : Transfert vers le point de vente le plus actif.
+                        - **Sécurité Patient** : Pour les traitements chroniques (Diabète, HTA), retirer de la vente si DDP < 4 mois pour éviter la péremption chez le patient.
                         - **Retour Labo** : Vérifier la convention de retour (si < 6 mois).
-                        - **Quarantaine** : Isoler physiquement les produits périmés pour destruction.
                         """)
                     
                     if is_ia_enabled():
@@ -212,11 +212,18 @@ with tab1:
                         if st.button("🧠 Analyser et Proposer des Solutions", type="primary", use_container_width=True):
                             with st.spinner("L'IA analyse votre stock critique..."):
                                 liste_prods = "\n".join([f"- {r['designation']} (Lot {r['lot']}) : {r['mois_restants']} mois restants" for _, r in critiques.head(15).iterrows()])
-                                prompt = f"""Tu es Directeur Supply Chain en pharmacie. 
-                                Voici une liste partielle de nos produits en risque de péremption :
+                                prompt = f"""Tu es Pharmacien Expert et Directeur Supply Chain. 
+                                Voici une liste partielle de produits en risque de péremption :
                                 {liste_prods}
                                 
-                                Propose 3 actions concrètes, innovantes et immédiates pour écouler ce stock ou minimiser les pertes. Sois concis et professionnel."""
+                                CONTEXTE CRITIQUE : Nous devons garantir la SÉCURITÉ PATIENT. Un patient chronique (diabète, HTA) qui achète une boîte de 30 comprimés ne doit pas voir son traitement périmer chez lui.
+                                
+                                Analyse cette liste et propose une stratégie de 'Vigilance Pharmaceutique' :
+                                1. Quels produits sont les plus risqués pour les malades chroniques ?
+                                2. Quelle marge de sécurité (en mois) préconises-tu pour éviter qu'un produit ne périme chez le patient ?
+                                3. Quelles actions immédiates pour ces lots spécifiques (Retrait, échange, ou vente à l'unité) ?
+                                
+                                Sois précis, médicalement responsable et professionnel."""
                                 reponse = ask_ai(prompt)
                                 st.session_state['ia_ddp_advice'] = reponse
                         
