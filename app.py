@@ -788,6 +788,9 @@ if not pages_to_show:
     st.stop()
 
 # --- 6. NAVIGATION ET SIDEBAR (ACCORDÉON) ---
+from utils_notifications import show_notification_center
+from utils_search import show_search_bar
+
 if "active_group" not in st.session_state:
     st.session_state.active_group = "📊 SUPERVISION"
 
