@@ -342,13 +342,15 @@ if not applied_theme:
         
         /* Sidebar Group Headers - RADICAL COMPACT */
         [data-testid="stSidebarNav"] div[data-testid="stSidebarNavSeparator"] + div {
-            margin-top: 8px !important;
-            margin-bottom: 2px !important;
+            margin-top: 22px !important;
+            margin-bottom: 6px !important;
             padding-left: 10px !important;
             font-weight: 800 !important;
             text-transform: uppercase !important;
-            font-size: 0.6rem !important;
-            color: #9ca3af !important;
+            font-size: 0.65rem !important;
+            letter-spacing: 0.5px !important;
+            color: #5b6cf9 !important;
+            opacity: 0.8;
         }
 
         div[data-testid="stBaseButton-btn_logout"] button {
