@@ -308,13 +308,26 @@ if not applied_theme:
         [data-testid="stSidebarNav"] ul {
             padding-top: 10px !important;
         }
+        [data-testid="stSidebarNav"] li {
+            padding: 0px 10px !important;
+        }
+        [data-testid="stSidebarNav"] a {
+            padding: 4px 12px !important;
+            margin: 2px 0px !important;
+            border-radius: 10px !important;
+            transition: all 0.3s ease !important;
+        }
+        [data-testid="stSidebarNav"] a[aria-current="page"] {
+            background-color: rgba(91, 108, 249, 0.12) !important;
+            border-left: 4px solid #5b6cf9 !important;
+        }
         [data-testid="stSidebarNav"] span {
-            font-size: 1.1rem !important;
+            font-size: 0.95rem !important;
             font-weight: 600 !important;
             transition: all 0.3s ease !important;
         }
         [data-testid="stSidebarNav"] a:hover span {
-            transform: translateX(5px) scale(1.05) !important;
+            transform: translateX(5px) scale(1.02) !important;
             color: #5b6cf9 !important;
         }
         
