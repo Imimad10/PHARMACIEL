@@ -127,9 +127,12 @@ with st.container(border=True):
         # Aperçu visuel simplifié dynamique
         preview_border = "2px solid #5b6cf9"
         preview_color = "#5b6cf9"
+        urgent_badge = ""
+        
         if model_sel == "Urgent / Alerte":
             preview_border = "5px solid #ff4b4b"
             preview_color = "#ff4b4b"
+            urgent_badge = '<h1 style="color: #ff4b4b; font-weight: 900; margin-bottom: 0;">!!! URGENT !!!</h1>'
         elif model_sel == "Épuré":
             preview_border = "1px solid #ccc"
             preview_color = "#333"
@@ -137,14 +140,15 @@ with st.container(border=True):
             preview_border = "3px solid #e94560"
             preview_color = "#e94560"
 
-        st.markdown(f"""
+        html_preview = f"""
             <div style="border: {preview_border}; border-radius: 10px; padding: 40px; background: white; text-align: center; margin-top: 20px;">
-                <h3 style="color: #64748b; margin: 0;">APERÇU DU MODÈLE</h3>
-                {f'<h1 style="color: #ff4b4b; font-weight: 900;">!!! URGENT !!!</h1>' if model_sel == "Urgent / Alerte" else ''}
-                <h1 style="font-size: 55px; margin: 20px 0; color: black;">{fourn.upper()}</h1>
-                <h2 style="color: {preview_color};">{date_rec.strftime("%d/%m/%Y")}</h2>
+                <h3 style="color: #64748b; margin: 0; font-family: sans-serif;">APERÇU DU MODÈLE</h3>
+                {urgent_badge}
+                <h1 style="font-size: 55px; margin: 20px 0; color: black; font-family: sans-serif;">{fourn.upper()}</h1>
+                <h2 style="color: {preview_color}; font-family: sans-serif;">{date_rec.strftime("%d/%m/%Y")}</h2>
             </div>
-        """, unsafe_allow_html=True)
+        """
+        st.markdown(html_preview, unsafe_allow_html=True)
     else:
         st.info("Veuillez saisir le nom du fournisseur pour générer la page.")
 
