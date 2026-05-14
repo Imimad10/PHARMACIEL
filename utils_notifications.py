@@ -59,6 +59,25 @@ def check_notifications():
                         "message": f"{len(critiques)} produits expirent dans < 3 mois."
                     })
     except: pass
+    
+    # 3. Check SAV (Réclamations > 48h)
+    if st.session_state.get("enable_sav_notifs", True):
+        try:
+            df_sav = load_gs_data("Litiges_SAV", "data/db_sav.csv", ["date_crea", "statut", "ref"])
+            if not df_sav.empty:
+                df_sav['date_crea'] = pd.to_datetime(df_sav['date_crea'], errors='coerce')
+                df_sav = df_sav.dropna(subset=['date_crea'])
+                
+                # Réclamations en cours de plus de 48h
+                mask = (df_sav['statut'] == 'En cours') & ((datetime.now() - df_sav['date_crea']).dt.total_seconds() / 3600 > 48)
+                retards = df_sav[mask]
+                
+                if not retards.empty:
+                    notifications.append({
+                        "type": "error", "icon": "🚛", "title": "SAV en Retard (>48h)",
+                        "message": f"{len(retards)} réclamations dépassent le délai de 48h."
+                    })
+        except: pass
 
     return notifications
 
@@ -92,6 +111,10 @@ def show_notification_center():
                 "{briefing}"
             </div>
         """, unsafe_allow_html=True)
+
+        # Réglages des notifications
+        st.write("---")
+        st.session_state.enable_sav_notifs = st.toggle("🔔 Alertes SAV (>48h)", value=st.session_state.get("enable_sav_notifs", True))
 
         st.divider()
 
