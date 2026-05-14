@@ -17,6 +17,7 @@ def parse_ddp_local(ddp_str):
         return pd.to_datetime(ddp_str)
     except: return None
 
+@st.cache_data(ttl=120)
 def check_notifications():
     notifications = []
     now = datetime.now()
@@ -61,16 +62,15 @@ def check_notifications():
 
     return notifications
 
-def get_ai_briefing(notifs):
+@st.cache_data(ttl=3600)
+def get_ai_briefing(notifs_summary):
     """Génère un petit message d'encouragement/alerte via l'IA."""
-    if not notifs:
+    if not notifs_summary:
         return "✨ Tout est sous contrôle. Vos stocks sont sains et la chaîne du froid est respectée."
     
     try:
         from utils_ia import ask_ai
-        # On simplifie les notifs pour le prompt
-        summary = ", ".join([n['title'] for n in notifs])
-        prompt = f"Voici les alertes actuelles de la pharmacie : {summary}. Fais un briefing ultra-court (2 phrases max) de ton rôle d'assistant expert DarPharm pour motiver l'équipe."
+        prompt = f"Voici les alertes actuelles de la pharmacie : {notifs_summary}. Fais un briefing ultra-court (2 phrases max) de ton rôle d'assistant expert DarPharm pour motiver l'équipe."
         return ask_ai(prompt)
     except:
         return "⚠️ L'assistant IA est temporairement indisponible pour le briefing."
@@ -78,23 +78,9 @@ def get_ai_briefing(notifs):
 def show_notification_center():
     with st.sidebar.expander("🔔 Centre de Notifications IA", expanded=False):
         notifs = check_notifications()
-        
-        # --- SON INTELLIGENT basé sur la sévérité ---
-        # On utilise session_state pour ne jouer le son qu'une seule fois par changement d'état
-        notif_key = str(sorted([n['title'] for n in notifs]))
-        prev_key = st.session_state.get("_last_notif_key", "")
-        
-        if notif_key != prev_key and notifs:
-            st.session_state["_last_notif_key"] = notif_key
-            has_error = any(n['type'] == 'error' for n in notifs)
-            if has_error:
-                play_sound("warning")   # Son grave pour les alertes critiques (périmés)
-            else:
-                play_sound("notification")  # Ding pour les avertissements
-        
-        # Briefing IA
-        st.markdown("### 🤖 Briefing Assistant")
-        briefing = get_ai_briefing(notifs)
+        # On passe un résumé textuel pour le cache
+        notifs_summary = ", ".join([n['title'] for n in notifs])
+        briefing = get_ai_briefing(notifs_summary)
         
         # Son doux lors de la réception de la réponse IA
         if briefing and briefing != st.session_state.get("_last_briefing", ""):

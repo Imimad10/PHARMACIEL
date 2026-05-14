@@ -842,7 +842,6 @@ with st.sidebar:
         if st.button(group_name, key=f"grp_{group_name}", use_container_width=True, 
                      type="primary" if is_active else "secondary"):
             st.session_state.active_group = group_name
-            st.rerun()
             
         # Contenu du Groupe (Si Actif)
         if is_active:
