@@ -605,7 +605,16 @@ with tabs[5]:
     with col_aff1:
         st.markdown("##### ➕ Créer une nouvelle affectation")
         reg_to_map = st.selectbox("Choisir une Région / Secteur", regions_list, index=None, placeholder="Secteur à affecter...")
-        liv_to_map = st.selectbox("Choisir le Livreur responsable", livreurs_list, index=None, placeholder="Livreur pour ce secteur...")
+        
+        # Sélection du livreur avec option de saisie manuelle
+        col_ls1, col_ls2 = st.columns([3, 1])
+        with col_ls1:
+            liv_to_map_sel = st.selectbox("Choisir le Livreur (Liste)", ["Autre / Saisir..."] + livreurs_list, index=0)
+        
+        if liv_to_map_sel == "Autre / Saisir...":
+            liv_to_map = st.text_input("Nom du Livreur (Manuel)", placeholder="Saisissez le nom ici...")
+        else:
+            liv_to_map = liv_to_map_sel
         
         if st.button("💾 Enregistrer l'affectation", use_container_width=True):
             if reg_to_map and liv_to_map:
