@@ -304,44 +304,49 @@ if not applied_theme:
     # Style Responsive et Bouton Déconnexion
     st.markdown("""
     <style>
-        /* Modern Sidebar Navigation Styles */
+        /* Modern Sidebar Navigation Styles - ULTRA COMPACT */
         [data-testid="stSidebarNav"] ul {
-            padding-top: 10px !important;
+            padding-top: 5px !important;
         }
         [data-testid="stSidebarNav"] li {
-            padding: 0px 10px !important;
+            padding: 0px 8px !important;
         }
         [data-testid="stSidebarNav"] a {
-            padding: 4px 12px !important;
-            margin: 2px 0px !important;
-            border-radius: 10px !important;
-            transition: all 0.3s ease !important;
+            padding: 2px 10px !important;
+            margin: 1px 0px !important;
+            min-height: 28px !important;
+            border-radius: 8px !important;
+            transition: all 0.2s ease !important;
+            background-color: transparent !important;
         }
         [data-testid="stSidebarNav"] a[aria-current="page"] {
-            background-color: rgba(91, 108, 249, 0.12) !important;
-            border-left: 4px solid #5b6cf9 !important;
+            background-color: rgba(91, 108, 249, 0.1) !important;
+            border-left: 3px solid #5b6cf9 !important;
         }
         [data-testid="stSidebarNav"] span {
-            font-size: 0.95rem !important;
+            font-size: 0.85rem !important;
             font-weight: 600 !important;
-            transition: all 0.3s ease !important;
+            color: #4b5563 !important;
+        }
+        [data-testid="stSidebarNav"] a[aria-current="page"] span {
+            color: #5b6cf9 !important;
         }
         [data-testid="stSidebarNav"] a:hover span {
-            transform: translateX(5px) scale(1.02) !important;
+            transform: translateX(3px) !important;
             color: #5b6cf9 !important;
         }
         
-        /* Sidebar Group Headers */
+        /* Sidebar Group Headers - ULTRA COMPACT */
         [data-testid="stSidebarNav"] div[data-testid="stSidebarNavSeparator"] + div {
-            margin-top: 20px !important;
-            margin-bottom: 10px !important;
-            padding-left: 15px !important;
-            font-weight: 900 !important;
+            margin-top: 12px !important;
+            margin-bottom: 4px !important;
+            padding-left: 12px !important;
+            font-weight: 800 !important;
             text-transform: uppercase !important;
-            font-size: 0.75rem !important;
-            letter-spacing: 1.5px !important;
-            color: #5b6cf9 !important;
-            opacity: 0.8;
+            font-size: 0.65rem !important;
+            letter-spacing: 1px !important;
+            color: #9ca3af !important;
+            opacity: 0.9;
         }
 
         div[data-testid="stBaseButton-btn_logout"] button {
