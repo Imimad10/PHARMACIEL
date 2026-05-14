@@ -794,72 +794,101 @@ from utils_search import show_search_bar
 if "active_group" not in st.session_state:
     st.session_state.active_group = "📊 SUPERVISION"
 
-# Initialiser la navigation (Masquer le menu par défaut pour notre accordéon)
+# Initialiser la navigation (Masquer le menu par défaut)
 pg = st.navigation(pages_to_show, position="hidden")
 
+# Injection CSS pour la lisibilité
+st.markdown("""
+    <style>
+        [data-testid="stSidebar"] {
+            background-color: #f8f9fa !important;
+        }
+        [data-testid="stSidebar"] .stButton > button {
+            font-size: 1.1rem !important;
+            font-weight: 700 !important;
+            border-radius: 10px !important;
+            height: 45px !important;
+        }
+        .sidebar-header {
+            font-size: 1.2rem !important;
+            font-weight: 800 !important;
+            color: #1a1f3c !important;
+            margin-top: 20px !important;
+            margin-bottom: 10px !important;
+        }
+        .user-box {
+            background: #ffffff;
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 1px solid #e0e0e0;
+            margin-bottom: 20px;
+        }
+        /* Amélioration lisibilité liens de pages */
+        [data-testid="stSidebar"] a {
+            font-size: 1rem !important;
+            font-weight: 500 !important;
+            color: #4a5568 !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 with st.sidebar:
-    # 1. Logo & Header
-    if os.path.exists("logo.png"):
-        st.image("logo.png", use_container_width=True)
-    else:
-        st.markdown("""
-            <div style="text-align: center; padding: 10px 0; border-bottom: 2px solid rgba(91,108,249,0.1); margin-bottom: 15px;">
-                <h1 style="font-size: 1.8rem; margin: 0; background: linear-gradient(135deg, #5b6cf9, #1ab8c4); -webkit-background-clip: text; -webkit-text-fill-color: initial; color: #5b6cf9 !important;">
-                    <span class="material-symbols-outlined">pill</span> DarPharm
-                </h1>
-            </div>
-        """, unsafe_allow_html=True)
-        
-    # 2. Infos Utilisateur & Thème
-    st.markdown(f"""
-        <div style="background: rgba(91,108,249,0.05); padding: 12px; border-radius: 12px; margin-bottom: 10px; border-left: 4px solid #5b6cf9;">
-            <p style="margin: 0; font-size: 0.85rem; color: #6b7299;">Utilisateur connecté</p>
-            <p style="margin: 0; font-weight: 800; color: #1a1f3c;">
-                <span class="material-symbols-outlined" style="font-size: 18px;">person</span> {user['username']} 
-                <span style="font-weight: 400; font-size: 0.8rem; color: #6b7299;">({user.get('role', 'Saisie')})</span>
-            </p>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    themes_disponibles = ["Clair", "Sombre", "Chic Animé", "USMH", "CRB", "USMA", "MCA"]
-    current_index = themes_disponibles.index(st.session_state.theme) if st.session_state.theme in themes_disponibles else 0
-    new_theme = st.selectbox("🎨 Thème d'affichage", themes_disponibles, index=current_index, key="sidebar_theme_selector")
-    if new_theme != st.session_state.theme:
-        st.session_state.theme = new_theme
-        st.rerun()
-
-    show_notification_center()
-    show_search_bar()
-    
-    st.divider()
-
-    # 3. ACCORDÉON DE NAVIGATION
-    st.markdown("### 🗺️ Modules")
+    # 1. ACCORDÉON DE NAVIGATION (EN PREMIER)
+    st.markdown('<p class="sidebar-header">🗺️ MODULES</p>', unsafe_allow_html=True)
     for group_name, pages in pages_to_show.items():
         is_active = st.session_state.active_group == group_name
         
-        # Bouton Header du Groupe
         if st.button(group_name, key=f"grp_{group_name}", use_container_width=True, 
                      type="primary" if is_active else "secondary"):
             st.session_state.active_group = group_name
             
-        # Contenu du Groupe (Si Actif)
         if is_active:
-            st.markdown('<div style="padding-left: 15px; border-left: 2px solid #5b6cf9; margin-top: 5px; margin-bottom: 15px;">', unsafe_allow_html=True)
+            st.markdown('<div style="padding-left: 15px; border-left: 3px solid #5b6cf9; margin-top: 5px; margin-bottom: 15px;">', unsafe_allow_html=True)
             for p in pages:
                 st.page_link(p, label=p.title, icon=p.icon)
             st.markdown('</div>', unsafe_allow_html=True)
 
     st.divider()
 
-    # 4. Paramètres & Déconnexion
-    if st.button("🚪 Déconnexion", use_container_width=True, key="btn_logout"):
-        st.session_state.current_user = None
-        try:
-            if controller.get("user_token"):
-                controller.remove("user_token")
-        except Exception: pass
-        st.rerun()
+    # 2. NOTIFICATIONS & RECHERCHE
+    show_notification_center()
+    show_search_bar()
+    
+    st.markdown("<div style='margin: 30px 0;'></div>", unsafe_allow_html=True)
 
-# Exécuter la page sélectionnée
+    # 3. INFOS UTILISATEUR & THÈME (EN BAS)
+    with st.expander("👤 MON COMPTE", expanded=False):
+        st.markdown(f"""
+            <div class="user-box">
+                <p style="margin: 0; font-size: 0.9rem; color: #6b7299;">Connecté en tant que :</p>
+                <p style="margin: 0; font-size: 1.1rem; font-weight: 800; color: #1a1f3c;">{user['username']}</p>
+                <p style="margin: 0; font-size: 0.85rem; color: #5b6cf9; font-weight: 600;">Rôle : {user.get('role', 'Saisie')}</p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        themes_disponibles = ["Clair", "Sombre", "Chic Animé", "USMH", "CRB", "USMA", "MCA"]
+        current_index = themes_disponibles.index(st.session_state.theme) if st.session_state.theme in themes_disponibles else 0
+        new_theme = st.selectbox("🎨 Thème visuel", themes_disponibles, index=current_index, key="sidebar_theme_selector")
+        if new_theme != st.session_state.theme:
+            st.session_state.theme = new_theme
+            st.rerun()
+
+        if st.button("🚪 Déconnexion", use_container_width=True, key="btn_logout"):
+            st.session_state.current_user = None
+            try:
+                if controller.get("user_token"):
+                    controller.remove("user_token")
+            except Exception: pass
+            st.rerun()
+
+    st.divider()
+
+    # 4. LOGO (TOUT EN BAS)
+    if os.path.exists("logo.png"):
+        st.image("logo.png", use_container_width=True)
+    else:
+        st.markdown('<h2 style="text-align:center; color:#5b6cf9;">DarPharm</h2>', unsafe_allow_html=True)
+
+# Exécuter la page
 pg.run()
