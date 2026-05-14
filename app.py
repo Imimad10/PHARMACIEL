@@ -548,7 +548,6 @@ if st.session_state.current_user is None:
     st.markdown("""
         <div id="darpharm-loader">
             <img src="https://img.icons8.com/fluency/240/capsule.png" class="loader-logo">
-            <h2 style="color: #1877f2; font-weight: 900; margin-top: 15px;">DARPHARM SOLUTION</h2>
             <div class="loader-bar"><div class="loader-progress"></div></div>
             <script>
                 setTimeout(() => {
