@@ -2,265 +2,259 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
+import time
 from utils_ia import ask_ai, is_ia_enabled
 from utils_gsheets import load_gs_data
 
 # --- CONFIGURATION PAGE ---
-st.set_page_config(page_title="DarPharm Master Executive Dashboard", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="DarPharm Keynote Engine", layout="wide", initial_sidebar_state="collapsed")
 
-# --- STYLE EXECUTIVE MASTER ---
+# --- CSS: EBLOUISSANTES TRANSITIONS & ANIMATIONS ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Playfair+Display:wght@700&display=swap');
     
     .stApp {
-        background-color: #f8f9fa !important;
-        color: #1a1a1a !important;
-        font-family: 'Inter', -apple-system, sans-serif;
+        background: #000000 !important;
+        color: white !important;
+        font-family: 'Outfit', sans-serif;
     }
     
-    .main-header {
-        background: white;
-        padding: 20px 40px;
-        border-bottom: 1px solid #e9ecef;
+    /* Background FX */
+    .bokeh-bg {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: radial-gradient(circle at 20% 30%, rgba(91, 108, 249, 0.15) 0%, transparent 50%),
+                    radial-gradient(circle at 80% 70%, rgba(168, 85, 247, 0.1) 0%, transparent 50%);
+        z-index: -1;
+    }
+
+    /* Slide Transitions */
+    .slide-container {
+        animation: slideUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+        padding: 40px;
+        min-height: 80vh;
+    }
+    
+    @keyframes slideUp {
+        from { transform: translateY(50px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    
+    .slide-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 4.5rem;
         margin-bottom: 30px;
+        background: linear-gradient(to right, #fff, #94a3b8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    /* Executive Cards */
+    .glass-card {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 32px;
+        padding: 40px;
+        margin-bottom: 20px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+    }
+    
+    .metric-hero {
+        font-size: 6rem;
+        font-weight: 800;
+        letter-spacing: -3px;
+        color: #5b6cf9;
+        text-shadow: 0 0 30px rgba(91, 108, 249, 0.3);
+    }
+    
+    /* Navigation Bar */
+    .nav-dock {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        padding: 10px 30px;
+        border-radius: 50px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
         display: flex;
-        justify-content: space-between;
-        align-items: center;
+        gap: 20px;
+        z-index: 1000;
     }
     
-    .section-title {
-        font-size: 0.75rem;
-        font-weight: 800;
-        color: #6c757d;
-        text-transform: uppercase;
-        letter-spacing: 1.5px;
-        margin-bottom: 15px;
-        border-bottom: 2px solid #dee2e6;
-        padding-bottom: 5px;
+    .stButton button {
+        border-radius: 50px !important;
+        background: rgba(255,255,255,0.1) !important;
+        border: 1px solid rgba(255,255,255,0.2) !important;
+        color: white !important;
+        padding: 10px 25px !important;
+        height: 50px !important;
     }
-    
-    .kpi-card {
-        background: white;
-        border-radius: 16px;
-        padding: 25px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-        border: 1px solid #edf2f7;
-        height: 100%;
-        transition: transform 0.2s ease;
-    }
-    .kpi-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.05);
-    }
-    
-    .metric-val {
-        font-size: 2.2rem;
-        font-weight: 800;
-        color: #2d3748;
-        letter-spacing: -1px;
-        margin: 5px 0;
-    }
-    
-    .metric-label {
-        font-size: 0.85rem;
-        color: #718096;
-        font-weight: 500;
-    }
-    
-    .trend-up { color: #38a169; font-weight: 700; font-size: 0.8rem; }
-    .trend-down { color: #e53e3e; font-weight: 700; font-size: 0.8rem; }
-    
-    .ai-box {
-        background: #f0f4ff;
-        border-radius: 12px;
-        padding: 15px;
-        border-left: 4px solid #5a67d8;
-        font-size: 0.9rem;
-        color: #4a5568;
-        line-height: 1.4;
-    }
-    
-    .data-pill {
-        display: inline-block;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 0.7rem;
-        font-weight: 600;
-        background: #edf2f7;
-        color: #4a5568;
-        margin-top: 10px;
+    .stButton button:hover {
+        background: rgba(255,255,255,0.2) !important;
+        border-color: #5b6cf9 !important;
     }
 </style>
+<div class="bokeh-bg"></div>
 """, unsafe_allow_html=True)
 
-# --- DATA LOAD ---
-@st.cache_data(ttl=600)
-def fetch_master_data():
-    df_temp = load_gs_data("Suivi_Frigo", "suivi_data.csv")
-    df_rot = load_gs_data("Analyse_Rotation", "rotation_data.csv")
-    df_inv = load_gs_data("Inventaire_Global", "inventaire_data.csv")
-    df_rec = load_gs_data("Recouvrement", "recouvrement_data.csv")
-    return {"temp": df_temp, "rot": df_rot, "inv": df_inv, "rec": df_rec}
+# --- INITIALISATION SESSION STATE ---
+if "keynote_mode" not in st.session_state:
+    st.session_state.keynote_mode = "BUILDER"
+if "selected_slides" not in st.session_state:
+    st.session_state.selected_slides = []
+if "current_slide_idx" not in st.session_state:
+    st.session_state.current_slide_idx = 0
 
-data = fetch_master_data()
+# --- MODULES DISPONIBLES ---
+MODULE_CONFIG = {
+    "📊 Performance Globale": "GLOBAL",
+    "🚚 Opérations Logistique": "LOGISTIQUE",
+    "📦 Santé Inventaire": "STOCKS",
+    "⚠️ Réclamations Fournisseurs": "CLAIMS",
+    "⚖️ Litiges & Recouvrement": "FINANCE",
+    "👷 Performance Agents": "HR_AGENTS",
+    "🚛 Rendement Livreurs": "HR_DRIVERS",
+    "🤖 Vision IA Stratégique": "AI_VISION"
+}
 
-# --- HEADER SECTION ---
-st.markdown(f"""
-    <div class="main-header">
-        <div>
-            <h2 style="margin:0; font-weight:800; color:#1a202c;">MASTER EXECUTIVE BRIEFING</h2>
-            <p style="margin:0; color:#a0aec0; font-size:0.9rem;">Vue consolidée des opérations DarPharm Solutions</p>
-        </div>
-        <div style="text-align:right;">
-            <div style="font-weight:700; color:#2d3748;">{datetime.now().strftime("%d %B %Y | %H:%M")}</div>
-            <div style="font-size:0.8rem; color:#718096;">Système Intelligent Actif</div>
-        </div>
-    </div>
-""", unsafe_allow_html=True)
-
-# --- KPI TOP BAR ---
-c1, c2, c3, c4 = st.columns(4)
-
-with c1:
+# --- AUDIO FX (Invisible Trigger) ---
+def play_slide_fx():
     st.markdown("""
-        <div class="kpi-card">
-            <div class="metric-label">TAUX DE SERVICE</div>
-            <div class="metric-val">98.4%</div>
-            <div class="trend-up">↑ 0.5% vs S-1</div>
-            <div class="data-pill">Temps Réel</div>
-        </div>
+        <audio autoplay>
+            <source src="https://www.soundjay.com/buttons/sounds/button-20.mp3" type="audio/mpeg">
+        </audio>
     """, unsafe_allow_html=True)
 
-with c2:
-    st.markdown("""
-        <div class="kpi-card">
-            <div class="metric-label">ROTATION MOYENNE</div>
-            <div class="metric-val">14.2j</div>
-            <div class="trend-down">↓ 1.2j (Optimisé)</div>
-            <div class="data-pill">30 Derniers Jours</div>
-        </div>
-    """, unsafe_allow_html=True)
-
-with c3:
-    st.markdown("""
-        <div class="kpi-card">
-            <div class="metric-label">VALEUR STOCK</div>
-            <div class="metric-val">124.5M</div>
-            <div class="trend-up">↑ 4.2% (Arrivages)</div>
-            <div class="data-pill">Valorisation DZ</div>
-        </div>
-    """, unsafe_allow_html=True)
-
-with c4:
-    st.markdown("""
-        <div class="kpi-card">
-            <div class="metric-label">RECOUVREMENT</div>
-            <div class="metric-val">86.1%</div>
-            <div class="trend-up">↑ 2.1% (Relances)</div>
-            <div class="data-pill">Objectif : 90%</div>
-        </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-# --- MAIN DASHBOARD GRID ---
-col_ops, col_inv, col_strat = st.columns([1.2, 1.2, 1])
-
-# --- COLUMN 1: OPERATIONS ---
-with col_ops:
-    st.markdown('<div class="section-title">📦 OPÉRATIONS & LOGISTIQUE</div>', unsafe_allow_html=True)
+# --- RENDERER: BUILDER MODE ---
+if st.session_state.keynote_mode == "BUILDER":
+    st.markdown("<h1 style='text-align:center; font-family:Playfair Display;'>KEYNOTE BUILDER</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:#94a3b8;'>Sélectionnez les modules à inclure dans votre présentation stratégique.</p>", unsafe_allow_html=True)
     
-    with st.container(border=True):
-        st.write("**Performance des Expéditions (Volume/Jour)**")
-        df_log = pd.DataFrame({
-            "Jour": ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"], 
-            "Réalisé": [120, 150, 140, 180, 160, 110], 
-            "Prévision": [130, 140, 150, 170, 160, 120]
-        })
-        fig_log = px.area(df_log, x="Jour", y=["Réalisé", "Prévision"], 
-                         color_discrete_map={"Réalisé": "#5a67d8", "Prévision": "#e2e8f0"},
-                         template="plotly_white")
-        fig_log.update_layout(height=250, margin=dict(l=0, r=0, t=20, b=0), showlegend=False)
-        st.plotly_chart(fig_log, use_container_width=True)
-        st.caption("Comparaison entre le volume réel expédié et les prévisions de charge IA.")
+    col_c, col_p = st.columns([1, 2])
+    
+    with col_c:
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        st.subheader("🛠️ Configuration")
+        selected = []
+        for label, key in MODULE_CONFIG.items():
+            if st.checkbox(label, value=True, key=f"chk_{key}"):
+                selected.append(key)
+        
+        st.divider()
+        if st.button("🎬 LANCER LA PRÉSENTATION", use_container_width=True):
+            if selected:
+                st.session_state.selected_slides = selected
+                st.session_state.keynote_mode = "PRESENTATION"
+                st.session_state.current_slide_idx = 0
+                st.rerun()
+            else:
+                st.error("Sélectionnez au moins un module.")
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col_p:
+        st.image("https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop", caption="DarPharm Executive Suite 2026")
 
-    st.markdown("<br>", unsafe_allow_html=True)
+# --- RENDERER: PRESENTATION MODE ---
+elif st.session_state.keynote_mode == "PRESENTATION":
+    slides = st.session_state.selected_slides
+    current_key = slides[st.session_state.current_slide_idx]
     
-    with st.container(border=True):
-        st.write("**Surveillance Thermique (Live)**")
-        st.markdown("""
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <span style="font-size:1.8rem; font-weight:800; color:#38a169;">4.2°C</span>
-                    <span style="color:#718096; font-size:0.8rem;">(Normal)</span>
-                </div>
-                <div style="text-align:right;">
-                    <div style="font-size:0.7rem; color:#a0aec0;">DERNIER RELEVÉ</div>
-                    <div style="font-size:0.8rem; font-weight:600;">Il y a 5 min</div>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-        st.progress(0.42, "Stabilité CF1")
+    # --- SLIDE CONTENT ---
+    st.markdown('<div class="slide-container">', unsafe_allow_html=True)
+    
+    if current_key == "GLOBAL":
+        st.markdown('<h1 class="slide-title">Performance<br>Générale</h1>', unsafe_allow_html=True)
+        c1, c2, c3 = st.columns(3)
+        c1.markdown('<div class="glass-card"><p>Taux de Service</p><div class="metric-hero">98.4%</div></div>', unsafe_allow_html=True)
+        c2.markdown('<div class="glass-card"><p>Rotation Moyenne</p><div class="metric-hero" style="color:#a855f7;">12j</div></div>', unsafe_allow_html=True)
+        c3.markdown('<div class="glass-card"><p>Satisfaction Clients</p><div class="metric-hero" style="color:#38a169;">4.8/5</div></div>', unsafe_allow_html=True)
 
-# --- COLUMN 2: INVENTAIRE ---
-with col_inv:
-    st.markdown('<div class="section-title">🏗️ SANTÉ DE L\'INVENTAIRE</div>', unsafe_allow_html=True)
-    
-    with st.container(border=True):
-        st.write("**Répartition par État de Stock**")
-        fig_pie = go.Figure(data=[go.Pie(labels=['Stock Sain', 'DDP Proche', 'Surstock', 'Rupture'], 
-                                        values=[70, 15, 10, 5], hole=.6,
-                                        marker_colors=["#5a67d8", "#ed8936", "#a0aec0", "#e53e3e"])])
-        fig_pie.update_layout(height=250, margin=dict(l=0, r=0, t=20, b=0), showlegend=False)
-        st.plotly_chart(fig_pie, use_container_width=True)
-        st.caption("Visualisation explicite des zones de risque (Ruptures et Péremptions proches).")
+    elif current_key == "LOGISTIQUE":
+        st.markdown('<h1 class="slide-title">Efficacité<br>Logistique</h1>', unsafe_allow_html=True)
+        col_c, col_m = st.columns([2, 1])
+        with col_c:
+            df = pd.DataFrame({"J": ["L","M","M","J","V","S"], "V": [120,150,140,180,160,110]})
+            fig = px.line(df, x="J", y="V", template="plotly_dark", color_discrete_sequence=["#5b6cf9"])
+            fig.update_layout(height=500, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            st.plotly_chart(fig, use_container_width=True)
+        with col_m:
+            st.markdown('<div class="glass-card" style="height:100%;"><h3>Analyse Flux</h3><p>Optimisation des tournées réussie.</p><div class="metric-hero" style="font-size:3rem;">+15%</div></div>', unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    with st.container(border=True):
-        st.write("**Analyse de Rotation (Top Catégories)**")
-        df_rot = pd.DataFrame({
-            "Catégorie": ["Antibio", "Derma", "Cardio", "Péd"], 
-            "Ventes": [450, 320, 280, 210],
-            "Rotation": [5, 45, 12, 8]
-        })
-        fig_bar = px.bar(df_rot, x="Catégorie", y="Ventes", color="Rotation",
-                        color_continuous_scale="Blues", template="plotly_white")
-        fig_bar.update_layout(height=230, margin=dict(l=0, r=0, t=20, b=0))
-        st.plotly_chart(fig_bar, use_container_width=True)
+    elif current_key == "STOCKS":
+        st.markdown('<h1 class="slide-title">Santé de<br>l\'Inventaire</h1>', unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        with c1:
+            fig = go.Figure(data=[go.Pie(labels=['Sain', 'Critique', 'Périmé'], values=[85, 12, 3], hole=.7)])
+            fig.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)')
+            st.plotly_chart(fig, use_container_width=True)
+        with c2:
+            st.markdown('<div class="glass-card"><h3>Valorisation</h3><p>Total Actif</p><div class="metric-hero">124M</div><p>DZ</p></div>', unsafe_allow_html=True)
 
-# --- COLUMN 3: STRATÉGIE & IA ---
-with col_strat:
-    st.markdown('<div class="section-title">🤖 BRIEFING STRATÉGIQUE IA</div>', unsafe_allow_html=True)
-    
-    st.markdown("""
-        <div class="ai-box">
-            <strong>TAKEAWAY #1 :</strong> Le volume logistique de mercredi a dépassé les prévisions de 12%. Risque de surcharge temporaire identifié.
-        </div>
-        <br>
-        <div class="ai-box" style="background:#fffaf0; border-left-color:#ed8936;">
-            <strong>ALERTE STOCK :</strong> 15 références en 'DDP Proche' représentent une valeur de 2.4M DZ. Action de déstockage prioritaire requise.
-        </div>
-        <br>
-        <div class="ai-box" style="background:#f7fafc; border-left-color:#a0aec0;">
-            <strong>OBJECTIF RECOUVREMENT :</strong> Taux actuel 86.1%. Le gap de 3.9% pour atteindre l'objectif se concentre sur 3 clients majeurs.
-        </div>
-    """, unsafe_allow_html=True)
-    
-    st.divider()
-    
-    if is_ia_enabled():
-        if st.button("🪄 Générer Rapport IA Détaillé", use_container_width=True):
-            with st.spinner("Analyse approfondie en cours..."):
-                report = ask_ai("Analyse la performance globale de DarPharm et donne 3 recommandations prioritaires.")
-                st.info(report)
+    elif current_key == "CLAIMS":
+        st.markdown('<h1 class="slide-title">Réclamations<br>Fournisseurs</h1>', unsafe_allow_html=True)
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        st.write("### Suivi des Réclamations")
+        df_claims = pd.DataFrame({"Fournisseur": ["BIOPHARM", "SAIDAL", "FRATER"], "Réclamations": [4, 1, 2], "Gravité": ["Haute", "Basse", "Moyenne"]})
+        st.table(df_claims)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-# --- FOOTER ---
-st.markdown("""
-    <div style="text-align:center; padding: 40px; color:#a0aec0; font-size:0.8rem;">
-        DarPharm Master Suite v4.0 | Développé pour l'Excellence Opérationnelle | © 2026
-    </div>
-""", unsafe_allow_html=True)
+    elif current_key == "FINANCE":
+        st.markdown('<h1 class="slide-title">Litiges &<br>Recouvrement</h1>', unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        c1.markdown('<div class="glass-card"><p>Recouvré</p><div class="metric-hero" style="color:#38a169;">84.2M</div></div>', unsafe_allow_html=True)
+        c2.markdown('<div class="glass-card"><p>En Attente</p><div class="metric-hero" style="color:#ed8936;">12.8M</div></div>', unsafe_allow_html=True)
+
+    elif current_key == "HR_AGENTS":
+        st.markdown('<h1 class="slide-title">Performance<br>Agents</h1>', unsafe_allow_html=True)
+        cols = st.columns(3)
+        agents = [("Yassine", "450 lignes", "99%"), ("Amine", "420 lignes", "98%"), ("Sara", "380 lignes", "100%")]
+        for i, (name, perf, acc) in enumerate(agents):
+            cols[i].markdown(f'<div class="glass-card" style="text-align:center;"><h3>{name}</h3><div class="metric-hero" style="font-size:2rem;">{perf}</div><p>Précision: {acc}</p></div>', unsafe_allow_html=True)
+
+    elif current_key == "HR_DRIVERS":
+        st.markdown('<h1 class="slide-title">Rendement<br>Livreurs</h1>', unsafe_allow_html=True)
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        st.write("### Top Livreurs (Livraisons/Jour)")
+        df_drivers = pd.DataFrame({"Livreur": ["Ahmed", "Karim", "Zaki"], "Livraisons": [24, 21, 19], "Respect Délais": ["95%", "92%", "98%"]})
+        st.table(df_drivers)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    elif current_key == "AI_VISION":
+        st.markdown('<h1 class="slide-title">Vision IA<br>Stratégique</h1>', unsafe_allow_html=True)
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        if is_ia_enabled():
+            with st.spinner("Analyse stratégique en cours..."):
+                report = ask_ai("Analyse tous ces modules et donne une conclusion stratégique pour 2026.")
+                st.write(report)
+        else:
+            st.info("Activez l'IA pour générer la vision stratégique.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # --- DOCK NAVIGATION ---
+    st.markdown('<div class="nav-dock">', unsafe_allow_html=True)
+    c_p, c_h, c_n = st.columns([1,1,1])
+    
+    if c_p.button("⬅️", key="k_prev"):
+        if st.session_state.current_slide_idx > 0:
+            st.session_state.current_slide_idx -= 1
+            play_slide_fx()
+            st.rerun()
+            
+    if c_h.button("🏠", key="k_home"):
+        st.session_state.keynote_mode = "BUILDER"
+        st.rerun()
+        
+    if c_n.button("➡️", key="k_next"):
+        if st.session_state.current_slide_idx < len(slides) - 1:
+            st.session_state.current_slide_idx += 1
+            play_slide_fx()
+            st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
