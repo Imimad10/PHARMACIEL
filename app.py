@@ -691,7 +691,7 @@ if not isinstance(user_pages, list):
 is_admin = user.get('role') == 'Admin'
 
 if is_admin:
-    for extra_page in ["Automatisation", "Liste des Lots", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Assistant IA", "Transferts", "Coordination", "Qualité IA", "Mon Coin", "Briefing IA", "Maintenance", "Académie", "Prévisions", "Mode Meeting"]:
+    for extra_page in ["Automatisation", "Liste des Lots", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Assistant IA", "Transferts", "Coordination", "Qualité IA", "Mon Coin", "Briefing IA", "Maintenance", "Académie", "Prévisions", "Mode Meeting", "Page de Garde"]:
         if extra_page not in user_pages:
             user_pages.append(extra_page)
 
@@ -715,6 +715,7 @@ ALL_PAGES = {
     "Liste des Lots": st.Page("modules/14_liste_des_lots.py", title="Liste des Lots", icon="📑"),
     "Catalogue Produits": st.Page("modules/17_catalogue_produits.py", title="Catalogue Produits", icon="📚"),
     "Pointage Marchandise": st.Page("modules/18_reception.py", title="Pointage Marchandise", icon="📦"),
+    "Page de Garde": st.Page("modules/18_page_garde.py", title="Page de Garde (Factures)", icon="📄"),
     "Assistant IA": st.Page("modules/19_chat_pharmaciel.py", title="Assistant IA (Chat)", icon="🤖"),
     "Transferts": st.Page("modules/20_transferts.py", title="Transferts (Zéro Papier)", icon="🔄"),
     "Coordination": st.Page("modules/21_coordination_equipe.py", title="Coordination Équipe", icon="🤝"),
@@ -740,7 +741,7 @@ CATEGORIES = {
     "👤 MON PROFIL": ["Profil", "Mon Coin"],
     "📊 SUPERVISION": ["Dashboard", "Analyse Rotation", "Prévisions", "Mode Meeting", "Suivi", "Dashboard Premium"],
     "📦 GESTION DES STOCKS": ["Inventaire", "Inventaire Détail", "Inventaire Triple", "Péremptions", "Liste des Lots", "Catalogue Produits"],
-    "📝 POINTAGES & FLUX": ["Pointage", "Pointage Expéditeur", "Pointage Marchandise", "Recouvrement", "Logistique", "Scanneur QR", "Scan Mobile", "Transferts"],
+    "📝 POINTAGES & FLUX": ["Pointage", "Pointage Expéditeur", "Pointage Marchandise", "Page de Garde", "Recouvrement", "Logistique", "Scanneur QR", "Scan Mobile", "Transferts"],
     "🤖 DARPHARM IA": ["Assistant IA", "Qualité IA", "Briefing IA", "Automatisation", "Coordination", "Académie"],
     "🏛️ ADMINISTRATION": ["Admin Centrale", "Gestion des Accès", "RH"]
 }
