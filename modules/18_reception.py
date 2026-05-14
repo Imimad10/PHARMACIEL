@@ -48,8 +48,37 @@ st.markdown("""
 
 def load_produits_reception():
     if os.path.exists(DB_PRODUITS_RECEPTION):
-        try: return pd.read_csv(DB_PRODUITS_RECEPTION, encoding='utf-8-sig')
-        except: return pd.read_csv(DB_PRODUITS_RECEPTION)
+        try:
+            # Essayer plusieurs encodages et séparateurs
+            try:
+                df = pd.read_csv(DB_PRODUITS_RECEPTION, sep=',', encoding='utf-8-sig')
+                if len(df.columns) <= 1: df = pd.read_csv(DB_PRODUITS_RECEPTION, sep=';', encoding='utf-8-sig')
+            except:
+                df = pd.read_csv(DB_PRODUITS_RECEPTION, sep=';', encoding='latin-1')
+            
+            # Normalisation des colonnes
+            mapping = {
+                'designation': 'Designation', 'produit': 'Designation', 'article': 'Designation',
+                'ppa': 'PPA', 'shp': 'SHP', 'colissage': 'Colissage', 'colis': 'Colissage'
+            }
+            new_cols = []
+            for c in df.columns:
+                norm = str(c).lower().strip()
+                target = c
+                for k, v in mapping.items():
+                    if k in norm: target = v; break
+                new_cols.append(target)
+            df.columns = new_cols
+            
+            # Vérifier si Designation existe
+            if 'Designation' not in df.columns:
+                # Fallback : si une seule colonne, on l'appelle Designation
+                if len(df.columns) == 1: df.columns = ['Designation']
+            
+            return df
+        except Exception as e:
+            st.error(f"Erreur lecture produits : {e}")
+            return pd.DataFrame(columns=COLS_PRODUITS)
     return pd.DataFrame(columns=COLS_PRODUITS)
 
 def save_reception(reception_data):
