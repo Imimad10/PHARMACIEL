@@ -168,7 +168,36 @@ if is_ia_enabled():
     st.divider()
 
 # ═══════════════════════════════════════════
-# 2. ROUTAGE DES MODÈLES DE VUE
+# 2. FILTRES & FONCTIONS GLOBALES
+# ═══════════════════════════════════════════
+
+def kpi_card(label, value, delta, icon, color=t["accent"]):
+    st.markdown(f"""
+        <div class="dash-card" style="border-left: 5px solid {color}; height: 160px; display: flex; flex-direction: column; justify-content: center;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="font-size: 2rem;">{icon}</div>
+                <div>
+                    <div style="font-size: 0.75rem; opacity: 0.7; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">{label}</div>
+                    <div style="font-size: 1.5rem; font-weight: 900; color: {color};">{value}</div>
+                </div>
+            </div>
+            <div style="font-size: 0.8rem; opacity: 0.6; font-weight: 600; margin-top: 8px;">{delta}</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+## --- FILTRES INTERACTIFS (Global) ---
+st.markdown('<div class="dash-card">', unsafe_allow_html=True)
+f_col1, f_col2, f_col3 = st.columns([2, 1, 1])
+with f_col1:
+    search_query = st.text_input("🔍 Recherche globale (Produit, Livreur, Client...)", placeholder="Tapez pour filtrer...")
+with f_col2:
+    date_range = st.date_input("📅 Période", [datetime.now() - timedelta(days=30), datetime.now()])
+with f_col3:
+    status_filter = st.multiselect("🏷️ Statuts", ["En attente", "Réglé", "Litige", "Partiel"], default=[])
+st.markdown('</div>', unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════
+# 3. ROUTAGE DES MODÈLES DE VUE
 # ═══════════════════════════════════════════
 
 if selected_model == "Standard (Narratif)":
@@ -238,32 +267,7 @@ if selected_model == "Standard (Narratif)":
         except: st.info("En attente de données...")
 
 elif selected_model == "Centre de Commandement":
-    st.subheader("🚀 Command Center - Vision Holistique")
-    
-    ## --- FILTRES INTERACTIFS (Horizontal) ---
-    st.markdown('<div class="dash-card">', unsafe_allow_html=True)
-    f_col1, f_col2, f_col3 = st.columns([2, 1, 1])
-    with f_col1:
-        search_query = st.text_input("🔍 Recherche globale (Produit, Livreur, Client...)", placeholder="Tapez pour filtrer les graphiques...")
-    with f_col2:
-        date_range = st.date_input("📅 Période d'analyse", [datetime.now() - timedelta(days=30), datetime.now()])
-    with f_col3:
-        status_filter = st.multiselect("🏷️ Statuts Recouvrement", ["En attente", "Réglé", "Litige", "Partiel"], default=[])
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    def kpi_card(label, value, delta, icon, color=t["accent"]):
-        st.markdown(f"""
-            <div class="dash-card" style="border-left: 5px solid {color}; height: 160px; display: flex; flex-direction: column; justify-content: center;">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <div style="font-size: 2rem;">{icon}</div>
-                    <div>
-                        <div style="font-size: 0.75rem; opacity: 0.7; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">{label}</div>
-                        <div style="font-size: 1.5rem; font-weight: 900; color: {color};">{value}</div>
-                    </div>
-                </div>
-                <div style="font-size: 0.8rem; opacity: 0.6; font-weight: 600; margin-top: 8px;">{delta}</div>
-            </div>
-        """, unsafe_allow_html=True)
+    st.info("💡 Utilisez les onglets ci-dessous pour explorer les données en détail.")
     
     # 2.1 KPIs PRINCIPAUX (RESTORED ALL 8)
     r1_c1, r1_c2, r1_c3, r1_c4 = st.columns(4)
