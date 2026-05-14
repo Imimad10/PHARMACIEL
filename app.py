@@ -341,8 +341,12 @@ if not applied_theme:
         }
         
         /* Sidebar Group Headers - RADICAL COMPACT */
+        [data-testid="stSidebarNavSeparator"] {
+            margin-top: 20px !important;
+            border-bottom: 1px solid rgba(0,0,0,0.05) !important;
+        }
         [data-testid="stSidebarNav"] div[data-testid="stSidebarNavSeparator"] + div {
-            margin-top: 22px !important;
+            margin-top: 10px !important;
             margin-bottom: 6px !important;
             padding-left: 10px !important;
             font-weight: 800 !important;
