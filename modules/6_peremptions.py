@@ -342,21 +342,42 @@ with tab3:
     df_fefo = load_gs_data(MASTER_WORKSHEET, MASTER_FALLBACK, None)
 
     if not df_fefo.empty:
-        # Normalisation des colonnes pour le Master
-        mapping = {
-            'produit': 'designation', 'designation': 'designation',
-            'n°lot': 'lot', 'lot': 'lot',
-            'peremption': 'ddp', 'ddp': 'ddp',
-            'qte_logi': 'quantite', 'quantite': 'quantite', 'stock_theorique': 'quantite',
-            'depot': 'depot', 'dépôt': 'depot', 'zone': 'depot'
-        }
-        new_cols = []
-        for c in df_fefo.columns:
-            norm = str(c).lower().strip()
-            target = next((v for k, v in mapping.items() if k in norm), norm)
-            new_cols.append(target)
-        df_fefo.columns = new_cols
+        import unicodedata
+        def normalize_str(s):
+            s = str(s).lower().strip()
+            return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+
+        # Normalisation des colonnes existantes
+        original_cols = df_fefo.columns.tolist()
+        norm_cols = [normalize_str(c) for c in original_cols]
         
+        # Mappage intelligent
+        mapping = {
+            'designation': ['produit', 'designation', 'article', 'nom'],
+            'lot': ['lot', 'n°lot', 'batch'],
+            'ddp': ['peremption', 'ddp', 'exp', 'date'],
+            'quantite': ['quantite', 'qte', 'stock', 'theorique'],
+            'depot': ['depot', 'zone', 'emplacement', 'magasin']
+        }
+        
+        final_mapping = {}
+        for target, keys in mapping.items():
+            for i, nc in enumerate(norm_cols):
+                if any(k in nc for k in keys):
+                    final_mapping[original_cols[i]] = target
+                    break
+        
+        df_fefo = df_fefo.rename(columns=final_mapping)
+        
+        # Vérification et Fallback Manuel
+        if 'depot' not in df_fefo.columns or 'designation' not in df_fefo.columns:
+            st.warning("⚠️ Colonnes non détectées automatiquement.")
+            c_m1, c_m2 = st.columns(2)
+            col_dep = c_m1.selectbox("Sélectionnez la colonne 'Dépôt' :", df_fefo.columns)
+            col_des = c_m2.selectbox("Sélectionnez la colonne 'Produit' :", df_fefo.columns)
+            if col_dep: df_fefo = df_fefo.rename(columns={col_dep: 'depot'})
+            if col_des: df_fefo = df_fefo.rename(columns={col_des: 'designation'})
+
         if 'depot' in df_fefo.columns and 'designation' in df_fefo.columns:
             all_depots = sorted(df_fefo['depot'].dropna().unique().tolist())
             
