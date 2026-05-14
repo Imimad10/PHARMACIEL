@@ -1,106 +1,78 @@
 import streamlit as st
-import streamlit.components.v1 as components
+import base64
+from utils_ia import ask_ai_vision, is_ia_scanner_enabled
 
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Scanner IA Premium", layout="wide")
 
+st.markdown('<h1 style="text-align:center; color:#5b6cf9; font-weight:900;">Robot Scan IA DarPharm 🤖</h1>', unsafe_allow_html=True)
+
 st.markdown("""
 <style>
     .stApp { background: #eef0f8; }
-    .main .block-container { padding: 0; }
+    .scan-card {
+        background: white;
+        padding: 20px;
+        border-radius: 20px;
+        box-shadow: 0 10px 25px rgba(91,108,249,0.1);
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    .res-label { font-size: 0.8rem; color: #64748b; font-weight: 800; margin-top: 10px; }
+    .res-val { font-size: 1.2rem; color: #5b6cf9; font-weight: 900; background: #f8fafc; padding: 10px; border-radius: 12px; margin-top: 5px; border: 1px dashed #5b6cf9; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- MOTEUR DE SCAN HTML/JS (Inspiré de votre code) ---
-SCANNER_HTML = """
-<!DOCTYPE html>
-<html>
-<head>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&display=swap" rel="stylesheet">
-    <style>
-        body { margin: 0; font-family: 'Nunito', sans-serif; background: #eef0f8; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
-        #video-container { position: relative; flex: 1; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-        video { width: 100%; height: 100%; object-fit: cover; }
-        
-        .overlay { 
-            position: absolute; border: 3px solid #5b6cf9; border-radius: 20px;
-            width: 80%; height: 150px; box-shadow: 0 0 0 1000px rgba(0,0,0,0.5);
-            pointer-events: none; display: flex; align-items: center; justify-content: center;
-        }
-        .overlay::after { content: "PLACER LE LOT / DDP ICI"; color: #5b6cf9; font-weight: 900; font-size: 0.8rem; background: white; padding: 2px 10px; border-radius: 10px; margin-top: 180px; }
+if not is_ia_scanner_enabled():
+    st.warning("⚠️ Le Scanner IA n'est pas activé. Activez-le dans Administration > Configuration IA.")
+    st.stop()
 
-        .results-panel { 
-            background: #eef0f8; padding: 20px; border-radius: 30px 30px 0 0;
-            box-shadow: 0 -10px 20px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 15px;
-        }
-        .res-row { display: flex; justify-content: space-between; align-items: center; }
-        .res-val { background: white; padding: 10px 20px; border-radius: 15px; box-shadow: inset 2px 2px 5px #c0c5dc; font-weight: 900; color: #5b6cf9; }
-        
-        button { 
-            background: linear-gradient(135deg, #5b6cf9, #3a47d5); color: white; border: none; 
-            padding: 15px; border-radius: 20px; font-weight: 900; cursor: pointer;
-            box-shadow: 0 5px 15px rgba(91,108,249,0.4);
-        }
-    </style>
-</head>
-<body>
-    <div id="video-container">
-        <video id="video" autoplay playsinline></video>
-        <div class="overlay"></div>
-    </div>
+# --- INTERFACE DE SCAN ---
+col_scan, col_res = st.columns([1, 1])
 
-    <div class="results-panel">
-        <div class="res-row">
-            <span>PRODUIT DÉTECTÉ</span>
-            <div id="res-prod" class="res-val">---</div>
-        </div>
-        <div class="res-row">
-            <span>LOT / DDP</span>
-            <div id="res-lot" class="res-val">EN ATTENTE...</div>
-        </div>
-        <button onclick="startOCR()">🤖 ANALYSER MAINTENANT</button>
-        <button style="background: #e2e8f0; color: #64748b; margin-top:5px;" onclick="window.parent.location.reload()">RETOUR</button>
-    </div>
+with col_scan:
+    st.markdown('<div class="scan-card">📸 CAPTURER LE PRODUIT</div>', unsafe_allow_html=True)
+    img_file = st.camera_input("Scanner le Lot/DDP", label_visibility="collapsed")
 
-    <script>
-        const video = document.getElementById('video');
-        const resLot = document.getElementById('res-lot');
-
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-            .then(stream => { video.srcObject = stream; });
-
-        async function startOCR() {
-            resLot.innerText = "ANALYSE...";
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0);
+with col_res:
+    st.markdown('<div class="scan-card">🧠 RÉSULTATS IA</div>', unsafe_allow_html=True)
+    
+    if img_file:
+        with st.spinner("L'IA analyse l'image..."):
+            # Encodage en base64 pour l'IA
+            bytes_data = img_file.getvalue()
+            b64_img = base64.b64encode(bytes_data).decode()
             
-            const { data: { text } } = await Tesseract.recognize(canvas, 'eng', { logger: m => console.log(m) });
+            prompt = """Analyse cette photo de produit pharmaceutique. 
+            Extrait UNIQUEMENT le numéro de LOT et la date de péremption (DDP).
+            Format de réponse attendu (JSON uniquement) : {"lot": "...", "ddp": "..."}
+            Si non trouvé, laisse vide."""
             
-            // Extraction simple (Ex: Lot, DDP)
-            const lotMatch = text.match(/[A-Z0-9]{5,10}/);
-            const ddpMatch = text.match(/[0-9]{2}\\/[0-9]{2,4}/);
+            res_raw = ask_ai_vision(prompt, b64_img)
             
-            resLot.innerText = (lotMatch ? lotMatch[0] : "") + " " + (ddpMatch ? ddpMatch[0] : "LOT NON TROUVÉ");
-            
-            // Envoyer à Streamlit
-            window.parent.postMessage({
-                type: 'streamlit:setComponentValue',
-                value: { lot: lotMatch ? lotMatch[0] : "", ddp: ddpMatch ? ddpMatch[0] : "", raw: text }
-            }, '*');
-        }
-    </script>
-</body>
-</html>
-"""
+            try:
+                import json
+                # Nettoyage si l'IA ajoute du markdown
+                clean_res = res_raw.replace("```json", "").replace("```", "").strip()
+                data = json.loads(clean_res)
+                
+                st.markdown(f'<div class="res-label">LOT DÉTECTÉ</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="res-val">{data.get("lot", "Non trouvé")}</div>', unsafe_allow_html=True)
+                
+                st.markdown(f'<div class="res-label">DDP DÉTECTÉE</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="res-val">{data.get("ddp", "Non trouvée")}</div>', unsafe_allow_html=True)
+                
+                if st.button("✅ Valider et Utiliser", type="primary", use_container_width=True):
+                    st.session_state.last_scanned_lot = data.get("lot")
+                    st.session_state.last_scanned_ddp = data.get("ddp")
+                    st.success("Données enregistrées !")
+                    
+            except Exception as e:
+                st.error("Erreur d'interprétation des données IA.")
+                st.write(res_raw)
+    else:
+        st.info("Veuillez prendre une photo nette du Lot et de la DDP sur la boîte.")
 
-st.markdown('<h2 style="text-align:center; color:#5b6cf9; font-weight:900;">Robot Scan DarPharm 🤖</h2>', unsafe_allow_html=True)
-
-# Affichage du scanner haute performance
-scan_result = components.html(SCANNER_HTML, height=700, scrolling=False)
-
-if scan_result:
-    st.success(f"Données extraites : {scan_result}")
-    # Logique pour enregistrer le résultat
+st.divider()
+if st.button("🔄 Réinitialiser le scanner", use_container_width=True):
+    st.rerun()

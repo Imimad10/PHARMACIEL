@@ -19,6 +19,8 @@ COLS_CLIENTS = ["Nom Client", "Secteur"]
 STATUS_OPTIONS = ["En attente", "Partiel", "Réglé", "Clôturé", "Annulé", "Litige"]
 GS_CREDS_PATH = "google_creds.json"
 GS_CONFIG_PATH = "gs_config.txt"
+RECOUV_MAPPING_PATH = "data_recouvrement_mapping.csv"
+RECOUV_MAPPING_WORKSHEET = "Recouv_Mapping"
 
 from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui, get_gs_client, get_gs_url, GS_CREDS_PATH, GS_CONFIG_PATH
 
@@ -52,21 +54,27 @@ def get_livreur(region_val):
     if not reg: return "NON ASSIGNÉ"
     
     try:
+        # 1. Priorité au mapping spécifique Recouvrement
+        df_map = load_gs_data(RECOUV_MAPPING_WORKSHEET, RECOUV_MAPPING_PATH, ["Région", "Livreur"])
+        if not df_map.empty:
+            match_map = df_map[df_map["Région"].astype(str).str.strip().str.upper() == reg]
+            if not match_map.empty:
+                return str(match_map.iloc[0]["Livreur"]).strip().upper()
+
+        # 2. Fallback sur la base Livreurs générale
         from utils_gsheets import load_gs_data
         df_livreurs = load_gs_data("Livreurs", "data_expedition/livreurs.csv", ["Nom", "Prénom", "Téléphone", "Secteur"])
         if not df_livreurs.empty:
-            # Recherche exacte
             match = df_livreurs[df_livreurs["Secteur"].astype(str).str.strip().str.upper() == reg]
             if not match.empty:
                 return str(match.iloc[0]["Nom"]).strip().upper()
             
-            # Recherche partielle (si la région contient le secteur)
             for _, row in df_livreurs.iterrows():
                 secteur = str(row["Secteur"]).strip().upper()
                 if secteur and secteur in reg:
                     return str(row["Nom"]).strip().upper()
     except Exception as e:
-        pass # Fallback silencieux en cas d'erreur de chargement
+        pass 
     
     return "NON ASSIGNÉ"
 
@@ -272,20 +280,25 @@ with tabs[1]:
                     df_main.at[idx, "Région"] = client_to_region[c_name]
                     
         if not df_livreurs_db.empty:
-            region_to_livreur = {}
-            for _, row in df_livreurs_db.iterrows():
-                sec = str(row["Secteur"]).strip().upper()
-                nom = str(row["Nom"]).strip().upper()
-                if sec and nom: region_to_livreur[sec] = nom
-                
+            # On charge le mapping spécifique pour l'affectation automatique
+            df_mapping_rec = load_gs_data(RECOUV_MAPPING_WORKSHEET, RECOUV_MAPPING_PATH, ["Région", "Livreur"])
+            mapping_dict = dict(zip(df_mapping_rec["Région"].astype(str).str.upper(), df_mapping_rec["Livreur"].astype(str).str.upper())) if not df_mapping_rec.empty else {}
+
             for idx, row in df_main.iterrows():
                 reg = str(row["Région"]).strip().upper()
-                assigned = "NON ASSIGNÉ"
-                for sec, liv in region_to_livreur.items():
-                    if sec in reg or reg == sec:
-                        assigned = liv
-                        break
-                df_main.at[idx, "Livreur"] = assigned
+                
+                # Priorité au mapping spécifique
+                if reg in mapping_dict:
+                    df_main.at[idx, "Livreur"] = mapping_dict[reg]
+                else:
+                    # Fallback sur la base logistique
+                    assigned = "NON ASSIGNÉ"
+                    for _, lrow in df_livreurs_db.iterrows():
+                        sec = str(lrow["Secteur"]).strip().upper()
+                        if sec and (sec in reg or reg == sec):
+                            assigned = str(lrow["Nom"]).strip().upper()
+                            break
+                    df_main.at[idx, "Livreur"] = assigned
 
         # 3. Liste déroulante : Uniquement les livreurs ayant des clients
         livs_actifs = sorted([str(l).upper() for l in df_main["Livreur"].unique() if str(l).strip() != "" and str(l).upper() != "NAN"])
@@ -310,17 +323,30 @@ with tabs[1]:
             st.download_button("📥 Télécharger PDF", generate_pdf(df_display, sel_liv), f"Route_{sel_liv}.pdf")
         
         with col_btns[1]:
-            st.write("") # Espace vide à la place du bouton supprimé
+            st.write("") 
 
-        edited = st.data_editor(df_display, use_container_width=True, hide_index=True)
+        # Édition avec menu déroulant pour le livreur (pour permettre le changement manuel)
+        liv_options = sorted(df_livreurs_db["Nom"].astype(str).str.upper().unique().tolist()) if not df_livreurs_db.empty else []
+        if "NON ASSIGNÉ" not in liv_options: liv_options.append("NON ASSIGNÉ")
+
+        edited = st.data_editor(
+            df_display, 
+            use_container_width=True, 
+            hide_index=True,
+            column_config={
+                "Livreur": st.column_config.SelectboxColumn("Livreur (Modifier)", options=liv_options, required=True),
+                "Statut": st.column_config.SelectboxColumn("Statut", options=STATUS_OPTIONS)
+            }
+        )
         
-        if st.button("💾 Sauvegarder Statuts & Montants"):
+        if st.button("💾 Sauvegarder Statuts, Montants & Affectations"):
             # Recalcul automatique du reste à payer avant sauvegarde
-            edited["Reste à payer"] = (edited["Montant Initial"] - edited["Montant Réglé"]).clip(lower=0)
+            edited["Reste à payer"] = (pd.to_numeric(edited["Montant Initial"], errors='coerce') - pd.to_numeric(edited["Montant Réglé"], errors='coerce')).clip(lower=0)
             
-            df_final = pd.concat([df_main[~mask], edited], ignore_index=True)
+            # On remplace les anciennes lignes par les éditées
+            df_final = pd.concat([df_main[~df_main.index.isin(df_display.index)], edited], ignore_index=True)
             save_data(df_final, DATA_RECOUV)
-            st.success("Données mises à jour et soldes recalculés !")
+            st.success("Données mises à jour avec succès !")
             st.rerun()
     else:
         st.info("Aucune donnée disponible.")
@@ -561,6 +587,54 @@ with tabs[4]:
 
 # ONGLET 6 : ADMINISTRATION
 with tabs[5]:
+    st.header("⚙️ Administration & Affectations")
+    
+    # --- NOUVELLE ZONE D'AFFECTATION ---
+    st.subheader("🎯 Affectation Régionale des Livreurs (Recouvrement)")
+    
+    # Chargement des bases
+    df_map = load_gs_data(RECOUV_MAPPING_WORKSHEET, RECOUV_MAPPING_PATH, ["Région", "Livreur"])
+    df_clients_db = load_data(DATA_CLIENTS, COLS_CLIENTS)
+    from utils_gsheets import load_gs_data
+    df_liv_db = load_gs_data("Livreurs", "data_expedition/livreurs.csv", ["Nom", "Secteur"])
+    
+    regions_list = sorted(df_clients_db["Secteur"].dropna().unique().tolist()) if not df_clients_db.empty else []
+    livreurs_list = sorted(df_liv_db["Nom"].dropna().unique().tolist()) if not df_liv_db.empty else []
+    
+    col_aff1, col_aff2 = st.columns(2)
+    with col_aff1:
+        st.markdown("##### ➕ Créer une nouvelle affectation")
+        reg_to_map = st.selectbox("Choisir une Région / Secteur", regions_list, index=None, placeholder="Secteur à affecter...")
+        liv_to_map = st.selectbox("Choisir le Livreur responsable", livreurs_list, index=None, placeholder="Livreur pour ce secteur...")
+        
+        if st.button("💾 Enregistrer l'affectation", use_container_width=True):
+            if reg_to_map and liv_to_map:
+                new_map = pd.DataFrame([{"Région": reg_to_map, "Livreur": liv_to_map}])
+                # Supprimer l'ancien si existe
+                if not df_map.empty:
+                    df_map = df_map[df_map["Région"] != reg_to_map]
+                df_map = pd.concat([df_map, new_map], ignore_index=True)
+                save_gs_data(df_map, RECOUV_MAPPING_WORKSHEET, RECOUV_MAPPING_PATH)
+                st.success(f"✅ {liv_to_map} affecté à {reg_to_map}")
+                st.rerun()
+            else:
+                st.error("Sélectionnez une région et un livreur.")
+
+    with col_aff2:
+        st.markdown("##### 📍 Affectations Actuelles")
+        if not df_map.empty:
+            for idx, row in df_map.iterrows():
+                c1, c2, c3 = st.columns([2, 2, 0.5])
+                c1.write(f"🌍 **{row['Région']}**")
+                c2.write(f"👤 {row['Livreur']}")
+                if c3.button("🗑️", key=f"del_map_{idx}"):
+                    df_map = df_map.drop(idx)
+                    save_gs_data(df_map, RECOUV_MAPPING_WORKSHEET, RECOUV_MAPPING_PATH)
+                    st.rerun()
+        else:
+            st.info("Aucune affectation spécifique définie.")
+
+    st.divider()
     st.subheader("🌐 Connexion Google Sheets (Cloud)")
     st.info("Cette section permet de synchroniser le module Recouvrement avec un Google Sheet pour un accès collaboratif.")
     
