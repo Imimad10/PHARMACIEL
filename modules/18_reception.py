@@ -124,8 +124,7 @@ with tabs[0]:
         if is_ia_enabled():
             st.markdown("### 🤖 Assistant IA")
             if st.button("📸 OUVRIR LE SCANNER IA VIGNETTES", use_container_width=True):
-                st.session_state.current_page = "7_scanneur_qr"
-                st.rerun()
+                st.switch_page("modules/7_scanneur_qr.py")
 
     with col_f2:
         st.subheader("🔍 Saisie des Produits")
