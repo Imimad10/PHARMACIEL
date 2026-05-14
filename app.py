@@ -101,6 +101,48 @@ elif st.session_state.theme == "Chic Animé":
             animation: gradientShift 15s ease infinite !important;
         }
 
+        /* CHARGEMENT PREMIUM CUSTOM */
+        #darpharm-loader {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 99999;
+            transition: opacity 0.5s ease-out;
+        }
+        .loader-logo {
+            width: 120px;
+            animation: pulse-logo 2s infinite ease-in-out;
+        }
+        .loader-bar {
+            width: 200px;
+            height: 4px;
+            background: #e2e8f0;
+            border-radius: 10px;
+            margin-top: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+        .loader-progress {
+            width: 0%;
+            height: 100%;
+            background: #1877f2;
+            animation: load-progress 2.5s forwards cubic-bezier(0, 0.43, 1, 0.21);
+        }
+        @keyframes pulse-logo {
+            0%, 100% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.1); opacity: 1; }
+        }
+        @keyframes load-progress {
+            0% { width: 0%; }
+            50% { width: 70%; }
+            100% { width: 100%; }
+        }
+
         .block-container > div {
             animation: slideUpFade 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
@@ -502,6 +544,22 @@ if st.session_state.current_user is None:
         btn_bg = "#1877f2"
         btn_hover = "#166fe5"
 
+    # Affichage du loader (sera caché par Streamlit quand le reste chargera)
+    st.markdown("""
+        <div id="darpharm-loader">
+            <img src="https://img.icons8.com/fluency/240/capsule.png" class="loader-logo">
+            <h2 style="color: #1877f2; font-weight: 900; margin-top: 15px;">DARPHARM SOLUTION</h2>
+            <div class="loader-bar"><div class="loader-progress"></div></div>
+            <script>
+                setTimeout(() => {
+                    const loader = document.getElementById('darpharm-loader');
+                    if (loader) loader.style.opacity = '0';
+                    setTimeout(() => { if (loader) loader.style.display = 'none'; }, 500);
+                }, 2000);
+            </script>
+        </div>
+    """, unsafe_allow_html=True)
+
     # Injection CSS spécifique pour l'écran de connexion Facebook-style
     st.markdown(f"""
         <style>
@@ -628,16 +686,16 @@ if st.session_state.current_user is None:
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
-        col_theme1, col_theme2 = st.columns([2, 1.5])
-        with col_theme2:
-            themes_login = ["Clair", "Sombre", "Chic Animé", "USMH", "CRB", "USMA", "MCA"]
-            idx_theme = themes_login.index(st.session_state.theme) if st.session_state.theme in themes_login else 0
-            choix_theme = st.selectbox("Thème", themes_login, index=idx_theme, label_visibility="collapsed", key="login_theme_selector")
-            if choix_theme != st.session_state.theme:
-                st.session_state.theme = choix_theme
-                st.rerun()
-
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
+        
+        # Thème selector discret en haut de la carte
+        themes_login = ["Clair", "Sombre", "Chic Animé", "USMH", "CRB", "USMA", "MCA"]
+        idx_theme = themes_login.index(st.session_state.theme) if st.session_state.theme in themes_login else 0
+        choix_theme = st.selectbox("Thème", themes_login, index=idx_theme, key="login_theme_selector", label_visibility="collapsed")
+        if choix_theme != st.session_state.theme:
+            st.session_state.theme = choix_theme
+            st.rerun()
+
         u = st.text_input("Username", placeholder="Nom d'utilisateur", label_visibility="collapsed", key="login_u")
         p = st.text_input("Password", type="password", placeholder="Mot de passe", label_visibility="collapsed", key="login_p")
         
@@ -665,7 +723,6 @@ if st.session_state.current_user is None:
                 st.rerun()
             else:
                 st.error("Identifiants incorrects.")
-        st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.stop()
