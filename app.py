@@ -661,7 +661,7 @@ if not isinstance(user_pages, list):
 is_admin = user.get('role') == 'Admin'
 
 if is_admin:
-    for extra_page in ["Automatisation", "Liste des Lots", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Assistant IA", "Transferts", "Coordination", "Qualité IA", "Mon Coin", "Briefing IA", "Maintenance", "Académie", "Prévisions"]:
+    for extra_page in ["Automatisation", "Liste des Lots", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Assistant IA", "Transferts", "Coordination", "Qualité IA", "Mon Coin", "Briefing IA", "Maintenance", "Académie", "Prévisions", "Mode Meeting"]:
         if extra_page not in user_pages:
             user_pages.append(extra_page)
 
@@ -694,6 +694,7 @@ ALL_PAGES = {
     "Maintenance": st.Page("modules/25_maintenance_flotte.py", title="Maintenance & Flotte", icon="🚛"),
     "Académie": st.Page("modules/26_academie.py", title="Académie DarPharm", icon="🎓"),
     "Prévisions": st.Page("modules/27_prevision_charge.py", title="Prévision de Charge", icon="📈"),
+    "Mode Meeting": st.Page("modules/28_presentation_ia.py", title="Mode Meeting (DataShow)", icon="📽️"),
     "Profil": st.Page("modules/17_profil.py", title="Mon Profil", icon="👤")
 }
 
@@ -707,7 +708,7 @@ assigned_keys = []
 # Définition des groupes et de leurs membres (clés de ALL_PAGES)
 CATEGORIES = {
     "👤 MON PROFIL": ["Profil", "Mon Coin"],
-    "📊 SUPERVISION": ["Dashboard", "Analyse Rotation", "Prévisions", "Suivi", "Dashboard Premium"],
+    "📊 SUPERVISION": ["Dashboard", "Analyse Rotation", "Prévisions", "Mode Meeting", "Suivi", "Dashboard Premium"],
     "📦 GESTION DES STOCKS": ["Inventaire", "Inventaire Détail", "Inventaire Triple", "Péremptions", "Liste des Lots", "Catalogue Produits"],
     "📝 POINTAGES & FLUX": ["Pointage", "Pointage Expéditeur", "Pointage Marchandise", "Recouvrement", "Logistique", "Scanneur QR", "Scan Mobile", "Transferts"],
     "🤖 DARPHARM IA": ["Assistant IA", "Qualité IA", "Briefing IA", "Automatisation", "Coordination", "Académie"],
