@@ -342,11 +342,12 @@ if not applied_theme:
         
         /* Sidebar Group Headers - RADICAL COMPACT */
         [data-testid="stSidebarNavSeparator"] {
-            margin-top: 20px !important;
+            margin-top: 25px !important;
+            margin-bottom: 2px !important;
             border-bottom: 1px solid rgba(0,0,0,0.05) !important;
         }
         [data-testid="stSidebarNav"] div[data-testid="stSidebarNavSeparator"] + div {
-            margin-top: 10px !important;
+            margin-top: 15px !important;
             margin-bottom: 6px !important;
             padding-left: 10px !important;
             font-weight: 800 !important;
@@ -355,6 +356,8 @@ if not applied_theme:
             letter-spacing: 0.5px !important;
             color: #5b6cf9 !important;
             opacity: 0.8;
+            display: block !important;
+            clear: both !important;
         }
 
         div[data-testid="stBaseButton-btn_logout"] button {
