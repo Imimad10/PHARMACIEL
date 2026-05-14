@@ -585,26 +585,32 @@ with tab_suivi_sav:
         # Formattage pour l'affichage
         df_disp['Date'] = df_disp['date_crea'].dt.strftime("%d/%m %H:%M")
         
-        st.dataframe(
+        edited_df = st.data_editor(
             df_disp.sort_values(['SLA_Statut', 'date_crea'], ascending=[True, True]),
             use_container_width=True,
             hide_index=True,
             column_config={
-                "SLA_Statut": st.column_config.TextColumn("État SLA"),
-                "SLA_Color": None, # Cache la colonne technique
+                "SLA_Statut": st.column_config.TextColumn("État SLA", disabled=True),
+                "SLA_Color": None, 
                 "statut": st.column_config.SelectboxColumn("Statut Opérationnel", options=["En cours", "Livré", "Annulé"]),
-                "Type_Region": "Type Secteur",
+                "Type_Region": st.column_config.TextColumn("Type Secteur", disabled=True),
                 "date_crea": None,
-                "secteur": "Région"
+                "secteur": st.column_config.TextColumn("Région", disabled=True),
+                "client": st.column_config.TextColumn("Client", disabled=True),
+                "ville": st.column_config.TextColumn("Ville", disabled=True),
+                "ref": st.column_config.TextColumn("Ref", disabled=True),
+                "motif": st.column_config.TextColumn("Motif", disabled=True),
+                "Date": st.column_config.TextColumn("Date", disabled=True)
             }
         )
 
         if st.button("💾 Enregistrer les changements de statut"):
-            # On ne sauvegarde que les colonnes de base
-            df_to_save = df_disp[COLS_SAV + ["secteur"]]
-            df_to_save['date_crea'] = pd.to_datetime(df_disp['Date'], format="%d/%m %H:%M") # Recalage approximatif ou garder original
-            # Note: Pour une vraie modif, il faudrait utiliser st.data_editor
-            st.info("Utilisez l'onglet Administration pour les modifications groupées complexes.")
+            # On récupère les colonnes originales pour la sauvegarde
+            df_to_save = edited_df[COLS_SAV + ["secteur"]]
+            # Note: On garde l'originale date_crea (cachée mais présente dans edited_df si on ne l'a pas drop)
+            # S'assurer que date_crea est bien formatée
+            df_to_save['date_crea'] = df_to_save['date_crea'].dt.strftime("%Y-%m-%d %H:%M")
+            
             save_gs_data(df_to_save, "Litiges_SAV", "data/db_sav.csv")
             st.success("Modifications enregistrées !")
             st.rerun()
