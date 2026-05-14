@@ -63,7 +63,7 @@ if not df_for_depots.empty:
 
 depot_cible = st.selectbox("🏢 Dépôt / Zone Cible :", depots_list, index=0, help="Filtre l'analyse pour un dépôt ou une zone spécifique.")
 
-tab1, tab2 = st.tabs(["📊 Tableau de Bord (DDP)", "🏢 Analyse Multi-Dépôts"])
+tab1, tab2, tab3 = st.tabs(["📊 Tableau de Bord (DDP)", "🏢 Analyse Multi-Dépôts (Fichier)", "🚚 Transfert & Rotation FEFO"])
 
 with tab1:
     if source_data == "📝 Saisies Terrain (Inventaire)":
@@ -333,3 +333,79 @@ with tab2:
             else:
                 st.error("Colonnes 'produit', 'depot' et 'ddp' requises.")
         except Exception as e: st.error(f"Erreur: {e}")
+with tab3:
+    st.subheader("🚚 Optimisation Inter-Dépôts (Rotation Stratégique)")
+    st.write("Comparez vos dépôts internes pour transférer les dates courtes vers la zone de vente.")
+
+    MASTER_WORKSHEET = "Master_Inventaire_Zone"
+    MASTER_FALLBACK = "data_inventaire_detail/master_detail.csv"
+    df_fefo = load_gs_data(MASTER_WORKSHEET, MASTER_FALLBACK, None)
+
+    if not df_fefo.empty:
+        # Normalisation des colonnes pour le Master
+        mapping = {
+            'produit': 'designation', 'designation': 'designation',
+            'n°lot': 'lot', 'lot': 'lot',
+            'peremption': 'ddp', 'ddp': 'ddp',
+            'qte_logi': 'quantite', 'quantite': 'quantite', 'stock_theorique': 'quantite',
+            'depot': 'depot', 'dépôt': 'depot', 'zone': 'depot'
+        }
+        new_cols = []
+        for c in df_fefo.columns:
+            norm = str(c).lower().strip()
+            target = next((v for k, v in mapping.items() if k in norm), norm)
+            new_cols.append(target)
+        df_fefo.columns = new_cols
+        
+        if 'depot' in df_fefo.columns and 'designation' in df_fefo.columns:
+            all_depots = sorted(df_fefo['depot'].dropna().unique().tolist())
+            
+            c_f1, c_f2 = st.columns(2)
+            with c_f1:
+                dep_vente = st.multiselect("🏪 Dépôt(s) de Vente (Cible)", all_depots, help="Les dépôts où les produits doivent être vendus en priorité.")
+            with c_f2:
+                dep_stock = st.multiselect("🏗️ Dépôt(s) de Stockage (Source)", [d for d in all_depots if d not in dep_vente], help="Les dépôts de réserve.")
+
+            if dep_vente and dep_stock:
+                df_fefo['expiry_date'] = df_fefo['ddp'].apply(parse_ddp)
+                df_fefo = df_fefo.dropna(subset=['expiry_date'])
+                
+                # Groupement par désignation pour trouver les min DDP
+                df_v = df_fefo[df_fefo['depot'].isin(dep_vente)].groupby('designation').agg({'expiry_date': 'min', 'quantite': 'sum'}).reset_index()
+                df_s = df_fefo[df_fefo['depot'].isin(dep_stock)].groupby(['designation', 'lot', 'ddp']).agg({'expiry_date': 'min', 'quantite': 'sum'}).reset_index()
+                
+                # Merge pour comparer
+                merged = pd.merge(df_s, df_v, on='designation', suffixes=('_stock', '_vente'))
+                
+                # Anomalie : Date en stock plus proche que date en vente
+                anomalies = merged[merged['expiry_date_stock'] < merged['expiry_date_vente']].copy()
+                
+                if not anomalies.empty:
+                    st.error(f"🚨 {len(anomalies)} lots critiques détectés en réserve !")
+                    st.info("💡 Ces lots devraient être transférés en zone de vente car ils périment avant ceux déjà en rayon.")
+                    
+                    anomalies['DDP Stock'] = anomalies['expiry_date_stock'].dt.strftime('%m/%Y')
+                    anomalies['DDP Vente'] = anomalies['expiry_date_vente'].dt.strftime('%m/%Y')
+                    
+                    disp_cols = ['designation', 'lot', 'DDP Stock', 'quantite_stock', 'DDP Vente']
+                    st.dataframe(anomalies[disp_cols].rename(columns={
+                        'designation': 'Produit', 
+                        'quantite_stock': 'Quantité en Réserve',
+                        'DDP Vente': 'DDP Actuelle en Vente'
+                    }), use_container_width=True, hide_index=True)
+                    
+                    if st.button("📝 Générer l'Ordre de Transfert Urgent"):
+                        from utils_pdf import generate_inventory_report_pdf
+                        # On réutilise le générateur PDF avec les colonnes d'anomalie
+                        pdf_data = anomalies[['designation', 'lot', 'DDP Stock', 'quantite_stock']].copy()
+                        pdf_data.columns = ['Produit', 'Lot', 'Péremption', 'Quantité']
+                        pdf_bytes = generate_inventory_report_pdf(pdf_data, "ORDRE DE TRANSFERT URGENT - ROTATION FEFO")
+                        st.download_button("📥 Télécharger l'Ordre de Transfert (PDF)", pdf_bytes, "Transfert_Urgent_FEFO.pdf", type="primary")
+                else:
+                    st.success("✅ Rotation Optimale : Toutes les dates courtes sont déjà en zone de vente.")
+            else:
+                st.info("Sélectionnez les dépôts de vente et de stockage pour lancer l'analyse.")
+        else:
+            st.error("Structure de données incompatible (colonnes 'depot' ou 'designation' manquantes).")
+    else:
+        st.warning("Aucune donnée disponible dans le Master pour cette analyse.")
