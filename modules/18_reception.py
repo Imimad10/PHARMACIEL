@@ -11,6 +11,8 @@ from utils_themes import apply_theme_css, load_themes_db
 import difflib
 import base64
 import re
+from PIL import Image
+from io import BytesIO
 
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Réception Premium - Pharmaciel", layout="wide")
@@ -123,8 +125,100 @@ with tabs[0]:
 
         if is_ia_enabled():
             st.markdown("### 🤖 Assistant IA")
-            if st.button("📸 OUVRIR LE SCANNER IA VIGNETTES", use_container_width=True):
-                st.switch_page("modules/7_scanneur_qr.py")
+            
+            # Paramètres IA
+            ia_mode = st.radio("Mode de détection", ["Base Système 🔍", "Libre (Nouveau produit) ✨"], horizontal=True)
+            
+            # Upload d'images
+            uploaded_files = st.file_uploader("📸 Scanner des vignettes (Images)", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True, key="ia_uploader")
+            
+            if uploaded_files:
+                if st.button("🚀 ANALYSER TOUTES LES IMAGES", use_container_width=True, type="primary"):
+                    st.session_state.ia_results = []
+                    progress_bar = st.progress(0)
+                    
+                    for i, file in enumerate(uploaded_files):
+                        # Conversion image en base64
+                        img = Image.open(file)
+                        buffered = BytesIO()
+                        img.save(buffered, format="JPEG")
+                        img_str = base64.b64encode(buffered.getvalue()).decode()
+                        
+                        prompt = """
+                        Extrais les informations de cette vignette de médicament. 
+                        Retourne UNIQUEMENT un JSON brut (sans markdown) avec ces clés:
+                        - designation: (ex: PARACETAMOL 500mg CP B/20)
+                        - lot: (numéro de lot)
+                        - ddp: (Format MM/AAAA)
+                        - ddf: (Format MM/AAAA)
+                        - ppa: (Nombre décimal)
+                        - shp: (Nombre décimal)
+                        - qte: (Nombre entier)
+                        """
+                        
+                        try:
+                            res_raw = ask_ai_vision(prompt, img_str)
+                            # Nettoyage JSON si markdown présent
+                            if "```json" in res_raw: res_raw = res_raw.split("```json")[1].split("```")[0].strip()
+                            elif "```" in res_raw: res_raw = res_raw.split("```")[1].split("```")[0].strip()
+                            
+                            data = json.loads(res_raw)
+                            
+                            # Matching Base Système si activé
+                            if "Base Système" in ia_mode:
+                                lp = df_prod['Designation'].dropna().unique().tolist()
+                                if lp:
+                                    matches = difflib.get_close_matches(data.get('designation', '').upper(), lp, n=1, cutoff=0.4)
+                                    if matches:
+                                        target_prod = matches[0]
+                                        data['designation'] = target_prod
+                                        
+                                        # Récupération PPA/SHP depuis la base
+                                        prod_info = df_prod[df_prod['Designation'] == target_prod].iloc[0]
+                                        if pd.notna(prod_info.get('PPA')): data['ppa'] = float(prod_info['PPA'])
+                                        if pd.notna(prod_info.get('SHP')): data['shp'] = float(prod_info['SHP'])
+                            
+                            st.session_state.ia_results.append(data)
+                        except Exception as e:
+                            st.warning(f"Erreur sur {file.name} : {e}")
+                        
+                        progress_bar.progress((i + 1) / len(uploaded_files))
+                    
+                    st.success(f"{len(st.session_state.ia_results)} vignettes analysées !")
+
+            # Affichage des résultats IA pour validation
+            if "ia_results" in st.session_state and st.session_state.ia_results:
+                st.markdown("#### ✅ Validation des scans")
+                df_res = pd.DataFrame(st.session_state.ia_results)
+                
+                # Édition des résultats avant ajout
+                edited_df = st.data_editor(
+                    df_res, 
+                    num_rows="dynamic", 
+                    use_container_width=True,
+                    column_config={
+                        "designation": st.column_config.SelectboxColumn("Produit", options=df_prod['Designation'].unique() if not df_prod.empty else []),
+                        "ddp": st.column_config.TextColumn("DDP (MM/AAAA)"),
+                        "ppa": st.column_config.NumberColumn("PPA", format="%.2f DA"),
+                        "shp": st.column_config.NumberColumn("SHP", format="%.2f DA"),
+                        "qte": st.column_config.NumberColumn("Quantité"),
+                    }
+                )
+                
+                if st.button("➕ AJOUTER TOUT À LA RÉCEPTION", use_container_width=True):
+                    for _, row in edited_df.iterrows():
+                        new_row = {
+                            "Designation": row.get('designation', ''),
+                            "Quantité": row.get('qte', 1),
+                            "Lot": row.get('lot', ''),
+                            "DDP": row.get('ddp', ''),
+                            "PPA": row.get('ppa', 0.0),
+                            "SHP": row.get('shp', 0.0),
+                            "Colissage": 1
+                        }
+                        st.session_state.reception_items.append(new_row)
+                    st.session_state.ia_results = []
+                    st.rerun()
 
     with col_f2:
         st.subheader("🔍 Saisie des Produits")
