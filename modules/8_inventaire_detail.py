@@ -166,6 +166,8 @@ with tabs[0]:
                 z_sel = st.selectbox("Zone à imprimer :", zones, key="print_z_inv_det")
                 
                 df_print = df_master if z_sel == "Toutes" else df_master[df_master['zone'] == z_sel]
+                # TRI ALPHABÉTIQUE
+                df_print = df_print.sort_values(by='designation')
                 
                 cols_to_print = [('designation', 'Produit', 55), ('lot', 'Lot', 25), ('zone', 'Zone', 15)]
                 pdf_bytes = generate_blank_inventory_pdf(df_print, f"Inventaire Zone {z_sel}", cols_to_print)
@@ -416,6 +418,23 @@ with tabs[2]:
 
                         st.write("### 🔬 Confrontation Minutieuse (Lots & Métadonnées)")
                         st.dataframe(comp_d.style.apply(highlight_diffs_detail, axis=1), use_container_width=True, hide_index=True)
+                        
+                        # AJOUT EXPORT EXCEL TRIÉ
+                        import io
+                        buffer = io.BytesIO()
+                        if "Rapide" in mode_conf:
+                            df_exp = comp.sort_values(by='designation')
+                        else:
+                            df_exp = comp_d.sort_values(by='designation')
+                        
+                        df_exp.to_excel(buffer, index=False)
+                        st.download_button(
+                            label="📥 Exporter l'Analyse en Excel",
+                            data=buffer.getvalue(),
+                            file_name=f"Analyse_Detail_Zone_{z_sel}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True
+                        )
         except Exception as e:
             st.error(f"Erreur d'analyse : {e}")
     else: st.warning("Accès réservé aux Administrateurs et Superviseurs.")

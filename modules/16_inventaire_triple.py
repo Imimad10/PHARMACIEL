@@ -141,7 +141,9 @@ def get_working_entries(df):
 with st.expander("🖨️ Impression des Fiches Terrain"):
     from utils_pdf import generate_blank_inventory_pdf
     st.write("Générez une fiche vierge pour le comptage papier.")
-    if st.download_button("📥 Télécharger Fiche Vierge (Zone Actuelle)", generate_blank_inventory_pdf(get_working_master(), "Triple", [('produit','Produit',55),('lot','Lot',25)]), "Fiche_Vierge.pdf", "application/pdf"):
+    # TRI ALPHABÉTIQUE
+    df_blank = get_working_master().sort_values(by='produit')
+    if st.download_button("📥 Télécharger Fiche Vierge (Zone Actuelle)", generate_blank_inventory_pdf(df_blank, "Triple", [('produit','Produit',55),('lot','Lot',25)]), "Fiche_Vierge.pdf", "application/pdf"):
         st.success("Généré !")
 
 t_zone, t_mini, t_final, t_conf, t_admin = st.tabs(["📍 Saisie Zone", "📦 Saisie Mini", "📊 Compilation", "📉 Confrontation", "⚙️ Gestion Admin"])
@@ -277,7 +279,9 @@ with t_conf:
         
         if st.button("📄 Rapport Final PDF"):
             from utils_pdf import generate_inventory_report_pdf
-            st.download_button("Télécharger le Rapport", generate_inventory_report_pdf(final, f"RAPPORT TRIPLE - {selected_zone_filter}"), f"Rapport_Triple_{selected_zone_filter}.pdf", "application/pdf")
+            # TRI ALPHABÉTIQUE
+            final_sorted = final.sort_values(by='produit')
+            st.download_button("Télécharger le Rapport", generate_inventory_report_pdf(final_sorted, f"RAPPORT TRIPLE - {selected_zone_filter}"), f"Rapport_Triple_{selected_zone_filter}.pdf", "application/pdf")
 
 # --- GESTION ADMIN ---
 with t_admin:
@@ -303,8 +307,8 @@ with t_admin:
                 import io
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                    df_z.to_excel(writer, sheet_name="Zone", index=False)
-                    df_mi.to_excel(writer, sheet_name="Mini", index=False)
+                    df_z.sort_values(by='produit').to_excel(writer, sheet_name="Zone", index=False)
+                    df_mi.sort_values(by='produit').to_excel(writer, sheet_name="Mini", index=False)
                 st.download_button("📥 Télécharger Sauvegarde Excel", output.getvalue(), "backup_inventaire.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             except Exception as e:
                 st.error(f"Erreur d'export : {e}")

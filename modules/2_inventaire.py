@@ -352,8 +352,12 @@ with tabs[2]:
                     # EXPORT EXCEL
                     import io
                     buffer = io.BytesIO()
-                    if "Rapide" in mode_conf: comp.to_excel(buffer, index=False)
-                    else: comp_det.to_excel(buffer, index=False)
+                    if "Rapide" in mode_conf: 
+                        comp = comp.sort_values(by='designation')
+                        comp.to_excel(buffer, index=False)
+                    else: 
+                        comp_det = comp_det.sort_values(by='designation')
+                        comp_det.to_excel(buffer, index=False)
                     
                     st.download_button(
                         label="📥 Exporter l'analyse en Excel",
