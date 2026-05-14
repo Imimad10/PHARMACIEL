@@ -16,7 +16,7 @@ FALLBACK_PATH = 'data/data_litiges.csv'
 PHOTO_DIR = 'data/photos_litiges/'
 os.makedirs(PHOTO_DIR, exist_ok=True)
 
-COLUMNS = ["Date", "Heure", "Facture", "Fournisseur", "Agent", "Produit", "Lot", "Quantite", "Type", "Priorite", "Statut", "Commentaire", "Photo_Path", "Date_Resolution"]
+COLUMNS = ["Date", "Heure", "Facture", "Fournisseur", "Agent", "Produit", "Lot", "Quantite", "Type", "Priorite", "Statut", "Commentaire", "Photo_Path", "Date_Resolution", "IA_Analyse"]
 
 st.set_page_config(page_title="Litiges Fournisseurs", layout="wide", page_icon="📦")
 show_sync_ui(WORKSHEET_NAME, FALLBACK_PATH, COLUMNS)
@@ -38,7 +38,7 @@ def get_delay(start_date, end_date):
 st.title("📦 DARPHARM - Gestion des Litiges & Réclamations")
 st.write("Système synchronisé pour le suivi des anomalies de réception et litiges fournisseurs.")
 
-tab_new, tab_list, tab_stats, tab_prods = st.tabs(["➕ Nouveau Rapport", "📋 Suivi des Litiges", "📊 Statistiques", "📦 Base Produits"])
+tab_new, tab_list, tab_arch, tab_stats, tab_prods = st.tabs(["➕ Nouveau Rapport", "📋 Suivi Actif", "🗄️ Archives", "📊 Dashboard Performance", "📦 Base Produits"])
 
 # --- CHARGEMENT DYNAMIQUE DES PRODUITS ---
 df_prods = load_gs_data("Base_Produits", "data_produits.csv", ["Désignation"])
@@ -136,7 +136,8 @@ with tab_new:
                     "Statut": "En cours",
                     "Commentaire": item['Commentaire'],
                     "Photo_Path": item['Photo_Path'],
-                    "Date_Resolution": ""
+                    "Date_Resolution": "",
+                    "IA_Analyse": "Analyse en attente..."
                 })
             
             df_litiges = pd.concat([df_litiges, pd.DataFrame(new_rows)], ignore_index=True)
@@ -277,25 +278,74 @@ with tab_list:
                     
                     st.divider()
                     if row['Statut'] == "En cours":
-                        if st.button("✅ Régler", key=f"btn_regler_{i}", use_container_width=True):
+                        if st.button("🤖 Analyse IA Stratégique", key=f"btn_ana_ia_{i}", use_container_width=True):
+                            with st.spinner("L'IA analyse le litige..."):
+                                p_ana = f"En tant qu'expert logistique pour DarPharm, analyse ce litige : Fournisseur {row['Fournisseur']}, Produit {row['Produit']}, Motif {row['Type']}. Observation : {row['Commentaire']}. Donne un conseil bref (2 lignes) sur la meilleure façon de régler ça avec le fournisseur."
+                                res_ana = ask_ai(p_ana)
+                                df_litiges.at[i, 'IA_Analyse'] = res_ana
+                                save_gs_data(df_litiges, WORKSHEET_NAME, FALLBACK_PATH)
+                                st.rerun()
+
+                        if st.button("✅ Régler & Archiver", key=f"btn_regler_{i}", use_container_width=True, type="primary"):
                             df_litiges.at[i, 'Statut'] = "Réglée"
                             df_litiges.at[i, 'Date_Resolution'] = datetime.now().strftime("%Y-%m-%d")
                             save_gs_data(df_litiges, WORKSHEET_NAME, FALLBACK_PATH)
-                            st.success("Dossier clôturé.")
+                            st.success("Dossier réglé et déplacé vers les archives.")
                             st.rerun()
+                
+                # Affichage de l'analyse IA si présente
+                if row.get('IA_Analyse') and row['IA_Analyse'] != "Analyse en attente...":
+                    st.info(f"🧠 **Analyse IA :** {row['IA_Analyse']}")
+
+# --- ONGLET 3 : ARCHIVES ---
+with tab_arch:
+    st.subheader("🗄️ Dossiers Réglés & Archivés")
+    df_arch = df_litiges[df_litiges['Statut'] == "Réglée"].copy()
+    if df_arch.empty:
+        st.info("Aucun dossier archivé.")
+    else:
+        st.dataframe(df_arch.sort_values("Date_Resolution", ascending=False), use_container_width=True, hide_index=True)
 
 # --- ONGLET 3 : STATS ---
 with tab_stats:
     if not df_litiges.empty:
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Total Litiges", len(df_litiges))
-        c2.metric("En cours", len(df_litiges[df_litiges['Statut'] == "En cours"]))
-        c3.metric("Résolus", len(df_litiges[df_litiges['Statut'] == "Réglée"]))
+        df_active = df_litiges[df_litiges['Statut'] == "En cours"].copy()
+        df_closed = df_litiges[df_litiges['Statut'] == "Réglée"].copy()
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Total Historique", len(df_litiges))
+        c2.metric("En cours (Actifs)", len(df_active))
+        c3.metric("Résolus", len(df_closed))
+        
+        # Calcul du temps moyen de résolution
+        if not df_closed.empty:
+            df_closed['delai'] = df_closed.apply(lambda r: get_delay(r['Date'], r['Date_Resolution']), axis=1)
+            avg_time = df_closed['delai'].mean()
+            c4.metric("Délai Moyen Résolution", f"{avg_time:.1f} Jours")
         
         st.divider()
-        st.subheader("Répartition par Motif")
+        col_st1, col_st2 = st.columns(2)
+        
+        with col_st1:
+            st.subheader("⏳ Âge des Litiges Actifs")
+            if not df_active.empty:
+                df_active['age'] = df_active.apply(lambda r: get_delay(r['Date'], datetime.now().strftime("%Y-%m-%d")), axis=1)
+                fig_age = px.histogram(df_active, x="age", nbins=10, title="Répartition par ancienneté (Jours)", 
+                                       labels={'age': 'Jours'}, color_discrete_sequence=['#ff4b4b'])
+                st.plotly_chart(fig_age, use_container_width=True)
+            else:
+                st.write("Aucun litige en cours.")
+
+        with col_st2:
+            st.subheader("📦 Top Produits Problématiques")
+            df_prod_count = df_litiges['Produit'].value_counts().head(10).reset_index()
+            fig_prod = px.bar(df_prod_count, x='Produit', y='count', title="Top 10 Produits en litige")
+            st.plotly_chart(fig_prod, use_container_width=True)
+
+        st.subheader("📊 Répartition par Motif")
         df_motif = df_litiges['Type'].value_counts().reset_index()
-        st.bar_chart(df_motif, x='Type', y='count')
+        fig_motif = px.pie(df_motif, values='count', names='Type', hole=0.4)
+        st.plotly_chart(fig_motif, use_container_width=True)
 
 # --- ONGLET 4 : BASE PRODUITS ---
 with tab_prods:
