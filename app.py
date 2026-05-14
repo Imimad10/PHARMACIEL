@@ -304,49 +304,51 @@ if not applied_theme:
     # Style Responsive et Bouton Déconnexion
     st.markdown("""
     <style>
-        /* Modern Sidebar Navigation Styles - ULTRA COMPACT */
+        /* Modern Sidebar Navigation Styles - RADICAL COMPACT */
+        [data-testid="stSidebarNav"] {
+            padding-top: 0px !important;
+        }
         [data-testid="stSidebarNav"] ul {
-            padding-top: 5px !important;
+            padding-top: 0px !important;
         }
         [data-testid="stSidebarNav"] li {
-            padding: 0px 8px !important;
+            padding: 0px 4px !important;
+            margin: 0px !important;
+            height: 32px !important;
         }
         [data-testid="stSidebarNav"] a {
-            padding: 2px 10px !important;
-            margin: 1px 0px !important;
-            min-height: 28px !important;
-            border-radius: 8px !important;
-            transition: all 0.2s ease !important;
+            padding: 0px 8px !important;
+            margin: 0px !important;
+            height: 28px !important;
+            line-height: 28px !important;
+            border-radius: 6px !important;
+            display: flex !important;
+            align-items: center !important;
             background-color: transparent !important;
         }
         [data-testid="stSidebarNav"] a[aria-current="page"] {
             background-color: rgba(91, 108, 249, 0.1) !important;
-            border-left: 3px solid #5b6cf9 !important;
+            border-left: 2px solid #5b6cf9 !important;
         }
         [data-testid="stSidebarNav"] span {
-            font-size: 0.85rem !important;
+            font-size: 0.8rem !important;
             font-weight: 600 !important;
+            line-height: 1 !important;
             color: #4b5563 !important;
         }
         [data-testid="stSidebarNav"] a[aria-current="page"] span {
             color: #5b6cf9 !important;
         }
-        [data-testid="stSidebarNav"] a:hover span {
-            transform: translateX(3px) !important;
-            color: #5b6cf9 !important;
-        }
         
-        /* Sidebar Group Headers - ULTRA COMPACT */
+        /* Sidebar Group Headers - RADICAL COMPACT */
         [data-testid="stSidebarNav"] div[data-testid="stSidebarNavSeparator"] + div {
-            margin-top: 12px !important;
-            margin-bottom: 4px !important;
-            padding-left: 12px !important;
+            margin-top: 8px !important;
+            margin-bottom: 2px !important;
+            padding-left: 10px !important;
             font-weight: 800 !important;
             text-transform: uppercase !important;
-            font-size: 0.65rem !important;
-            letter-spacing: 1px !important;
+            font-size: 0.6rem !important;
             color: #9ca3af !important;
-            opacity: 0.9;
         }
 
         div[data-testid="stBaseButton-btn_logout"] button {
