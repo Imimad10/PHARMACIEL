@@ -21,15 +21,15 @@ POINTAGES_FALLBACK = "data/db_pointages.csv"
 RECOUV_WORKSHEET = "Recouvrement"
 RECOUV_FALLBACK = "data_recouvrement.csv"
 
-COLS_LIVREURS = ["nom"]
+COLS_LIVREURS = ["Nom"]
 COLS_POINTAGES = ['date_pointage', 'date_feuille', 'livreur', 'rotation', 'reference', 'client', 'region', 'statut_karim']
 COLS_RECOUV = ["Client", "Facture", "Mode Paiement", "Région", "Reste à payer", "Livreur", "Date", "Statut"]
 
 # --- FONCTIONS DE GESTION ---
 def ajouter_livreur(nom):
     df_l = load_gs_data(LIVREURS_WORKSHEET, LIVREURS_FALLBACK, COLS_LIVREURS)
-    if df_l.empty or nom not in df_l['nom'].values:
-        new_l = pd.DataFrame([{'nom': nom}])
+    if df_l.empty or nom not in df_l['Nom'].values:
+        new_l = pd.DataFrame([{'Nom': nom}])
         df_l = pd.concat([df_l, new_l], ignore_index=True)
         save_gs_data(df_l, LIVREURS_WORKSHEET, LIVREURS_FALLBACK)
         return True
@@ -37,7 +37,9 @@ def ajouter_livreur(nom):
 
 def get_livreurs():
     df_l = load_gs_data(LIVREURS_WORKSHEET, LIVREURS_FALLBACK, COLS_LIVREURS)
-    return df_l['nom'].tolist() if not df_l.empty else []
+    if not df_l.empty and 'Nom' in df_l.columns:
+        return df_l['Nom'].dropna().unique().tolist()
+    return []
 
 def archive_pointages_mensuel():
     # Sur GSheets, l'archivage pourrait être géré différemment ou pas du tout pour garder l'historique
@@ -68,6 +70,17 @@ with tab_admin:
                     st.rerun()
                 else:
                     st.warning("Ce livreur existe déjà.")
+        
+        st.write("---")
+        if st.button("🔄 Synchroniser l'équipe (depuis Logistique)", use_container_width=True):
+            # Charger depuis la même feuille mais avec les colonnes complètes si besoin
+            df_central = load_gs_data(LIVREURS_WORKSHEET, LIVREURS_FALLBACK, ["Nom"])
+            if not df_central.empty:
+                save_gs_data(df_central, LIVREURS_WORKSHEET, LIVREURS_FALLBACK)
+                st.success("✅ Équipe synchronisée avec la base centrale !")
+                st.rerun()
+            else:
+                st.warning("Aucun livreur trouvé dans la base centrale.")
     
     with col2:
         st.subheader("Équipe actuelle")
