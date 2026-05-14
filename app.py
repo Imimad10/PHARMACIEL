@@ -585,7 +585,7 @@ if st.session_state.current_user is None:
             }}
             
             /* Style du bouton de connexion */
-            .stButton button {
+            .stButton button {{
                 background: {btn_bg} !important;
                 color: white !important;
                 font-size: 20px !important;
@@ -597,12 +597,12 @@ if st.session_state.current_user is None:
                 margin-top: 10px !important;
                 transition: all 0.3s ease !important;
                 box-shadow: 0 5px 15px rgba(0,0,0,0.2) !important;
-            }
-            .stButton button:hover {
+            }}
+            .stButton button:hover {{
                 background: {btn_hover} !important;
                 transform: translateY(-3px) scale(1.02) !important;
                 box-shadow: 0 8px 25px rgba(0,0,0,0.3) !important;
-            }
+            }}
 
             [data-testid="stForm"] {{
                 border: none !important;
