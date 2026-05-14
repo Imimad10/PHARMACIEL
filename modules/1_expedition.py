@@ -18,7 +18,7 @@ LIVREURS_PATH = os.path.join(DATA_DIR, "livreurs.csv")
 MOTIFS_PATH = os.path.join(DATA_DIR, "motifs.csv")
 COLS_CLIENTS = ["Client", "Ville", "Tel", "Secteur"]
 COLS_LIVREURS = ["Nom", "Secteur"]
-COLS_SAV = ["client", "ville", "ref", "motif", "date_crea", "statut", "signature"]
+COLS_SAV = ["client", "ville", "ref", "motif", "date_crea", "statut", "signature", "livreur", "date_reglement"]
 SAV_CONFIG_PATH = os.path.join(DATA_DIR, "sav_config.csv")
 
 # --- FONCTIONS DE CHARGEMENT ---
@@ -73,7 +73,9 @@ def add_or_merge_row(client, ville, ref, info, statut, signature, mode, secteur=
                 "date_crea": datetime.now().strftime("%Y-%m-%d %H:%M"),
                 "statut": "En cours",
                 "signature": signature,
-                "qte_colis": qte_colis
+                "qte_colis": qte_colis,
+                "livreur": "",
+                "date_reglement": ""
             }])
             df_sav = pd.concat([df_sav, new_sav], ignore_index=True)
             save_gs_data(df_sav, "Litiges_SAV", "data/db_sav.csv")
@@ -499,9 +501,16 @@ with tab_exp:
                 
                 st.success("✅ PDF prêt ! Une fois téléchargé, cliquez ci-dessous pour archiver et passer au livreur suivant.")
                 if st.button("🏁 Valider l'envoi & Vider le tableau", type="secondary"):
+                    if mode == "Réclamation":
+                        # Affecter le livreur aux réclamations dans la base centrale
+                        df_sav_all = load_gs_data("Litiges_SAV", "data/db_sav.csv", COLS_SAV)
+                        refs_to_update = df_visible['N° Doc'].tolist()
+                        df_sav_all.loc[df_sav_all['ref'].isin(refs_to_update), 'livreur'] = livreur_choisi
+                        save_gs_data(df_sav_all, "Litiges_SAV", "data/db_sav.csv")
+                        st.success(f"Affectation de {livreur_choisi} enregistrée.")
+
                     log_action(st.session_state.current_user['username'], f"Validation finale tournée {livreur_choisi}", "Expédition")
                     st.session_state.rows = pd.DataFrame(columns=["Client", "Ville", "Secteur", "N° Doc", "Info", "Statut", "Signature"])
-                    st.success("Tableau vidé ! Vous pouvez sélectionner un autre livreur.")
                     st.rerun()
             except Exception as e:
                 st.error(f"Erreur PDF : {e}")
@@ -605,15 +614,45 @@ with tab_suivi_sav:
         )
 
         if st.button("💾 Enregistrer les changements de statut"):
-            # On récupère les colonnes originales pour la sauvegarde
+            # On récupère les colonnes originales
+            # Si le statut passe à "Livré", on met la date de règlement
+            edited_df.loc[(edited_df['statut'] == 'Livré') & (edited_df['date_reglement'] == ""), 'date_reglement'] = datetime.now().strftime("%Y-%m-%d %H:%M")
+            
             df_to_save = edited_df[COLS_SAV + ["secteur"]]
-            # Note: On garde l'originale date_crea (cachée mais présente dans edited_df si on ne l'a pas drop)
-            # S'assurer que date_crea est bien formatée
-            df_to_save['date_crea'] = df_to_save['date_crea'].dt.strftime("%Y-%m-%d %H:%M")
+            # S'assurer que date_crea est bien formatée en string
+            df_to_save['date_crea'] = pd.to_datetime(edited_df['date_crea']).dt.strftime("%Y-%m-%d %H:%M")
             
             save_gs_data(df_to_save, "Litiges_SAV", "data/db_sav.csv")
             st.success("Modifications enregistrées !")
             st.rerun()
+
+        # --- NOUVELLE SECTION : PERFORMANCE LIVREURS ---
+        st.divider()
+        st.subheader("🏎️ Performance des Livreurs (Résolution SAV)")
+        
+        df_perf = df_sav[df_sav['statut'] == 'Livré'].copy()
+        if not df_perf.empty:
+            df_perf['date_reglement'] = pd.to_datetime(df_perf['date_reglement'], errors='coerce')
+            df_perf['lead_time_h'] = (df_perf['date_reglement'] - df_perf['date_crea']).dt.total_seconds() / 3600
+            
+            # Agrégation par livreur
+            perf_stats = df_perf.groupby('livreur').agg({
+                'ref': 'count',
+                'lead_time_h': 'mean'
+            }).reset_index()
+            perf_stats.columns = ['Livreur', 'Réclamations Réglées', 'Délai Moyen (Heures)']
+            
+            c_p1, c_p2 = st.columns([2, 3])
+            with c_p1:
+                st.dataframe(perf_stats.sort_values('Réclamations Réglées', ascending=False), hide_index=True)
+            with c_p2:
+                fig_perf = px.bar(perf_stats, x='Livreur', y='Délai Moyen (Heures)', 
+                                 title="Délai Moyen de Règlement par Livreur",
+                                 color='Délai Moyen (Heures)',
+                                 color_continuous_scale='RdYlGn_r')
+                st.plotly_chart(fig_perf, use_container_width=True)
+        else:
+            st.info("Pas encore assez de données réglées pour afficher les performances.")
 
 # --- LES AUTRES ONGLETS SONT SUPPRIMÉS POUR CENTRALISATION ---
 
