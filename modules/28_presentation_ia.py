@@ -2,178 +2,265 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 from utils_ia import ask_ai, is_ia_enabled
 from utils_gsheets import load_gs_data
 
 # --- CONFIGURATION PAGE ---
-st.set_page_config(page_title="DarPharm Executive Briefing", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="DarPharm Master Executive Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
-# --- STYLE EXECUTIVE MINIMALIST ---
+# --- STYLE EXECUTIVE MASTER ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
     
     .stApp {
-        background-color: #f5f5f7 !important;
-        color: #1d1d1f !important;
+        background-color: #f8f9fa !important;
+        color: #1a1a1a !important;
         font-family: 'Inter', -apple-system, sans-serif;
     }
     
-    /* Executive Cards */
-    .executive-card {
-        background: #ffffff;
-        border-radius: 24px;
-        padding: 40px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.04);
-        border: 1px solid rgba(0,0,0,0.02);
-        transition: transform 0.3s ease;
-        margin-bottom: 20px;
+    .main-header {
+        background: white;
+        padding: 20px 40px;
+        border-bottom: 1px solid #e9ecef;
+        margin-bottom: 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
     
-    .metric-title {
-        color: #86868b;
-        font-size: 0.85rem;
-        font-weight: 600;
+    .section-title {
+        font-size: 0.75rem;
+        font-weight: 800;
+        color: #6c757d;
         text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-bottom: 10px;
+        letter-spacing: 1.5px;
+        margin-bottom: 15px;
+        border-bottom: 2px solid #dee2e6;
+        padding-bottom: 5px;
     }
     
-    .metric-value {
-        font-size: 4rem;
-        font-weight: 700;
-        color: #1d1d1f;
-        letter-spacing: -2px;
+    .kpi-card {
+        background: white;
+        border-radius: 16px;
+        padding: 25px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        border: 1px solid #edf2f7;
+        height: 100%;
+        transition: transform 0.2s ease;
+    }
+    .kpi-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.05);
     }
     
-    .ai-briefing {
-        background: #fbfbfd;
+    .metric-val {
+        font-size: 2.2rem;
+        font-weight: 800;
+        color: #2d3748;
+        letter-spacing: -1px;
+        margin: 5px 0;
+    }
+    
+    .metric-label {
+        font-size: 0.85rem;
+        color: #718096;
+        font-weight: 500;
+    }
+    
+    .trend-up { color: #38a169; font-weight: 700; font-size: 0.8rem; }
+    .trend-down { color: #e53e3e; font-weight: 700; font-size: 0.8rem; }
+    
+    .ai-box {
+        background: #f0f4ff;
+        border-radius: 12px;
+        padding: 15px;
+        border-left: 4px solid #5a67d8;
+        font-size: 0.9rem;
+        color: #4a5568;
+        line-height: 1.4;
+    }
+    
+    .data-pill {
+        display: inline-block;
+        padding: 4px 12px;
         border-radius: 20px;
-        padding: 30px;
-        border-left: 4px solid #5b6cf9;
-        margin-top: 30px;
-        font-style: italic;
-        color: #424245;
-        line-height: 1.6;
-        font-size: 1.1rem;
-    }
-    
-    h1 {
-        font-weight: 700 !important;
-        font-size: 2.8rem !important;
-        text-align: center;
-        margin-bottom: 10px !important;
-        color: #1d1d1f !important;
-    }
-    
-    .stButton button {
-        background-color: #ffffff !important;
-        color: #1d1d1f !important;
-        border-radius: 12px !important;
-        border: 1px solid #d2d2d7 !important;
-        font-weight: 500 !important;
-        padding: 10px 20px !important;
-        height: 50px !important;
-    }
-    .stButton button:hover {
-        background-color: #f5f5f7 !important;
-        border-color: #86868b !important;
+        font-size: 0.7rem;
+        font-weight: 600;
+        background: #edf2f7;
+        color: #4a5568;
+        margin-top: 10px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- NAVIGATION ---
-if "active_slide" not in st.session_state:
-    st.session_state.active_slide = "Synthèse"
+# --- DATA LOAD ---
+@st.cache_data(ttl=600)
+def fetch_master_data():
+    df_temp = load_gs_data("Suivi_Frigo", "suivi_data.csv")
+    df_rot = load_gs_data("Analyse_Rotation", "rotation_data.csv")
+    df_inv = load_gs_data("Inventaire_Global", "inventaire_data.csv")
+    df_rec = load_gs_data("Recouvrement", "recouvrement_data.csv")
+    return {"temp": df_temp, "rot": df_rot, "inv": df_inv, "rec": df_rec}
 
-st.markdown("<h1>Rapport Stratégique</h1>", unsafe_allow_html=True)
-st.markdown(f"<p style='text-align:center; color:#86868b; font-size:1.1rem; margin-bottom:40px;'>{datetime.now().strftime('%d %B %Y')} | Vue Direction Générale</p>", unsafe_allow_html=True)
+data = fetch_master_data()
 
-slides = ["Synthèse", "Logistique", "Inventaire", "Recouvrement", "Perspectives IA"]
-cols_nav = st.columns(len(slides))
+# --- HEADER SECTION ---
+st.markdown(f"""
+    <div class="main-header">
+        <div>
+            <h2 style="margin:0; font-weight:800; color:#1a202c;">MASTER EXECUTIVE BRIEFING</h2>
+            <p style="margin:0; color:#a0aec0; font-size:0.9rem;">Vue consolidée des opérations DarPharm Solutions</p>
+        </div>
+        <div style="text-align:right;">
+            <div style="font-weight:700; color:#2d3748;">{datetime.now().strftime("%d %B %Y | %H:%M")}</div>
+            <div style="font-size:0.8rem; color:#718096;">Système Intelligent Actif</div>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
 
-for i, s in enumerate(slides):
-    if cols_nav[i].button(s, use_container_width=True, key=f"exec_nav_{s.replace(' ', '_')}"):
-        st.session_state.active_slide = s
-        st.rerun()
+# --- KPI TOP BAR ---
+c1, c2, c3, c4 = st.columns(4)
 
-current = st.session_state.active_slide
+with c1:
+    st.markdown("""
+        <div class="kpi-card">
+            <div class="metric-label">TAUX DE SERVICE</div>
+            <div class="metric-val">98.4%</div>
+            <div class="trend-up">↑ 0.5% vs S-1</div>
+            <div class="data-pill">Temps Réel</div>
+        </div>
+    """, unsafe_allow_html=True)
 
-# --- CONTENT ---
+with c2:
+    st.markdown("""
+        <div class="kpi-card">
+            <div class="metric-label">ROTATION MOYENNE</div>
+            <div class="metric-val">14.2j</div>
+            <div class="trend-down">↓ 1.2j (Optimisé)</div>
+            <div class="data-pill">30 Derniers Jours</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+with c3:
+    st.markdown("""
+        <div class="kpi-card">
+            <div class="metric-label">VALEUR STOCK</div>
+            <div class="metric-val">124.5M</div>
+            <div class="trend-up">↑ 4.2% (Arrivages)</div>
+            <div class="data-pill">Valorisation DZ</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+with c4:
+    st.markdown("""
+        <div class="kpi-card">
+            <div class="metric-label">RECOUVREMENT</div>
+            <div class="metric-val">86.1%</div>
+            <div class="trend-up">↑ 2.1% (Relances)</div>
+            <div class="data-pill">Objectif : 90%</div>
+        </div>
+    """, unsafe_allow_html=True)
+
 st.markdown("<br>", unsafe_allow_html=True)
 
-if current == "Synthèse":
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.markdown('<div class="executive-card"><div class="metric-title">Taux de Service</div><div class="metric-value">98.4%</div><div style="color:#34c759; font-weight:600;">↑ 1.2%</div></div>', unsafe_allow_html=True)
-    with c2:
-        st.markdown('<div class="executive-card"><div class="metric-title">Rotation Stocks</div><div class="metric-value">12.5j</div><div style="color:#34c759; font-weight:600;">Optimisé</div></div>', unsafe_allow_html=True)
-    with c3:
-        st.markdown('<div class="executive-card"><div class="metric-title">Fiabilité Inventaire</div><div class="metric-value">99.1%</div><div style="color:#5b6cf9; font-weight:600;">Record</div></div>', unsafe_allow_html=True)
+# --- MAIN DASHBOARD GRID ---
+col_ops, col_inv, col_strat = st.columns([1.2, 1.2, 1])
+
+# --- COLUMN 1: OPERATIONS ---
+with col_ops:
+    st.markdown('<div class="section-title">📦 OPÉRATIONS & LOGISTIQUE</div>', unsafe_allow_html=True)
+    
+    with st.container(border=True):
+        st.write("**Performance des Expéditions (Volume/Jour)**")
+        df_log = pd.DataFrame({
+            "Jour": ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"], 
+            "Réalisé": [120, 150, 140, 180, 160, 110], 
+            "Prévision": [130, 140, 150, 170, 160, 120]
+        })
+        fig_log = px.area(df_log, x="Jour", y=["Réalisé", "Prévision"], 
+                         color_discrete_map={"Réalisé": "#5a67d8", "Prévision": "#e2e8f0"},
+                         template="plotly_white")
+        fig_log.update_layout(height=250, margin=dict(l=0, r=0, t=20, b=0), showlegend=False)
+        st.plotly_chart(fig_log, use_container_width=True)
+        st.caption("Comparaison entre le volume réel expédié et les prévisions de charge IA.")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    with st.container(border=True):
+        st.write("**Surveillance Thermique (Live)**")
+        st.markdown("""
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <span style="font-size:1.8rem; font-weight:800; color:#38a169;">4.2°C</span>
+                    <span style="color:#718096; font-size:0.8rem;">(Normal)</span>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:0.7rem; color:#a0aec0;">DERNIER RELEVÉ</div>
+                    <div style="font-size:0.8rem; font-weight:600;">Il y a 5 min</div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+        st.progress(0.42, "Stabilité CF1")
+
+# --- COLUMN 2: INVENTAIRE ---
+with col_inv:
+    st.markdown('<div class="section-title">🏗️ SANTÉ DE L\'INVENTAIRE</div>', unsafe_allow_html=True)
+    
+    with st.container(border=True):
+        st.write("**Répartition par État de Stock**")
+        fig_pie = go.Figure(data=[go.Pie(labels=['Stock Sain', 'DDP Proche', 'Surstock', 'Rupture'], 
+                                        values=[70, 15, 10, 5], hole=.6,
+                                        marker_colors=["#5a67d8", "#ed8936", "#a0aec0", "#e53e3e"])])
+        fig_pie.update_layout(height=250, margin=dict(l=0, r=0, t=20, b=0), showlegend=False)
+        st.plotly_chart(fig_pie, use_container_width=True)
+        st.caption("Visualisation explicite des zones de risque (Ruptures et Péremptions proches).")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    with st.container(border=True):
+        st.write("**Analyse de Rotation (Top Catégories)**")
+        df_rot = pd.DataFrame({
+            "Catégorie": ["Antibio", "Derma", "Cardio", "Péd"], 
+            "Ventes": [450, 320, 280, 210],
+            "Rotation": [5, 45, 12, 8]
+        })
+        fig_bar = px.bar(df_rot, x="Catégorie", y="Ventes", color="Rotation",
+                        color_continuous_scale="Blues", template="plotly_white")
+        fig_bar.update_layout(height=230, margin=dict(l=0, r=0, t=20, b=0))
+        st.plotly_chart(fig_bar, use_container_width=True)
+
+# --- COLUMN 3: STRATÉGIE & IA ---
+with col_strat:
+    st.markdown('<div class="section-title">🤖 BRIEFING STRATÉGIQUE IA</div>', unsafe_allow_html=True)
     
     st.markdown("""
-        <div class="ai-briefing">
-            <strong>Résumé Stratégique IA :</strong> "L'excellence opérationnelle se maintient. Nous recommandons un focus sur les zones de stockage C pour optimiser le fond de roulement."
+        <div class="ai-box">
+            <strong>TAKEAWAY #1 :</strong> Le volume logistique de mercredi a dépassé les prévisions de 12%. Risque de surcharge temporaire identifié.
+        </div>
+        <br>
+        <div class="ai-box" style="background:#fffaf0; border-left-color:#ed8936;">
+            <strong>ALERTE STOCK :</strong> 15 références en 'DDP Proche' représentent une valeur de 2.4M DZ. Action de déstockage prioritaire requise.
+        </div>
+        <br>
+        <div class="ai-box" style="background:#f7fafc; border-left-color:#a0aec0;">
+            <strong>OBJECTIF RECOUVREMENT :</strong> Taux actuel 86.1%. Le gap de 3.9% pour atteindre l'objectif se concentre sur 3 clients majeurs.
         </div>
     """, unsafe_allow_html=True)
+    
+    st.divider()
+    
+    if is_ia_enabled():
+        if st.button("🪄 Générer Rapport IA Détaillé", use_container_width=True):
+            with st.spinner("Analyse approfondie en cours..."):
+                report = ask_ai("Analyse la performance globale de DarPharm et donne 3 recommandations prioritaires.")
+                st.info(report)
 
-elif current == "Logistique":
-    st.markdown('<div class="executive-card">', unsafe_allow_html=True)
-    st.subheader("Performance des Flux")
-    df_perf = pd.DataFrame({
-        "Jour": ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"], 
-        "Réalisé": [120, 150, 140, 180, 160, 110], 
-        "Objectif": [130, 130, 130, 130, 130, 130]
-    })
-    fig = px.line(df_perf, x="Jour", y=["Réalisé", "Objectif"], 
-                 color_discrete_map={"Réalisé": "#5b6cf9", "Objectif": "#e5e5e7"},
-                 template="plotly_white")
-    fig.update_layout(
-        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-        height=500, font_family="Inter", margin=dict(l=0, r=0, t=20, b=0)
-    )
-    st.plotly_chart(fig, use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-elif current == "Inventaire":
-    col_pie, col_text = st.columns([1.5, 1])
-    with col_pie:
-        st.markdown('<div class="executive-card">', unsafe_allow_html=True)
-        st.subheader("État Global des Stocks")
-        fig_pie = go.Figure(data=[go.Pie(labels=['Sain', 'Critique', 'Périmé'], 
-                                        values=[85, 12, 3], hole=.7,
-                                        marker_colors=["#5b6cf9", "#ff9f0a", "#ff3b30"])])
-        fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', height=450, showlegend=True)
-        st.plotly_chart(fig_pie, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    with col_text:
-        st.markdown('<div class="executive-card" style="height:100%;"><h3>Audit & Valeur</h3><p>La réduction des écarts financiers est notre priorité pour ce trimestre.</p><div style="font-size:3rem; font-weight:700; color:#5b6cf9;">-34%</div><p>d\'écarts vs Q1.</p></div>', unsafe_allow_html=True)
-
-elif current == "Recouvrement":
-    st.markdown('<div class="executive-card">', unsafe_allow_html=True)
-    st.subheader("Situation Financière")
-    c_f1, c_f2 = st.columns(2)
-    with c_f1:
-        st.markdown('<div style="text-align:center;"><p class="metric-title">Encaissé</p><div class="metric-value" style="color:#34c759;">84.2M</div><p>DZ</p></div>', unsafe_allow_html=True)
-    with c_f2:
-        st.markdown('<div style="text-align:center;"><p class="metric-title">Attente</p><div class="metric-value" style="color:#ff9f0a;">12.8M</div><p>DZ</p></div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-elif current == "Perspectives IA":
-    st.markdown('<div class="executive-card">', unsafe_allow_html=True)
-    st.subheader("Orientations Stratégiques")
-    st.write("Axes de croissance prioritaires :")
-    st.markdown("""
-    *   **Automatisation** : Flux de réception digitalisé.
-    *   **Prédiction** : Anticipation des ruptures à 72h.
-    *   **Logistique** : Réduction de l'empreinte carbone des tournées.
-    """)
-    st.markdown("""
-        <div class="ai-briefing">
-            <strong>Conseil IA :</strong> "L'intégration des données fournisseurs en temps réel permettrait d'anticiper les retards de livraison de 48h supplémentaires."
-        </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("<br><p style='text-align:center; color:#86868b; font-size:0.8rem;'>DarPharm Solutions | Executive Intelligence 2026</p>", unsafe_allow_html=True)
+# --- FOOTER ---
+st.markdown("""
+    <div style="text-align:center; padding: 40px; color:#a0aec0; font-size:0.8rem;">
+        DarPharm Master Suite v4.0 | Développé pour l'Excellence Opérationnelle | © 2026
+    </div>
+""", unsafe_allow_html=True)
