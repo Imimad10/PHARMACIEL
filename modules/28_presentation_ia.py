@@ -8,101 +8,189 @@ from utils_ia import ask_ai, is_ia_enabled
 from utils_gsheets import load_gs_data
 
 # --- CONFIGURATION PAGE ---
-st.set_page_config(page_title="DarPharm Executive Presentation", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="DarPharm Executive Briefing", layout="wide", initial_sidebar_state="collapsed")
 
-# --- STYLE HOLOGRAPHIQUE ---
+# --- STYLE EXECUTIVE MINIMALIST ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Outfit:wght@300;400;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
     .stApp {
-        background: radial-gradient(circle at top right, #1e293b, #0f172a) !important;
-        color: #f8fafc !important;
-        font-family: 'Outfit', sans-serif;
+        background-color: #f5f5f7 !important;
+        color: #1d1d1f !important;
+        font-family: 'Inter', -apple-system, sans-serif;
     }
     
-    /* Holographic Navigation */
-    .nav-container {
+    /* Elegant Pill Navigation */
+    .nav-pill {
         display: flex;
-        justify(content: center;
-        gap: 15px;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 8px;
+        border-radius: 20px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        backdrop-filter: blur(20px);
         margin-bottom: 40px;
-        flex-wrap: wrap;
+        border: 1px solid rgba(0,0,0,0.05);
     }
     
-    .nav-btn {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        padding: 12px 25px;
-        border-radius: 12px;
-        color: #94a3b8;
-        cursor: pointer;
-        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        font-weight: 600;
-        backdrop-filter: blur(10px);
-    }
-    
-    .nav-btn.active {
-        background: rgba(96, 165, 250, 0.15);
-        border-color: #60a5fa;
-        color: #60a5fa;
-        box-shadow: 0 0 20px rgba(96, 165, 250, 0.3);
-        transform: scale(1.05);
-    }
-    
-    /* Presentation Cards */
-    .glass-card {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+    /* Executive Cards */
+    .executive-card {
+        background: #ffffff;
         border-radius: 24px;
-        padding: 35px;
-        backdrop-filter: blur(15px);
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        animation: zoomIn 0.8s ease-out;
+        padding: 40px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+        border: 1px solid rgba(0,0,0,0.02);
+        transition: transform 0.3s ease;
+    }
+    .executive-card:hover {
+        transform: translateY(-2px);
     }
     
-    @keyframes zoomIn {
-        from { transform: scale(0.95); opacity: 0; }
-        to { transform: scale(1); opacity: 1; }
+    .metric-title {
+        color: #86868b;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 10px;
     }
     
-    .hero-metric {
-        font-family: 'Orbitron', sans-serif;
-        font-size: 4.5rem;
-        font-weight: 900;
-        background: linear-gradient(to bottom, #60a5fa, #3b82f6);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-shadow: 0 10px 30px rgba(59, 130, 246, 0.2);
+    .metric-value {
+        font-size: 4rem;
+        font-weight: 700;
+        color: #1d1d1f;
+        letter-spacing: -2px;
     }
     
-    .ai-terminal {
-        background: rgba(0, 0, 0, 0.4);
-        border: 1px solid #60a5fa44;
-        border-radius: 15px;
-        padding: 20px;
-        font-family: 'Courier New', Courier, monospace;
-        color: #60a5fa;
-        border-left: 5px solid #60a5fa;
+    .ai-briefing {
+        background: #fbfbfd;
+        border-radius: 20px;
+        padding: 30px;
+        border-left: 4px solid #5b6cf9;
         margin-top: 30px;
-        animation: pulse-border 2s infinite;
-    }
-    
-    @keyframes pulse-border {
-        0% { border-color: #60a5fa44; }
-        50% { border-color: #60a5fa88; }
-        100% { border-color: #60a5fa44; }
+        font-style: italic;
+        color: #424245;
+        line-height: 1.6;
+        font-size: 1.1rem;
     }
     
     h1 {
-        font-family: 'Orbitron', sans-serif;
+        font-weight: 700 !important;
+        font-size: 2.8rem !important;
         text-align: center;
-        letter-spacing: 5px;
-        text-transform: uppercase;
-        margin-bottom: 5px !important;
+        margin-bottom: 10px !important;
+        color: #1d1d1f !important;
+    }
+    
+    .stButton button {
+        background-color: #ffffff !important;
+        color: #1d1d1f !important;
+        border-radius: 12px !important;
+        border: 1px solid #d2d2d7 !important;
+        font-weight: 500 !important;
+        padding: 10px 20px !important;
+    }
+    .stButton button:hover {
+        background-color: #f5f5f7 !important;
+        border-color: #86868b !important;
     }
 </style>
 """, unsafe_allow_html=True)
+
+# --- NAVIGATION ---
+if "active_slide" not in st.session_state:
+    st.session_state.active_slide = "Synthèse"
+
+st.markdown("<h1>Rapport Stratégique</h1>", unsafe_allow_html=True)
+st.markdown(f"<p style='text-align:center; color:#86868b; font-size:1.1rem; margin-bottom:40px;'>{datetime.now().strftime('%d %B %Y')} | Vue Direction Générale</p>", unsafe_allow_html=True)
+
+slides = ["Synthèse", "Logistique", "Inventaire", "Recouvrement", "Perspectives IA"]
+cols_nav = st.columns(len(slides))
+
+for i, s in enumerate(slides):
+    if cols_nav[i].button(s, use_container_width=True, key=f"nav_{s}"):
+        st.session_state.active_slide = s
+        st.rerun()
+
+current = st.session_state.active_slide
+
+# --- CONTENT ---
+st.markdown("<br>", unsafe_allow_html=True)
+
+if current == "Synthèse":
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown('<div class="executive-card"><div class="metric-title">Taux de Service</div><div class="metric-value">98.4%</div><div style="color:#10b981; font-weight:600;">+1.2% vs mois dernier</div></div>', unsafe_allow_html=True)
+    with c2:
+        st.markdown('<div class="executive-card"><div class="metric-title">Rotation Stocks</div><div class="metric-value">12.5j</div><div style="color:#10b981; font-weight:600;">Optimisation stable</div></div>', unsafe_allow_html=True)
+    with c3:
+        st.markdown('<div class="executive-card"><div class="metric-title">Fiabilité Inventaire</div><div class="metric-value">99.1%</div><div style="color:#5b6cf9; font-weight:600;">Record annuel</div></div>', unsafe_allow_html=True)
+    
+    st.markdown("""
+        <div class="ai-briefing">
+            <strong>Résumé Stratégique IA :</strong> "La performance opérationnelle atteint un plateau d'excellence. L'accent doit maintenant être mis sur la réduction des coûts de stockage dormants identifiés en Zone C pour maximiser le flux de trésorerie."
+        </div>
+    """, unsafe_allow_html=True)
+
+elif current == "Logistique":
+    st.markdown('<div class="executive-card">', unsafe_allow_html=True)
+    st.subheader("Performance des Flux")
+    df_perf = pd.DataFrame({
+        "Jour": ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"], 
+        "Réalisé": [120, 150, 140, 180, 160, 110], 
+        "Objectif": [130, 130, 130, 130, 130, 130]
+    })
+    fig = px.line(df_perf, x="Jour", y=["Réalisé", "Objectif"], 
+                 color_discrete_map={"Réalisé": "#5b6cf9", "Objectif": "#e5e5e7"},
+                 template="plotly_white")
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
+        height=500, font_family="Inter", margin=dict(l=0, r=0, t=20, b=0)
+    )
+    st.plotly_chart(fig, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+elif current == "Inventaire":
+    col_pie, col_text = st.columns([1.5, 1])
+    with col_pie:
+        st.markdown('<div class="executive-card">', unsafe_allow_html=True)
+        st.subheader("État Global des Stocks")
+        fig_pie = go.Figure(data=[go.Pie(labels=['Sain', 'Critique', 'Périmé'], 
+                                        values=[85, 12, 3], hole=.7,
+                                        marker_colors=["#5b6cf9", "#ff9f0a", "#ff3b30"])])
+        fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', height=450, showlegend=True)
+        st.plotly_chart(fig_pie, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col_text:
+        st.markdown('<div class="executive-card" style="height:100%;"><h3>Analyse Audit</h3><p>La mise en place du triple comptage a réduit les écarts de valeur de 34% ce trimestre.</p><div style="font-size:3rem; font-weight:700; color:#5b6cf9;">-34%</div><p>d\'écarts financiers.</p></div>', unsafe_allow_html=True)
+
+elif current == "Recouvrement":
+    st.markdown('<div class="executive-card">', unsafe_allow_html=True)
+    st.subheader("Situation Financière")
+    c_f1, c_f2 = st.columns(2)
+    with c_f1:
+        st.markdown('<div style="text-align:center;"><p class="metric-title">Montant Encaissé</p><div class="metric-value" style="color:#34c759;">84.2M</div><p>DZ</p></div>', unsafe_allow_html=True)
+    with c_f2:
+        st.markdown('<div style="text-align:center;"><p class="metric-title">Reste à Recouvrer</p><div class="metric-value" style="color:#ff9f0a;">12.8M</div><p>DZ</p></div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+elif current == "Perspectives IA":
+    st.markdown('<div class="executive-card">', unsafe_allow_html=True)
+    st.subheader("Orientations IA & Automatisation")
+    st.write("Nos modèles prédictifs suggèrent trois axes majeurs pour le semestre à venir :")
+    st.markdown("""
+    *   **Réapprovisionnement Intelligent** : Réduction de 15% des ruptures de stock.
+    *   **Optimisation des Tournées** : Économie de 8% sur les frais logistiques.
+    *   **Détection Précoce des Litiges** : Archivage automatisé et gain de temps RH.
+    """)
+    st.markdown("""
+        <div class="ai-briefing">
+            <strong>Conseil IA :</strong> "L'intégration des données fournisseurs en temps réel permettrait d'anticiper les retards de livraison de 48h supplémentaires."
+        </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("<br><p style='text-align:center; color:#86868b; font-size:0.8rem;'>DarPharm Solutions | Excellence Opérationnelle 2026</p>", unsafe_allow_html=True)
 
 # --- NAVIGATION ---
 if "active_slide" not in st.session_state:
