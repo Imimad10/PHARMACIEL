@@ -45,14 +45,42 @@ def global_search(query):
 
 def show_search_bar():
     with st.sidebar:
-        st.write("---")
-        st.markdown('<p style="font-weight: 800; margin-bottom: -15px; font-size: 0.9rem;"><span class="material-symbols-outlined" style="font-size: 18px; vertical-align: bottom;">search</span> RECHERCHE UNIVERSELLE</p>', unsafe_allow_html=True)
-        search_query = st.text_input("", placeholder="Client, Facture, Produit...", key="global_search_input", label_visibility="collapsed")
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("""
+            <div style="background: rgba(91, 108, 249, 0.05); padding: 12px; border-radius: 15px; border: 1px solid rgba(91, 108, 249, 0.1); margin-bottom: 10px;">
+                <p style="font-weight: 800; margin-bottom: 5px; font-size: 0.75rem; color: #5b6cf9; letter-spacing: 1px; display: flex; align-items: center;">
+                    🔍 RECHERCHE UNIVERSELLE
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # Style spécifique pour la barre de recherche sidebar pour forcer la visibilité
+        st.markdown("""
+            <style>
+                [data-testid="stSidebar"] .stTextInput input {
+                    background: white !important;
+                    color: #1a1c21 !important;
+                    border: 1px solid #5b6cf933 !important;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
+                }
+                [data-testid="stSidebar"] .stTextInput input::placeholder {
+                    color: #94a3b8 !important;
+                }
+                [data-testid="stSidebar"] .stTextInput input:focus {
+                    border-color: #5b6cf9 !important;
+                    box-shadow: 0 0 12px rgba(91, 108, 249, 0.2) !important;
+                }
+            </style>
+        """, unsafe_allow_html=True)
+        
+        search_query = st.text_input("", placeholder="Tapez ici pour chercher...", key="global_search_input", label_visibility="collapsed")
+        
         if search_query:
-            results = global_search(search_query)
-            if results:
-                for category, df in results.items():
-                    with st.expander(f"📌 {category} ({len(df)})", expanded=True):
-                        st.dataframe(df, use_container_width=True, hide_index=True)
-            else:
-                st.sidebar.warning("Aucun résultat trouvé.")
+            with st.spinner("Recherche..."):
+                results = global_search(search_query)
+                if results:
+                    for category, df in results.items():
+                        with st.expander(f"📌 {category} ({len(df)})", expanded=True):
+                            st.dataframe(df, use_container_width=True, hide_index=True)
+                else:
+                    st.sidebar.warning("Aucun résultat trouvé.")
