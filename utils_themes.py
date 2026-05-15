@@ -224,7 +224,7 @@ THEMES_DEFAULT = {
                 "--accent-hover": "#475569",
                 "--shadow-neu": "0 1px 3px rgba(0,0,0,0.12)"
             }
-        }
+        },
         {
             "id": "theme_mca_green_red",
             "name": "MCA - Mouloudia",
