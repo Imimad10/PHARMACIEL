@@ -38,7 +38,7 @@ def get_delay(start_date, end_date):
 st.title("📦 DARPHARM - Gestion des Litiges & Réclamations")
 st.write("Système synchronisé pour le suivi des anomalies de réception et litiges fournisseurs.")
 
-tab_new, tab_list, tab_arch, tab_stats, tab_prods = st.tabs(["➕ Nouveau Rapport", "📋 Suivi Actif", "🗄️ Archives", "📊 Dashboard Performance", "📦 Base Produits"])
+tab_new, tab_list, tab_regl, tab_arch, tab_stats, tab_prods = st.tabs(["➕ Nouveau Rapport", "📋 Suivi Actif", "✅ Réclamations réglées", "🗄️ Archives", "📊 Dashboard Performance", "📦 Base Produits"])
 
 # --- CHARGEMENT DYNAMIQUE DES DONNÉES ---
 df_prods = load_gs_data("Base_Produits", "data_produits.csv", ["Désignation"])
@@ -157,7 +157,7 @@ with tab_new:
             log_action(st.session_state.current_user['username'], f"Multi-Litiges: {fournisseur} - {len(new_rows)} articles", "Litiges")
             st.rerun()
 
-# --- ONGLET 2 : LISTE ET PDF ---
+# --- ONGLET 2 : LISTE ET PDF (ACTIFS) ---
 with tab_list:
     if df_litiges.empty:
         st.info("Aucun litige enregistré.")
@@ -170,7 +170,6 @@ with tab_list:
             
             if selected_inv:
                 df_group = df_litiges[df_litiges['Facture'] == selected_inv]
-                
                 include_resolved = st.checkbox("Inclure les réclamations déjà réglées", value=False)
                 if not include_resolved:
                     df_group = df_group[df_group['Statut'] != "Réglée"]
@@ -179,143 +178,43 @@ with tab_list:
                 
                 if st.button("📄 Télécharger Rapport Groupé PDF", type="primary"):
                     items_list = df_group.to_dict('records')
-                    # On renomme les clés pour matcher le générateur
                     formatted_items = []
                     for it in items_list:
                         formatted_items.append({
-                            'date': it['Date'],
-                            'fournisseur': it['Fournisseur'],
-                            'facture': it['Facture'],
-                            'agent': it['Agent'],
-                            'produit': it['Produit'],
-                            'lot': it['Lot'],
-                            'quantite': it['Quantite'],
-                            'type': it['Type'],
-                            'commentaire': it['Commentaire'],
+                            'date': it['Date'], 'fournisseur': it['Fournisseur'], 'facture': it['Facture'],
+                            'agent': it['Agent'], 'produit': it['Produit'], 'lot': it['Lot'],
+                            'quantite': it['Quantite'], 'type': it['Type'], 'commentaire': it['Commentaire'],
                             'Photo_Path': it['Photo_Path']
                         })
-                    
                     pdf_bytes = generate_multi_reclam_pdf(formatted_items)
-                    st.download_button(
-                        label="📥 Cliquer pour télécharger le PDF Groupé",
-                        data=pdf_bytes,
-                        file_name=f"Rapport_Litiges_{selected_inv}.pdf",
-                        mime="application/pdf"
-                    )
+                    st.download_button(label="📥 Télécharger PDF Groupé", data=pdf_bytes, file_name=f"Rapport_Litiges_{selected_inv}.pdf", mime="application/pdf")
 
         st.divider()
-        # Filtres rapides
-        f_fourn = st.text_input("🔍 Rechercher par Fournisseur ou Produit").upper()
-        df_view = df_litiges.copy()
-        if f_fourn:
-            df_view = df_view[df_view['Fournisseur'].str.contains(f_fourn) | df_view['Produit'].str.contains(f_fourn)]
+        f_search = st.text_input("🔍 Rechercher par Fournisseur ou Produit (EN COURS)").upper()
+        df_active = df_litiges[df_litiges['Statut'] == "En cours"].copy()
+        if f_search:
+            df_active = df_active[df_active['Fournisseur'].str.contains(f_search) | df_active['Produit'].str.contains(f_search)]
         
-        st.write(f"Affichage de **{len(df_view)}** dossiers.")
-        
-        for i, row in df_view.iterrows():
-            with st.expander(f"📄 {row['Date']} - {row['Fournisseur']} - {row['Produit']} ({row['Statut']})"):
-                c1, c2, c3 = st.columns([2, 2, 1])
-                with c1:
-                    st.write(f"**Motif:** {row['Type']}")
-                    st.write(f"**Facture:** {row['Facture']}")
-                    st.write(f"**Lot/Qte:** {row['Lot']} / {row['Quantite']}")
-                with c2:
-                    st.write(f"**Agent:** {row['Agent']}")
-                    st.write(f"**Priorité:** {row['Priorite']}")
-                    if row['Photo_Path'] and os.path.exists(row['Photo_Path']):
-                        st.image(row['Photo_Path'], width=150)
-                with c3:
-                    # Bouton Génération PDF
-                    pdf_data = {
-                        "date": row['Date'],
-                        "fournisseur": row['Fournisseur'],
-                        "produit": row['Produit'],
-                        "lot": row['Lot'],
-                        "quantite": row['Quantite'],
-                        "type": row['Type'],
-                        "agent": row['Agent'],
-                        "commentaire": row['Commentaire']
-                    }
-                    pdf_bytes = generate_reclam_pdf(pdf_data, row['Photo_Path'])
-                    st.download_button(
-                        label="📥 Télécharger PDF",
-                        data=pdf_bytes,
-                        file_name=f"Reclam_{row['Fournisseur']}_{row['Date']}.pdf",
-                        mime="application/pdf",
-                        key=f"btn_pdf_{i}",
-                        use_container_width=True
-                    )
-                    
-                    # Partage WhatsApp et Viber
-                    import urllib.parse
-                    msg = f"📦 *RÉCLAMATION DARPHARM*\n\n"
-                    msg += f"Bonjour, nous vous signalons une anomalie :\n"
-                    msg += f"▪️ *Facture:* {row['Facture']}\n"
-                    msg += f"▪️ *Produit:* {row['Produit']} (Lot: {row['Lot']})\n"
-                    msg += f"▪️ *Qté:* {row['Quantite']}\n"
-                    msg += f"▪️ *Motif:* {row['Type']}\n\n"
-                    msg += f"Merci de traiter cette réclamation. (Rapport PDF à suivre)"
-                    msg_encoded = urllib.parse.quote(msg)
-                    
-                    c_wa, c_vi = st.columns(2)
-                    c_wa.link_button("💬 WA", f"https://wa.me/?text={msg_encoded}", use_container_width=True)
-                    c_vi.link_button("💜 Viber", f"viber://forward?text={msg_encoded}", use_container_width=True)
-                    
-                    # --- GESTIONNAIRE D'EMAIL IA ---
-                    if is_ia_enabled():
-                        if st.button("🤖 Rédiger E-mail Officiel (IA)", key=f"btn_ia_mail_{i}", use_container_width=True):
-                            with st.spinner("L'IA rédige l'e-mail avec un ton formel et professionnel..."):
-                                prompt_email = f"Rédige un e-mail très professionnel, ferme mais courtois, pour le laboratoire ou fournisseur '{row['Fournisseur']}'. L'entreprise expéditrice est 'DarPharm'. Tu signales un litige commercial/logistique sur la facture {row['Facture']} concernant le produit {row['Produit']} (Lot: {row['Lot']}, Qté: {row['Quantite']}). Motif du litige : {row['Type']}. Observation supplémentaire : {row['Commentaire']}. Demande un avoir ou un remplacement rapide. Ne mets pas de variables à remplir autres que [Votre Nom]."
-                                
-                                # Si une photo est dispo, on utilise l'IA Vision pour s'en inspirer
-                                if row['Photo_Path'] and os.path.exists(row['Photo_Path']):
-                                    try:
-                                        with open(row['Photo_Path'], "rb") as img_file:
-                                            b64 = base64.b64encode(img_file.read()).decode("utf-8")
-                                        prompt_email += " Prends aussi en compte la gravité visible sur la photo jointe pour adapter le ton de l'email."
-                                        email_draft = ask_ai_vision(prompt_email, b64)
-                                    except:
-                                        email_draft = ask_ai(prompt_email)
-                                else:
-                                    email_draft = ask_ai(prompt_email)
-                                    
-                                st.session_state[f"draft_{i}"] = email_draft
-                                
-                        if f"draft_{i}" in st.session_state:
-                            st.success("✨ Brouillon généré avec succès :")
-                            st.text_area("Copiez-collez ce texte dans votre client e-mail :", st.session_state[f"draft_{i}"], height=250, key=f"textarea_draft_{i}")
-                    
-                    st.divider()
-                    if row['Statut'] == "En cours":
-                        if st.button("🤖 Analyse IA Stratégique", key=f"btn_ana_ia_{i}", use_container_width=True):
-                            with st.spinner("L'IA analyse le litige..."):
-                                p_ana = f"En tant qu'expert logistique pour DarPharm, analyse ce litige : Fournisseur {row['Fournisseur']}, Produit {row['Produit']}, Motif {row['Type']}. Observation : {row['Commentaire']}. Donne un conseil bref (2 lignes) sur la meilleure façon de régler ça avec le fournisseur."
-                                res_ana = ask_ai(p_ana)
-                                df_litiges.at[i, 'IA_Analyse'] = res_ana
-                                save_gs_data(df_litiges, WORKSHEET_NAME, FALLBACK_PATH)
-                                st.rerun()
+        st.write(f"**{len(df_active)}** réclamations en cours.")
+        render_litiges_accordion(df_active, "active")
 
-                        if st.button("✅ Régler & Archiver", key=f"btn_regler_{i}", use_container_width=True, type="primary"):
-                            df_litiges.at[i, 'Statut'] = "Réglée"
-                            df_litiges.at[i, 'Date_Resolution'] = datetime.now().strftime("%Y-%m-%d")
-                            save_gs_data(df_litiges, WORKSHEET_NAME, FALLBACK_PATH)
-                            st.success("Dossier réglé et déplacé vers les archives.")
-                            st.rerun()
-                
-                # Affichage de l'analyse IA si présente
-                if row.get('IA_Analyse') and row['IA_Analyse'] != "Analyse en attente...":
-                    st.info(f"🧠 **Analyse IA :** {row['IA_Analyse']}")
+# --- ONGLET 3 : RÉCLAMATIONS RÉGLÉES ---
+with tab_regl:
+    st.subheader("✅ Historique des Réclamations Réglées")
+    f_search_r = st.text_input("🔍 Rechercher par Fournisseur ou Produit (RÉGLÉES)").upper()
+    df_solved = df_litiges[df_litiges['Statut'] == "Réglée"].copy()
+    if f_search_r:
+        df_solved = df_solved[df_solved['Fournisseur'].str.contains(f_search_r) | df_solved['Produit'].str.contains(f_search_r)]
+    
+    st.write(f"**{len(df_solved)}** réclamations réglées.")
+    render_litiges_accordion(df_solved, "solved")
 
-# --- ONGLET 3 : ARCHIVES ---
+# --- ONGLET 4 : ARCHIVES (VUE TABULAIRE) ---
 with tab_arch:
-    st.subheader("🗄️ Dossiers Réglés & Archivés")
-    df_arch = df_litiges[df_litiges['Statut'] == "Réglée"].copy()
-    if df_arch.empty:
-        st.info("Aucun dossier archivé.")
-    else:
-        st.dataframe(df_arch.sort_values("Date_Resolution", ascending=False), use_container_width=True, hide_index=True)
+    st.subheader("🗄️ Archives Complètes (Base de données)")
+    st.dataframe(df_litiges.sort_values("Date", ascending=False), use_container_width=True, hide_index=True)
 
-# --- ONGLET 3 : STATS ---
+# --- ONGLET 5 : STATS ---
 with tab_stats:
     if not df_litiges.empty:
         df_active = df_litiges[df_litiges['Statut'] == "En cours"].copy()
