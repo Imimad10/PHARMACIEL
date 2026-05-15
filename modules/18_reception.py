@@ -159,22 +159,32 @@ with tabs[0]:
                         img_str = base64.b64encode(buffered.getvalue()).decode()
                         
                         prompt = """
-                        Extrais les informations de cette vignette de médicament. 
-                        Règles très strictes pour la détection :
-                        1. designation: Combine le nom commercial, le dosage et le conditionnement (ex: LAVIDA 4mg Boite de 30 cps). Ignore le nom du labo (ex: SAIDAL) ou DCI si possible.
-                        2. ppa et shp: Fais très attention ! Souvent, ce qui est écrit "PPA" en bas de la vignette est le PRIX TOTAL (PPA de base + SHP). 
-                           Si tu vois "Prix: 805.50 + SHP 2.50", alors ppa = 805.50 et shp = 2.50. 
-                           Le SHP doit OBLIGATOIREMENT être l'une de ces trois valeurs : 0.0, 1.5, ou 2.5.
-                        3. couleur: Identifie la couleur dominante de la bande/vignette (ex: Vert, Rouge, Orange, Bleu, Blanc, etc.).
+                        Tu es un expert en lecture de vignettes pharmaceutiques algériennes.
+                        Extrais les informations de cette image avec une très grande précision.
                         
-                        Retourne UNIQUEMENT un JSON brut (sans markdown) avec ces clés:
-                        - designation: (chaine)
-                        - lot: (chaine)
-                        - ddp: (Format MM/AAAA, correspondant à Exp ou DDP)
-                        - ppa: (Nombre décimal, PPA de base SANS le SHP)
-                        - shp: (Nombre décimal, 0.0, 1.5 ou 2.5)
-                        - qte: (Nombre entier, mettre 1 par défaut)
-                        - couleur: (chaine, couleur de la vignette)
+                        Règles très strictes :
+                        1. designation: Nom commercial + dosage + forme + conditionnement (ex: LAVIDA 4mg Boite de 30 cps). Ignore le laboratoire.
+                        2. ppa et shp: 
+                           ATTENTION PIÈGE ! Sur la vignette, il est souvent écrit "PPA : 808.00 DA" tout en bas, mais c'est le PRIX TOTAL.
+                           Regarde attentivement la ligne du haut. Si tu lis "Prix: 805.50 + SHP 2.50", alors:
+                           - ppa = 805.50 (c'est le prix de base)
+                           - shp = 2.50
+                           Le SHP ne peut être que 0.0, 1.5 ou 2.5. Si tu ne vois pas de SHP, mets 0.0.
+                           NE METS JAMAIS le prix total (ex: 808.00) dans le champ ppa si un SHP de 2.50 est appliqué.
+                        3. lot: Le numéro de lot (ex: 16001).
+                        4. ddp: Date de péremption ou Exp (ex: 02/2019).
+                        5. couleur: La couleur dominante de la bande de la vignette (ex: Vert, Rouge, Bleu, Jaune, Blanc).
+
+                        Retourne UNIQUEMENT un JSON brut sans markdown avec ces clés exactes :
+                        {
+                            "designation": "...",
+                            "lot": "...",
+                            "ddp": "...",
+                            "ppa": 0.0,
+                            "shp": 0.0,
+                            "qte": 1,
+                            "couleur": "..."
+                        }
                         """
                         
                         try:
@@ -218,7 +228,7 @@ with tabs[0]:
                     num_rows="dynamic", 
                     use_container_width=True,
                     column_config={
-                        "designation": st.column_config.SelectboxColumn("Produit", options=df_prod['Designation'].unique() if not df_prod.empty else []),
+                        "designation": st.column_config.TextColumn("Produit (Extrait IA)"),
                         "couleur": st.column_config.TextColumn("Couleur Vignette"),
                         "ddp": st.column_config.TextColumn("DDP (MM/AAAA)"),
                         "ppa": st.column_config.NumberColumn("PPA", format="%.2f DA"),
