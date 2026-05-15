@@ -293,12 +293,33 @@ elif st.session_state.keynote_mode == "PRESENTATION":
     # --- SLIDE CONTENT ---
     st.markdown('<div class="slide-container">', unsafe_allow_html=True)
     
+    # --- SLIDE CONTENT ---
+    st.markdown('<div class="slide-container">', unsafe_allow_html=True)
+    
     if current_key == "GLOBAL":
-        st.markdown('<h1 class="slide-title">Performance<br>Générale</h1>', unsafe_allow_html=True)
-        c1, c2, c3 = st.columns(3)
-        with c1: st.markdown('<div class="glass-card"><div class="card-subtitle">Flux Sortant</div><div class="metric-hero" style="color:#7c3aed;">98.4%</div><div class="card-detail">1,240 Commandes/Semaine</div><p>🎯 Taux de service optimal</p></div>', unsafe_allow_html=True)
-        with c2: st.markdown('<div class="glass-card"><div class="card-subtitle">Vitesse de Rotation</div><div class="metric-hero" style="color:#3b82f6;">12j</div><div class="card-detail">Croissance: +2.4j</div><p>⚡ Flux logistique accéléré</p></div>', unsafe_allow_html=True)
-        with c3: st.markdown('<div class="glass-card"><div class="card-subtitle">Engagement Client</div><div class="metric-hero" style="color:#10b981;">4.8/5</div><div class="card-detail">Base: 450 Pharmacies</div><p>⭐ Excellence relationnelle</p></div>', unsafe_allow_html=True)
+        st.markdown(f"""
+            <h1 class="slide-title">Performance<br>Générale</h1>
+            <div style="display: flex; gap: 20px;">
+                <div class="glass-card" style="flex:1;">
+                    <div class="card-subtitle">Flux Sortant</div>
+                    <div class="metric-hero" style="color:#7c3aed;">98.4%</div>
+                    <div class="card-detail">1,240 Commandes/Semaine</div>
+                    <p>🎯 Taux de service optimal</p>
+                </div>
+                <div class="glass-card" style="flex:1;">
+                    <div class="card-subtitle">Vitesse de Rotation</div>
+                    <div class="metric-hero" style="color:#3b82f6;">12j</div>
+                    <div class="card-detail">Croissance: +2.4j</div>
+                    <p>⚡ Flux logistique accéléré</p>
+                </div>
+                <div class="glass-card" style="flex:1;">
+                    <div class="card-subtitle">Engagement Client</div>
+                    <div class="metric-hero" style="color:#10b981;">4.8/5</div>
+                    <div class="card-detail">Base: 450 Pharmacies</div>
+                    <p>⭐ Excellence relationnelle</p>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
 
     elif current_key == "LOGISTIQUE":
         st.markdown('<h1 class="slide-title">Efficacité<br>Logistique</h1>', unsafe_allow_html=True)
@@ -319,7 +340,7 @@ elif st.session_state.keynote_mode == "PRESENTATION":
         st.markdown('<h1 class="slide-title">Santé de<br>l\'Inventaire</h1>', unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         with c1:
-            st.markdown('<div class="card-subtitle">Répartition Qualité</div>', unsafe_allow_html=True)
+            st.markdown('<div class="card-subtitle" style="color:white; margin-bottom:10px;">Répartition Qualité</div>', unsafe_allow_html=True)
             fig = go.Figure(data=[go.Pie(labels=['Sain', 'Critique', 'Périmé'], values=[85, 12, 3], hole=.8)])
             fig.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', showlegend=True)
             fig.update_traces(marker=dict(colors=['#10b981', '#f59e0b', '#ef4444']))
@@ -342,9 +363,22 @@ elif st.session_state.keynote_mode == "PRESENTATION":
 
     elif current_key == "FINANCE":
         st.markdown('<h1 class="slide-title">Performance<br>Financière</h1>', unsafe_allow_html=True)
-        c1, c2 = st.columns(2)
-        with c1: st.markdown('<div class="glass-card"><div class="card-subtitle">Trésorerie Entrante</div><div class="metric-hero" style="color:#10b981;">84.2M</div><div class="card-detail">Objectif: 90M</div><p>Encaissements validés</p></div>', unsafe_allow_html=True)
-        with c2: st.markdown('<div class="glass-card"><div class="card-subtitle">Risque Client</div><div class="metric-hero" style="color:#f59e0b;">12.8M</div><div class="card-detail">Litiges: 14 dossiers</div><p>Relances en cours</p></div>', unsafe_allow_html=True)
+        st.markdown(f"""
+            <div style="display: flex; gap: 20px;">
+                <div class="glass-card" style="flex:1;">
+                    <div class="card-subtitle">Trésorerie Entrante</div>
+                    <div class="metric-hero" style="color:#10b981;">84.2M</div>
+                    <div class="card-detail">Objectif: 90M</div>
+                    <p>Encaissements validés</p>
+                </div>
+                <div class="glass-card" style="flex:1;">
+                    <div class="card-subtitle">Risque Client</div>
+                    <div class="metric-hero" style="color:#f59e0b;">12.8M</div>
+                    <div class="card-detail">Litiges: 14 dossiers</div>
+                    <p>Relances en cours</p>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
 
     elif current_key == "HR_AGENTS":
         st.markdown('<h1 class="slide-title">Productivité<br>Équipe</h1>', unsafe_allow_html=True)
@@ -372,13 +406,20 @@ elif st.session_state.keynote_mode == "PRESENTATION":
         st.markdown('</div>', unsafe_allow_html=True)
 
     elif current_key == "CONCLUSION":
-        st.markdown('<h1 class="slide-title">Conclusion &<br>Remerciements</h1>', unsafe_allow_html=True)
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        msg_placeholder = st.empty()
         with st.spinner("Rédaction du message final..."):
             msg = ask_ai("Rédige un message de conclusion TRÈS BREF et inspirant pour une réunion logistique. Utilise beaucoup d'emojis. Remercie pour le 98.4% de service et souhaite un bon week-end.")
-            st.markdown(f'<div style="font-size:2.2rem; line-height:1.4; font-family:Sora; color:#f8fafc; text-align:center;">{msg}</div>', unsafe_allow_html=True)
-        st.markdown('<div style="margin-top:50px; text-align:center; font-weight:800; color:#7c3aed; font-size:2.2rem; filter: drop-shadow(0 0 10px var(--accent-glow));">DARPHARM PRO — Ensemble vers 2026 🚀</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown(f"""
+                <h1 class="slide-title">Conclusion &<br>Remerciements</h1>
+                <div class="glass-card" style="text-align:center;">
+                    <div style="font-size:2.2rem; line-height:1.4; font-family:Sora; color:#f8fafc; margin-bottom:40px;">
+                        {msg}
+                    </div>
+                    <div style="font-weight:800; color:#7c3aed; font-size:2.2rem; filter: drop-shadow(0 0 10px var(--accent-glow));">
+                        DARPHARM PRO — Ensemble vers 2026 🚀
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
 
