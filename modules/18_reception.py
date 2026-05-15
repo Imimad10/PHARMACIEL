@@ -24,7 +24,8 @@ apply_theme_css(fluffy)
 
 DB_RECEPTIONS = "data/db_receptions.csv"
 DB_PRODUITS_RECEPTION = "data/db_reception_produits.csv"
-COLS_RECEPTIONS = ["id", "date", "fournisseur", "facture_num", "statut", "items", "created_by"]
+DB_FOURNISSEURS = "data/db_fournisseurs.csv"
+COLS_RECEPTIONS = ["id", "date", "fournisseur", "facture_num", "statut", "items", "created_by", "heure_arrivee", "heure_debut", "heure_fin", "agents"]
 COLS_PRODUITS = ["Designation", "PPA", "SHP", "Colissage"]
 
 # --- CSS ADDITIONNEL RÉCEPTION ---
@@ -95,10 +96,17 @@ def save_reception(reception_data):
         reception_data['id'] = datetime.now().strftime("%Y%m%d%H%M%S")
     
     new_row = pd.DataFrame([{
-        "id": reception_data['id'], "date": reception_data['date'],
-        "fournisseur": reception_data['fournisseur'], "facture_num": reception_data['facture_num'],
-        "statut": reception_data['statut'], "items": json.dumps(reception_data['items']),
-        "created_by": reception_data['created_by']
+        "id": reception_data['id'], 
+        "date": reception_data['date'],
+        "fournisseur": reception_data['fournisseur'], 
+        "facture_num": reception_data['facture_num'],
+        "statut": reception_data['statut'], 
+        "items": json.dumps(reception_data.get('items', [])),
+        "created_by": reception_data.get('created_by', 'Utilisateur'),
+        "heure_arrivee": reception_data.get('heure_arrivee', ''),
+        "heure_debut": reception_data.get('heure_debut', ''),
+        "heure_fin": reception_data.get('heure_fin', ''),
+        "agents": json.dumps(reception_data.get('agents', []))
     }])
     df_old = pd.concat([df_old, new_row], ignore_index=True)
     save_gs_data(df_old, "Receptions", DB_RECEPTIONS)
@@ -106,8 +114,21 @@ def save_reception(reception_data):
 if "current_reception" not in st.session_state:
     st.session_state.current_reception = {
         "id": None, "date": datetime.now().strftime("%Y-%m-%d"),
-        "fournisseur": "", "facture_num": "", "statut": "En cours", "items": [], "created_by": "Utilisateur"
+        "fournisseur": "", "facture_num": "", "statut": "Planifiée", "items": [], "created_by": "Utilisateur",
+        "heure_arrivee": "", "heure_debut": "", "heure_fin": "", "agents": []
     }
+
+# Chargement fournisseurs
+df_fourn = load_gs_data("Fournisseurs", DB_FOURNISSEURS, ["ID", "Fournisseur", "Contact", "N_RC", "N_ART", "N_NIF", "N_NIS", "Dette"])
+liste_fournisseurs = df_fourn['Fournisseur'].dropna().unique().tolist() if not df_fourn.empty else []
+
+# Chargement agents
+try:
+    from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+    df_users_coord = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "nom", "prenom", "role"])
+    active_agents = df_users_coord['username'].dropna().tolist() if not df_users_coord.empty else ["Ayoub", "Islem", "admin_imad", "Seif"]
+except:
+    active_agents = ["Ayoub", "Islem", "admin_imad", "Seif"]
 
 st.markdown('<div class="reception-header"><div><h1 style="color:#5b6cf9; font-weight:900;">Réception & Pointage 📦</h1><p style="color:#6b7299; font-weight:700;">Gérez vos arrivages avec précision</p></div><div style="background:#d4f5ea; padding:10px 20px; border-radius:15px; color:#2db88a; font-weight:900;">⚡ MODE PREMIUM ACTIF</div></div>', unsafe_allow_html=True)
 
@@ -117,11 +138,33 @@ with tabs[0]:
     col_f1, col_f2 = st.columns([1, 2])
     
     with col_f1:
-        st.subheader("📝 Infos Facture")
+        st.subheader("📝 Planification & Traçabilité")
         with st.container(border=True):
-            st.session_state.current_reception['fournisseur'] = st.text_input("Fournisseur", value=st.session_state.current_reception['fournisseur'])
+            st.session_state.current_reception['fournisseur'] = st.selectbox("Fournisseur", [""] + liste_fournisseurs, index=0 if not st.session_state.current_reception['fournisseur'] else liste_fournisseurs.index(st.session_state.current_reception['fournisseur']) + 1 if st.session_state.current_reception['fournisseur'] in liste_fournisseurs else 0)
+            if not st.session_state.current_reception['fournisseur']:
+                st.session_state.current_reception['fournisseur'] = st.text_input("Fournisseur (Manuel)", placeholder="Si non listé...")
+                
             st.session_state.current_reception['facture_num'] = st.text_input("N° Facture / BL", value=st.session_state.current_reception['facture_num'])
-            st.session_state.current_reception['date'] = st.date_input("Date Réception").strftime("%Y-%m-%d")
+            st.session_state.current_reception['date'] = st.date_input("Date Prévue/Réelle").strftime("%Y-%m-%d")
+            
+            st.markdown("##### ⏱️ Suivi Horodaté")
+            c_h1, c_h2, c_h3 = st.columns(3)
+            st.session_state.current_reception['heure_arrivee'] = c_h1.time_input("Heure d'arrivage", value=None)
+            st.session_state.current_reception['heure_debut'] = c_h2.time_input("Début vérification", value=None)
+            st.session_state.current_reception['heure_fin'] = c_h3.time_input("Clôture vérification", value=None)
+            
+            # Formater les heures en string
+            if st.session_state.current_reception['heure_arrivee']: st.session_state.current_reception['heure_arrivee'] = st.session_state.current_reception['heure_arrivee'].strftime("%H:%M")
+            if st.session_state.current_reception['heure_debut']: st.session_state.current_reception['heure_debut'] = st.session_state.current_reception['heure_debut'].strftime("%H:%M")
+            if st.session_state.current_reception['heure_fin']: st.session_state.current_reception['heure_fin'] = st.session_state.current_reception['heure_fin'].strftime("%H:%M")
+            
+            st.session_state.current_reception['agents'] = st.multiselect("Agents Responsables du Pointage", active_agents, default=st.session_state.current_reception.get('agents', []))
+            
+            st.session_state.current_reception['statut'] = st.selectbox("Statut de la réception", ["Planifiée", "Camion sur place", "En cours de vérification", "Clôturée"])
+            
+            if st.button("💾 ENREGISTRER LA PLANIFICATION / STATUT", use_container_width=True):
+                save_reception(st.session_state.current_reception)
+                st.success("Données de réception enregistrées !")
 
         if is_ia_enabled():
             st.markdown("### 🤖 Assistant IA")

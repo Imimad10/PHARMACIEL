@@ -9,7 +9,19 @@ from generator_pdf import generate_team_performance_pdf
 # --- CONFIGURATION ---
 TASKS_WORKSHEET = "DB_Tasks_Team"
 TASKS_FALLBACK = "data/db_tasks.csv"
-COLS_TASKS = ["id", "creation_date", "task", "assigned_to", "priority", "status", "start_time"]
+COLS_TASKS = ["id", "creation_date", "real_creation_date", "task", "assigned_to", "priority", "status", "start_time"]
+
+from datetime import timedelta
+
+def get_scheduled_dates():
+    now = datetime.now()
+    real_date = now.strftime("%Y-%m-%d %H:%M")
+    if now.hour >= 17:
+        next_day = now + timedelta(days=1)
+        visible_date = next_day.strftime("%Y-%m-%d 08:00")
+    else:
+        visible_date = real_date
+    return visible_date, real_date
 
 st.title("🤝 Coordination de l'Équipe")
 st.markdown("### Gérez vos 8h de travail efficacement")
@@ -163,9 +175,11 @@ if is_admin_coord:
 
             if st.form_submit_button("🚀 Lancer la mission", use_container_width=True, type="primary"):
                 if final_task and final_task != "Personnalisé..." and not final_task.startswith("──"):
+                    v_date, r_date = get_scheduled_dates()
                     new_row = {
                         "id": len(df_tasks) + 1,
-                        "creation_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        "creation_date": v_date,
+                        "real_creation_date": r_date,
                         "task": final_task,
                         "assigned_to": assigned,
                         "priority": priority,
@@ -216,9 +230,10 @@ if is_admin_coord:
     Équipe présente : {agents_str}
 
     RÈGLES MÉTIER :
-    1. ISLEM : Uniquement : Bons de commande, Factures, Expédition/Logistique (9h-17h).
+    1. ISLEM : Uniquement : Expédition/Logistique et préparation (9h-17h).
     2. AYOUB, SEIF, admin_imad : Tout le reste (Stock, Inventaire, Froid, etc.).
-    3. Max 3 missions actives par agent.
+    3. EXCEPTION FINANCE : N'attribue JAMAIS de tâches de 'Recouvrement & Finance' ou de 'Pointage factures'. Ces tâches sont la responsabilité exclusive de Karim (Responsable de Parc).
+    4. Max 3 missions actives par agent.
 
     Catalogue des missions :
     {all_missions_list}
@@ -269,11 +284,12 @@ if is_admin_coord:
                     if st.button("🚀 Appliquer & Affecter Automatiquement", use_container_width=True, type="primary"):
                         new_rows = []
                         for task_data in suggested_tasks:
-                            # Vérifier si l'agent est présent
                             if task_data.get("agent") in active_agents:
+                                v_date, r_date = get_scheduled_dates()
                                 new_rows.append({
                                     "id": len(df_tasks) + len(new_rows) + 1,
-                                    "creation_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                    "creation_date": v_date,
+                                    "real_creation_date": r_date,
                                     "task": task_data.get("task", "Mission personnalisée"),
                                     "assigned_to": task_data.get("agent"),
                                     "priority": task_data.get("priority", "Moyenne"),
@@ -335,9 +351,10 @@ if is_admin_coord:
         else:
             for idx, row in df_all_pending.iterrows():
                 col_a, col_b, col_c, col_d = st.columns([3, 1.5, 1.5, 1.5])
-                col_a.write(f"**{row['task']}** — 👤 {row['assigned_to']}")
+                admin_date_info = f" | 🕒 Réel: {row.get('real_creation_date', '—')}" if pd.notna(row.get('real_creation_date')) else ""
+                col_a.write(f"**{row['task']}** — 👤 {row['assigned_to']}{admin_date_info}")
                 col_b.write(f"🎯 {row.get('priority','—')}")
-                col_c.write(f"📌 {row['status']}")
+                col_c.write(f"📌 {row['status']} (Prévu: {row.get('creation_date', '—')})")
                 # Réassignation admin
                 available_agents = [a for a in active_agents if a != row['assigned_to']]
                 if available_agents:
@@ -379,7 +396,8 @@ with tabs[0]:
             with st.container(border=True):
                 st.write(f"**{row['task']}**")
                 if is_admin_coord:
-                    st.caption(f"👤 {row['assigned_to']} | {row['priority']} | {row['status']}")
+                    admin_date_info = f" (Réel: {row.get('real_creation_date', '—')})" if pd.notna(row.get('real_creation_date')) else ""
+                    st.caption(f"👤 {row['assigned_to']} | {row['priority']} | Prévu: {row.get('creation_date', '—')}{admin_date_info}")
                 else:
                     st.caption(f"🎯 {row['priority']} | {row['status']}")
                 if row['status'] == "Accepté" and st.button("▶️ Démarrer", key=f"start_{row['id']}"):
