@@ -273,7 +273,8 @@ MODULE_CONFIG = {
     "👷 Performance Agents": "HR_AGENTS",
     "🚛 Rendement Livreurs": "HR_DRIVERS",
     "🤖 Vision IA Stratégique": "AI_VISION",
-    "✨ Conclusion & Remerciements": "CONCLUSION"
+    "📝 Message de Clôture IA": "CONCLUSION_IA",
+    "✨ Merci & Au Revoir": "FINAL_THANKS"
 }
 
 # --- AUDIO FX (Invisible Trigger) ---
@@ -438,7 +439,7 @@ elif st.session_state.keynote_mode == "PRESENTATION":
             st.info("Module IA désactivé.")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    elif current_key == "CONCLUSION":
+    elif current_key == "CONCLUSION_IA":
         # Pré-génération si nécessaire
         if "conclusion_msg" not in st.session_state:
             with st.spinner("Rédaction du message final..."):
@@ -450,40 +451,37 @@ elif st.session_state.keynote_mode == "PRESENTATION":
                     st.session_state.conclusion_msg = "Merci à tous pour votre engagement exceptionnel ! 🚀✨"
                     st.session_state.conclusion_vibe = "EXPLOSION"
 
-        if not st.session_state.conclusion_clicked:
-            st.markdown(f"""
-                <h1 class="slide-title">Conclusion &<br>Remerciements</h1>
-                <div class="glass-card" style="text-align:center;">
-                    <div style="font-size:2.2rem; line-height:1.4; font-family:Sora; color:#f8fafc; margin-bottom:40px;">
-                        {st.session_state.conclusion_msg}
-                    </div>
-                    <p style="color:#94a3b8; font-size:1.1rem; font-style:italic; animation: pulse 2s infinite;">Cliquez sur le bouton ci-dessous pour le mot de la fin...</p>
+        st.markdown(f"""
+            <h1 class="slide-title">Conclusion<br>Stratégique</h1>
+            <div class="glass-card" style="text-align:center;">
+                <div style="font-size:2.2rem; line-height:1.4; font-family:Sora; color:#f8fafc; margin-bottom:40px;">
+                    {st.session_state.conclusion_msg}
                 </div>
-            """, unsafe_allow_html=True)
-            
-            if st.button("✨ TERMINER LA RÉUNION", use_container_width=True):
-                st.session_state.conclusion_clicked = True
-                st.rerun()
-        else:
-            # PLAY ANIMATION BASED ON VIBE
-            vibe_class = "anim-explosion"
-            if "ECLAIR" in st.session_state.get("conclusion_vibe", ""): vibe_class = "anim-lightning"
-            
-            st.markdown(f"""
-                <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:70vh;">
-                    <div class="{vibe_class}">
-                        <div class="merci-text">MERCI !</div>
-                    </div>
-                    <div class="anim-wiggle" style="font-size:10rem; margin-top:40px;">👋✨🚀</div>
+                <div style="font-weight:800; color:#7c3aed; font-size:2.2rem; filter: drop-shadow(0 0 10px var(--accent-glow));">
+                    DARPHARM PRO — Ensemble vers 2026 🚀
                 </div>
-            """, unsafe_allow_html=True)
-            
-            if st.button("🔄 REVENIR AU BUILDER", use_container_width=True):
-                st.session_state.conclusion_clicked = False
-                # Reset msg to allow re-generation next time if needed
-                del st.session_state.conclusion_msg
-                st.session_state.keynote_mode = "BUILDER"
-                st.rerun()
+            </div>
+        """, unsafe_allow_html=True)
+
+    elif current_key == "FINAL_THANKS":
+        # PLAY ANIMATION BASED ON VIBE
+        vibe_class = "anim-explosion"
+        if "ECLAIR" in st.session_state.get("conclusion_vibe", ""): vibe_class = "anim-lightning"
+        
+        st.markdown(f"""
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:75vh;">
+                <div class="{vibe_class}">
+                    <div class="merci-text">MERCI !</div>
+                </div>
+                <div class="anim-wiggle" style="font-size:10rem; margin-top:40px;">👋✨🚀</div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("🔄 REVENIR AU BUILDER", use_container_width=True):
+            # Reset msg to allow re-generation next time if needed
+            if "conclusion_msg" in st.session_state: del st.session_state.conclusion_msg
+            st.session_state.keynote_mode = "BUILDER"
+            st.rerun()
 
     st.markdown('</div>', unsafe_allow_html=True)
 
