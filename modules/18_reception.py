@@ -432,13 +432,15 @@ with tabs[3]:
 
     df_live = load_gs_data("Suivi_Direct", DB_SUIVI_DIRECT, COLS_SUIVI_DIRECT)
     
+    with col3:
+        if not df_live.empty:
+            try:
+                pdf_live_bytes = generate_suivi_direct_pdf(df_live.sort_values("timestamp", ascending=False).head(200))
+                st.download_button("📄 Générer et Télécharger Rapport PDF", pdf_live_bytes, f"Rapport_Suivi_{datetime.now().strftime('%Y-%m-%d')}.pdf", "application/pdf")
+            except Exception as e:
+                st.error(f"Erreur PDF : {e}")
+
     if not df_live.empty:
-        try:
-            pdf_live_bytes = generate_suivi_direct_pdf(df_live.sort_values("timestamp", ascending=False).head(200))
-            st.download_button("📄 Générer et Télécharger Rapport PDF", pdf_live_bytes, f"Rapport_Suivi_{datetime.now().strftime('%Y-%m-%d')}.pdf", "application/pdf", type="secondary")
-        except Exception:
-            pass
-            
         df_live = df_live.sort_values("timestamp", ascending=False).head(100)
         
         if mode_edition:
