@@ -108,6 +108,7 @@ def generate_cover_pdf(fournisseur, date_recep, nb_factures, observation, model=
 
 # --- CHARGEMENT DES DONNÉES ---
 df_fournisseurs = load_gs_data("DB_Fournisseurs", "data/db_fournisseurs.csv", ["Etablissement", "Wilaya", "Activité", "Logo"])
+df_fournisseurs = df_fournisseurs.astype(object) # Forçage du type object pour éviter TypeError lors de l'insertion du logo
 fourn_list = sorted(df_fournisseurs['Etablissement'].dropna().unique().tolist()) if not df_fournisseurs.empty else []
 
 # --- INTERFACE ---
