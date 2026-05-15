@@ -59,8 +59,8 @@ if "current_arrivage" not in st.session_state:
     }
 
 # Données
-df_fourn = load_gs_data("Fournisseurs", DB_FOURNISSEURS, ["ID", "Fournisseur", "Contact", "N_RC", "N_ART", "N_NIF", "N_NIS", "Dette"])
-liste_fournisseurs = df_fourn['Fournisseur'].dropna().unique().tolist() if not df_fourn.empty else []
+df_fourn = load_gs_data("Fournisseurs", DB_FOURNISSEURS, ["Etablissement", "Wilaya", "Activité", "Logo"])
+liste_fournisseurs = df_fourn['Etablissement'].dropna().unique().tolist() if not df_fourn.empty else []
 
 try:
     from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK

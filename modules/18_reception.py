@@ -109,6 +109,10 @@ if "current_reception" not in st.session_state:
         "fournisseur": "", "facture_num": "", "statut": "En cours", "items": [], "created_by": "Utilisateur"
     }
 
+# Chargement fournisseurs
+df_fourn = load_gs_data("Fournisseurs", "data/db_fournisseurs.csv", ["Etablissement", "Wilaya", "Activité", "Logo"])
+liste_fournisseurs = df_fourn['Etablissement'].dropna().unique().tolist() if not df_fourn.empty else []
+
 st.markdown('<div class="reception-header"><div><h1 style="color:#5b6cf9; font-weight:900;">Pointage Marchandise 📦</h1><p style="color:#6b7299; font-weight:700;">Vérifiez vos arrivages avec précision</p></div><div style="background:#d4f5ea; padding:10px 20px; border-radius:15px; color:#2db88a; font-weight:900;">⚡ MODE PREMIUM ACTIF</div></div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["⚡ Nouveau Pointage", "📋 Historique", "🏛️ Administration"])
@@ -119,7 +123,14 @@ with tabs[0]:
     with col_f1:
         st.subheader("📝 Infos Facture")
         with st.container(border=True):
-            st.session_state.current_reception['fournisseur'] = st.text_input("Fournisseur", value=st.session_state.current_reception['fournisseur'])
+            f_index = 0
+            if st.session_state.current_reception['fournisseur'] in liste_fournisseurs:
+                f_index = liste_fournisseurs.index(st.session_state.current_reception['fournisseur']) + 1
+            
+            st.session_state.current_reception['fournisseur'] = st.selectbox("Fournisseur", [""] + liste_fournisseurs, index=f_index)
+            if not st.session_state.current_reception['fournisseur']:
+                st.session_state.current_reception['fournisseur'] = st.text_input("Fournisseur (Manuel)", placeholder="Saisir manuellement...")
+
             st.session_state.current_reception['facture_num'] = st.text_input("N° Facture / BL", value=st.session_state.current_reception['facture_num'])
             st.session_state.current_reception['date'] = st.date_input("Date Réception").strftime("%Y-%m-%d")
 
