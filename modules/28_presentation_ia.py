@@ -50,6 +50,17 @@ st.markdown("""
     header, footer, [data-testid="stSidebarNav"] { visibility: hidden !important; height: 0 !important; }
     div[data-testid="stDecoration"] { background: none !important; }
 
+    /* Fix for squeezed checkbox labels & readability */
+    div[data-testid="stCheckbox"] label p {
+        color: #f1f5f9 !important;
+        font-size: 1.2rem !important;
+        font-weight: 500 !important;
+    }
+    
+    .stMarkdown p, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
+        color: #f8fafc !important;
+    }
+
     /* Slide Container */
     .slide-container {
         animation: slideReveal 1.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -65,7 +76,7 @@ st.markdown("""
         0% { transform: scale(0.95); filter: blur(10px); opacity: 0; }
         100% { transform: scale(1); filter: blur(0); opacity: 1; }
     }
-    
+
     .slide-title {
         font-family: 'Sora', sans-serif;
         font-size: 5.5rem;
@@ -76,6 +87,21 @@ st.markdown("""
         -webkit-text-fill-color: transparent;
         font-weight: 800;
         letter-spacing: -4px;
+    }
+    
+    .card-subtitle {
+        color: #94a3b8;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 10px;
+    }
+
+    .card-detail {
+        color: #38bdf8;
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-top: 5px;
     }
     
     /* Ultra-Premium Glass Cards */
@@ -270,55 +296,62 @@ elif st.session_state.keynote_mode == "PRESENTATION":
     if current_key == "GLOBAL":
         st.markdown('<h1 class="slide-title">Performance<br>Générale</h1>', unsafe_allow_html=True)
         c1, c2, c3 = st.columns(3)
-        with c1: st.markdown('<div class="glass-card"><p>Taux de Service</p><div class="metric-hero" style="color:#7c3aed;">98.4%</div><p>🎯 Objectif atteint</p></div>', unsafe_allow_html=True)
-        with c2: st.markdown('<div class="glass-card"><p>Rotation Moyenne</p><div class="metric-hero" style="color:#3b82f6;">12j</div><p>⚡ Flux accéléré</p></div>', unsafe_allow_html=True)
-        with c3: st.markdown('<div class="glass-card"><p>Satisfaction Clients</p><div class="metric-hero" style="color:#10b981;">4.8/5</div><p>⭐ Excellence relationnelle</p></div>', unsafe_allow_html=True)
+        with c1: st.markdown('<div class="glass-card"><div class="card-subtitle">Flux Sortant</div><div class="metric-hero" style="color:#7c3aed;">98.4%</div><div class="card-detail">1,240 Commandes/Semaine</div><p>🎯 Taux de service optimal</p></div>', unsafe_allow_html=True)
+        with c2: st.markdown('<div class="glass-card"><div class="card-subtitle">Vitesse de Rotation</div><div class="metric-hero" style="color:#3b82f6;">12j</div><div class="card-detail">Croissance: +2.4j</div><p>⚡ Flux logistique accéléré</p></div>', unsafe_allow_html=True)
+        with c3: st.markdown('<div class="glass-card"><div class="card-subtitle">Engagement Client</div><div class="metric-hero" style="color:#10b981;">4.8/5</div><div class="card-detail">Base: 450 Pharmacies</div><p>⭐ Excellence relationnelle</p></div>', unsafe_allow_html=True)
 
     elif current_key == "LOGISTIQUE":
         st.markdown('<h1 class="slide-title">Efficacité<br>Logistique</h1>', unsafe_allow_html=True)
         col_c, col_m = st.columns([2, 1])
         with col_c:
             df = pd.DataFrame({"J": ["Lun","Mar","Mer","Jeu","Ven","Sam"], "V": [120,150,140,180,160,110]})
-            fig = px.area(df, x="J", y="V", template="plotly_dark")
+            fig = px.area(df, x="J", y="V", title="Volume de Livraison Journalier")
             fig.update_traces(line_color='#7c3aed', fillcolor='rgba(124, 58, 237, 0.2)')
             fig.update_layout(
                 height=500, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                xaxis=dict(showgrid=False), yaxis=dict(showgrid=False)
+                xaxis=dict(showgrid=False), yaxis=dict(showgrid=False), font=dict(color="white")
             )
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
         with col_m:
-            st.markdown('<div class="glass-card" style="height:100%;"><h3>Analyse Flux</h3><p>Optimisation des tournées réussie sur la zone Alger-Centre.</p><div class="metric-hero" style="font-size:4rem; color:#7c3aed;">+15%</div><p>Rendement/Heure</p></div>', unsafe_allow_html=True)
+            st.markdown('<div class="glass-card" style="height:100%;"><div class="card-subtitle">Analyse des Temps</div><h3>Délai Moyen</h3><div class="metric-hero" style="font-size:4rem; color:#7c3aed;">2.4h</div><div class="card-detail">Zone: Alger-Centre</div><p>Préparation & Dispatch</p></div>', unsafe_allow_html=True)
 
     elif current_key == "STOCKS":
         st.markdown('<h1 class="slide-title">Santé de<br>l\'Inventaire</h1>', unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         with c1:
+            st.markdown('<div class="card-subtitle">Répartition Qualité</div>', unsafe_allow_html=True)
             fig = go.Figure(data=[go.Pie(labels=['Sain', 'Critique', 'Périmé'], values=[85, 12, 3], hole=.8)])
-            fig.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', showlegend=False)
+            fig.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', showlegend=True)
             fig.update_traces(marker=dict(colors=['#10b981', '#f59e0b', '#ef4444']))
             st.plotly_chart(fig, use_container_width=True)
         with c2:
-            st.markdown('<div class="glass-card"><h3>Valorisation</h3><p>Total Actif</p><div class="metric-hero" style="color:#7c3aed;">124M</div><p>Dinar Algérien (DZ)</p></div>', unsafe_allow_html=True)
+            st.markdown('<div class="glass-card"><div class="card-subtitle">Valorisation Actuelle</div><div class="metric-hero" style="color:#7c3aed;">124M</div><div class="card-detail">Stock Dormant: 8.4M</div><p>Dinar Algérien (DZ)</p></div>', unsafe_allow_html=True)
 
     elif current_key == "CLAIMS":
         st.markdown('<h1 class="slide-title">Qualité<br>Fournisseurs</h1>', unsafe_allow_html=True)
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        df_claims = pd.DataFrame({"Fournisseur": ["BIOPHARM", "SAIDAL", "FRATER"], "Réclamations": [4, 1, 2], "Gravité": ["🔴 Haute", "🟢 Basse", "🟡 Moyenne"]})
+        st.markdown('<div class="card-subtitle">Top Réclamations en cours</div>', unsafe_allow_html=True)
+        df_claims = pd.DataFrame({
+            "Fournisseur": ["BIOPHARM", "SAIDAL", "FRATER", "SANOFI"], 
+            "Réclamations": [4, 1, 2, 1], 
+            "Gravité": ["🔴 Haute", "🟢 Basse", "🟡 Moyenne", "🔴 Haute"],
+            "Délai": ["48h", "12h", "24h", "72h"]
+        })
         st.dataframe(df_claims, use_container_width=True, hide_index=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     elif current_key == "FINANCE":
         st.markdown('<h1 class="slide-title">Performance<br>Financière</h1>', unsafe_allow_html=True)
         c1, c2 = st.columns(2)
-        with c1: st.markdown('<div class="glass-card"><p>Recouvré</p><div class="metric-hero" style="color:#10b981;">84.2M</div><p>Encaissements validés</p></div>', unsafe_allow_html=True)
-        with c2: st.markdown('<div class="glass-card"><p>En Attente</p><div class="metric-hero" style="color:#f59e0b;">12.8M</div><p>Relances en cours</p></div>', unsafe_allow_html=True)
+        with c1: st.markdown('<div class="glass-card"><div class="card-subtitle">Trésorerie Entrante</div><div class="metric-hero" style="color:#10b981;">84.2M</div><div class="card-detail">Objectif: 90M</div><p>Encaissements validés</p></div>', unsafe_allow_html=True)
+        with c2: st.markdown('<div class="glass-card"><div class="card-subtitle">Risque Client</div><div class="metric-hero" style="color:#f59e0b;">12.8M</div><div class="card-detail">Litiges: 14 dossiers</div><p>Relances en cours</p></div>', unsafe_allow_html=True)
 
     elif current_key == "HR_AGENTS":
         st.markdown('<h1 class="slide-title">Productivité<br>Équipe</h1>', unsafe_allow_html=True)
         cols = st.columns(3)
         agents = [("Yassine", "450 lignes", "99%"), ("Amine", "420 lignes", "98%"), ("Sara", "380 lignes", "100%")]
         for i, (name, perf, acc) in enumerate(agents):
-            cols[i].markdown(f'<div class="glass-card" style="text-align:center;"><h3>{name}</h3><div class="metric-hero" style="font-size:3rem; color:#7c3aed;">{perf}</div><p>Précision: {acc}</p></div>', unsafe_allow_html=True)
+            cols[i].markdown(f'<div class="glass-card" style="text-align:center;"><div class="card-subtitle">Performance Agent</div><h3>{name}</h3><div class="metric-hero" style="font-size:3rem; color:#7c3aed;">{perf}</div><div class="card-detail">Précision: {acc}</div></div>', unsafe_allow_html=True)
 
     elif current_key == "HR_DRIVERS":
         st.markdown('<h1 class="slide-title">Logistique<br>Dernier KM</h1>', unsafe_allow_html=True)
