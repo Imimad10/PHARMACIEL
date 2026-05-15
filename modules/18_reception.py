@@ -53,6 +53,23 @@ def log_saisie_en_cours(methode, designation, qte, lot, ddp, ppa):
     df_live = df_live.tail(500) # Garder les 500 dernières saisies
     save_gs_data(df_live, "Suivi_Direct", DB_SUIVI_DIRECT)
 
+def verifier_ddp_courte(ddp_str):
+    if not ddp_str: return False
+    try:
+        ddp_clean = ddp_str.strip().replace('-', '/').replace('.', '/')
+        parts = ddp_clean.split('/')
+        if len(parts) != 2: return False
+        m = int(parts[0])
+        y = int(parts[1])
+        if y < 100: y += 2000
+        now = datetime.now()
+        ddp_date = datetime(y, m, 1)
+        if (ddp_date - now).days < 365:
+            return True
+    except:
+        pass
+    return False
+
 # --- CSS ADDITIONNEL RÉCEPTION ---
 st.markdown("""
 <style>
@@ -320,6 +337,10 @@ with tabs[0]:
                         save_gs_data(df_ia, "IA_Scans", DB_IA_SCANS)
                         
                     st.session_state.ia_results = []
+                    # Vérifier les péremptions courtes dans le lot
+                    has_short_ddp = any(verifier_ddp_courte(r.get('ddp','')) for r in new_ia_rows)
+                    if has_short_ddp:
+                        st.toast("⚠️ Attention: Certains articles scannés ont une date de péremption courte (< 12 mois) !", icon="⚠️")
                     st.rerun()
 
     with col_f2:
@@ -345,15 +366,24 @@ with tabs[0]:
                         "ppa": ppa, "shp": shp, "colissage": colis
                     })
                     log_saisie_en_cours("Manuelle", selected_prod, qte, lot, ddp, ppa)
+                    if verifier_ddp_courte(ddp):
+                        st.toast(f"⚠️ Attention: Date de péremption courte détectée pour {selected_prod} !", icon="⚠️")
                     st.rerun()
 
         # Liste des produits pointés
         if st.session_state.current_reception['items']:
             st.markdown("### 📑 Récapitulatif Pointage")
             for i, it in enumerate(st.session_state.current_reception['items']):
+                is_courte = verifier_ddp_courte(it.get('ddp', ''))
+                alert_html = ""
+                ddp_color = "#6b7299"
+                if is_courte:
+                    alert_html = "<span style='background:#fee2e2; color:#ef4444; padding:2px 6px; border-radius:4px; margin-left:10px; font-weight:bold; font-size:0.8rem;'>⚠️ DDP COURTE</span>"
+                    ddp_color = "#ef4444"
+                
                 st.markdown(f"""
                 <div class="item-row">
-                    <div><b>{it['produit']}</b><br><small style="color:#6b7299">Lot: {it['lot']} | Exp: {it['ddp']}</small></div>
+                    <div><b>{it['produit']}</b><br><small style="color:#6b7299">Lot: {it['lot']} | <span style="color:{ddp_color}; font-weight:bold;">Exp: {it['ddp']}</span></small>{alert_html}</div>
                     <div style="font-weight:900; color:#5b6cf9;">{it['qte']} Unités</div>
                 </div>
                 """, unsafe_allow_html=True)
