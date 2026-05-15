@@ -144,10 +144,6 @@ st.markdown("""
         border-radius: 10px;
         z-index: 10001;
     }
-</style>
-<div class="bokeh-bg"></div>
-
-    
     /* Table Styling */
     .stTable {
         background: white;

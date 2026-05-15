@@ -855,28 +855,41 @@ st.markdown("""
             font-size: 1.1rem !important;
             font-weight: 700 !important;
             border-radius: 10px !important;
-            height: 45px !important;
+            height: 50px !important;
+            margin-bottom: 10px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: flex-start !important;
+            padding-left: 20px !important;
         }
         .sidebar-header {
             font-size: 1.2rem !important;
             font-weight: 800 !important;
-            color: #1a1f3c !important;
-            margin-top: 20px !important;
-            margin-bottom: 10px !important;
+            color: var(--sidebar-header-color, #1a1f3c) !important;
+            margin-top: 30px !important;
+            margin-bottom: 15px !important;
+            padding-left: 5px !important;
         }
         .user-box {
-            background: #ffffff;
+            background: var(--bg-card, #ffffff);
             padding: 15px;
             border-radius: 15px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            border: 1px solid #e0e0e0;
+            box-shadow: var(--shadow-neu, 0 4px 12px rgba(0,0,0,0.05));
+            border: 1px solid rgba(0,0,0,0.05);
             margin-bottom: 20px;
         }
         /* Amélioration lisibilité liens de pages */
         [data-testid="stSidebar"] a {
             font-size: 1rem !important;
-            font-weight: 500 !important;
-            color: #4a5568 !important;
+            font-weight: 600 !important;
+            color: var(--sidebar-text-color, #4a5568) !important;
+            padding: 8px 12px !important;
+            border-radius: 8px !important;
+            margin: 2px 0 !important;
+            display: block !important;
+        }
+        [data-testid="stSidebar"] a:hover {
+            background: rgba(0,0,0,0.03) !important;
         }
     </style>
 """, unsafe_allow_html=True)
