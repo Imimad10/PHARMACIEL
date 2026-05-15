@@ -468,6 +468,24 @@ PAGES_BY_METIER = {
     "Préparateur": str(['Profil', 'Pointage Marchandise', 'Inventaire Détail', 'Scanneur QR', 'Scan Mobile', 'Transferts']),
 }
 
+# --- SURCHARGE DYNAMIQUE DES PERMISSIONS ---
+DB_ROLES_WORKSHEET = "Roles_Config"
+DB_ROLES_FALLBACK = "data/db_roles.csv"
+COLS_ROLES = ["role_name", "permissions", "icon", "description"]
+
+try:
+    df_roles_dyn = load_gs_data(DB_ROLES_WORKSHEET, DB_ROLES_FALLBACK, COLS_ROLES)
+    if not df_roles_dyn.empty:
+        for _, row in df_roles_dyn.iterrows():
+            r_name = str(row.get('role_name', ''))
+            r_perms = str(row.get('permissions', '[]'))
+            # L'Admin garde tous les droits fixes pour la sécurité, les autres métiers sont mis à jour dynamiquement
+            if r_name and r_name != "Admin":
+                PAGES_BY_METIER[r_name] = r_perms
+except Exception as e:
+    pass # Si erreur, on garde les valeurs par défaut de la Charte
+
+
 # ─────────────────────────────────────────────────────────────────
 # CHARTE OFFICIELLE — Source de vérité absolue pour tous les accès
 #   Stock (rez-de-chaussée / rayon) : Ayoub, Islem, Seif
@@ -530,8 +548,8 @@ if "setup_done" not in st.session_state:
             current_metier = str(df_users.loc[mask, 'metier'].values[0]) if 'metier' in df_users.columns else ''
             current_pages  = str(df_users.loc[mask, 'pages'].values[0])  if 'pages'  in df_users.columns else ''
 
-            # On corrige si le métier est wrong ou si les pages sont vides
-            if current_metier != umetier or not current_pages or current_pages in ['nan', '[]', '']:
+            # On corrige si le métier a changé ou si les pages ne correspondent plus à la règle dynamique actuelle
+            if current_metier != umetier or current_pages != correct_pages or not current_pages or current_pages in ['nan', '[]', '']:
                 df_users.loc[mask, 'metier'] = umetier
                 df_users.loc[mask, 'depot']  = udepot
                 df_users.loc[mask, 'pages']  = correct_pages
