@@ -423,34 +423,50 @@ with tabs[3]:
         </div>
     """, unsafe_allow_html=True)
     
-    col1, col2 = st.columns([1, 5])
+    col1, col2, col3 = st.columns([1, 1, 3])
     with col1:
         if st.button("🔄 Actualiser le feed", use_container_width=True):
             st.rerun()
+    with col2:
+        mode_edition = st.toggle("✏️ Mode Édition")
 
     df_live = load_gs_data("Suivi_Direct", DB_SUIVI_DIRECT, COLS_SUIVI_DIRECT)
     
     if not df_live.empty:
+        try:
+            pdf_live_bytes = generate_suivi_direct_pdf(df_live.sort_values("timestamp", ascending=False).head(200))
+            st.download_button("📄 Générer et Télécharger Rapport PDF", pdf_live_bytes, f"Rapport_Suivi_{datetime.now().strftime('%Y-%m-%d')}.pdf", "application/pdf", type="secondary")
+        except Exception:
+            pass
+            
         df_live = df_live.sort_values("timestamp", ascending=False).head(100)
         
-        feed_html = "<div style='display:flex; flex-direction:column; gap:15px; margin-top:10px;'>"
-        for _, row in df_live.iterrows():
-            method = str(row.get('methode', ''))
-            is_ia = "IA" in method.upper()
-            
-            icon = "🤖" if is_ia else "✍️"
-            bg_color = "linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%)"
-            border_color = "#5b6cf9" if is_ia else "#2db88a"
-            badge_bg = "#eef0f8" if is_ia else "#e6f8f1"
-            badge_color = "#5b6cf9" if is_ia else "#2db88a"
-            
-            try: ppa_val = f"{float(row.get('ppa', 0)):.2f}"
-            except: ppa_val = row.get('ppa', '0')
+        if mode_edition:
+            st.info("Vous êtes en mode édition globale. Modifiez les cellules puis cliquez sur Sauvegarder.")
+            edited_live = st.data_editor(df_live, use_container_width=True)
+            if st.button("💾 Sauvegarder les modifications du flux"):
+                save_gs_data(edited_live, "Suivi_Direct", DB_SUIVI_DIRECT)
+                st.success("Flux mis à jour avec succès !")
+                st.rerun()
+        else:
+            feed_html = "<div style='display:flex; flex-direction:column; gap:15px; margin-top:10px;'>"
+            for _, row in df_live.iterrows():
+                method = str(row.get('methode', ''))
+                is_ia = "IA" in method.upper()
                 
-            try: qte_val = int(float(row.get('qte', 0)))
-            except: qte_val = row.get('qte', '0')
-            
-            feed_html += f"""
+                icon = "🤖" if is_ia else "✍️"
+                bg_color = "linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%)"
+                border_color = "#5b6cf9" if is_ia else "#2db88a"
+                badge_bg = "#eef0f8" if is_ia else "#e6f8f1"
+                badge_color = "#5b6cf9" if is_ia else "#2db88a"
+                
+                try: ppa_val = f"{float(row.get('ppa', 0)):.2f}"
+                except: ppa_val = row.get('ppa', '0')
+                    
+                try: qte_val = int(float(row.get('qte', 0)))
+                except: qte_val = row.get('qte', '0')
+                
+                feed_html += f"""
 <div style="background:{bg_color}; border-left: 5px solid {border_color}; border-radius: 12px; padding: 15px 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); display:flex; justify-content:space-between; align-items:center;">
     <div style="display:flex; align-items:center; gap: 15px;">
         <div style="font-size: 1.8rem; background: {badge_bg}; width: 55px; height: 55px; display:flex; justify-content:center; align-items:center; border-radius: 12px; flex-shrink: 0;">{icon}</div>
@@ -474,9 +490,8 @@ with tabs[3]:
     </div>
 </div>
 """
-        feed_html += "</div>"
-        
-        st.markdown(feed_html, unsafe_allow_html=True)
+            feed_html += "</div>"
+            st.markdown(feed_html, unsafe_allow_html=True)
     else:
         st.info("Aucune saisie n'a été effectuée pour le moment.")
 

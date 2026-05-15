@@ -441,3 +441,41 @@ def generate_rh_planning_pdf(df, title="PLANNING & PERMANENCES"):
     if isinstance(raw, (bytes, bytearray)):
         return bytes(raw)
     return raw.encode('latin-1', 'replace')
+
+def generate_suivi_direct_pdf(df):
+    pdf = InventoryPDF()
+    pdf.title_text = "RAPPORT SUIVI EN DIRECT"
+    pdf.alias_nb_pages()
+    pdf.add_page()
+    
+    cols = [('timestamp', 'Heure', 35), ('utilisateur', 'Agent', 25), ('methode', 'Methode', 25), ('designation', 'Produit', 75), ('qte', 'Qte', 10), ('ppa', 'PPA', 20)]
+    
+    pdf.set_font('Arial', 'B', 8)
+    pdf.set_fill_color(240, 240, 240)
+    for _, label, w in cols:
+        pdf.cell(w, 8, label, 1, 0, 'C', 1)
+    pdf.ln()
+    
+    pdf.set_font('Arial', '', 8)
+    for _, row in df.iterrows():
+        if pdf.get_y() > 270:
+            pdf.add_page()
+            pdf.set_font('Arial', 'B', 8)
+            for _, label, w in cols: pdf.cell(w, 8, label, 1, 0, 'C', 1)
+            pdf.ln()
+            pdf.set_font('Arial', '', 8)
+            
+        for i, (key, _, w) in enumerate(cols):
+            val = str(row.get(key, ''))
+            # Simplify timestamp to just time if it has date
+            if key == 'timestamp' and ' ' in val: val = val.split(' ')[-1]
+            val = val[:40].encode('latin-1', 'replace').decode('latin-1')
+            align = 'L' if key == 'designation' else 'C'
+            pdf.cell(w, 7, val, 1, 0, align)
+        pdf.ln()
+        
+    raw = pdf.output(dest='S')
+    if isinstance(raw, (bytes, bytearray)):
+        return bytes(raw)
+    return raw.encode('latin-1', 'replace')
+
