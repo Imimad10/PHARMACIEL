@@ -55,9 +55,18 @@ if not is_ia_enabled():
     st.warning("⚠️ L'IA est actuellement désactivée dans les paramètres système.")
     st.stop()
 
-# --- 1. VUE 360° (Snapshot) ---
-snapshot = get_strategic_snapshot()
+# --- 1. VUE 360° & VIGILANCE ---
+st.markdown('<div class="cortex-card">', unsafe_allow_html=True)
+st.write("#### 🛡️ Vigilance Sanitaire & Environnement (Algérie)")
+col_v1, col_v2 = st.columns([1, 2])
+with col_v1:
+    trend = st.selectbox("Tendance actuelle :", 
+                        ["Période Standard", "Grippe Saisonnière", "Allergies Printanières", "Épidémie Virale", "Ruptures DCI Critiques"])
+with col_v2:
+    st.info(f"Le Cortex adapte ses recommandations pour : **{trend}**. Il cherchera à associer vos stocks stagnants aux besoins de cette période.")
+st.markdown('</div>', unsafe_allow_html=True)
 
+snapshot = get_strategic_snapshot()
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:

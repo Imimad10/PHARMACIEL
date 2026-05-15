@@ -44,18 +44,30 @@ def get_strategic_snapshot():
     return snapshot
 
 def ask_cortex(question):
-    """Interroge l'IA avec le contexte complet de l'entreprise."""
+    """Interroge l'IA avec le contexte complet de l'entreprise et de l'environnement sanitaire Algérien."""
     snapshot = get_strategic_snapshot()
     
-    context = f"""
-    Tu es le Cortex Stratégique de DarPharm Pro. Voici l'état actuel de l'entreprise :
-    - Équipe : {snapshot.get('users_count', 0)} collaborateurs.
-    - Réclamations : {snapshot.get('total_reclamations', 0)} enregistrées. Motif principal : {snapshot.get('top_motif', 'N/A')}.
-    - Performance : CA de {snapshot.get('total_ca', 0):,.0f} DA avec une marge de {snapshot.get('total_marge', 0):,.0f} DA.
-    - Heure de pic : {snapshot.get('peak_hour', 'N/A')}h.
+    # Contexte environnemental simulé (on pourrait le rendre dynamique via un autre module)
+    env_context = """
+    CONTEXTE ENVIRONNEMENTAL (ALGERIE 2026) :
+    - Nature des produits : Médicaments et parapharmacie (Régulé).
+    - Risques actuels : Ruptures fréquentes sur les DCI essentielles, maladies saisonnières (Grippe, allergies printanières), vigilance virus régionaux.
+    - Objectif : Minimiser les pertes (périssables) et liquider les stocks stagnants via des associations intelligentes (cross-selling).
+    """
     
-    Ta mission : Résoudre les problèmes, minimiser les pertes, réduire les fautes et proposer les meilleures solutions.
-    Sois précis, exécutif et proactif.
+    context = f"""
+    Tu es le Cortex Stratégique de DarPharm Pro, expert en logistique pharmaceutique en Algérie. 
+    Voici l'état actuel de l'entreprise :
+    - Équipe : {snapshot.get('users_count', 0)} collaborateurs.
+    - Réclamations : {snapshot.get('total_reclamations', 0)} enregistrées (Taux de fautes à surveiller).
+    - Performance : CA {snapshot.get('total_ca', 0):,.0f} DA | Marge {snapshot.get('total_marge', 0):,.0f} DA.
+    
+    {env_context}
+    
+    TA MISSION : 
+    1. Proposer des plans de vente agressifs pour les produits stagnants.
+    2. Créer des associations (bundles) entre produits stagnants et médicaments de saison/épidémie.
+    3. Anticiper les ruptures et proposer des alternatives.
     
     Question de l'administrateur : {question}
     """
