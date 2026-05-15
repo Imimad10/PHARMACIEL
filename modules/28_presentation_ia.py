@@ -57,7 +57,7 @@ st.markdown("""
         backdrop-filter: blur(20px);
         border: 1px solid rgba(124, 58, 237, 0.1);
         border-radius: 32px;
-        padding: 40px;
+        padding: 25px; /* Réduit pour éviter le squeezing */
         margin-bottom: 20px;
         box-shadow: 0 10px 30px rgba(0,0,0,0.03);
         transition: all 0.3s ease;
@@ -65,6 +65,13 @@ st.markdown("""
     .glass-card:hover {
         transform: translateY(-5px);
         box-shadow: 0 20px 40px rgba(0,0,0,0.06);
+    }
+    
+    /* Fix for squeezed checkbox labels */
+    div[data-testid="stCheckbox"] label {
+        white-space: nowrap !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     
     .metric-hero {
