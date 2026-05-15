@@ -357,3 +357,55 @@ def generate_rotation_report_pdf(df, module_name, ia_analysis=""):
     if isinstance(raw, (bytes, bytearray)):
         return bytes(raw)
     return raw.encode('latin-1', 'replace')
+
+def generate_rh_planning_pdf(df, title="PLANNING RH & PERMANENCES"):
+    pdf = InventoryPDF()
+    pdf.title_text = title.upper()
+    pdf.alias_nb_pages()
+    pdf.add_page()
+    
+    # Configuration des colonnes
+    pdf.set_font('Arial', 'B', 9)
+    pdf.set_fill_color(240, 240, 240)
+    
+    # Colonnes : Date (35), Agent (40), Type (45), Statut (25), Commentaire (45)
+    cols_config = [
+        ('Date_Debut', 'Date', 30),
+        ('Agent', 'Agent', 40),
+        ('Type', 'Type d\'événement', 50),
+        ('Statut', 'Statut', 25),
+        ('Commentaire', 'Observations', 45)
+    ]
+    
+    for _, label, w in cols_config:
+        pdf.cell(w, 10, label.encode('latin-1', 'replace').decode('latin-1'), 1, 0, 'C', 1)
+    pdf.ln()
+    
+    # Lignes
+    pdf.set_font('Arial', '', 8)
+    for _, row in df.iterrows():
+        if pdf.get_y() > 260:
+            pdf.add_page()
+            pdf.set_font('Arial', 'B', 9)
+            for _, label, w in cols_config: pdf.cell(w, 10, label.encode('latin-1', 'replace').decode('latin-1'), 1, 0, 'C', 1)
+            pdf.ln()
+            pdf.set_font('Arial', '', 8)
+            
+        for key, _, w in cols_config:
+            val = str(row.get(key, ""))
+            # Nettoyage pour PDF
+            val = val.encode('latin-1', 'replace').decode('latin-1')
+            pdf.cell(w, 8, val[:50], 1, 0, 'C')
+        pdf.ln()
+    
+    # Pied de page administratif
+    pdf.ln(10)
+    pdf.set_font('Arial', 'B', 10)
+    pdf.cell(0, 10, "VALIDATION DIRECTION", 0, 1, 'R')
+    pdf.ln(10)
+    pdf.cell(0, 0, "__________________", 0, 1, 'R')
+
+    raw = pdf.output(dest='S')
+    if isinstance(raw, (bytes, bytearray)):
+        return bytes(raw)
+    return raw.encode('latin-1', 'replace')

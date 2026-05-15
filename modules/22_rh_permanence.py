@@ -127,10 +127,23 @@ with tabs[2]:
     
     st.dataframe(df_view.sort_values("Date_Debut", ascending=False), use_container_width=True, hide_index=True)
     
-    if st.button("🤖 Analyser la couverture (IA)"):
-        with st.spinner("Analyse..."):
-            res = ask_ai(f"Analyse ce planning : {df_view.to_string()}. Y a-t-il des anomalies ?")
-            st.info(res)
+    c_btn1, c_btn2 = st.columns(2)
+    with c_btn1:
+        if st.button("🤖 Analyser la couverture (IA)", use_container_width=True):
+            with st.spinner("Analyse..."):
+                res = ask_ai(f"Analyse ce planning : {df_view.to_string()}. Y a-t-il des anomalies ?")
+                st.info(res)
+                
+    with c_btn2:
+        from utils_pdf import generate_rh_planning_pdf
+        pdf_bytes = generate_rh_planning_pdf(df_view)
+        st.download_button(
+            "📥 Télécharger le Planning (PDF)",
+            pdf_bytes,
+            f"Planning_RH_{datetime.now().strftime('%Y%m%d')}.pdf",
+            "application/pdf",
+            use_container_width=True
+        )
 
 # --- TAB 4 : VALIDATION ADMIN ---
 with tabs[3]:
