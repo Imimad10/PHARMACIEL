@@ -21,9 +21,21 @@ WS_SAISIE_STOCK = "Saisie_Inventaire"
 DATA_DIR = "data_inventaire_detail"
 os.makedirs(DATA_DIR, exist_ok=True)
 
-st.set_page_config(page_title="Inventaire Détail & Supervision", layout="wide")
+# --- 2. CHARGEMENT & NORMALISATION ---
+def normalize_cols(df):
+    if df is None or df.empty: return pd.DataFrame()
+    mapping = {
+        'produit': 'designation', 'article': 'designation', 'libelle': 'designation',
+        'n°lot': 'lot', 'nlot': 'lot', 'batch': 'lot',
+        'emplacement': 'zone', 'sector': 'zone'
+    }
+    cols = []
+    for c in df.columns:
+        norm = c.lower().strip()
+        cols.append(mapping.get(norm, norm))
+    df.columns = cols
+    return df
 
-# --- 2. CHARGEMENT DES DONNÉES ---
 def robust_num(s):
     if pd.isna(s) or s == "": return 0.0
     try: return float(str(s).replace('\xa0', '').replace(' ', '').replace(',', '.'))
@@ -31,15 +43,35 @@ def robust_num(s):
 
 @st.cache_data(ttl=60)
 def load_all_inventory_data():
-    m_zone = load_gs_data(WS_MASTER_ZONE, os.path.join(DATA_DIR, "m_zone.csv"))
-    s_zone = load_gs_data(WS_SAISIE_ZONE, os.path.join(DATA_DIR, "s_zone.csv"))
-    t_zone = load_gs_data(WS_TRIPLE_ZONE, os.path.join(DATA_DIR, "t_zone.csv"))
-    t_mini = load_gs_data(WS_TRIPLE_MINI, os.path.join(DATA_DIR, "t_mini.csv"))
-    m_stock = load_gs_data(WS_MASTER_STOCK, os.path.join(DATA_DIR, "m_stock.csv"))
-    s_stock = load_gs_data(WS_SAISIE_STOCK, os.path.join(DATA_DIR, "s_stock.csv"))
-    return m_zone, s_zone, t_zone, t_mini, m_stock, s_stock
+    m_z = normalize_cols(load_gs_data(WS_MASTER_ZONE, os.path.join(DATA_DIR, "m_zone.csv")))
+    s_z = normalize_cols(load_gs_data(WS_SAISIE_ZONE, os.path.join(DATA_DIR, "s_zone.csv")))
+    t_z = normalize_cols(load_gs_data(WS_TRIPLE_ZONE, os.path.join(DATA_DIR, "t_zone.csv")))
+    t_m = normalize_cols(load_gs_data(WS_TRIPLE_MINI, os.path.join(DATA_DIR, "t_mini.csv")))
+    m_s = normalize_cols(load_gs_data(WS_MASTER_STOCK, os.path.join(DATA_DIR, "m_stock.csv")))
+    s_s = normalize_cols(load_gs_data(WS_SAISIE_STOCK, os.path.join(DATA_DIR, "s_stock.csv")))
+    return m_z, s_z, t_z, t_m, m_s, s_s
 
 m_z, s_z, t_z, t_m, m_s, s_s = load_all_inventory_data()
+
+def get_progression(df_master, df_saisie, zone_val=None):
+    if df_master.empty: return 0, 0, 0
+    
+    m_f = df_master
+    if zone_val and 'zone' in df_master.columns:
+        m_f = df_master[df_master['zone'] == zone_val]
+    
+    total = len(m_f)
+    if total == 0: return 0, 0, 0
+    
+    done = 0
+    if not df_saisie.empty and 'designation' in df_saisie.columns:
+        s_f = df_saisie
+        if zone_val and 'zone' in df_saisie.columns:
+            s_f = df_saisie[df_saisie['zone'] == zone_val]
+        done = s_f['designation'].nunique()
+        
+    pct = (done / total) if total > 0 else 0
+    return done, total, pct
 
 # --- 3. UI DASHBOARD ---
 st.title("🔍 Supervision & Dashboard Inventaires")
