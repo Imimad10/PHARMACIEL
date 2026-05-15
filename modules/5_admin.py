@@ -296,7 +296,15 @@ with tabs[1]:
                         df_roles_edit.at[r_idx,'icon'] = new_icon
                         df_roles_edit.at[r_idx,'description'] = new_desc
                         save_gs_data(df_roles_edit, DB_ROLES_WORKSHEET, DB_ROLES_FALLBACK)
-                        st.success("✅ Métier mis à jour !")
+                        
+                        # UPDATE ALL USERS WITH THIS ROLE
+                        if not df_users.empty and 'metier' in df_users.columns:
+                            mask = df_users['metier'] == role_to_edit
+                            if mask.any():
+                                df_users.loc[mask, 'pages'] = str(updated)
+                                save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+                                
+                        st.success("✅ Métier mis à jour et accès synchronisés pour les agents !")
                         st.rerun()
     else:
         st.info("La configuration avancée est réservée aux administrateurs.")
