@@ -160,14 +160,21 @@ with tabs[0]:
                         
                         prompt = """
                         Extrais les informations de cette vignette de médicament. 
+                        Règles très strictes pour la détection :
+                        1. designation: Combine le nom commercial, le dosage et le conditionnement (ex: LAVIDA 4mg Boite de 30 cps). Ignore le nom du labo (ex: SAIDAL) ou DCI si possible.
+                        2. ppa et shp: Fais très attention ! Souvent, ce qui est écrit "PPA" en bas de la vignette est le PRIX TOTAL (PPA de base + SHP). 
+                           Si tu vois "Prix: 805.50 + SHP 2.50", alors ppa = 805.50 et shp = 2.50. 
+                           Le SHP doit OBLIGATOIREMENT être l'une de ces trois valeurs : 0.0, 1.5, ou 2.5.
+                        3. couleur: Identifie la couleur dominante de la bande/vignette (ex: Vert, Rouge, Orange, Bleu, Blanc, etc.).
+                        
                         Retourne UNIQUEMENT un JSON brut (sans markdown) avec ces clés:
-                        - designation: (ex: PARACETAMOL 500mg CP B/20)
-                        - lot: (numéro de lot)
-                        - ddp: (Format MM/AAAA)
-                        - ddf: (Format MM/AAAA)
-                        - ppa: (Nombre décimal)
-                        - shp: (Nombre décimal)
-                        - qte: (Nombre entier)
+                        - designation: (chaine)
+                        - lot: (chaine)
+                        - ddp: (Format MM/AAAA, correspondant à Exp ou DDP)
+                        - ppa: (Nombre décimal, PPA de base SANS le SHP)
+                        - shp: (Nombre décimal, 0.0, 1.5 ou 2.5)
+                        - qte: (Nombre entier, mettre 1 par défaut)
+                        - couleur: (chaine, couleur de la vignette)
                         """
                         
                         try:
@@ -212,6 +219,7 @@ with tabs[0]:
                     use_container_width=True,
                     column_config={
                         "designation": st.column_config.SelectboxColumn("Produit", options=df_prod['Designation'].unique() if not df_prod.empty else []),
+                        "couleur": st.column_config.TextColumn("Couleur Vignette"),
                         "ddp": st.column_config.TextColumn("DDP (MM/AAAA)"),
                         "ppa": st.column_config.NumberColumn("PPA", format="%.2f DA"),
                         "shp": st.column_config.NumberColumn("SHP", format="%.2f DA"),
@@ -222,15 +230,16 @@ with tabs[0]:
                 if st.button("➕ AJOUTER TOUT À LA RÉCEPTION", use_container_width=True):
                     for _, row in edited_df.iterrows():
                         new_row = {
-                            "Designation": row.get('designation', ''),
-                            "Quantité": row.get('qte', 1),
-                            "Lot": row.get('lot', ''),
-                            "DDP": row.get('ddp', ''),
-                            "PPA": row.get('ppa', 0.0),
-                            "SHP": row.get('shp', 0.0),
-                            "Colissage": 1
+                            "produit": row.get('designation', ''),
+                            "qte": row.get('qte', 1),
+                            "lot": row.get('lot', ''),
+                            "ddp": row.get('ddp', ''),
+                            "ppa": row.get('ppa', 0.0),
+                            "shp": row.get('shp', 0.0),
+                            "colissage": 1,
+                            "couleur": row.get('couleur', '')
                         }
-                        st.session_state.reception_items.append(new_row)
+                        st.session_state.current_reception['items'].append(new_row)
                     st.session_state.ia_results = []
                     st.rerun()
 
