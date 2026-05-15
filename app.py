@@ -115,8 +115,9 @@ elif st.session_state.theme == "Chic Animé":
             transition: opacity 0.5s ease-out;
         }
         .loader-logo {
-            width: 120px;
+            font-size: 80px;
             animation: pulse-logo 2s infinite ease-in-out;
+            display: block;
         }
         .loader-bar {
             width: 200px;
@@ -544,10 +545,11 @@ if st.session_state.current_user is None:
         btn_bg = "#1877f2"
         btn_hover = "#166fe5"
 
-    # Affichage du loader (sera caché par Streamlit quand le reste chargera)
+    # Affichage du loader (CSS pur - sans dépendance externe)
     st.markdown("""
         <div id="darpharm-loader">
-            <img src="https://img.icons8.com/fluency/240/capsule.png" class="loader-logo">
+            <div class="loader-logo">💊</div>
+            <div style="font-weight: 800; font-size: 1.4rem; color: #1877f2; margin: 10px 0; letter-spacing: -0.5px;">DarPharm Solutions</div>
             <div class="loader-bar"><div class="loader-progress"></div></div>
             <script>
                 setTimeout(() => {
