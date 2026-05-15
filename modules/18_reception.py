@@ -188,7 +188,19 @@ with tabs[0]:
                         img.save(buffered, format="JPEG")
                         img_str = base64.b64encode(buffered.getvalue()).decode()
                         
-                        prompt = """
+                        # Chargement des règles IA personnalisées
+                        regles_ia = ""
+                        try:
+                            df_rules = pd.read_csv("data/db_ia_rules.csv", encoding='utf-8')
+                            active_rules = df_rules[df_rules['actif'] == True]
+                            if not active_rules.empty:
+                                regles_ia = "\n\nRÈGLES D'APPRENTISSAGE SPÉCIFIQUES AJOUTÉES PAR L'ADMIN (TRÈS IMPORTANT) :\n"
+                                for _, rule in active_rules.iterrows():
+                                    regles_ia += f"- Si tu détectes le mot clé '{rule.get('mot_cle', '')}' : {rule.get('instruction', '')}\n"
+                        except Exception:
+                            pass
+                            
+                        prompt = f"""
                         Tu es un expert en lecture de vignettes pharmaceutiques algériennes.
                         Extrais les informations de cette image avec une très grande précision.
                         
@@ -204,6 +216,7 @@ with tabs[0]:
                         3. lot: Le numéro de lot (ex: 16001).
                         4. ddp: Date de péremption ou Exp (ex: 02/2019).
                         5. couleur: La couleur dominante de la bande de la vignette (ex: Vert, Rouge, Bleu, Jaune, Blanc).
+                        {regles_ia}
 
                         Retourne UNIQUEMENT un JSON brut sans markdown avec ces clés exactes :
                         {
