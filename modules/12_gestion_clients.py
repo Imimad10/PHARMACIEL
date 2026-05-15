@@ -75,9 +75,12 @@ with tab_admin:
         
         if st.button("📥 Synchroniser avec la base Recouvrement", use_container_width=True):
             with st.spinner("Fusion des bases de données..."):
+                # On définit les constantes du module recouvrement directement (évite l'import invalide '4_recouvrement')
+                DATA_RECOUV_CLIENTS = "base_clients.csv"
+                COLS_RECOUV_CLIENTS = ["Nom Client", "Secteur"]
+                
                 # Charger la base recouvrement
-                from modules.4_recouvrement import DATA_CLIENTS, COLS_CLIENTS
-                df_recouv = load_gs_data("Base_Clients", DATA_CLIENTS, COLS_CLIENTS)
+                df_recouv = load_gs_data("Base_Clients", DATA_RECOUV_CLIENTS, COLS_RECOUV_CLIENTS)
                 
                 if not df_recouv.empty:
                     count_added = 0
@@ -109,7 +112,7 @@ with tab_admin:
                     else:
                         st.info("Tout est déjà à jour. Aucun nouveau client trouvé.")
                 else:
-                    st.error("Impossible de charger la base de recouvrement.")
+                    st.error("Impossible de charger la base de recouvrement (Worksheet 'Base_Clients' introuvable).")
 
         st.divider()
         
@@ -186,9 +189,9 @@ with tab_list:
                         res_coords = ask_ai(prompt)
                         st.write(f"Suggéré : {res_coords}")
                         if st.button("Appliquer ces coordonnées"):
-                             df_clients.loc[df_clients['ID'] == client['ID'], 'Coordonnees'] = res_coords
-                             save_gs_data(df_clients, WORKSHEET_NAME, FALLBACK_PATH)
-                             st.rerun()
+                            df_clients.loc[df_clients['ID'] == client['ID'], 'Coordonnees'] = res_coords
+                            save_gs_data(df_clients, WORKSHEET_NAME, FALLBACK_PATH)
+                            st.rerun()
 
 with tab_add:
     st.subheader("Nouvelle fiche client")
