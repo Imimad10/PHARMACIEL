@@ -98,7 +98,6 @@ if is_ia_enabled():
                         st.dataframe(nouveaux_produits, use_container_width=True)
                         
                         # Concaténer et sauvegarder
-                        global df
                         df = pd.concat([df, nouveaux_produits], ignore_index=True).drop_duplicates(subset=['Nom'], keep='last')
                         df.to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
                         st.balloons()
