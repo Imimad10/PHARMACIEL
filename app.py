@@ -858,9 +858,13 @@ st.markdown("""
             height: 50px !important;
             margin-bottom: 10px !important;
             display: flex !important;
+            flex-direction: row !important;
             align-items: center !important;
             justify-content: flex-start !important;
             padding-left: 20px !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
         }
         .sidebar-header {
             font-size: 1.2rem !important;
