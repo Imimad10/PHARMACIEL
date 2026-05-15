@@ -4,6 +4,7 @@ from datetime import datetime
 from utils_gsheets import load_gs_data, save_gs_data
 from utils_sound import play_sound
 from utils_ia import ask_ai, is_ia_enabled
+from generator_pdf import generate_team_performance_pdf
 
 # --- CONFIGURATION ---
 TASKS_WORKSHEET = "DB_Tasks_Team"
@@ -425,6 +426,9 @@ with tabs[1]:
         stats = df_stats_base[df_stats_base['status'] == "Terminé"]['assigned_to'].value_counts().reset_index()
         stats.columns = ['Agent', 'Missions Terminées']
         
+        # Filtrer les admins du tableau d'honneur
+        stats = stats[~stats['Agent'].isin(["admin_imad", "admin"])]
+        
         if not stats.empty:
             st.bar_chart(stats, x='Agent', y='Missions Terminées')
             
@@ -466,7 +470,36 @@ with tabs[1]:
                     st.success("📉 Bilan Stratégique du Jour :")
                     st.markdown(report)
             
-            if st.button("📄 Exporter Rapport de Primes (PDF)", use_container_width=True):
-                st.success("Rapport mensuel généré. Vous pouvez le présenter à la direction.")
+            if not stats.empty:
+                # Préparation des données pour le PDF
+                pdf_stats_list = []
+                for _, r in stats.iterrows():
+                    xp = r['Missions Terminées'] * 100
+                    lvl = (xp // 500) + 1
+                    rnk = "🥉 Novice"
+                    if lvl >= 2: rnk = "🥈 Apprenti"
+                    if lvl >= 3: rnk = "🥇 Expert"
+                    if lvl >= 5: rnk = "💎 Maître"
+                    if lvl >= 10: rnk = "👑 Légende"
+                    
+                    pdf_stats_list.append({
+                        "agent": r['Agent'],
+                        "missions": r['Missions Terminées'],
+                        "xp": xp,
+                        "level": lvl,
+                        "rank": rnk
+                    })
+                
+                pdf_bytes = generate_team_performance_pdf(pdf_stats_list)
+                st.download_button(
+                    label="📥 Exporter Rapport de Performance (PDF)",
+                    data=pdf_bytes,
+                    file_name=f"Rapport_Performance_Equipe_{datetime.now().strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    type="primary"
+                )
+            else:
+                st.warning("Aucune statistique à exporter pour le moment.")
     else:
         st.info("Aucune donnée disponible.")

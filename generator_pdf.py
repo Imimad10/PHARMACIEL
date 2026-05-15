@@ -149,3 +149,42 @@ def generate_multi_reclam_pdf(items_list):
     if isinstance(raw, (bytes, bytearray)):
         return bytes(raw)
     return raw.encode('latin-1', 'replace')
+
+def generate_team_performance_pdf(stats_list):
+    """
+    stats_list: list of dicts {agent, missions, xp, level, rank}
+    """
+    pdf = ReclamPDF()
+    pdf.alias_nb_pages()
+    pdf.add_page()
+    
+    pdf.set_font("Arial", 'B', 16)
+    pdf.set_fill_color(240, 240, 240)
+    pdf.cell(0, 15, "BILAN DE PERFORMANCE EQUIPE", 1, 1, 'C', fill=True)
+    pdf.ln(10)
+    
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(50, 10, "AGENT", 1, 0, 'C', fill=True)
+    pdf.cell(40, 10, "MISSIONS", 1, 0, 'C', fill=True)
+    pdf.cell(30, 10, "XP", 1, 0, 'C', fill=True)
+    pdf.cell(30, 10, "NIVEAU", 1, 0, 'C', fill=True)
+    pdf.cell(40, 10, "RANG", 1, 1, 'C', fill=True)
+    
+    pdf.set_font("Arial", '', 11)
+    for s in stats_list:
+        pdf.cell(50, 10, str(s['agent']), 1)
+        pdf.cell(40, 10, str(s['missions']), 1, 0, 'C')
+        pdf.cell(30, 10, str(s['xp']), 1, 0, 'C')
+        pdf.cell(30, 10, str(s['level']), 1, 0, 'C')
+        # On nettoie les emojis pour latin-1
+        rank_text = s['rank'].replace("🥉", "").replace("🥈", "").replace("🥇", "").replace("💎", "").replace("👑", "").strip()
+        pdf.cell(40, 10, rank_text, 1, 1, 'C')
+        
+    pdf.ln(15)
+    pdf.set_font("Arial", 'I', 9)
+    pdf.cell(0, 10, f"Rapport genere par DarPharm Solutions le {datetime.now().strftime('%d/%m/%Y %H:%M')}", 0, 1, 'R')
+    
+    raw = pdf.output()
+    if isinstance(raw, (bytes, bytearray)):
+        return bytes(raw)
+    return raw.encode('latin-1', 'replace')
