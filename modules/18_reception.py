@@ -24,8 +24,10 @@ apply_theme_css(fluffy)
 
 DB_RECEPTIONS = "data/db_receptions.csv"
 DB_PRODUITS_RECEPTION = "data/db_reception_produits.csv"
+DB_IA_SCANS = "data/db_ia_scans.csv"
 COLS_RECEPTIONS = ["id", "date", "fournisseur", "facture_num", "statut", "items", "created_by"]
 COLS_PRODUITS = ["Designation", "PPA", "SHP", "Colissage"]
+COLS_IA_SCANS = ["date_scan", "designation", "lot", "ddp", "ppa", "shp", "couleur"]
 
 # --- CSS ADDITIONNEL RÉCEPTION ---
 st.markdown("""
@@ -118,7 +120,7 @@ df_prod = load_produits_reception()
 
 st.markdown('<div class="reception-header"><div><h1 style="color:#5b6cf9; font-weight:900;">Pointage Marchandise 📦</h1><p style="color:#6b7299; font-weight:700;">Vérifiez vos arrivages avec précision</p></div><div style="background:#d4f5ea; padding:10px 20px; border-radius:15px; color:#2db88a; font-weight:900;">⚡ MODE PREMIUM ACTIF</div></div>', unsafe_allow_html=True)
 
-tabs = st.tabs(["⚡ Nouveau Pointage", "📋 Historique", "🏛️ Administration"])
+tabs = st.tabs(["⚡ Nouveau Pointage", "📋 Historique", "🧠 Base IA", "🏛️ Administration"])
 
 with tabs[0]:
     col_f1, col_f2 = st.columns([1, 2])
@@ -244,6 +246,9 @@ with tabs[0]:
                 )
                 
                 if st.button("➕ AJOUTER TOUT À LA RÉCEPTION", use_container_width=True):
+                    df_ia = load_gs_data("IA_Scans", DB_IA_SCANS, COLS_IA_SCANS)
+                    new_ia_rows = []
+                    
                     for _, row in edited_df.iterrows():
                         new_row = {
                             "produit": row.get('designation', ''),
@@ -256,6 +261,21 @@ with tabs[0]:
                             "couleur": row.get('couleur', '')
                         }
                         st.session_state.current_reception['items'].append(new_row)
+                        
+                        new_ia_rows.append({
+                            "date_scan": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            "designation": row.get('designation', ''),
+                            "lot": row.get('lot', ''),
+                            "ddp": row.get('ddp', ''),
+                            "ppa": row.get('ppa', 0.0),
+                            "shp": row.get('shp', 0.0),
+                            "couleur": row.get('couleur', '')
+                        })
+                        
+                    if new_ia_rows:
+                        df_ia = pd.concat([df_ia, pd.DataFrame(new_ia_rows)], ignore_index=True)
+                        save_gs_data(df_ia, "IA_Scans", DB_IA_SCANS)
+                        
                     st.session_state.ia_results = []
                     st.rerun()
 
@@ -310,4 +330,14 @@ with tabs[1]:
         st.info("Aucune réception enregistrée.")
 
 with tabs[2]:
+    st.subheader("🧠 Base de Données IA (Produits Collectés)")
+    df_ia = load_gs_data("IA_Scans", DB_IA_SCANS, COLS_IA_SCANS)
+    if not df_ia.empty:
+        st.dataframe(df_ia.sort_values("date_scan", ascending=False), use_container_width=True)
+        csv = df_ia.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Exporter la base IA (CSV)", csv, "base_ia.csv", "text/csv")
+    else:
+        st.info("La base de données de l'IA est vide. Scannez des vignettes pour l'alimenter !")
+
+with tabs[3]:
     show_sync_ui("Receptions", DB_RECEPTIONS, COLS_RECEPTIONS)
