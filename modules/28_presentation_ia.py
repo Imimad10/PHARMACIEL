@@ -289,7 +289,15 @@ def play_slide_fx():
 # --- BUILDER: CONFIGURATION MODE ---
 if st.session_state.keynote_mode == "BUILDER":
     st.markdown('<div class="slide-container">', unsafe_allow_html=True)
-    st.markdown('<h1 class="slide-title">Keynote IA<br>Stratégique</h1>', unsafe_allow_html=True)
+    
+    col_logo, col_txt = st.columns([1, 4])
+    with col_logo:
+        if os.path.exists("logo.png"):
+            st.image("logo.png", width=120)
+        else:
+            st.markdown('<div style="font-size:5rem;">📽️</div>', unsafe_allow_html=True)
+    with col_txt:
+        st.markdown('<h1 class="slide-title" style="font-size:4rem; margin-bottom:0;">Keynote IA<br>Stratégique</h1>', unsafe_allow_html=True)
     
     st.write("### 🏗️ Configurez votre présentation exécutive")
     st.info("Sélectionnez les piliers de performance que vous souhaitez présenter au board.")
@@ -305,7 +313,8 @@ if st.session_state.keynote_mode == "BUILDER":
         c_b1, c_b2 = st.columns([1, 3])
         prep_time = c_b1.select_slider("Temps de préparation", options=["Rapide", "Standard", "Profond"], value="Standard")
         
-        if st.form_submit_button("📽️ LANCER LA PRÉSENTATION", use_container_width=True, type="primary"):
+        col_btn1, col_btn2 = st.columns(2)
+        if col_btn1.form_submit_button("📽️ LANCER LA PRÉSENTATION", use_container_width=True, type="primary"):
             selected = [k for k, v in selections.items() if v]
             if not selected:
                 st.error("Veuillez sélectionner au moins une slide.")
@@ -314,6 +323,13 @@ if st.session_state.keynote_mode == "BUILDER":
                 st.session_state.current_slide_idx = 0
                 st.session_state.keynote_mode = "PRESENTATION"
                 st.rerun()
+        
+        if col_btn2.form_submit_button("🚪 QUITTER LE MODE MEETING", use_container_width=True):
+            # Pour sortir, on réactive le sidebar via CSS et on change de mode
+            st.markdown("<style>[data-testid='stSidebarNav'] { visibility: visible !important; height: auto !important; }</style>", unsafe_allow_html=True)
+            st.session_state.keynote_mode = "EXIT" # On simule une sortie
+            st.rerun()
+            
     st.markdown('</div>', unsafe_allow_html=True)
 
 # --- RENDERER: PRESENTATION MODE ---
