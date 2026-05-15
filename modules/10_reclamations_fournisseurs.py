@@ -40,9 +40,12 @@ st.write("Système synchronisé pour le suivi des anomalies de réception et lit
 
 tab_new, tab_list, tab_arch, tab_stats, tab_prods = st.tabs(["➕ Nouveau Rapport", "📋 Suivi Actif", "🗄️ Archives", "📊 Dashboard Performance", "📦 Base Produits"])
 
-# --- CHARGEMENT DYNAMIQUE DES PRODUITS ---
+# --- CHARGEMENT DYNAMIQUE DES DONNÉES ---
 df_prods = load_gs_data("Base_Produits", "data_produits.csv", ["Désignation"])
 liste_prods = sorted([str(p).upper().strip() for p in df_prods["Désignation"].unique() if pd.notna(p) and str(p).strip() != ""])
+
+df_fournisseurs = load_gs_data("DB_Fournisseurs", "data/db_fournisseurs.csv", ["Etablissement"])
+liste_fournisseurs = sorted([str(f).upper().strip() for f in df_fournisseurs["Etablissement"].unique() if pd.notna(f) and str(f).strip() != ""])
 
 if "temp_litiges" not in st.session_state:
     st.session_state.temp_litiges = []
@@ -52,7 +55,13 @@ with tab_new:
     # 1. En-tête commune
     st.subheader("📝 Informations Générales")
     c_h1, c_h2 = st.columns(2)
-    fournisseur = c_h1.text_input("Fournisseur / Laboratoire", placeholder="Ex: Sanofi, Biopharm...")
+    
+    choix_f = c_h1.selectbox("Fournisseur / Laboratoire", ["-- Saisie Manuelle --"] + liste_fournisseurs, help="Sélectionnez un fournisseur de la base ou saisissez-en un nouveau.")
+    if choix_f == "-- Saisie Manuelle --":
+        fournisseur = c_h1.text_input("Nom du Fournisseur (Manuel)", placeholder="Ex: Sanofi, Biopharm...")
+    else:
+        fournisseur = choix_f
+        
     num_facture = c_h2.text_input("N° Facture / BL")
     
     st.divider()
