@@ -25,9 +25,33 @@ apply_theme_css(fluffy)
 DB_RECEPTIONS = "data/db_receptions.csv"
 DB_PRODUITS_RECEPTION = "data/db_reception_produits.csv"
 DB_IA_SCANS = "data/db_ia_scans.csv"
+DB_SUIVI_DIRECT = "data/db_suivi_direct.csv"
 COLS_RECEPTIONS = ["id", "date", "fournisseur", "facture_num", "statut", "items", "created_by"]
 COLS_PRODUITS = ["Designation", "PPA", "SHP", "Colissage"]
 COLS_IA_SCANS = ["date_scan", "designation", "lot", "ddp", "ppa", "shp", "couleur"]
+COLS_SUIVI_DIRECT = ["timestamp", "utilisateur", "methode", "designation", "qte", "lot", "ddp", "ppa"]
+
+def log_saisie_en_cours(methode, designation, qte, lot, ddp, ppa):
+    df_live = load_gs_data("Suivi_Direct", DB_SUIVI_DIRECT, COLS_SUIVI_DIRECT)
+    
+    user = "Inconnu"
+    if "current_user" in st.session_state and st.session_state.current_user:
+        user = st.session_state.current_user.get('username', 'Inconnu')
+        
+    new_row = pd.DataFrame([{
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "utilisateur": user,
+        "methode": methode,
+        "designation": designation,
+        "qte": qte,
+        "lot": lot,
+        "ddp": ddp,
+        "ppa": ppa
+    }])
+    
+    df_live = pd.concat([df_live, new_row], ignore_index=True)
+    df_live = df_live.tail(500) # Garder les 500 dernières saisies
+    save_gs_data(df_live, "Suivi_Direct", DB_SUIVI_DIRECT)
 
 # --- CSS ADDITIONNEL RÉCEPTION ---
 st.markdown("""
@@ -106,9 +130,13 @@ def save_reception(reception_data):
     save_gs_data(df_old, "Receptions", DB_RECEPTIONS)
 
 if "current_reception" not in st.session_state:
+    user_creator = "Utilisateur"
+    if "current_user" in st.session_state and st.session_state.current_user:
+        user_creator = st.session_state.current_user.get('username', 'Utilisateur')
+        
     st.session_state.current_reception = {
         "id": None, "date": datetime.now().strftime("%Y-%m-%d"),
-        "fournisseur": "", "facture_num": "", "statut": "En cours", "items": [], "created_by": "Utilisateur"
+        "fournisseur": "", "facture_num": "", "statut": "En cours", "items": [], "created_by": user_creator
     }
 
 # Chargement fournisseurs
@@ -120,7 +148,7 @@ df_prod = load_produits_reception()
 
 st.markdown('<div class="reception-header"><div><h1 style="color:#5b6cf9; font-weight:900;">Pointage Marchandise 📦</h1><p style="color:#6b7299; font-weight:700;">Vérifiez vos arrivages avec précision</p></div><div style="background:#d4f5ea; padding:10px 20px; border-radius:15px; color:#2db88a; font-weight:900;">⚡ MODE PREMIUM ACTIF</div></div>', unsafe_allow_html=True)
 
-tabs = st.tabs(["⚡ Nouveau Pointage", "📋 Historique", "🧠 Base IA", "🏛️ Administration"])
+tabs = st.tabs(["⚡ Nouveau Pointage", "📋 Historique", "🧠 Base IA", "📡 En Direct", "🏛️ Administration"])
 
 with tabs[0]:
     col_f1, col_f2 = st.columns([1, 2])
@@ -262,6 +290,8 @@ with tabs[0]:
                         }
                         st.session_state.current_reception['items'].append(new_row)
                         
+                        log_saisie_en_cours("IA Vision", row.get('designation', ''), row.get('qte', 1), row.get('lot', ''), row.get('ddp', ''), row.get('ppa', 0.0))
+                        
                         new_ia_rows.append({
                             "date_scan": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                             "designation": row.get('designation', ''),
@@ -301,6 +331,7 @@ with tabs[0]:
                         "produit": selected_prod, "lot": lot, "ddp": ddp, "qte": qte,
                         "ppa": ppa, "shp": shp, "colissage": colis
                     })
+                    log_saisie_en_cours("Manuelle", selected_prod, qte, lot, ddp, ppa)
                     st.rerun()
 
         # Liste des produits pointés
@@ -340,4 +371,17 @@ with tabs[2]:
         st.info("La base de données de l'IA est vide. Scannez des vignettes pour l'alimenter !")
 
 with tabs[3]:
+    st.subheader("📡 Suivi en Direct des Saisies")
+    st.write("Ce tableau vous permet de surveiller toutes les saisies (IA et manuelles) de tous les utilisateurs en temps réel.")
+    
+    if st.button("🔄 Actualiser le suivi", type="primary"):
+        st.rerun()
+        
+    df_live = load_gs_data("Suivi_Direct", DB_SUIVI_DIRECT, COLS_SUIVI_DIRECT)
+    if not df_live.empty:
+        st.dataframe(df_live.sort_values("timestamp", ascending=False), use_container_width=True)
+    else:
+        st.info("Aucune saisie n'a été effectuée pour le moment.")
+
+with tabs[4]:
     show_sync_ui("Receptions", DB_RECEPTIONS, COLS_RECEPTIONS)
