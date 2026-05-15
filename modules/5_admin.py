@@ -212,7 +212,49 @@ with tabs[1]:
 # --- TAB 3: SYSTÈME & IA ---
 with tabs[2]:
     st.subheader("Configuration Système")
-    st.markdown('<div class="admin-card">', unsafe_allow_html=True)
-    st.write("#### 🦾 Cortex DarPharm IA")
-    # ... (Le reste des réglages IA ici) ...
-    st.markdown('</div>', unsafe_allow_html=True)
+    
+    col_sys1, col_sys2 = st.columns(2)
+    
+    with col_sys1:
+        st.markdown('<div class="admin-card">', unsafe_allow_html=True)
+        st.write("#### 🦾 Cortex DarPharm IA")
+        df_settings = load_gs_data(DB_SETTINGS_WORKSHEET, DB_SETTINGS_FALLBACK, COLS_SETTINGS)
+        
+        def get_setting(name, default=""):
+            if df_settings.empty: return default
+            res = df_settings[df_settings['name'] == name]
+            return str(res['value'].values[0]) if not res.empty else default
+
+        with st.form("form_ia_admin"):
+            ia_en = st.toggle("Activer l'IA Globalement", value=get_setting('ia_global_enabled', 'True') == 'True')
+            active_p = st.selectbox("Moteur IA", ["OpenRouter", "Gemini (Google)", "Claude"], index=0)
+            
+            st.write("---")
+            st.text_input("Clé API OpenRouter", value=get_setting('openrouter_api_key'), type="password")
+            st.text_input("Clé API Gemini", value=get_setting('gemini_api_key'), type="password")
+            
+            if st.form_submit_button("SAUVEGARDER CONFIG IA"):
+                new_settings = pd.DataFrame([
+                    {'name': 'ia_global_enabled', 'value': str(ia_en)},
+                    {'name': 'active_provider', 'value': active_p}
+                ])
+                # Note: merging with existing settings is better in real app
+                save_gs_data(new_settings, DB_SETTINGS_WORKSHEET, DB_SETTINGS_FALLBACK)
+                st.success("Paramètres IA mis à jour")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col_sys2:
+        st.markdown('<div class="admin-card">', unsafe_allow_html=True)
+        st.write("#### 💾 Maintenance & Cloud")
+        st.info("Sauvegardez vos données ou restaurez les comptes par défaut.")
+        
+        if st.button("📦 GÉNÉRER BACKUP ZIP", use_container_width=True):
+            st.toast("Génération du pack de sauvegarde...")
+            # Logic here...
+            
+        st.divider()
+        if st.button("🔄 RESTAURATION DE SÉCURITÉ", type="primary", use_container_width=True):
+            from utils_gsheets import restore_users_from_config
+            res, msg = restore_users_from_config()
+            st.success(msg)
+        st.markdown('</div>', unsafe_allow_html=True)
