@@ -412,16 +412,14 @@ with tabs[0]:
             st.write(f"✅ {row['task']}{agent_label}")
 
 with tabs[1]:
-    st.subheader("🌟 Performance & Primes (Mois en cours)")
+    st.subheader("🌟 Système de Reconnaissance & Excellence")
     
     if is_admin_coord:
-        # L'Admin voit les stats de toute l'équipe
         df_stats_base = df_tasks
-        st.info("📊 Vue globale de l'équipe.")
+        st.info("📊 Vue globale de l'engagement de l'équipe.")
     else:
-        # Chaque agent ne voit que ses propres stats
         df_stats_base = df_tasks[df_tasks['assigned_to'] == current_agent]
-        st.info(f"📊 Vos statistiques personnelles — **{current_agent}**")
+        st.info(f"📊 Votre progression personnelle — **{current_agent}**")
     
     if not df_stats_base.empty:
         stats = df_stats_base[df_stats_base['status'] == "Terminé"]['assigned_to'].value_counts().reset_index()
