@@ -256,12 +256,6 @@ with tab_ia:
               "Coordonnees": "lat, lon",
               "Email": "..."
             }}"""
-
-            {{
-              "Telephone": "...",
-              "Coordonnees": "lat, lon",
-              "Email": "..."
-            }}"""
             
             res_ia = ask_ai(prompt)
             try:
