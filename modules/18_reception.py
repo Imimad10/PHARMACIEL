@@ -113,6 +113,9 @@ if "current_reception" not in st.session_state:
 df_fourn = load_gs_data("Fournisseurs", "data/db_fournisseurs.csv", ["Etablissement", "Wilaya", "Activité", "Logo"])
 liste_fournisseurs = df_fourn['Etablissement'].dropna().unique().tolist() if not df_fourn.empty else []
 
+# Chargement produits
+df_prod = load_produits_reception()
+
 st.markdown('<div class="reception-header"><div><h1 style="color:#5b6cf9; font-weight:900;">Pointage Marchandise 📦</h1><p style="color:#6b7299; font-weight:700;">Vérifiez vos arrivages avec précision</p></div><div style="background:#d4f5ea; padding:10px 20px; border-radius:15px; color:#2db88a; font-weight:900;">⚡ MODE PREMIUM ACTIF</div></div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["⚡ Nouveau Pointage", "📋 Historique", "🏛️ Administration"])
@@ -233,7 +236,6 @@ with tabs[0]:
 
     with col_f2:
         st.subheader("🔍 Saisie des Produits")
-        df_prod = load_produits_reception()
         search_list = sorted(df_prod['Designation'].dropna().unique().tolist()) if not df_prod.empty else []
         
         with st.form("add_item_form"):
