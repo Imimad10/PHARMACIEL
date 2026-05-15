@@ -451,40 +451,71 @@ from utils_gsheets import load_gs_data, save_gs_data, DB_USERS_WORKSHEET, DB_USE
 USER_COLUMNS = ["username", "password", "role", "pages", "nom", "prenom", "zone", "depot"]
 df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, USER_COLUMNS)
 
-# Synchronisation des essentiels (Uniquement une fois par session pour la rapidité)
+# ═══════════════════════════════════════════════════════
+# CHARTE OFFICIELLE DES RÔLES DARPHARM — GOLDEN BACKUP
+# Point de restauration automatique des accès utilisateurs
+# ═══════════════════════════════════════════════════════
+import json
+
+GOLDEN_BACKUP_PATH = "data/golden_roles_backup.json"
+
+# Définition des pages par métier (synchronisée avec golden_roles_backup.json)
+PAGES_BY_METIER = {
+    "Admin": str(['Dashboard', 'Profil', 'Admin Centrale', 'Gestion des Accès', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Pointage Marchandise', 'Péremptions', 'Scanneur QR', 'Scan Mobile', 'Litiges Fournisseurs', 'Analyse Rotation', 'RH', 'RH Planning', 'Clients', 'Liste des Lots', 'Catalogue Produits', 'Page de Garde', 'Assistant IA', 'Transferts', 'Coordination', 'Qualité IA', 'Mon Coin', 'Briefing IA', 'Maintenance', 'Académie', 'Prévisions', 'Mode Meeting', 'Répartition Zones', 'Analyse Réclamations', 'Performance Ventes', 'Cortex IA', 'Automatisation']),
+    "Agent de Stock": str(['Profil', 'Dashboard', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Péremptions', 'Liste des Lots', 'Catalogue Produits', 'Répartition Zones', 'Scanneur QR', 'Scan Mobile', 'Transferts']),
+    "Chef Livreurs & Parc": str(['Profil', 'Dashboard', 'Logistique', 'Pointage Expéditeur', 'Recouvrement', 'Maintenance', 'Clients', 'Coordination', 'Suivi', 'Analyse Rotation', 'Transferts', 'Page de Garde']),
+    "Superviseur": str(['Profil', 'Dashboard', 'Analyse Rotation', 'Analyse Réclamations', 'Performance Ventes', 'Prévisions', 'Logistique', 'Inventaire', 'RH', 'Coordination', 'Briefing IA', 'Mode Meeting']),
+    "Préparateur": str(['Profil', 'Pointage Marchandise', 'Inventaire Détail', 'Scanneur QR', 'Scan Mobile', 'Transferts']),
+}
+
+# Table officielle des utilisateurs — Source de vérité DarPharm
+GOLDEN_USERS = [
+    {'username': 'admin_imad', 'password': 'admin_imad_pwd', 'role': 'Admin',  'metier': 'Admin',               'nom': 'Administrateur', 'prenom': 'Imad',   'zone': 'Aucune', 'depot': 'Administration'},
+    {'username': 'Ayoub',      'password': 'ayoub2026',      'role': 'Saisie', 'metier': 'Agent de Stock',       'nom': 'Ayoub',          'prenom': '',       'zone': 'Aucune', 'depot': 'Stock'},
+    {'username': 'Islem',      'password': 'islem2026',      'role': 'Saisie', 'metier': 'Agent de Stock',       'nom': 'Islem',          'prenom': '',       'zone': 'Aucune', 'depot': 'Stock'},
+    {'username': 'Seif',       'password': 'seif2026',       'role': 'Saisie', 'metier': 'Agent de Stock',       'nom': 'Seif',           'prenom': '',       'zone': 'Aucune', 'depot': 'Stock'},
+    {'username': 'Karim',      'password': 'karim2026',      'role': 'Saisie', 'metier': 'Chef Livreurs & Parc', 'nom': 'Karim',          'prenom': '',       'zone': 'Aucune', 'depot': 'Expédition'},
+    {'username': 'Rami',       'password': 'rami2026',       'role': 'Saisie', 'metier': 'Superviseur',          'nom': 'Rami',           'prenom': '',       'zone': 'Aucune', 'depot': 'Administration'},
+    {'username': 'Idris',      'password': 'idris2026',      'role': 'Saisie', 'metier': 'Préparateur',          'nom': 'Idris',          'prenom': '',       'zone': 'Aucune', 'depot': 'Préparation'},
+    {'username': 'Aymen',      'password': 'aymen2026',      'role': 'Saisie', 'metier': 'Préparateur',          'nom': 'Aymen',          'prenom': '',       'zone': 'Aucune', 'depot': 'Préparation'},
+    {'username': 'Kheiro',     'password': 'kheiro2026',     'role': 'Saisie', 'metier': 'Préparateur',          'nom': 'Kheiro',         'prenom': '',       'zone': 'Aucune', 'depot': 'Préparation'},
+    {'username': 'Rabeh',      'password': 'rabeh2026',      'role': 'Saisie', 'metier': 'Préparateur',          'nom': 'Rabeh',          'prenom': '',       'zone': 'Aucune', 'depot': 'Préparation'},
+    {'username': 'Yacine',     'password': 'yacine2026',     'role': 'Saisie', 'metier': 'Préparateur',          'nom': 'Yacine',         'prenom': '',       'zone': 'Aucune', 'depot': 'Préparation'},
+    {'username': 'Aek',        'password': 'aek2026',        'role': 'Saisie', 'metier': 'Préparateur',          'nom': 'Aek',            'prenom': '',       'zone': 'Aucune', 'depot': 'Préparation'},
+]
+
+def apply_golden_pages(user_dict):
+    """Retourne les pages correctes selon le métier de l'utilisateur."""
+    metier = user_dict.get('metier', '')
+    if user_dict.get('role') == 'Admin':
+        return PAGES_BY_METIER['Admin']
+    return PAGES_BY_METIER.get(metier, PAGES_BY_METIER['Préparateur'])
+
 if "setup_done" not in st.session_state:
     changes_made = False
-    
-    # Toujours s'assurer que l'admin principal existe
-    if 'admin_imad' not in df_users['username'].values:
-        admin_data = {
-            'username': 'admin_imad',
-            'password': 'admin_imad_pwd',
-            'role': 'Admin',
-            'nom': 'Administrateur',
-            'prenom': 'Imad',
-            'pages': str(['Profil', 'Admin Centrale', 'Dashboard', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Péremptions', 'Scanneur QR', 'Automatisation', 'Litiges Fournisseurs', 'Analyse Rotation', 'Scan Mobile', 'RH']),
-            'zone': 'Aucune',
-            'depot': 'Administration'
-        }
-        df_users = pd.concat([df_users, pd.DataFrame([admin_data])], ignore_index=True)
-        changes_made = True
 
-    # Liste des utilisateurs essentiels à maintenir
-    essentials = [
-        {'username': 'Ayoub', 'password': 'ayoub2026', 'role': 'Saisie', 'pages': str(['Logistique', 'Suivi', 'Inventaire Détail', 'Pointage Marchandise']), 'depot': 'Expédition'},
-        {'username': 'Islem', 'password': 'islem2026', 'role': 'Saisie', 'pages': str(['Logistique', 'Suivi', 'Inventaire Détail', 'Pointage Marchandise']), 'depot': 'Expédition'},
-        {'username': 'Seif', 'password': 'seif2026', 'role': 'Saisie', 'pages': str(['Inventaire', 'Inventaire Détail', 'Pointage Marchandise']), 'depot': 'Préparation'}
-    ]
+    for golden_user in GOLDEN_USERS:
+        username = golden_user['username']
+        correct_pages = apply_golden_pages(golden_user)
 
-    for ess in essentials:
-        if df_users.empty or ess['username'] not in df_users['username'].values:
-            df_users = pd.concat([df_users, pd.DataFrame([ess])], ignore_index=True)
+        if df_users.empty or username not in df_users['username'].values:
+            # Utilisateur manquant → création depuis le backup doré
+            new_row = {**golden_user, 'pages': correct_pages}
+            df_users = pd.concat([df_users, pd.DataFrame([new_row])], ignore_index=True)
             changes_made = True
+        else:
+            # Utilisateur présent → vérification et restauration des pages si corrompues/vides
+            mask = df_users['username'] == username
+            current_pages = str(df_users.loc[mask, 'pages'].values[0]) if 'pages' in df_users.columns else ''
+            if not current_pages or current_pages in ['nan', '[]', '']:
+                df_users.loc[mask, 'pages'] = correct_pages
+                df_users.loc[mask, 'depot'] = golden_user.get('depot', '')
+                df_users.loc[mask, 'metier'] = golden_user.get('metier', '')
+                changes_made = True
 
     if changes_made:
         save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
-    
+
     st.session_state.setup_done = True
 
 # --- 3. GESTION DE SESSION ET COOKIES ---

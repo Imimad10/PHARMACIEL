@@ -91,12 +91,20 @@ st.write("Gérez votre équipe via des profils métiers intelligents et centrali
 df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
 df_roles = load_gs_data(DB_ROLES_WORKSHEET, DB_ROLES_FALLBACK, COLS_ROLES)
 
+# Charte Officielle DarPharm — Métiers
+GOLDEN_METIERS = {
+    "Admin":                {'icon': '👑', 'color': '#7c3aed', 'description': 'Accès total au système'},
+    "Agent de Stock":       {'icon': '📦', 'color': '#3b82f6', 'description': 'Inventaires, stocks, péremptions'},
+    "Chef Livreurs & Parc": {'icon': '🚚', 'color': '#10b981', 'description': 'Logistique, flotte et livraisons'},
+    "Superviseur":          {'icon': '🔭', 'color': '#f59e0b', 'description': 'Supervision et reporting opérationnel'},
+    "Préparateur":          {'icon': '⚙️', 'color': '#64748b', 'description': 'Préparation commandes et pointage'},
+}
+
 # Initialisation des rôles par défaut si vide
 if df_roles.empty:
     default_roles = [
-        {"role_name": "Préparateur", "permissions": "['Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Péremptions', 'Liste des Lots']", "icon": "📦", "description": "Gestion des stocks et inventaires"},
-        {"role_name": "Livreur", "permissions": "['Logistique', 'Recouvrement', 'Pointage Expéditeur', 'Scan Mobile']", "icon": "🚚", "description": "Flux de livraison et encaissements"},
-        {"role_name": "Administrateur", "permissions": "['ALL']", "icon": "👑", "description": "Accès total au système"}
+        {"role_name": k, "permissions": "[]", "icon": v['icon'], "description": v['description']}
+        for k, v in GOLDEN_METIERS.items()
     ]
     df_roles = pd.DataFrame(default_roles)
     save_gs_data(df_roles, DB_ROLES_WORKSHEET, DB_ROLES_FALLBACK)
@@ -122,32 +130,95 @@ tabs = st.tabs(["👥 Gestion Équipe", "🏗️ Configuration des Métiers", "�
 # --- TAB 1: GESTION ÉQUIPE ---
 with tabs[0]:
     st.subheader("Attribution des Métiers aux Collaborateurs")
-    
+
+    # --- BOUTON RESTAURATION DORÉE ---
+    st.markdown('<div class="admin-card" style="border-left: 4px solid #7c3aed;">', unsafe_allow_html=True)
+    rb1, rb2 = st.columns([3, 1])
+    rb1.markdown("**🔐 Charte Officielle DarPharm** — En cas de problème d'accès, restaurez les rôles depuis le point de sauvegarde officiel.")
+    if rb2.button("🛡️ Restaurer la Charte", type="primary", use_container_width=True, key="btn_golden_restore"):
+        import json, ast
+        try:
+            # Importation du golden backup depuis app.py (déjà défini)
+            PAGES_BY_METIER_LOCAL = {
+                "Admin": str(['Dashboard', 'Profil', 'Admin Centrale', 'Gestion des Accès', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Pointage Marchandise', 'Péremptions', 'Scanneur QR', 'Scan Mobile', 'Litiges Fournisseurs', 'Analyse Rotation', 'RH', 'RH Planning', 'Clients', 'Liste des Lots', 'Catalogue Produits', 'Page de Garde', 'Assistant IA', 'Transferts', 'Coordination', 'Qualité IA', 'Mon Coin', 'Briefing IA', 'Maintenance', 'Académie', 'Prévisions', 'Mode Meeting', 'Répartition Zones', 'Analyse Réclamations', 'Performance Ventes', 'Cortex IA', 'Automatisation']),
+                "Agent de Stock": str(['Profil', 'Dashboard', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Péremptions', 'Liste des Lots', 'Catalogue Produits', 'Répartition Zones', 'Scanneur QR', 'Scan Mobile', 'Transferts']),
+                "Chef Livreurs & Parc": str(['Profil', 'Dashboard', 'Logistique', 'Pointage Expéditeur', 'Recouvrement', 'Maintenance', 'Clients', 'Coordination', 'Suivi', 'Analyse Rotation', 'Transferts', 'Page de Garde']),
+                "Superviseur": str(['Profil', 'Dashboard', 'Analyse Rotation', 'Analyse Réclamations', 'Performance Ventes', 'Prévisions', 'Logistique', 'Inventaire', 'RH', 'Coordination', 'Briefing IA', 'Mode Meeting']),
+                "Préparateur": str(['Profil', 'Pointage Marchandise', 'Inventaire Détail', 'Scanneur QR', 'Scan Mobile', 'Transferts']),
+            }
+            GOLDEN_USERS_LOCAL = [
+                {'username': 'admin_imad', 'metier': 'Admin',               'role': 'Admin'},
+                {'username': 'Ayoub',      'metier': 'Agent de Stock',       'role': 'Saisie'},
+                {'username': 'Islem',      'metier': 'Agent de Stock',       'role': 'Saisie'},
+                {'username': 'Seif',       'metier': 'Agent de Stock',       'role': 'Saisie'},
+                {'username': 'Karim',      'metier': 'Chef Livreurs & Parc', 'role': 'Saisie'},
+                {'username': 'Rami',       'metier': 'Superviseur',          'role': 'Saisie'},
+                {'username': 'Idris',      'metier': 'Préparateur',          'role': 'Saisie'},
+                {'username': 'Aymen',      'metier': 'Préparateur',          'role': 'Saisie'},
+                {'username': 'Kheiro',     'metier': 'Préparateur',          'role': 'Saisie'},
+                {'username': 'Rabeh',      'metier': 'Préparateur',          'role': 'Saisie'},
+                {'username': 'Yacine',     'metier': 'Préparateur',          'role': 'Saisie'},
+                {'username': 'Aek',        'metier': 'Préparateur',          'role': 'Saisie'},
+            ]
+            restored = 0
+            for gu in GOLDEN_USERS_LOCAL:
+                mask = df_users['username'] == gu['username']
+                if mask.any():
+                    df_users.loc[mask, 'pages'] = PAGES_BY_METIER_LOCAL.get(gu['metier'], PAGES_BY_METIER_LOCAL['Préparateur'])
+                    df_users.loc[mask, 'metier'] = gu['metier']
+                    df_users.loc[mask, 'role'] = gu['role']
+                    restored += 1
+            save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+            st.success(f"✅ Charte restaurée pour {restored} utilisateurs. Les accès sont redevenus officiels.")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Erreur de restauration : {e}")
+    st.markdown('</div>', unsafe_allow_html=True)
+
     col_u1, col_u2 = st.columns([3, 2])
     
     with col_u1:
-        st.write("#### 👤 Liste des accès actuels")
+        st.write("#### 👤 Tableau des Métiers Officiels")
         df_disp = df_users.copy()
-        # On essaie de deviner le métier basé sur les permissions ou on affiche juste le rôle technique
-        st.dataframe(df_disp[['username', 'role', 'depot', 'zone']], use_container_width=True, hide_index=True)
+        
+        # Enrichissement du tableau avec les couleurs de métier
+        def badge(metier):
+            info = GOLDEN_METIERS.get(metier, {'icon': '👤', 'color': '#64748b'})
+            return f"{info['icon']} {metier}"
+        
+        metier_col = 'metier' if 'metier' in df_disp.columns else 'depot'
+        df_disp['Métier'] = df_disp[metier_col].apply(lambda x: badge(str(x)) if pd.notna(x) else '👤 Non assigné')
+        cols_show = [c for c in ['username', 'Métier', 'role', 'depot', 'zone'] if c in df_disp.columns]
+        st.dataframe(df_disp[cols_show], use_container_width=True, hide_index=True)
 
     with col_u2:
         st.write("#### ⚡ Affectation Rapide")
         u_target = st.selectbox("Sélectionner un collaborateur :", df_users['username'].tolist(), key="u_assign")
-        r_target = st.selectbox("Lui attribuer le métier :", df_roles['role_name'].tolist(), key="r_assign")
+        
+        metier_names = list(GOLDEN_METIERS.keys())
+        r_target = st.selectbox("Lui attribuer le métier :", metier_names, key="r_assign")
+        
+        # Affichage de la description du métier sélectionné
+        if r_target in GOLDEN_METIERS:
+            info = GOLDEN_METIERS[r_target]
+            st.caption(f"{info['icon']} {info['description']}")
         
         if st.button("🔄 APPLIQUER LE MÉTIER", type="primary", use_container_width=True):
-            role_data = df_roles[df_roles['role_name'] == r_target].iloc[0]
-            perms = role_data['permissions']
-            if 'ALL' in perms: perms = get_available_modules()
-            
+            import ast as _ast
+            PAGES_APPLY = {
+                "Admin": str(['Dashboard', 'Profil', 'Admin Centrale', 'Gestion des Accès', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Pointage Marchandise', 'Péremptions', 'Scanneur QR', 'Scan Mobile', 'Litiges Fournisseurs', 'Analyse Rotation', 'RH', 'RH Planning', 'Clients', 'Liste des Lots', 'Catalogue Produits', 'Page de Garde', 'Assistant IA', 'Transferts', 'Coordination', 'Qualité IA', 'Mon Coin', 'Briefing IA', 'Maintenance', 'Académie', 'Prévisions', 'Mode Meeting', 'Répartition Zones', 'Analyse Réclamations', 'Performance Ventes', 'Cortex IA', 'Automatisation']),
+                "Agent de Stock": str(['Profil', 'Dashboard', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Péremptions', 'Liste des Lots', 'Catalogue Produits', 'Répartition Zones', 'Scanneur QR', 'Scan Mobile', 'Transferts']),
+                "Chef Livreurs & Parc": str(['Profil', 'Dashboard', 'Logistique', 'Pointage Expéditeur', 'Recouvrement', 'Maintenance', 'Clients', 'Coordination', 'Suivi', 'Analyse Rotation', 'Transferts', 'Page de Garde']),
+                "Superviseur": str(['Profil', 'Dashboard', 'Analyse Rotation', 'Analyse Réclamations', 'Performance Ventes', 'Prévisions', 'Logistique', 'Inventaire', 'RH', 'Coordination', 'Briefing IA', 'Mode Meeting']),
+                "Préparateur": str(['Profil', 'Pointage Marchandise', 'Inventaire Détail', 'Scanneur QR', 'Scan Mobile', 'Transferts']),
+            }
             mask = df_users['username'] == u_target
-            df_users.loc[mask, 'pages'] = str(perms)
-            df_users.loc[mask, 'role'] = "Admin" if r_target == "Administrateur" else "Saisie"
-            df_users.loc[mask, 'depot'] = r_target # On détourne depot pour stocker le nom du métier visuel
+            df_users.loc[mask, 'pages'] = PAGES_APPLY.get(r_target, PAGES_APPLY['Préparateur'])
+            df_users.loc[mask, 'metier'] = r_target
+            df_users.loc[mask, 'role'] = "Admin" if r_target == "Admin" else "Saisie"
             
             save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
-            st.success(f"✅ {u_target} est maintenant : **{r_target}**")
+            st.success(f"✅ **{u_target}** est maintenant : **{GOLDEN_METIERS[r_target]['icon']} {r_target}**")
             st.rerun()
 
 # --- TAB 2: CONFIGURATION MÉTIERS ---
