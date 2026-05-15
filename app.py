@@ -501,10 +501,21 @@ def apply_golden_pages(metier, role):
 if "setup_done" not in st.session_state:
     changes_made = False
 
+    # --- NETTOYAGE DES DOUBLONS ---
+    if not df_users.empty:
+        initial_len = len(df_users)
+        df_users['uname_lower'] = df_users['username'].astype(str).str.lower().str.strip()
+        df_users = df_users.drop_duplicates(subset=['uname_lower'], keep='last').drop(columns=['uname_lower'])
+        if len(df_users) < initial_len:
+            changes_made = True
+
     for (uname, pwd, urole, umetier, udepot) in GOLDEN_USERS:
         correct_pages = apply_golden_pages(umetier, urole)
 
-        if df_users.empty or uname not in df_users['username'].values:
+        # Vérification d'existence insensible à la casse
+        user_exists = not df_users.empty and uname.lower() in df_users['username'].astype(str).str.lower().str.strip().values
+        
+        if not user_exists:
             # Utilisateur absent → création complète
             new_row = {
                 'username': uname, 'password': pwd, 'role': urole,
@@ -515,7 +526,7 @@ if "setup_done" not in st.session_state:
             changes_made = True
         else:
             # Utilisateur existant → force-correction du métier et du dépôt
-            mask = df_users['username'] == uname
+            mask = df_users['username'].astype(str).str.lower().str.strip() == uname.lower()
             current_metier = str(df_users.loc[mask, 'metier'].values[0]) if 'metier' in df_users.columns else ''
             current_pages  = str(df_users.loc[mask, 'pages'].values[0])  if 'pages'  in df_users.columns else ''
 
