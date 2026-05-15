@@ -87,45 +87,37 @@ with tabs[0]:
     
     # -- 1. INVENTAIRE DÉTAIL (PAR ZONE) --
     with st.expander("📌 PROGRESSION INVENTAIRE DÉTAIL (PAR ZONE)", expanded=True):
-        if not m_z.empty:
+        if not m_z.empty and 'zone' in m_z.columns:
             zones = sorted(m_z['zone'].dropna().unique())
             for z in zones:
-                total = len(m_z[m_z['zone'] == z])
-                done = s_z[s_z['zone'] == z]['designation'].nunique() if not s_z.empty else 0
-                pct = (done / total) if total > 0 else 0
+                done, total, pct = get_progression(m_z, s_z, z)
                 c_l, c_b = st.columns([1, 4])
                 c_l.write(f"**Zone {z}**")
                 c_b.progress(min(pct, 1.0), text=f"{done} / {total} ({pct*100:.1f}%)")
         else:
-            st.info("Aucune donnée Master Zone chargée.")
+            st.info("Données Master Zone indisponibles ou colonne 'zone' manquante.")
 
     # -- 2. INVENTAIRE TRIPLE --
     with st.expander("🛡️ PROGRESSION INVENTAIRE TRIPLE (ZONE + MINI)", expanded=True):
-        if not m_z.empty:
+        if not m_z.empty and 'zone' in m_z.columns:
             c_t1, c_t2 = st.columns(2)
             with c_t1:
                 st.write("**Progression Zone (Triple)**")
                 for z in zones:
-                    total = len(m_z[m_z['zone'] == z])
-                    done = t_z[t_z['zone'] == z]['designation'].nunique() if not t_z.empty else 0
-                    pct = (done / total) if total > 0 else 0
+                    done, total, pct = get_progression(m_z, t_z, z)
                     st.caption(f"Zone {z}: {done}/{total}")
                     st.progress(min(pct, 1.0))
             with c_t2:
                 st.write("**Progression Mini Stock (Triple)**")
                 for z in zones:
-                    total = len(m_z[m_z['zone'] == z])
-                    done = t_m[t_m['zone'] == z]['designation'].nunique() if not t_m.empty else 0
-                    pct = (done / total) if total > 0 else 0
+                    done, total, pct = get_progression(m_z, t_m, z)
                     st.caption(f"Mini {z}: {done}/{total}")
                     st.progress(min(pct, 1.0))
 
     # -- 3. INVENTAIRE DE STOCK (GLOBAL) --
     with st.expander("📋 PROGRESSION INVENTAIRE DE STOCK", expanded=True):
-        if not m_s.empty:
-            total_s = len(m_s)
-            done_s = s_s['designation'].nunique() if not s_s.empty else 0
-            pct_s = (done_s / total_s) if total_s > 0 else 0
+        done_s, total_s, pct_s = get_progression(m_s, s_s)
+        if total_s > 0:
             st.metric("Total Articles Stock", f"{total_s}", f"{done_s} comptés")
             st.progress(min(pct_s, 1.0), text=f"{pct_s*100:.1f}% complété")
         else:
