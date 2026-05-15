@@ -181,11 +181,15 @@ with tab_edit:
         if st.form_submit_button("💾 Sauvegarder mes modifications", type="primary", use_container_width=True):
             if not u_row.empty:
                 mask = df_users['username'] == username
+                # S'assurer que les colonnes existent en type object (string)
+                for col in ['nom', 'prenom', 'sous_metier', 'tel']:
+                    if col not in df_users.columns:
+                        df_users[col] = ''
+                    df_users[col] = df_users[col].astype(object)
                 df_users.loc[mask, 'nom']         = new_nom
                 df_users.loc[mask, 'prenom']       = new_pren
                 df_users.loc[mask, 'sous_metier']  = new_sm
-                if 'tel' in df_users.columns:
-                    df_users.loc[mask, 'tel'] = new_tel
+                df_users.loc[mask, 'tel']          = new_tel
                 save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
                 # Mise à jour session
                 st.session_state.current_user['nom']        = new_nom

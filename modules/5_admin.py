@@ -47,6 +47,14 @@ def parse_list(p):
     try: return ast.literal_eval(p)
     except: return [x.strip() for x in p.replace('[','').replace(']','').replace("'",'').split(',') if x.strip()]
 
+def safe_set(df, mask, col, value):
+    """Set a string value safely, ensuring the column exists as object dtype."""
+    if col not in df.columns:
+        df[col] = ''
+    df[col] = df[col].astype(object)
+    df.loc[mask, col] = value
+    return df
+
 def get_available_modules():
     mods = ["Admin Centrale"]
     try:
@@ -160,10 +168,10 @@ with tabs[0]:
         for (uname,_,urole,umetier,udepot) in GOLDEN_USERS:
             mask = df_users['username'] == uname
             if mask.any():
-                df_users.loc[mask,'metier'] = umetier
-                df_users.loc[mask,'depot']  = udepot
-                df_users.loc[mask,'pages']  = PAGES_BY_METIER.get(umetier, PAGES_BY_METIER['Préparateur'])
-                df_users.loc[mask,'role']   = urole
+                df_users = safe_set(df_users, mask, 'metier', umetier)
+                df_users = safe_set(df_users, mask, 'depot',  udepot)
+                df_users = safe_set(df_users, mask, 'pages',  PAGES_BY_METIER.get(umetier, PAGES_BY_METIER['Préparateur']))
+                df_users = safe_set(df_users, mask, 'role',   urole)
                 restored += 1
         save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
         st.success(f"✅ Charte restaurée pour {restored} utilisateurs.")
@@ -213,9 +221,9 @@ with tabs[0]:
 
         if st.button("✅ Appliquer", type="primary", use_container_width=True):
             mask = df_users['username'] == u_target
-            df_users.loc[mask,'metier'] = m_target
-            df_users.loc[mask,'pages']  = PAGES_BY_METIER.get(m_target, PAGES_BY_METIER['Préparateur'])
-            df_users.loc[mask,'role']   = 'Admin' if m_target == 'Admin' else 'Saisie'
+            df_users = safe_set(df_users, mask, 'metier', m_target)
+            df_users = safe_set(df_users, mask, 'pages',  PAGES_BY_METIER.get(m_target, PAGES_BY_METIER['Préparateur']))
+            df_users = safe_set(df_users, mask, 'role',   'Admin' if m_target == 'Admin' else 'Saisie')
             save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
             st.success(f"✅ {u_target} → {GOLDEN_METIERS[m_target]['icon']} {m_target}")
             st.rerun()
@@ -339,10 +347,10 @@ with tabs[2]:
             for (uname,_,urole,umetier,udepot) in GOLDEN_USERS:
                 mask = df_users['username'] == uname
                 if mask.any():
-                    df_users.loc[mask,'metier'] = umetier
-                    df_users.loc[mask,'depot']  = udepot
-                    df_users.loc[mask,'pages']  = PAGES_BY_METIER.get(umetier, PAGES_BY_METIER['Préparateur'])
-                    df_users.loc[mask,'role']   = urole
+                    df_users = safe_set(df_users, mask, 'metier', umetier)
+                    df_users = safe_set(df_users, mask, 'depot',  udepot)
+                    df_users = safe_set(df_users, mask, 'pages',  PAGES_BY_METIER.get(umetier, PAGES_BY_METIER['Préparateur']))
+                    df_users = safe_set(df_users, mask, 'role',   urole)
                     restored += 1
             save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
             st.success(f"✅ {restored} comptes restaurés depuis la Charte Officielle.")
