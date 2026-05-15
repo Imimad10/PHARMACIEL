@@ -248,7 +248,8 @@ MODULE_CONFIG = {
     "⚖️ Litiges & Recouvrement": "FINANCE",
     "👷 Performance Agents": "HR_AGENTS",
     "🚛 Rendement Livreurs": "HR_DRIVERS",
-    "🤖 Vision IA Stratégique": "AI_VISION"
+    "🤖 Vision IA Stratégique": "AI_VISION",
+    "✨ Conclusion & Remerciements": "CONCLUSION"
 }
 
 # --- AUDIO FX (Invisible Trigger) ---
@@ -294,9 +295,9 @@ elif st.session_state.keynote_mode == "PRESENTATION":
     idx = st.session_state.current_slide_idx
     current_key = slides[idx]
     
-    # Mise à jour de la barre de progression (JS)
+    # Mise à jour de la barre de progression (CSS Direct pour fiabilité maximale)
     progress_pct = (idx + 1) / len(slides) * 100
-    st.markdown(f"<script>updateBar({progress_pct})</script>", unsafe_allow_html=True)
+    st.markdown(f"<style>.progress-bar {{ width: {progress_pct}% !important; }}</style>", unsafe_allow_html=True)
     
     # --- SLIDE CONTENT ---
     st.markdown('<div class="slide-container">', unsafe_allow_html=True)
@@ -377,6 +378,15 @@ elif st.session_state.keynote_mode == "PRESENTATION":
                 st.write(f"### 🤖 Rapport Exécutif\n\n{report}")
         else:
             st.info("Module IA désactivé.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    elif current_key == "CONCLUSION":
+        st.markdown('<h1 class="slide-title">Conclusion &<br>Remerciements</h1>', unsafe_allow_html=True)
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        with st.spinner("Rédaction du message final..."):
+            msg = ask_ai("Rédige un message de conclusion inspirant et de remerciement pour une réunion de fin de semaine logistique. Les résultats sont excellents (98.4% de service). Remercie l'équipe et souhaite un bon week-end.")
+            st.markdown(f'<div style="font-size:1.8rem; line-height:1.4; font-family:Sora; color:#f8fafc;">{msg}</div>', unsafe_allow_html=True)
+        st.markdown('<div style="margin-top:40px; text-align:right; font-weight:800; color:#7c3aed; font-size:2rem;">DARPHARM PRO — Ensemble vers 2026</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
