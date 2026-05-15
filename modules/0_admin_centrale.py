@@ -29,8 +29,47 @@ if st.session_state.current_user.get('role') not in ['Admin', 'Superviseur']:
     st.stop()
 
 st.set_page_config(page_title="Administration Centrale", layout="wide")
-st.title("🏛️ Administration Centrale (Master Data)")
-st.write("Gestion centralisée des clients, livreurs et secteurs pour tous les modules.")
+
+st.markdown("""
+<style>
+    .admin-centrale-header {
+        background: linear-gradient(135deg, #0f172a, #3b82f6);
+        padding: 35px;
+        border-radius: 24px;
+        color: white;
+        box-shadow: 0 15px 35px rgba(59, 130, 246, 0.3);
+        margin-bottom: 30px;
+        position: relative;
+        overflow: hidden;
+    }
+    .admin-centrale-header::after {
+        content: '';
+        position: absolute;
+        top: -50%; right: -10%;
+        width: 300px; height: 300px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 50%;
+        filter: blur(40px);
+    }
+    .admin-centrale-header h1 {
+        margin:0; font-size: 2.4rem; font-weight: 900; color: white;
+        letter-spacing: -0.5px;
+    }
+    .admin-centrale-header p {
+        margin: 8px 0 0 0; font-size: 1.1rem; opacity: 0.85;
+        font-weight: 500;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown('''
+<div class="admin-centrale-header">
+    <div>
+        <h1>🏛️ Administration Centrale (Master Data)</h1>
+        <p>Centre de pilotage et gestion centralisée de la base de données DarPharm.</p>
+    </div>
+</div>
+''', unsafe_allow_html=True)
 
 # --- TABS ---
 tabs = st.tabs(["📤 Importateur Universel", "👥 Base Clients", "🚚 Livreurs", "🗺️ Secteurs Logistique", "📦 Archivage Cloud", "🎨 Gestion des Thèmes", "⚙️ Maintenance & Hors-Ligne"])
