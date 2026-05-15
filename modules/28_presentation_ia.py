@@ -64,12 +64,11 @@ st.markdown("""
     /* Slide Container */
     .slide-container {
         animation: slideReveal 1.2s cubic-bezier(0.16, 1, 0.3, 1);
-        padding: 6vh 5vw;
-        padding-bottom: 150px;
-        min-height: 90vh;
+        padding: 2vh 5vw;
+        padding-bottom: 120px;
         display: flex;
         flex-direction: column;
-        justify-content: center;
+        justify-content: flex-start;
     }
     
     @keyframes slideReveal {
