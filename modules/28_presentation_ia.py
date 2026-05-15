@@ -139,59 +139,50 @@ st.markdown("""
         filter: drop-shadow(0 0 30px var(--accent-glow));
     }
     
-    /* Apple-Style Navigation Dock */
-    .nav-dock-bg {
-        position: fixed;
-        bottom: 35px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 360px;
-        height: 85px;
-        background: rgba(15, 23, 42, 0.6);
-        backdrop-filter: blur(30px);
-        -webkit-backdrop-filter: blur(30px);
-        border-radius: 30px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        z-index: 9999;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    }
-
+    /* Apple-Style Floating Buttons (No Background Dock) */
     div[data-testid="stBaseButton-k_prev"], 
     div[data-testid="stBaseButton-k_home"], 
     div[data-testid="stBaseButton-k_next"] {
         position: fixed !important;
-        bottom: 48px !important;
+        bottom: 40px !important;
         z-index: 10000 !important;
-        transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1) !important;
+        transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1) !important;
     }
 
-    div[data-testid="stBaseButton-k_prev"] { left: calc(50% - 110px) !important; }
+    div[data-testid="stBaseButton-k_prev"] { left: calc(50% - 130px) !important; }
     div[data-testid="stBaseButton-k_home"] { left: 50% !important; transform: translateX(-50%) !important; }
-    div[data-testid="stBaseButton-k_next"] { left: calc(50% + 110px) !important; }
+    div[data-testid="stBaseButton-k_next"] { left: calc(50% + 130px) !important; }
 
     div[data-testid="stBaseButton-k_prev"] button, 
     div[data-testid="stBaseButton-k_home"] button, 
     div[data-testid="stBaseButton-k_next"] button {
-        border-radius: 20px !important;
+        border-radius: 25px !important;
         background: rgba(255,255,255,0.05) !important;
         border: 1px solid rgba(255,255,255,0.1) !important;
         color: white !important;
-        width: 65px !important;
-        height: 60px !important;
-        font-size: 1.8rem !important;
+        width: 80px !important;
+        height: 75px !important;
+        font-size: 2.2rem !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        backdrop-filter: blur(10px) !important;
+        backdrop-filter: blur(15px) !important;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.3) !important;
     }
 
     div[data-testid="stBaseButton-k_prev"] button:hover, 
     div[data-testid="stBaseButton-k_home"] button:hover, 
     div[data-testid="stBaseButton-k_next"] button:hover {
         background: var(--accent) !important;
-        transform: translateY(-5px) !important;
-        box-shadow: 0 15px 30px var(--accent-glow) !important;
+        transform: translateY(-10px) scale(1.1) !important;
+        box-shadow: 0 0 30px var(--accent-glow) !important;
         border-color: white !important;
+        animation: neonPulse 1.5s infinite alternate !important;
+    }
+
+    @keyframes neonPulse {
+        from { box-shadow: 0 0 10px var(--accent-glow); }
+        to { box-shadow: 0 0 30px var(--accent-glow), 0 0 10px white; }
     }
 
     /* Luminous Progress Line */
@@ -384,15 +375,15 @@ elif st.session_state.keynote_mode == "PRESENTATION":
         st.markdown('<h1 class="slide-title">Conclusion &<br>Remerciements</h1>', unsafe_allow_html=True)
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         with st.spinner("Rédaction du message final..."):
-            msg = ask_ai("Rédige un message de conclusion inspirant et de remerciement pour une réunion de fin de semaine logistique. Les résultats sont excellents (98.4% de service). Remercie l'équipe et souhaite un bon week-end.")
-            st.markdown(f'<div style="font-size:1.8rem; line-height:1.4; font-family:Sora; color:#f8fafc;">{msg}</div>', unsafe_allow_html=True)
-        st.markdown('<div style="margin-top:40px; text-align:right; font-weight:800; color:#7c3aed; font-size:2rem;">DARPHARM PRO — Ensemble vers 2026</div>', unsafe_allow_html=True)
+            msg = ask_ai("Rédige un message de conclusion TRÈS BREF et inspirant pour une réunion logistique. Utilise beaucoup d'emojis. Remercie pour le 98.4% de service et souhaite un bon week-end.")
+            st.markdown(f'<div style="font-size:2.2rem; line-height:1.4; font-family:Sora; color:#f8fafc; text-align:center;">{msg}</div>', unsafe_allow_html=True)
+        st.markdown('<div style="margin-top:50px; text-align:center; font-weight:800; color:#7c3aed; font-size:2.2rem; filter: drop-shadow(0 0 10px var(--accent-glow));">DARPHARM PRO — Ensemble vers 2026 🚀</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
 
     # --- DOCK NAVIGATION ---
-    st.markdown('<div class="nav-dock-bg"></div><div class="bottom-indicator"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="bottom-indicator"></div>', unsafe_allow_html=True)
     
     c_p, c_h, c_n = st.columns(3)
     
