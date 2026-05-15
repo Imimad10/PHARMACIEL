@@ -13,156 +13,188 @@ from utils_gsheets import load_gs_data
 # --- CSS: EBLOUISSANTES TRANSITIONS & ANIMATIONS ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Sora:wght@400;700&display=swap');
     
-    .stApp {
-        background: #f8f9fa !important;
-        color: #1d1d1f !important;
-        font-family: 'Inter', sans-serif;
-    }
-    
-    /* Light Bokeh Background */
-    .bokeh-bg {
-        position: fixed;
-        top: 0; left: 0; width: 100%; height: 100%;
-        background: radial-gradient(circle at 10% 20%, rgba(124, 58, 237, 0.05) 0%, transparent 40%),
-                    radial-gradient(circle at 90% 80%, rgba(59, 130, 246, 0.05) 0%, transparent 40%);
-        z-index: -1;
+    :root {
+        --accent: #7c3aed;
+        --accent-glow: rgba(124, 58, 237, 0.4);
+        --bg: #0f172a;
     }
 
-    /* Slide Transitions */
+    .stApp {
+        background: var(--bg) !important;
+        color: #f8fafc !important;
+        font-family: 'Outfit', sans-serif;
+    }
+
+    /* Animated Mesh Background */
+    .mesh-bg {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: 
+            radial-gradient(at 0% 0%, rgba(124, 58, 237, 0.15) 0px, transparent 50%),
+            radial-gradient(at 100% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+            radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.1) 0px, transparent 50%),
+            radial-gradient(at 0% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
+        filter: blur(80px);
+        z-index: -1;
+        animation: meshFlow 20s infinite alternate linear;
+    }
+
+    @keyframes meshFlow {
+        0% { transform: scale(1); }
+        100% { transform: scale(1.2); }
+    }
+
+    /* Hide Streamlit Noise */
+    header, footer, [data-testid="stSidebarNav"] { visibility: hidden !important; height: 0 !important; }
+    div[data-testid="stDecoration"] { background: none !important; }
+
+    /* Slide Container */
     .slide-container {
-        animation: slideInRight 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
-        padding: 40px;
-        padding-bottom: 120px; /* Espace pour le dock */
-        min-height: 80vh;
+        animation: slideReveal 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+        padding: 6vh 5vw;
+        padding-bottom: 150px;
+        min-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
     
-    @keyframes slideInRight {
-        from { transform: translateX(30px); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
+    @keyframes slideReveal {
+        0% { transform: scale(0.95); filter: blur(10px); opacity: 0; }
+        100% { transform: scale(1); filter: blur(0); opacity: 1; }
     }
     
     .slide-title {
-        font-family: 'Playfair Display', serif;
-        font-size: 4rem;
-        margin-bottom: 30px;
-        color: #1d1d1f;
+        font-family: 'Sora', sans-serif;
+        font-size: 5.5rem;
+        line-height: 0.95;
+        margin-bottom: 40px;
+        background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
         font-weight: 800;
+        letter-spacing: -4px;
     }
     
-    /* Executive Light Cards */
+    /* Ultra-Premium Glass Cards */
     .glass-card {
-        background: rgba(255, 255, 255, 0.8);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(124, 58, 237, 0.1);
-        border-radius: 32px;
-        padding: 25px; /* Réduit pour éviter le squeezing */
-        margin-bottom: 20px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.03);
-        transition: all 0.3s ease;
-    }
-    .glass-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 20px 40px rgba(0,0,0,0.06);
-    }
-    
-    /* Fix for squeezed checkbox labels */
-    div[data-testid="stCheckbox"] label {
-        white-space: nowrap !important;
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(25px) saturate(180%);
+        -webkit-backdrop-filter: blur(25px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 40px;
+        padding: 40px;
+        box-shadow: 0 30px 60px rgba(0,0,0,0.4);
+        transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+        position: relative;
         overflow: hidden;
-        text-overflow: ellipsis;
+    }
+    .glass-card::before {
+        content: '';
+        position: absolute;
+        top: -50%; left: -50%; width: 200%; height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
+        opacity: 0; transition: opacity 0.5s;
+    }
+    .glass-card:hover::before { opacity: 1; }
+    .glass-card:hover {
+        transform: translateY(-10px) scale(1.02);
+        border-color: rgba(255,255,255,0.2);
+        background: rgba(255, 255, 255, 0.05);
     }
     
     .metric-hero {
-        font-size: 5.5rem;
-        font-weight: 800;
-        letter-spacing: -3px;
-        color: #7c3aed;
-        text-shadow: 2px 2px 0px rgba(124, 58, 237, 0.05);
+        font-size: 7rem;
+        font-weight: 900;
+        letter-spacing: -6px;
+        margin: 10px 0;
+        filter: drop-shadow(0 0 30px var(--accent-glow));
     }
     
-    /* Navigation Dock Premium */
+    /* Apple-Style Navigation Dock */
     .nav-dock-bg {
         position: fixed;
-        bottom: 30px;
+        bottom: 35px;
         left: 50%;
         transform: translateX(-50%);
-        width: 320px;
-        height: 80px;
-        background: rgba(255, 255, 255, 0.7);
-        backdrop-filter: blur(25px);
-        -webkit-backdrop-filter: blur(25px);
-        border-radius: 24px;
-        border: 1px solid rgba(255, 255, 255, 0.4);
+        width: 360px;
+        height: 85px;
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(30px);
+        -webkit-backdrop-filter: blur(30px);
+        border-radius: 30px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
         z-index: 9999;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.1);
-        display: flex;
-        justify-content: center;
-        align-items: center;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     }
 
-    /* Target Streamlit Buttons to be fixed in the dock */
     div[data-testid="stBaseButton-k_prev"], 
     div[data-testid="stBaseButton-k_home"], 
     div[data-testid="stBaseButton-k_next"] {
         position: fixed !important;
-        bottom: 42px !important;
+        bottom: 48px !important;
         z-index: 10000 !important;
-        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+        transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1) !important;
     }
 
     div[data-testid="stBaseButton-k_prev"] { left: calc(50% - 110px) !important; }
     div[data-testid="stBaseButton-k_home"] { left: 50% !important; transform: translateX(-50%) !important; }
     div[data-testid="stBaseButton-k_next"] { left: calc(50% + 110px) !important; }
 
-    /* Target specific dock buttons only to avoid breaking the sidebar */
     div[data-testid="stBaseButton-k_prev"] button, 
     div[data-testid="stBaseButton-k_home"] button, 
     div[data-testid="stBaseButton-k_next"] button {
-        border-radius: 16px !important;
-        background: white !important;
-        border: 1px solid rgba(0,0,0,0.05) !important;
-        color: #1d1d1f !important;
-        width: 60px !important;
-        height: 55px !important;
-        font-size: 1.5rem !important;
+        border-radius: 20px !important;
+        background: rgba(255,255,255,0.05) !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+        color: white !important;
+        width: 65px !important;
+        height: 60px !important;
+        font-size: 1.8rem !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+        backdrop-filter: blur(10px) !important;
     }
 
     div[data-testid="stBaseButton-k_prev"] button:hover, 
     div[data-testid="stBaseButton-k_home"] button:hover, 
     div[data-testid="stBaseButton-k_next"] button:hover {
-        background: #f8f9fa !important;
-        transform: scale(1.1) !important;
-        border-color: #7c3aed !important;
-        color: #7c3aed !important;
-        box-shadow: 0 8px 20px rgba(124, 58, 237, 0.2) !important;
+        background: var(--accent) !important;
+        transform: translateY(-5px) !important;
+        box-shadow: 0 15px 30px var(--accent-glow) !important;
+        border-color: white !important;
     }
 
-    /* iPhone-style bottom indicator */
-    .bottom-indicator {
+    /* Progress Indicator */
+    .progress-bar {
         position: fixed;
-        bottom: 8px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 120px;
-        height: 5px;
-        background: rgba(0,0,0,0.1);
-        border-radius: 10px;
-        z-index: 10001;
-    }
-    /* Table Styling */
-    .stTable {
-        background: white;
-        border-radius: 15px;
-        overflow: hidden;
+        top: 0; left: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #7c3aed, #3b82f6, #ec4899);
+        z-index: 10002;
+        transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
     }
 </style>
-<div class="bokeh-bg"></div>
+<div class="mesh-bg"></div>
+<div class="progress-bar" id="pbar"></div>
+<script>
+    // Update progress bar
+    const updateBar = (pct) => {
+        document.getElementById('pbar').style.width = pct + '%';
+    }
+    
+    // Keyboard Navigation
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight') {
+            window.parent.document.querySelector('button[key="k_next"]').click();
+        } else if (e.key === 'ArrowLeft') {
+            window.parent.document.querySelector('button[key="k_prev"]').click();
+        }
+    });
+</script>
 """, unsafe_allow_html=True)
 
 # --- INITIALISATION SESSION STATE ---
@@ -225,7 +257,12 @@ if st.session_state.keynote_mode == "BUILDER":
 # --- RENDERER: PRESENTATION MODE ---
 elif st.session_state.keynote_mode == "PRESENTATION":
     slides = st.session_state.selected_slides
-    current_key = slides[st.session_state.current_slide_idx]
+    idx = st.session_state.current_slide_idx
+    current_key = slides[idx]
+    
+    # Mise à jour de la barre de progression (JS)
+    progress_pct = (idx + 1) / len(slides) * 100
+    st.markdown(f"<script>updateBar({progress_pct})</script>", unsafe_allow_html=True)
     
     # --- SLIDE CONTENT ---
     st.markdown('<div class="slide-container">', unsafe_allow_html=True)
@@ -233,69 +270,72 @@ elif st.session_state.keynote_mode == "PRESENTATION":
     if current_key == "GLOBAL":
         st.markdown('<h1 class="slide-title">Performance<br>Générale</h1>', unsafe_allow_html=True)
         c1, c2, c3 = st.columns(3)
-        c1.markdown('<div class="glass-card"><p>Taux de Service</p><div class="metric-hero">98.4%</div></div>', unsafe_allow_html=True)
-        c2.markdown('<div class="glass-card"><p>Rotation Moyenne</p><div class="metric-hero" style="color:#a855f7;">12j</div></div>', unsafe_allow_html=True)
-        c3.markdown('<div class="glass-card"><p>Satisfaction Clients</p><div class="metric-hero" style="color:#38a169;">4.8/5</div></div>', unsafe_allow_html=True)
+        with c1: st.markdown('<div class="glass-card"><p>Taux de Service</p><div class="metric-hero" style="color:#7c3aed;">98.4%</div><p>🎯 Objectif atteint</p></div>', unsafe_allow_html=True)
+        with c2: st.markdown('<div class="glass-card"><p>Rotation Moyenne</p><div class="metric-hero" style="color:#3b82f6;">12j</div><p>⚡ Flux accéléré</p></div>', unsafe_allow_html=True)
+        with c3: st.markdown('<div class="glass-card"><p>Satisfaction Clients</p><div class="metric-hero" style="color:#10b981;">4.8/5</div><p>⭐ Excellence relationnelle</p></div>', unsafe_allow_html=True)
 
     elif current_key == "LOGISTIQUE":
         st.markdown('<h1 class="slide-title">Efficacité<br>Logistique</h1>', unsafe_allow_html=True)
         col_c, col_m = st.columns([2, 1])
         with col_c:
-            df = pd.DataFrame({"J": ["L","M","M","J","V","S"], "V": [120,150,140,180,160,110]})
-            fig = px.line(df, x="J", y="V", template="plotly_dark", color_discrete_sequence=["#5b6cf9"])
-            fig.update_layout(height=500, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig, use_container_width=True)
+            df = pd.DataFrame({"J": ["Lun","Mar","Mer","Jeu","Ven","Sam"], "V": [120,150,140,180,160,110]})
+            fig = px.area(df, x="J", y="V", template="plotly_dark")
+            fig.update_traces(line_color='#7c3aed', fillcolor='rgba(124, 58, 237, 0.2)')
+            fig.update_layout(
+                height=500, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                xaxis=dict(showgrid=False), yaxis=dict(showgrid=False)
+            )
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
         with col_m:
-            st.markdown('<div class="glass-card" style="height:100%;"><h3>Analyse Flux</h3><p>Optimisation des tournées réussie.</p><div class="metric-hero" style="font-size:3rem;">+15%</div></div>', unsafe_allow_html=True)
+            st.markdown('<div class="glass-card" style="height:100%;"><h3>Analyse Flux</h3><p>Optimisation des tournées réussie sur la zone Alger-Centre.</p><div class="metric-hero" style="font-size:4rem; color:#7c3aed;">+15%</div><p>Rendement/Heure</p></div>', unsafe_allow_html=True)
 
     elif current_key == "STOCKS":
         st.markdown('<h1 class="slide-title">Santé de<br>l\'Inventaire</h1>', unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         with c1:
-            fig = go.Figure(data=[go.Pie(labels=['Sain', 'Critique', 'Périmé'], values=[85, 12, 3], hole=.7)])
-            fig.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)')
+            fig = go.Figure(data=[go.Pie(labels=['Sain', 'Critique', 'Périmé'], values=[85, 12, 3], hole=.8)])
+            fig.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', showlegend=False)
+            fig.update_traces(marker=dict(colors=['#10b981', '#f59e0b', '#ef4444']))
             st.plotly_chart(fig, use_container_width=True)
         with c2:
-            st.markdown('<div class="glass-card"><h3>Valorisation</h3><p>Total Actif</p><div class="metric-hero">124M</div><p>DZ</p></div>', unsafe_allow_html=True)
+            st.markdown('<div class="glass-card"><h3>Valorisation</h3><p>Total Actif</p><div class="metric-hero" style="color:#7c3aed;">124M</div><p>Dinar Algérien (DZ)</p></div>', unsafe_allow_html=True)
 
     elif current_key == "CLAIMS":
-        st.markdown('<h1 class="slide-title">Réclamations<br>Fournisseurs</h1>', unsafe_allow_html=True)
+        st.markdown('<h1 class="slide-title">Qualité<br>Fournisseurs</h1>', unsafe_allow_html=True)
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.write("### Suivi des Réclamations")
-        df_claims = pd.DataFrame({"Fournisseur": ["BIOPHARM", "SAIDAL", "FRATER"], "Réclamations": [4, 1, 2], "Gravité": ["Haute", "Basse", "Moyenne"]})
-        st.table(df_claims)
+        df_claims = pd.DataFrame({"Fournisseur": ["BIOPHARM", "SAIDAL", "FRATER"], "Réclamations": [4, 1, 2], "Gravité": ["🔴 Haute", "🟢 Basse", "🟡 Moyenne"]})
+        st.dataframe(df_claims, use_container_width=True, hide_index=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     elif current_key == "FINANCE":
-        st.markdown('<h1 class="slide-title">Litiges &<br>Recouvrement</h1>', unsafe_allow_html=True)
+        st.markdown('<h1 class="slide-title">Performance<br>Financière</h1>', unsafe_allow_html=True)
         c1, c2 = st.columns(2)
-        c1.markdown('<div class="glass-card"><p>Recouvré</p><div class="metric-hero" style="color:#38a169;">84.2M</div></div>', unsafe_allow_html=True)
-        c2.markdown('<div class="glass-card"><p>En Attente</p><div class="metric-hero" style="color:#ed8936;">12.8M</div></div>', unsafe_allow_html=True)
+        with c1: st.markdown('<div class="glass-card"><p>Recouvré</p><div class="metric-hero" style="color:#10b981;">84.2M</div><p>Encaissements validés</p></div>', unsafe_allow_html=True)
+        with c2: st.markdown('<div class="glass-card"><p>En Attente</p><div class="metric-hero" style="color:#f59e0b;">12.8M</div><p>Relances en cours</p></div>', unsafe_allow_html=True)
 
     elif current_key == "HR_AGENTS":
-        st.markdown('<h1 class="slide-title">Performance<br>Agents</h1>', unsafe_allow_html=True)
+        st.markdown('<h1 class="slide-title">Productivité<br>Équipe</h1>', unsafe_allow_html=True)
         cols = st.columns(3)
         agents = [("Yassine", "450 lignes", "99%"), ("Amine", "420 lignes", "98%"), ("Sara", "380 lignes", "100%")]
         for i, (name, perf, acc) in enumerate(agents):
-            cols[i].markdown(f'<div class="glass-card" style="text-align:center;"><h3>{name}</h3><div class="metric-hero" style="font-size:2rem;">{perf}</div><p>Précision: {acc}</p></div>', unsafe_allow_html=True)
+            cols[i].markdown(f'<div class="glass-card" style="text-align:center;"><h3>{name}</h3><div class="metric-hero" style="font-size:3rem; color:#7c3aed;">{perf}</div><p>Précision: {acc}</p></div>', unsafe_allow_html=True)
 
     elif current_key == "HR_DRIVERS":
-        st.markdown('<h1 class="slide-title">Rendement<br>Livreurs</h1>', unsafe_allow_html=True)
+        st.markdown('<h1 class="slide-title">Logistique<br>Dernier KM</h1>', unsafe_allow_html=True)
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.write("### Top Livreurs (Livraisons/Jour)")
-        df_drivers = pd.DataFrame({"Livreur": ["Ahmed", "Karim", "Zaki"], "Livraisons": [24, 21, 19], "Respect Délais": ["95%", "92%", "98%"]})
-        st.table(df_drivers)
+        df_drivers = pd.DataFrame({"Livreur": ["Ahmed", "Karim", "Zaki"], "Livraisons": [24, 21, 19], "Ponctualité": ["95%", "92%", "98%"]})
+        st.dataframe(df_drivers, use_container_width=True, hide_index=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     elif current_key == "AI_VISION":
         st.markdown('<h1 class="slide-title">Vision IA<br>Stratégique</h1>', unsafe_allow_html=True)
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         if is_ia_enabled():
-            with st.spinner("Analyse stratégique en cours..."):
-                report = ask_ai("Analyse tous ces modules et donne une conclusion stratégique pour 2026.")
-                st.write(report)
+            with st.spinner("Analyse des tendances 2026..."):
+                report = ask_ai("Analyse la performance globale (98.4% service) et donne 3 axes stratégiques pour le board.")
+                st.write(f"### 🤖 Rapport Exécutif\n\n{report}")
         else:
-            st.info("Activez l'IA pour générer la vision stratégique.")
+            st.info("Module IA désactivé.")
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
