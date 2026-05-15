@@ -225,15 +225,38 @@ if is_admin_coord:
                     all_missions_list = "\n".join(
                         [f"  - {m}" for cat in MISSION_CATALOGUE.values() for m in cat]
                     )
+                    
+                    # LOGIQUE DE PERMANENCE SAMEDI
+                    is_saturday_context = (datetime.now().weekday() == 5) or ("samedi" in situation.lower())
+                    saturday_rules = ""
+                    if is_saturday_context:
+                        try:
+                            df_rh = load_gs_data("DB_RH_Gestion", "data/db_rh.csv", ["Date_Debut", "Date_Fin", "Agent", "Type"])
+                            today_str = datetime.now().strftime("%Y-%m-%d")
+                            # Si on est pas samedi aujourd'hui mais qu'on parle de samedi, on cherche le prochain samedi
+                            # Mais pour faire simple, on prend juste les agents qui ont une permanence.
+                            perm_agents = df_rh[(df_rh['Type'] == "Permanence Samedi") & (df_rh['Date_Debut'] >= today_str)]['Agent'].tolist()
+                            if perm_agents:
+                                agents_str = ", ".join(list(set(perm_agents)))
+                        except:
+                            pass
+                            
+                        saturday_rules = """
+    ATTENTION : NOUS SOMMES EN CONTEXTE DE SAMEDI (JOUR DE PERMANENCE).
+    5. HORAIRES DU SAMEDI : La journée se termine impérativement à 15h00.
+    6. TÂCHES DU SAMEDI : Limiter strictement à : préparation de bon de commande, contrôle de commande, expédition, vérifications de bons, et occasionnellement réception de marchandise. Aucune autre tâche administrative lourde ou inventaire global.
+    7. DISPONIBILITÉ : Ne planifier que pour les agents de permanence listés ci-dessus.
+                        """
+
                     prompt = f"""Tu es un expert en management logistique pharmaceutique.
     Situation du jour : {situation}{missions_context}
-    Équipe présente : {agents_str}
+    Équipe présente (ou de permanence) : {agents_str}
 
     RÈGLES MÉTIER :
-    1. ISLEM : Uniquement : Expédition/Logistique et préparation (9h-17h).
+    1. ISLEM : Uniquement : Expédition/Logistique et préparation (9h-17h en semaine, 9h-15h le samedi).
     2. AYOUB, SEIF, admin_imad : Tout le reste (Stock, Inventaire, Froid, etc.).
     3. EXCEPTION FINANCE : N'attribue JAMAIS de tâches de 'Recouvrement & Finance' ou de 'Pointage factures'. Ces tâches sont la responsabilité exclusive de Karim (Responsable de Parc).
-    4. Max 3 missions actives par agent.
+    4. Max 3 missions actives par agent.{saturday_rules}
 
     Catalogue des missions :
     {all_missions_list}
