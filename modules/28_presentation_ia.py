@@ -197,9 +197,41 @@ st.markdown("""
         animation: gradientFlow 3s linear infinite;
     }
     
-    @keyframes gradientFlow {
-        0% { background-position: 0% 50%; }
-        100% { background-position: 200% 50%; }
+    /* WOW Animations for Conclusion */
+    @keyframes explosion {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.5); filter: brightness(2); }
+        100% { transform: scale(3); opacity: 0; filter: blur(20px); }
+    }
+    .anim-explosion { animation: explosion 0.8s forwards ease-out; }
+
+    @keyframes lightning {
+        0%, 100% { filter: brightness(1) contrast(1); }
+        10%, 30%, 50% { filter: brightness(3) contrast(2) drop-shadow(0 0 50px white); transform: translateX(5px); }
+        20%, 40% { transform: translateX(-5px); }
+    }
+    .anim-lightning { animation: lightning 1s infinite; }
+
+    @keyframes wiggle {
+        0%, 100% { transform: rotate(-10deg) scale(1.2); }
+        50% { transform: rotate(10deg) scale(1.4); }
+    }
+    .anim-wiggle { display: inline-block; animation: wiggle 0.5s infinite ease-in-out; }
+
+    @keyframes revealMerci {
+        0% { transform: scale(0); opacity: 0; filter: blur(30px); }
+        70% { transform: scale(1.2); filter: blur(0); }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    .merci-text {
+        font-family: 'Sora', sans-serif;
+        font-size: 12rem;
+        font-weight: 900;
+        background: linear-gradient(135deg, #7c3aed, #ec4899);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: revealMerci 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        text-shadow: 0 0 50px rgba(124, 58, 237, 0.5);
     }
 </style>
 <div class="mesh-bg"></div>
@@ -228,6 +260,8 @@ if "selected_slides" not in st.session_state:
     st.session_state.selected_slides = []
 if "current_slide_idx" not in st.session_state:
     st.session_state.current_slide_idx = 0
+if "conclusion_clicked" not in st.session_state:
+    st.session_state.conclusion_clicked = False
 
 # --- MODULES DISPONIBLES ---
 MODULE_CONFIG = {
@@ -405,20 +439,43 @@ elif st.session_state.keynote_mode == "PRESENTATION":
         st.markdown('</div>', unsafe_allow_html=True)
 
     elif current_key == "CONCLUSION":
-        msg_placeholder = st.empty()
-        with st.spinner("Rédaction du message final..."):
-            msg = ask_ai("Rédige un message de conclusion TRÈS BREF et inspirant pour une réunion logistique. Utilise beaucoup d'emojis. Remercie pour le 98.4% de service et souhaite un bon week-end.")
+        if not st.session_state.conclusion_clicked:
+            with st.spinner("Rédaction du message final..."):
+                msg = ask_ai("Rédige un message de conclusion TRÈS BREF et inspirant pour une réunion logistique. Utilise beaucoup d'emojis. Remercie pour le 98.4% de service.")
+                vibe = ask_ai("Choisis un seul mot parmi: EXPLOSION, ECLAIR, DECHIRURE selon l'excellence des résultats (98.4%). Réponds par un seul mot.")
+                st.session_state.conclusion_vibe = vibe.strip().upper()
+                
+                st.markdown(f"""
+                    <h1 class="slide-title">Conclusion &<br>Remerciements</h1>
+                    <div class="glass-card" style="text-align:center; cursor:pointer;">
+                        <div style="font-size:2.2rem; line-height:1.4; font-family:Sora; color:#f8fafc; margin-bottom:40px;">
+                            {msg}
+                        </div>
+                        <p style="color:#94a3b8; font-size:1rem; font-style:italic;">Cliquez sur le message pour terminer...</p>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                if st.button("✨ TERMINER LA RÉUNION", use_container_width=True):
+                    st.session_state.conclusion_clicked = True
+                    st.rerun()
+        else:
+            # PLAY ANIMATION BASED ON VIBE
+            vibe_class = "anim-explosion"
+            if "ECLAIR" in st.session_state.get("conclusion_vibe", ""): vibe_class = "anim-lightning"
+            
             st.markdown(f"""
-                <h1 class="slide-title">Conclusion &<br>Remerciements</h1>
-                <div class="glass-card" style="text-align:center;">
-                    <div style="font-size:2.2rem; line-height:1.4; font-family:Sora; color:#f8fafc; margin-bottom:40px;">
-                        {msg}
+                <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:80vh;">
+                    <div class="{vibe_class}">
+                        <div class="merci-text">MERCI !</div>
                     </div>
-                    <div style="font-weight:800; color:#7c3aed; font-size:2.2rem; filter: drop-shadow(0 0 10px var(--accent-glow));">
-                        DARPHARM PRO — Ensemble vers 2026 🚀
-                    </div>
+                    <div class="anim-wiggle" style="font-size:10rem; margin-top:40px;">👋✨🚀</div>
                 </div>
             """, unsafe_allow_html=True)
+            
+            if st.button("🔄 REVENIR AU BUILDER", use_container_width=True):
+                st.session_state.conclusion_clicked = False
+                st.session_state.keynote_mode = "BUILDER"
+                st.rerun()
 
     st.markdown('</div>', unsafe_allow_html=True)
 
