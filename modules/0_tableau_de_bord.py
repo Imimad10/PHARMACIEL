@@ -24,6 +24,33 @@ current_theme = st.session_state.get('theme', 'Clair')
 t = THEMES_CONFIG.get(current_theme, THEMES_CONFIG["Clair"])
 
 st.title(f"📡 Supervision Temps Réel — Darpharm Solution")
+
+# --- CORTEX PULSE: PROACTIVE AI BAR ---
+from utils_cortex import get_strategic_snapshot
+snapshot = get_strategic_snapshot()
+
+st.markdown(f"""
+<div style="background: linear-gradient(90deg, rgba(124,58,237,0.1) 0%, rgba(59,130,246,0.1) 100%); 
+            border: 1px solid rgba(124,58,237,0.3); 
+            border-radius: 12px; padding: 15px; margin-bottom: 25px; 
+            display: flex; align-items: center; gap: 20px;
+            box-shadow: 0 0 20px rgba(124,58,237,0.1);">
+    <div style="font-size: 1.5rem; animation: pulse 2s infinite;">🧠</div>
+    <div style="flex: 1;">
+        <div style="font-size: 0.7rem; color: #7c3aed; font-weight: 800; text-transform: uppercase; letter-spacing: 2px;">Cortex IA Intelligence Pulse</div>
+        <div style="font-size: 1rem; color: {t['text']}; font-weight: 600;">
+            <b>Analyse :</b> CA {snapshot.get('total_ca', 0):,.0f} DA · 
+            <span style="color:#ef4444;">{snapshot.get('total_reclamations', 0)} litiges à résoudre</span> · 
+            <span style="color:#10b981;">Pic de charge : {snapshot.get('peak_hour', 'N/A')}h</span>
+        </div>
+    </div>
+    <div style="background: #10b981; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 800;">LIVE</div>
+</div>
+<style>
+@keyframes pulse {{ 0% {{ opacity: 0.5; transform: scale(1); }} 50% {{ opacity: 1; transform: scale(1.1); }} 100% {{ opacity: 0.5; transform: scale(1); }} }}
+</style>
+""", unsafe_allow_html=True)
+
 st.caption(f"Connecté : **{username}** ({role}) · Actualisé à {datetime.now().strftime('%H:%M:%S')}")
 
 # --- SÉLECTEUR DE MODÈLE (Sidebar) ---
@@ -159,11 +186,21 @@ def collect_all_kpis():
 kpis = collect_all_kpis()
 
 if is_ia_enabled():
-    st.markdown("### 🤖 Briefing Exécutif IA")
-    if st.button("✨ Générer la synthèse intelligente du jour", use_container_width=True, type="primary"):
-        with st.spinner("L'IA analyse vos performances en temps réel..."):
-            prompt = f"Tu es le Directeur des Opérations Virtuel de la pharmacie. Voici les indicateurs actuels : {kpis}. Rédige un briefing très court (3 paragraphes max) et dynamique pour l'équipe dirigeante. Mets en évidence le montant à recouvrer, les risques de péremption, et l'avancement de l'inventaire. Propose 2 actions urgentes à faire aujourd'hui. Utilise des emojis."
-            st.info(ask_ai(prompt))
+    st.markdown("""
+    <div style="background: rgba(124,58,237,0.03); border-radius: 20px; padding: 25px; border: 1px solid rgba(124,58,237,0.1); margin-bottom: 30px;">
+        <h3 style="margin-top: 0; color: #7c3aed;">🤖 Briefing Exécutif du Cortex</h3>
+    """, unsafe_allow_html=True)
+    
+    with st.spinner("L'IA affine votre stratégie..."):
+        # On génère un résumé plus compact et percutant
+        try:
+            from utils_cortex import ask_cortex
+            synthesis = ask_cortex("Rédige une synthèse TRÈS COURTE (2 phrases) de la situation actuelle et donne l'ordre du jour prioritaire.")
+            st.markdown(f'<div style="font-size: 1.1rem; line-height: 1.6; color: {t["text"]}; font-weight: 500;">{synthesis}</div>', unsafe_allow_html=True)
+        except:
+            st.info("Synthèse IA temporairement indisponible.")
+            
+    st.markdown("</div>", unsafe_allow_html=True)
     st.divider()
 
 # ═══════════════════════════════════════════
