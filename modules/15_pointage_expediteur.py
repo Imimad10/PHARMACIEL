@@ -25,8 +25,8 @@ COLS_HIST = ['date_dispatch', 'valide_par', 'reference', 'client', 'region', 'co
 st.header("📦 Pointage Expéditeur", divider="blue")
 
 # Définition des onglets
-tabs = ["📝 Vérification & Dispatching", "📊 Historique", "⚙️ Administration"]
-tab_pointage, tab_historique, tab_admin = st.tabs(tabs)
+tabs_labels = ["📝 En attente de Dispatching", "🚚 Commandes Validées", "📊 Historique Global", "⚙️ Administration"]
+tab_pointage, tab_valides, tab_historique, tab_admin = st.tabs(tabs_labels)
 
 # --- FONCTION DE NETTOYAGE DES COLONNES ---
 def clean_col(c):
@@ -137,13 +137,20 @@ with tab_pointage:
             if region_sel != "Toutes les régions":
                 df_filtre = df_filtre[df_filtre['Région'] == region_sel]
 
+            # FILTRE : On ne garde que ce qui n'est pas encore validé
+            df_filtre = df_filtre[df_filtre['deja_expedie'] == False]
+
             # Barre de recherche globale (Client/Réf)
             search_query = st.text_input("🔍 Recherche rapide (Client ou N° de commande)")
             if search_query:
                 mask = df_filtre.astype(str).apply(lambda x: x.str.contains(search_query, case=False, na=False)).any(axis=1)
                 df_filtre = df_filtre[mask]
 
-            # Sélection globale
+            # --- SÉCURITÉ : Pas de référence = Pas de validation ---
+            # On ajoute une colonne pour indiquer si la validation est permise
+            df_filtre['Peut_Valider'] = df_filtre['Référence'].apply(lambda x: pd.notna(x) and str(x).strip() != "")
+
+            # Sélection globale (uniquement pour ceux qui peuvent valider)
             if 'sel_all_exp' not in st.session_state: st.session_state.sel_all_exp = False
             if st.button("✅ Sélectionner tout le secteur" if not st.session_state.sel_all_exp else "⬜ Désélectionner tout"):
                 st.session_state.sel_all_exp = not st.session_state.sel_all_exp
@@ -151,18 +158,20 @@ with tab_pointage:
 
             # --- DATA EDITOR ---
             df_view = df_filtre.copy()
-            df_view.insert(0, "Vérifié", st.session_state.sel_all_exp & ~df_view['deja_expedie'])
+            # Initialisation de la case à cocher
+            df_view.insert(0, "Vérifié", st.session_state.sel_all_exp & df_view['Peut_Valider'])
 
             edited_df = st.data_editor(
                 df_view,
                 column_config={
                     "Vérifié": st.column_config.CheckboxColumn("Vérifié", default=False),
-                    "Statut Info": st.column_config.TextColumn("État de Dispatching", width="large", disabled=True),
                     "Client": st.column_config.TextColumn("Client", disabled=True),
                     "Région": st.column_config.TextColumn("Région", disabled=True),
-                    "Référence": st.column_config.TextColumn("Référence", disabled=True),
+                    "Référence": st.column_config.TextColumn("Référence (Obligatoire)", disabled=True),
                     "Colis": st.column_config.NumberColumn("Colis", disabled=True),
-                    "deja_expedie": None
+                    "Peut_Valider": None,
+                    "deja_expedie": None,
+                    "Statut Info": None
                 },
                 hide_index=True,
                 use_container_width=True,
@@ -170,8 +179,9 @@ with tab_pointage:
             )
 
             # Validation
-            if st.button("🚀 Valider le chargement / dispatching", type="primary"):
-                factures_to_validate = edited_df[(edited_df['Vérifié'] == True) & (edited_df['deja_expedie'] == False)]
+            if st.button("🚀 Valider le chargement / dispatching", type="primary", use_container_width=True):
+                # On ne valide que si 'Vérifié' est coché ET qu'il y a une référence
+                factures_to_validate = edited_df[(edited_df['Vérifié'] == True) & (edited_df['Peut_Valider'] == True)]
                 
                 if not factures_to_validate.empty:
                     current_user = st.session_state.current_user.get('username', 'Inconnu')
@@ -213,11 +223,26 @@ with tab_pointage:
     else:
         st.info("👋 Bienvenue. Veuillez demander à l'administrateur d'uploader le dernier export LogiPharm dans l'onglet 'Administration'.")
 
-# --- HISTORIQUE ---
+# --- ONGLET COMMANDES VALIDÉES (AUJOURD'HUI) ---
+with tab_valides:
+    st.subheader("🚚 Commandes expédiées aujourd'hui")
+    df_hist_today = load_gs_data(HISTORIQUE_WORKSHEET, HISTORIQUE_FALLBACK, COLS_HIST)
+    if not df_hist_today.empty:
+        today_str = datetime.now().strftime("%d/%m/%Y")
+        # Filtrage par date du jour
+        df_today = df_hist_today[df_hist_today['date_dispatch'].str.contains(today_str, na=False)]
+        if not df_today.empty:
+            st.dataframe(df_today.sort_values('date_dispatch', ascending=False), use_container_width=True, hide_index=True)
+        else:
+            st.info("Aucune commande n'a été validée aujourd'hui.")
+    else:
+        st.info("Aucune donnée d'expédition disponible.")
+
+# --- HISTORIQUE GLOBAL ---
 with tab_historique:
-    st.subheader("📊 Historique des validations")
+    st.subheader("📊 Archive complète des validations")
     df_hist_view = load_gs_data(HISTORIQUE_WORKSHEET, HISTORIQUE_FALLBACK, COLS_HIST)
     if not df_hist_view.empty:
         st.dataframe(df_hist_view.sort_values('date_dispatch', ascending=False), use_container_width=True, hide_index=True)
     else:
-        st.write("Aucune donnée enregistrée sur GSheets.")
+        st.write("L'historique est actuellement vide.")
