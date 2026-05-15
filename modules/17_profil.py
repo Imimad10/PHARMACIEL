@@ -139,10 +139,24 @@ TROPHY_DEFS = [
 ]
 earned = sum(1 for _,_,ok,_ in TROPHY_DEFS if ok)
 
+# Calcul XP (Estimation basée sur l'historique des actions)
+xp = total_actions * 100
+level = (xp // 500) + 1
+progress = (xp % 500) / 500
+rank = "🥉 Novice"
+if level >= 2: rank = "🥈 Apprenti"
+if level >= 3: rank = "🥇 Expert"
+if level >= 5: rank = "💎 Maître"
+if level >= 10: rank = "👑 Légende"
+
 c1,c2,c3 = st.columns(3)
 c1.markdown(f'<div class="stat-card"><div class="stat-num">{total_actions}</div><div class="stat-label">Actions Totales</div></div>', unsafe_allow_html=True)
-c2.markdown(f'<div class="stat-card"><div class="stat-num" style="font-size:1.3rem;">{best_mod}</div><div class="stat-label">Module Favori</div></div>', unsafe_allow_html=True)
+c2.markdown(f'<div class="stat-card"><div class="stat-num" style="font-size:1.3rem;">{rank}</div><div class="stat-label">Niveau {level}</div></div>', unsafe_allow_html=True)
 c3.markdown(f'<div class="stat-card"><div class="stat-num">{earned}/{len(TROPHY_DEFS)}</div><div class="stat-label">Trophées</div></div>', unsafe_allow_html=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown(f"**Progression vers le niveau {level+1}**")
+st.progress(progress, text=f"{xp % 500} / 500 XP")
 
 st.markdown("<br>", unsafe_allow_html=True)
 

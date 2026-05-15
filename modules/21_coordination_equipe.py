@@ -423,37 +423,69 @@ with tabs[1]:
         st.info(f"📊 Votre progression personnelle — **{current_agent}**")
     
     if not df_stats_base.empty:
-        stats = df_stats_base[df_stats_base['status'] == "Terminé"]['assigned_to'].value_counts().reset_index()
-        stats.columns = ['Agent', 'Missions Terminées']
+        # Calcul des XP pondérés selon la priorité de la tâche
+        priority_map = {"Basse": 50, "Moyenne": 100, "Haute": 200, "Critique": 500}
+        df_done = df_stats_base[df_stats_base['status'] == "Terminé"].copy()
+        
+        if not df_done.empty:
+            df_done['XP_Gagné'] = df_done['priority'].map(priority_map).fillna(100)
+            stats = df_done.groupby('assigned_to').agg(
+                Missions_Terminées=('task', 'count'),
+                Total_XP=('XP_Gagné', 'sum')
+            ).reset_index()
+            stats.columns = ['Agent', 'Missions Terminées', 'Total XP']
+        else:
+            stats = pd.DataFrame(columns=['Agent', 'Missions Terminées', 'Total XP'])
         
         # Filtrer les admins du tableau d'honneur
         stats = stats[~stats['Agent'].isin(["admin_imad", "admin"])]
         
         if not stats.empty:
-            st.bar_chart(stats, x='Agent', y='Missions Terminées')
+            st.bar_chart(stats, x='Agent', y='Total XP')
             
-            st.markdown("#### 💰 Calculateur de Prime Suggéré")
+            st.markdown("#### 🏆 Tableau d'Honneur & Niveaux d'Excellence")
             for _, r in stats.iterrows():
-                points = r['Missions Terminées'] * 100
-                prime_label = f"**{r['Agent']}** : " if is_admin_coord else "Vous : "
-                st.write(f"{prime_label}{r['Missions Terminées']} missions ➡️ **{points} DA de prime suggérée**")
+                xp = int(r['Total XP'])
+                level = (xp // 500) + 1
+                progress = (xp % 500) / 500
+                
+                # Définition des rangs
+                rank = "🥉 Novice"
+                if level >= 2: rank = "🥈 Apprenti"
+                if level >= 3: rank = "🥇 Expert"
+                if level >= 5: rank = "💎 Maître"
+                if level >= 10: rank = "👑 Légende"
+                
+                agent_label = f"**{r['Agent']}**" if is_admin_coord else "Vous"
+                st.write(f"{agent_label} — **Niveau {level} ({rank})**")
+                st.progress(progress, text=f"{xp % 500} / 500 XP avant le niveau suivant")
+                st.write(f"📈 Total : {xp} XP accumulés ({r['Missions Terminées']} missions)")
         else:
-            st.info("Aucune mission terminée pour le moment.")
+            st.info("Aucune mission terminée pour le moment. À vos postes ! 🚀")
             
         if is_admin_coord:
             st.divider()
-            st.markdown("### 📝 Rapport de Fin de Journée (IA)")
+            st.markdown("### 📝 Rapport de Fin de Journée (IA) & DRH")
             if st.button("📊 Générer le Bilan Quotidien", use_container_width=True, type="secondary"):
                 with st.spinner("L'IA analyse les performances de la journée..."):
-                    done_count = len(df_tasks[df_tasks['status'] == "Terminé"])
+                    done_tasks = df_tasks[df_tasks['status'] == "Terminé"]
+                    done_count = len(done_tasks)
                     pending_count = len(df_tasks[df_tasks['status'].isin(["À faire", "En cours", "Accepté"])])
                     
-                    # Détails par agent
+                    # Détails par agent et Rapport DRH
                     agent_summary = ""
+                    drh_table = "| Agent | Mission | Priorité |\n| :--- | :--- | :--- |\n"
+                    
                     for agent in active_agents:
-                        a_done = len(df_tasks[(df_tasks['assigned_to'] == agent) & (df_tasks['status'] == "Terminé")])
+                        if agent in ["admin_imad", "admin"]: continue
+                        
+                        a_tasks = done_tasks[done_tasks['assigned_to'] == agent]
+                        a_done = len(a_tasks)
                         a_total = len(df_tasks[df_tasks['assigned_to'] == agent])
                         agent_summary += f"- {agent} : {a_done}/{a_total} missions terminées.\n"
+                        
+                        for _, t in a_tasks.iterrows():
+                            drh_table += f"| {agent} | {t['task']} | {t['priority']} |\n"
 
                     prompt_eod = f"""Tu es un expert en management logistique. 
                     Bilan de la journée :
@@ -469,12 +501,15 @@ with tabs[1]:
                     play_sound("ai")
                     st.success("📉 Bilan Stratégique du Jour :")
                     st.markdown(report)
+                    
+                    st.markdown("#### 📋 Détail des tâches réalisées (Pour DRH)")
+                    st.markdown(drh_table)
             
             if not stats.empty:
                 # Préparation des données pour le PDF
                 pdf_stats_list = []
                 for _, r in stats.iterrows():
-                    xp = r['Missions Terminées'] * 100
+                    xp = int(r['Total XP'])
                     lvl = (xp // 500) + 1
                     rnk = "🥉 Novice"
                     if lvl >= 2: rnk = "🥈 Apprenti"
