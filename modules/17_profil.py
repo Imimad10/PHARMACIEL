@@ -10,7 +10,7 @@ RH_WORKSHEET   = "DB_RH_Gestion"
 RH_FALLBACK    = "data/db_rh.csv"
 TASKS_WORKSHEET = "DB_Tasks_Team"
 TASKS_FALLBACK  = "data/db_tasks.csv"
-COLS_TASKS      = ["id", "creation_date", "task", "assigned_to", "priority", "status"]
+COLS_TASKS      = ["id", "creation_date", "task", "assigned_to", "priority", "status", "start_time"]
 
 SOUS_METIERS = ["Préparateur", "Contrôleur", "Étalagiste", "Ramasseur", "Magasinier", "Agent Polyvalent"]
 
@@ -186,10 +186,38 @@ with tab_taches:
                         st.rerun()
                 elif current_status == "Accepté":
                     if st.button("🚀 Commencer", key=f"start_{task_id}", type="primary", use_container_width=True):
+                        if 'start_time' not in df_tasks.columns:
+                            df_tasks['start_time'] = ''
+                        df_tasks['start_time'] = df_tasks['start_time'].astype(object)
                         df_tasks.loc[df_tasks['id'] == task_id, 'status'] = "En cours"
+                        df_tasks.loc[df_tasks['id'] == task_id, 'start_time'] = datetime.now().timestamp()
                         save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
                         st.rerun()
                 elif current_status == "En cours":
+                    start_ts = str(row.get('start_time', ''))
+                    if not start_ts or start_ts == 'nan':
+                        start_ts = str(datetime.now().timestamp())
+                    
+                    import streamlit.components.v1 as components
+                    timer_html = f"""
+                    <div id="chrono" style="font-family: 'Outfit', sans-serif; font-size: 1.6rem; font-weight: 800; color: #f59e0b; text-align: center; margin-bottom: 5px;">
+                        ⏱️ 00:00:00
+                    </div>
+                    <script>
+                        const start = parseFloat("{start_ts}") * 1000;
+                        setInterval(() => {{
+                            const now = new Date().getTime();
+                            let diff = Math.floor((now - start) / 1000);
+                            if(diff < 0) diff = 0;
+                            const h = Math.floor(diff / 3600).toString().padStart(2, '0');
+                            const m = Math.floor((diff % 3600) / 60).toString().padStart(2, '0');
+                            const s = (diff % 60).toString().padStart(2, '0');
+                            document.getElementById("chrono").innerText = "⏱️ " + h + ":" + m + ":" + s;
+                        }}, 1000);
+                    </script>
+                    """
+                    components.html(timer_html, height=50)
+
                     if st.button("🏆 Marquer comme Réussie (Terminé)", key=f"done_{task_id}", type="primary", use_container_width=True):
                         df_tasks.loc[df_tasks['id'] == task_id, 'status'] = "Terminé"
                         save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)

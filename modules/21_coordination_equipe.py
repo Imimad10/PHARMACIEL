@@ -8,7 +8,7 @@ from utils_ia import ask_ai, is_ia_enabled
 # --- CONFIGURATION ---
 TASKS_WORKSHEET = "DB_Tasks_Team"
 TASKS_FALLBACK = "data/db_tasks.csv"
-COLS_TASKS = ["id", "creation_date", "task", "assigned_to", "priority", "status"]
+COLS_TASKS = ["id", "creation_date", "task", "assigned_to", "priority", "status", "start_time"]
 
 st.title("🤝 Coordination de l'Équipe")
 st.markdown("### Gérez vos 8h de travail efficacement")
