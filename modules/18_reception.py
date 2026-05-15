@@ -5,7 +5,7 @@ import json
 import urllib.parse
 from datetime import datetime
 from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui
-from utils_pdf import generate_reception_pdf
+from utils_pdf import generate_reception_pdf, generate_suivi_direct_pdf
 from utils_ia import ask_ai_vision, is_ia_enabled
 from utils_themes import apply_theme_css, load_themes_db
 import difflib
@@ -443,33 +443,26 @@ with tabs[3]:
     if not df_live.empty:
         df_live = df_live.sort_values("timestamp", ascending=False).head(100)
         
-        if mode_edition:
-            st.info("Vous êtes en mode édition globale. Modifiez les cellules puis cliquez sur Sauvegarder.")
-            edited_live = st.data_editor(df_live, use_container_width=True)
-            if st.button("💾 Sauvegarder les modifications du flux"):
-                save_gs_data(edited_live, "Suivi_Direct", DB_SUIVI_DIRECT)
-                st.success("Flux mis à jour avec succès !")
-                st.rerun()
-        else:
-            feed_html = "<div style='display:flex; flex-direction:column; gap:15px; margin-top:10px;'>"
-            for _, row in df_live.iterrows():
-                method = str(row.get('methode', ''))
-                is_ia = "IA" in method.upper()
+        st.markdown("<div style='display:flex; flex-direction:column; gap:15px; margin-top:10px;'>", unsafe_allow_html=True)
+        
+        for i, row in df_live.iterrows():
+            method = str(row.get('methode', ''))
+            is_ia = "IA" in method.upper()
+            
+            icon = "🤖" if is_ia else "✍️"
+            bg_color = "linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%)"
+            border_color = "#5b6cf9" if is_ia else "#2db88a"
+            badge_bg = "#eef0f8" if is_ia else "#e6f8f1"
+            badge_color = "#5b6cf9" if is_ia else "#2db88a"
+            
+            try: ppa_val = f"{float(row.get('ppa', 0)):.2f}"
+            except: ppa_val = row.get('ppa', '0')
                 
-                icon = "🤖" if is_ia else "✍️"
-                bg_color = "linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%)"
-                border_color = "#5b6cf9" if is_ia else "#2db88a"
-                badge_bg = "#eef0f8" if is_ia else "#e6f8f1"
-                badge_color = "#5b6cf9" if is_ia else "#2db88a"
-                
-                try: ppa_val = f"{float(row.get('ppa', 0)):.2f}"
-                except: ppa_val = row.get('ppa', '0')
-                    
-                try: qte_val = int(float(row.get('qte', 0)))
-                except: qte_val = row.get('qte', '0')
-                
-                feed_html += f"""
-<div style="background:{bg_color}; border-left: 5px solid {border_color}; border-radius: 12px; padding: 15px 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); display:flex; justify-content:space-between; align-items:center;">
+            try: qte_val = int(float(row.get('qte', 0)))
+            except: qte_val = row.get('qte', '0')
+            
+            row_html = f"""
+<div style="background:{bg_color}; border-left: 5px solid {border_color}; border-radius: 12px; padding: 15px 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); display:flex; justify-content:space-between; align-items:center; margin-bottom: 0px;">
     <div style="display:flex; align-items:center; gap: 15px;">
         <div style="font-size: 1.8rem; background: {badge_bg}; width: 55px; height: 55px; display:flex; justify-content:center; align-items:center; border-radius: 12px; flex-shrink: 0;">{icon}</div>
         <div>
@@ -487,13 +480,47 @@ with tabs[3]:
             </div>
         </div>
     </div>
-    <div style="background: {badge_bg}; color: {badge_color}; padding: 6px 12px; border-radius: 20px; font-weight: 800; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;">
-        {method}
-    </div>
-</div>
+    <div style="display:flex; align-items:center; gap: 15px;">
+        <div style="background: {badge_bg}; color: {badge_color}; padding: 6px 12px; border-radius: 20px; font-weight: 800; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;">
+            {method}
+        </div>
 """
-            feed_html += "</div>"
-            st.markdown(feed_html, unsafe_allow_html=True)
+            if mode_edition:
+                st.markdown(row_html + "</div></div>", unsafe_allow_html=True)
+                if st.button("✏️ Modifier la saisie", key=f"btn_edit_live_{i}"):
+                    st.session_state[f"edit_live_{i}"] = not st.session_state.get(f"edit_live_{i}", False)
+                    
+                if st.session_state.get(f"edit_live_{i}", False):
+                    with st.container():
+                        st.markdown("<div style='background:#f8f9fc; padding:15px; border-radius:10px; margin-top:-10px; margin-bottom:15px; border:1px solid #eef0f8;'>", unsafe_allow_html=True)
+                        ca, cb, cc = st.columns(3)
+                        n_des = ca.text_input("Produit", row.get('designation', ''), key=f"d_{i}")
+                        n_lot = cb.text_input("Lot", row.get('lot', ''), key=f"l_{i}")
+                        n_ddp = cc.text_input("DDP", row.get('ddp', ''), key=f"dd_{i}")
+                        
+                        cd, ce = st.columns(2)
+                        n_qte = cd.number_input("Qte", value=int(float(row.get('qte', 0))), key=f"q_{i}")
+                        n_ppa = ce.number_input("PPA", value=float(row.get('ppa', 0)), key=f"p_{i}")
+                        
+                        if st.button("💾 Enregistrer la correction", type="primary", key=f"save_live_{i}"):
+                            df_full = load_gs_data("Suivi_Direct", DB_SUIVI_DIRECT, COLS_SUIVI_DIRECT)
+                            mask = (df_full['timestamp'] == row['timestamp']) & (df_full['utilisateur'] == row['utilisateur'])
+                            if mask.any():
+                                idx_to_update = df_full[mask].index[0]
+                                df_full.at[idx_to_update, 'designation'] = n_des
+                                df_full.at[idx_to_update, 'lot'] = n_lot
+                                df_full.at[idx_to_update, 'ddp'] = n_ddp
+                                df_full.at[idx_to_update, 'qte'] = n_qte
+                                df_full.at[idx_to_update, 'ppa'] = n_ppa
+                                save_gs_data(df_full, "Suivi_Direct", DB_SUIVI_DIRECT)
+                                st.session_state[f"edit_live_{i}"] = False
+                                st.success("Saisie corrigée !")
+                                st.rerun()
+                        st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                st.markdown(row_html + "</div></div>", unsafe_allow_html=True)
+                
+        st.markdown("</div>", unsafe_allow_html=True)
     else:
         st.info("Aucune saisie n'a été effectuée pour le moment.")
 
