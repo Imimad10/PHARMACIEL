@@ -371,15 +371,69 @@ with tabs[2]:
         st.info("La base de données de l'IA est vide. Scannez des vignettes pour l'alimenter !")
 
 with tabs[3]:
-    st.subheader("📡 Suivi en Direct des Saisies")
-    st.write("Ce tableau vous permet de surveiller toutes les saisies (IA et manuelles) de tous les utilisateurs en temps réel.")
+    st.markdown("""
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+            <div>
+                <h3 style="margin:0; color:#1a1f3c;">📡 Feed en Direct</h3>
+                <p style="margin:0; color:#6b7299; font-size:0.9rem;">Surveillance temps réel des saisies de l'équipe</p>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
     
-    if st.button("🔄 Actualiser le suivi", type="primary"):
-        st.rerun()
-        
+    col1, col2 = st.columns([1, 5])
+    with col1:
+        if st.button("🔄 Actualiser le feed", use_container_width=True):
+            st.rerun()
+
     df_live = load_gs_data("Suivi_Direct", DB_SUIVI_DIRECT, COLS_SUIVI_DIRECT)
+    
     if not df_live.empty:
-        st.dataframe(df_live.sort_values("timestamp", ascending=False), use_container_width=True)
+        df_live = df_live.sort_values("timestamp", ascending=False).head(100)
+        
+        feed_html = "<div style='display:flex; flex-direction:column; gap:15px; margin-top:10px;'>"
+        for _, row in df_live.iterrows():
+            method = str(row.get('methode', ''))
+            is_ia = "IA" in method.upper()
+            
+            icon = "🤖" if is_ia else "✍️"
+            bg_color = "linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%)"
+            border_color = "#5b6cf9" if is_ia else "#2db88a"
+            badge_bg = "#eef0f8" if is_ia else "#e6f8f1"
+            badge_color = "#5b6cf9" if is_ia else "#2db88a"
+            
+            try: ppa_val = f"{float(row.get('ppa', 0)):.2f}"
+            except: ppa_val = row.get('ppa', '0')
+                
+            try: qte_val = int(float(row.get('qte', 0)))
+            except: qte_val = row.get('qte', '0')
+            
+            feed_html += f"""
+            <div style="background:{bg_color}; border-left: 5px solid {border_color}; border-radius: 12px; padding: 15px 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; align-items:center; gap: 15px;">
+                    <div style="font-size: 1.8rem; background: {badge_bg}; width: 55px; height: 55px; display:flex; justify-content:center; align-items:center; border-radius: 12px; flex-shrink: 0;">{icon}</div>
+                    <div>
+                        <div style="font-size: 0.85rem; color: #6b7299; font-weight: 600; margin-bottom:3px;">
+                            <span style="color:#1a1f3c; font-weight:800; text-transform:uppercase;">{row.get('utilisateur', 'Inconnu')}</span> • {row.get('timestamp', '')}
+                        </div>
+                        <div style="font-size: 1.1rem; font-weight: 800; color: #1a1f3c; margin-bottom: 8px;">
+                            {row.get('designation', '')}
+                        </div>
+                        <div style="display:flex; flex-wrap:wrap; gap: 10px; font-size: 0.85rem;">
+                            <span style="background: rgba(0,0,0,0.03); padding: 4px 10px; border-radius: 8px;">📦 Qte: <b style="color:#1a1f3c;">{qte_val}</b></span>
+                            <span style="background: rgba(0,0,0,0.03); padding: 4px 10px; border-radius: 8px;">🏷️ Lot: <b style="color:#1a1f3c;">{row.get('lot', '')}</b></span>
+                            <span style="background: rgba(0,0,0,0.03); padding: 4px 10px; border-radius: 8px;">⏳ Exp: <b style="color:#1a1f3c;">{row.get('ddp', '')}</b></span>
+                            <span style="background: rgba(0,0,0,0.03); padding: 4px 10px; border-radius: 8px;">💵 PPA: <b style="color:#1a1f3c;">{ppa_val} DA</b></span>
+                        </div>
+                    </div>
+                </div>
+                <div style="background: {badge_bg}; color: {badge_color}; padding: 6px 12px; border-radius: 20px; font-weight: 800; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                    {method}
+                </div>
+            </div>
+            """
+        feed_html += "</div>"
+        
+        st.markdown(feed_html, unsafe_allow_html=True)
     else:
         st.info("Aucune saisie n'a été effectuée pour le moment.")
 
