@@ -26,7 +26,7 @@ except:
 
 current_user_info = st.session_state.get('current_user', {})
 current_agent = current_user_info.get('username', 'Visiteur')
-is_admin_coord = current_user_info.get('role', '') in ['Admin', 'Superviseur']
+is_admin_coord = current_user_info.get('role', '') == 'Admin'
 
 # ─────────────────────────────────────────────────────────
 # 🧑‍🤝‍🧑 SÉLECTEUR D'ÉQUIPE DU JOUR

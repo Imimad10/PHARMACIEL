@@ -8,6 +8,9 @@ LOGS_WORKSHEET = "Logs"
 LOGS_FALLBACK  = "data/db_logs.csv"
 RH_WORKSHEET   = "DB_RH_Gestion"
 RH_FALLBACK    = "data/db_rh.csv"
+TASKS_WORKSHEET = "DB_Tasks_Team"
+TASKS_FALLBACK  = "data/db_tasks.csv"
+COLS_TASKS      = ["id", "creation_date", "task", "assigned_to", "priority", "status"]
 
 SOUS_METIERS = ["Préparateur", "Contrôleur", "Étalagiste", "Ramasseur", "Magasinier", "Agent Polyvalent"]
 
@@ -80,6 +83,7 @@ st.markdown("""
 df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
 df_logs  = load_gs_data(LOGS_WORKSHEET, LOGS_FALLBACK, ["timestamp","user","module","action"])
 df_rh    = load_gs_data(RH_WORKSHEET,   RH_FALLBACK,   ["ID","Date_Debut","Date_Fin","Agent","Type","Statut","Commentaire"])
+df_tasks = load_gs_data(TASKS_WORKSHEET, TASKS_FALLBACK, COLS_TASKS)
 
 u_row = df_users[df_users['username'] == username]
 nom_complet = ""
@@ -133,8 +137,42 @@ c3.markdown(f'<div class="stat-card"><div class="stat-num">{earned}/{len(TROPHY_
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ── TABS ─────────────────────────────────────────────────────────────────────
-tab_agenda, tab_edit, tab_trophees, tab_activite, tab_compte = st.tabs(
-    ["📅 Mon Agenda", "✏️ Mon Profil", "🏅 Trophées", "📈 Activité", "⚙️ Compte"])
+tab_taches, tab_agenda, tab_edit, tab_trophees, tab_activite, tab_compte = st.tabs(
+    ["✅ Mes Tâches", "📅 Mon Agenda", "✏️ Mon Profil", "🏅 Trophées", "📈 Activité", "⚙️ Compte"])
+
+# ── TAB : TÂCHES & MISSIONS ──────────────────────────────────────────────────
+with tab_taches:
+    st.write("#### 🎯 Mes Missions du Jour")
+    if not df_tasks.empty:
+        my_tasks = df_tasks[df_tasks['assigned_to'] == username]
+        if my_tasks.empty:
+            st.info("Aucune tâche ne vous est assignée pour le moment. Bon travail ! 🎉")
+        else:
+            for _, row in my_tasks.iterrows():
+                # Définition des couleurs selon la priorité et le statut
+                priority_colors = {"Urgent": "#ef4444", "Normale": "#f59e0b", "Basse": "#3b82f6"}
+                status_colors = {"À faire": "#f1f5f9", "En cours": "#fef3c7", "Terminé": "#dcfce3"}
+                p_col = priority_colors.get(str(row.get('priority')), "#94a3b8")
+                s_col = status_colors.get(str(row.get('status')), "#ffffff")
+                
+                # Checkbox pour marquer comme fait (visuel uniquement, le vrai changement se fait par l'Admin ou via le Dashboard)
+                is_done = row.get('status') == "Terminé"
+                icon_done = "✅" if is_done else "⏳"
+                
+                st.markdown(f"""
+                <div style="background:{s_col}; border-left: 5px solid {p_col}; padding: 15px; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                        <span style="font-weight: 700; font-size: 1.05rem; color: #1e293b;">{row.get('task', 'Tâche')}</span>
+                        <span style="font-size: 0.8rem; background: {p_col}22; color: {p_col}; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Priorité {row.get('priority', 'Normale')}</span>
+                    </div>
+                    <div style="font-size: 0.85rem; color: #64748b;">
+                        {icon_done} Statut : <b>{row.get('status', 'À faire')}</b>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            st.caption("ℹ️ Vos tâches sont gérées par le Superviseur ou l'Administrateur via le module de Coordination.")
+    else:
+        st.info("Aucune tâche ne vous est assignée pour le moment.")
 
 # ── TAB : AGENDA RH ──────────────────────────────────────────────────────────
 with tab_agenda:
