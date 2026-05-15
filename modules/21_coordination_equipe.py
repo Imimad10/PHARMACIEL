@@ -465,12 +465,11 @@ with tabs[1]:
             
         if is_admin_coord:
             st.divider()
-            st.markdown("### 📝 Rapport de Fin de Journée (IA) & DRH")
-            if st.button("📊 Générer le Bilan Quotidien", use_container_width=True, type="secondary"):
-                with st.spinner("L'IA analyse les performances de la journée..."):
+            st.markdown("### 📝 Rapport Mensuel DRH (Évaluation & Paie)")
+            st.info("💡 À générer avant le 26 du mois pour la préparation de la paie.")
+            if st.button("📊 Générer l'Évaluation RH", use_container_width=True, type="secondary"):
+                with st.spinner("L'IA rédige l'évaluation qualitative des agents..."):
                     done_tasks = df_tasks[df_tasks['status'] == "Terminé"]
-                    done_count = len(done_tasks)
-                    pending_count = len(df_tasks[df_tasks['status'].isin(["À faire", "En cours", "Accepté"])])
                     
                     # Détails par agent et Rapport DRH
                     agent_summary = ""
@@ -481,28 +480,30 @@ with tabs[1]:
                         
                         a_tasks = done_tasks[done_tasks['assigned_to'] == agent]
                         a_done = len(a_tasks)
-                        a_total = len(df_tasks[df_tasks['assigned_to'] == agent])
-                        agent_summary += f"- {agent} : {a_done}/{a_total} missions terminées.\n"
+                        
+                        # Récupérer les types de missions (pour donner du contexte à l'IA)
+                        mission_types = a_tasks['task'].tolist()
+                        
+                        agent_summary += f"\nAgent: {agent}\n- Total accompli : {a_done} missions.\n- Exemples de tâches : {', '.join(mission_types[:3])}...\n"
                         
                         for _, t in a_tasks.iterrows():
                             drh_table += f"| {agent} | {t['task']} | {t['priority']} |\n"
 
-                    prompt_eod = f"""Tu es un expert en management logistique. 
-                    Bilan de la journée :
-                    - Total missions terminées : {done_count}
-                    - Missions restantes : {pending_count}
+                    prompt_drh = f"""Tu es le Directeur des Ressources Humaines. 
+Nous sommes en période de clôture de paie (avant le 26 du mois). Voici les données d'accomplissement de l'équipe logistique :
+{agent_summary}
+
+TA MISSION :
+Rédige un rapport d'évaluation qualitatif et professionnel pour la direction, qui servira de support pour la paie. 
+Pour chaque agent, rédige un petit paragraphe décrivant son travail, en mettant en avant ses qualités (rigueur, support à l'équipe, patience, efficacité) en te basant sur son volume de missions accomplies.
+Ne mentionne pas de montants financiers. Utilise un ton très professionnel, encourageant et respectueux de leurs efforts."""
                     
-                    Détail par agent :
-                    {agent_summary}
-                    
-                    Donne un résumé motivant, analyse l'efficacité de l'équipe et donne 2 conseils pour demain pour améliorer la cadence. Utilise des emojis."""
-                    
-                    report = ask_ai(prompt_eod)
+                    report = ask_ai(prompt_drh)
                     play_sound("ai")
-                    st.success("📉 Bilan Stratégique du Jour :")
+                    st.success("✅ Évaluation RH générée avec succès :")
                     st.markdown(report)
                     
-                    st.markdown("#### 📋 Détail des tâches réalisées (Pour DRH)")
+                    st.markdown("#### 📋 Annexe DRH : Détail des tâches réalisées")
                     st.markdown(drh_table)
             
             if not stats.empty:
