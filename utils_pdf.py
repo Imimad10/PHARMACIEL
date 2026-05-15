@@ -358,7 +358,7 @@ def generate_rotation_report_pdf(df, module_name, ia_analysis=""):
         return bytes(raw)
     return raw.encode('latin-1', 'replace')
 
-def generate_rh_planning_pdf(df, title="PLANNING RH & PERMANENCES"):
+def generate_rh_planning_pdf(df, title="PLANNING & PERMANENCES"):
     pdf = InventoryPDF()
     pdf.title_text = title.upper()
     pdf.alias_nb_pages()
@@ -419,6 +419,7 @@ def generate_rh_planning_pdf(df, title="PLANNING RH & PERMANENCES"):
                 
             for key, _, w in cols_config:
                 val = str(row.get(key, ""))
+                if val.lower() == 'nan': val = ""
                 val = val.encode('latin-1', 'replace').decode('latin-1')
                 pdf.cell(w, 8, val[:50], 1, 0, 'C')
             pdf.ln()
