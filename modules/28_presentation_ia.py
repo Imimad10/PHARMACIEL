@@ -278,7 +278,43 @@ MODULE_CONFIG = {
     "✨ Merci & Au Revoir": "FINAL_THANKS"
 }
 
-# ... (reste du code play_slide_fx et builder identique) ...
+# --- EFFECTS ---
+def play_slide_fx():
+    """Joue un son et une animation légère lors du changement de slide."""
+    try:
+        from utils_sound import play_sound
+        play_sound("transition_chic.mp3")
+    except: pass
+
+# --- BUILDER: CONFIGURATION MODE ---
+if st.session_state.keynote_mode == "BUILDER":
+    st.markdown('<div class="slide-container">', unsafe_allow_html=True)
+    st.markdown('<h1 class="slide-title">Keynote IA<br>Stratégique</h1>', unsafe_allow_html=True)
+    
+    st.write("### 🏗️ Configurez votre présentation exécutive")
+    st.info("Sélectionnez les piliers de performance que vous souhaitez présenter au board.")
+
+    with st.form("keynote_builder"):
+        cols = st.columns(3)
+        selections = {}
+        for i, (label, key) in enumerate(MODULE_CONFIG.items()):
+            with cols[i % 3]:
+                selections[key] = st.checkbox(label, value=True)
+        
+        st.write("---")
+        c_b1, c_b2 = st.columns([1, 3])
+        prep_time = c_b1.select_slider("Temps de préparation", options=["Rapide", "Standard", "Profond"], value="Standard")
+        
+        if st.form_submit_button("📽️ LANCER LA PRÉSENTATION", use_container_width=True, type="primary"):
+            selected = [k for k, v in selections.items() if v]
+            if not selected:
+                st.error("Veuillez sélectionner au moins une slide.")
+            else:
+                st.session_state.selected_slides = selected
+                st.session_state.current_slide_idx = 0
+                st.session_state.keynote_mode = "PRESENTATION"
+                st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # --- RENDERER: PRESENTATION MODE ---
 elif st.session_state.keynote_mode == "PRESENTATION":
