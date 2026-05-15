@@ -741,7 +741,7 @@ if not isinstance(user_pages, list):
 is_admin = user.get('role') == 'Admin'
 
 if is_admin:
-    for extra_page in ["Automatisation", "Liste des Lots", "Répartition Zones", "Analyse Réclamations", "Performance Ventes", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Assistant IA", "Transferts", "Coordination", "Qualité IA", "Mon Coin", "Briefing IA", "Maintenance", "Académie", "Prévisions", "Mode Meeting", "Page de Garde"]:
+    for extra_page in ["Cortex IA", "Automatisation", "Liste des Lots", "Répartition Zones", "Analyse Réclamations", "Performance Ventes", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Assistant IA", "Transferts", "Coordination", "Qualité IA", "Mon Coin", "Briefing IA", "Maintenance", "Académie", "Prévisions", "Mode Meeting", "Page de Garde"]:
         if extra_page not in user_pages:
             user_pages.append(extra_page)
 
@@ -781,6 +781,7 @@ ALL_PAGES = {
     "Répartition Zones": st.Page("modules/30_repartition_zones.py", title="Répartition Zones", icon="🧩"),
     "Analyse Réclamations": st.Page("modules/31_analyse_reclamations.py", title="Analyse Réclamations", icon="🎯"),
     "Performance Ventes": st.Page("modules/32_analyse_ventes.py", title="Performance Ventes", icon="💰"),
+    "Cortex IA": st.Page("modules/33_cortex_ia.py", title="Cortex Stratégique IA", icon="🧠"),
     "Profil": st.Page("modules/17_profil.py", title="Mon Profil", icon="👤")
 }
 
@@ -797,7 +798,7 @@ CATEGORIES = {
     "📊 SUPERVISION": ["Dashboard", "Analyse Rotation", "Prévisions", "Mode Meeting", "Analyse Réclamations", "Performance Ventes", "Suivi", "Dashboard Premium"],
     "📦 GESTION DES STOCKS": ["Inventaire", "Inventaire Détail", "Inventaire Triple", "Péremptions", "Liste des Lots", "Catalogue Produits", "Répartition Zones"],
     "📝 POINTAGES & FLUX": ["Pointage", "Pointage Expéditeur", "Pointage Marchandise", "Page de Garde", "Recouvrement", "Logistique", "Scanneur QR", "Scan Mobile", "Transferts", "Clients"],
-    "🤖 DARPHARM IA": ["Assistant IA", "Qualité IA", "Briefing IA", "Automatisation", "Coordination", "Académie"],
+    "🤖 DARPHARM IA": ["Cortex IA", "Assistant IA", "Qualité IA", "Briefing IA", "Automatisation", "Coordination", "Académie"],
     "🏛️ ADMINISTRATION": ["Admin Centrale", "Gestion des Accès", "RH", "RH Planning"]
 }
 
