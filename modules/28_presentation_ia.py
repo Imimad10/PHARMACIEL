@@ -253,20 +253,19 @@ def play_slide_fx():
 
 # --- RENDERER: BUILDER MODE ---
 if st.session_state.keynote_mode == "BUILDER":
-    st.markdown("<h1 style='text-align:center; font-family:Playfair Display;'>KEYNOTE BUILDER</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center; color:#94a3b8;'>Sélectionnez les modules à inclure dans votre présentation stratégique.</p>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align:center; font-family:Sora; font-weight:800; font-size:4rem; margin-bottom:0;'>KEYNOTE BUILDER</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:#94a3b8; font-size:1.2rem; margin-bottom:40px;'>Sélectionnez les modules à inclure dans votre présentation stratégique.</p>", unsafe_allow_html=True)
     
     col_c, col_p = st.columns([1, 2])
     
     with col_c:
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.subheader("🛠️ Configuration")
+        st.markdown('<h3 style="color:#7c3aed; margin-bottom:20px;">🛠️ Configuration</h3>', unsafe_allow_html=True)
         selected = []
         for label, key in MODULE_CONFIG.items():
             if st.checkbox(label, value=True, key=f"chk_{key}"):
                 selected.append(key)
         
-        st.divider()
+        st.markdown('<div style="margin-top:30px;"></div>', unsafe_allow_html=True)
         if st.button("🎬 LANCER LA PRÉSENTATION", use_container_width=True):
             if selected:
                 st.session_state.selected_slides = selected
@@ -275,10 +274,11 @@ if st.session_state.keynote_mode == "BUILDER":
                 st.rerun()
             else:
                 st.error("Sélectionnez au moins un module.")
-        st.markdown('</div>', unsafe_allow_html=True)
     
     with col_p:
-        st.image("https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop", caption="DarPharm Executive Suite 2026")
+        st.markdown('<div class="glass-card" style="padding:0; overflow:hidden; border-radius:30px;">', unsafe_allow_html=True)
+        st.image("https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # --- RENDERER: PRESENTATION MODE ---
 elif st.session_state.keynote_mode == "PRESENTATION":
