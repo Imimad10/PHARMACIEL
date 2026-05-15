@@ -1003,7 +1003,19 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 with st.sidebar:
-    # 1. ACCORDÉON DE NAVIGATION (EN PREMIER)
+    # 0. CALENDRIER GLOBAL
+    from datetime import datetime
+    today = datetime.now()
+    day_name = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"][today.weekday()]
+    st.markdown(f"<div style='margin-bottom:10px; font-weight:700; font-size:1.1rem;'>📅 Aujourd'hui : {day_name}</div>", unsafe_allow_html=True)
+    if today.weekday() == 4: # Vendredi
+        st.error("🔴 Aujourd'hui est un Vendredi (Weekend)")
+    elif today.weekday() == 5: # Samedi
+        st.warning("🟡 Aujourd'hui : Samedi (Permanence 9h - 15h)")
+    else:
+        pass # Pas de message vert pour garder la sidebar clean en semaine
+        
+    # 1. ACCORDÉON DE NAVIGATION
     st.markdown('<p class="sidebar-header">🗺️ MODULES</p>', unsafe_allow_html=True)
     for group_name, pages in pages_to_show.items():
         is_active = st.session_state.active_group == group_name

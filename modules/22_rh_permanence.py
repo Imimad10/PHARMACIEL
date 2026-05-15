@@ -28,15 +28,7 @@ def is_weekend(dt):
     return dt.weekday() in [4, 5]
 
 today = datetime.now()
-day_name = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"][today.weekday()]
 
-st.sidebar.markdown(f"#### 📅 Aujourd'hui : {day_name}")
-if today.weekday() == 4: # Vendredi
-    st.sidebar.error("🔴 Aujourd'hui est un Vendredi (Weekend)")
-elif today.weekday() == 5: # Samedi
-    st.sidebar.warning("🟡 Aujourd'hui : Samedi (Permanence 9h - 15h)")
-else:
-    st.sidebar.success("🟢 Jour de semaine opérationnel")
 
 tabs = st.tabs(["🕒 Permanence Samedi", "🏥 Absences & Congés", "📋 Planning Global", "🛡️ Validation Admin"])
 
