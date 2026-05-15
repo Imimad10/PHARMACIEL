@@ -364,46 +364,77 @@ def generate_rh_planning_pdf(df, title="PLANNING RH & PERMANENCES"):
     pdf.alias_nb_pages()
     pdf.add_page()
     
-    # Configuration des colonnes
-    pdf.set_font('Arial', 'B', 9)
-    pdf.set_fill_color(240, 240, 240)
-    
-    # Colonnes : Date (35), Agent (40), Type (45), Statut (25), Commentaire (45)
     cols_config = [
         ('Date_Debut', 'Date', 30),
         ('Agent', 'Agent', 40),
-        ('Type', 'Type d\'événement', 50),
+        ('Type', 'Type d\'evenement', 50),
         ('Statut', 'Statut', 25),
         ('Commentaire', 'Observations', 45)
     ]
     
-    for _, label, w in cols_config:
-        pdf.cell(w, 10, label.encode('latin-1', 'replace').decode('latin-1'), 1, 0, 'C', 1)
-    pdf.ln()
+    # Dictionnaire de ciblage des équipes
+    team_rdc_keywords = ['admin_imad', 'ayoub', 'islem', 'seif', 'karim', 'abdelmalek', 'samra']
     
-    # Lignes
-    pdf.set_font('Arial', '', 8)
-    for _, row in df.iterrows():
-        if pdf.get_y() > 260:
-            pdf.add_page()
-            pdf.set_font('Arial', 'B', 9)
-            for _, label, w in cols_config: pdf.cell(w, 10, label.encode('latin-1', 'replace').decode('latin-1'), 1, 0, 'C', 1)
-            pdf.ln()
-            pdf.set_font('Arial', '', 8)
-            
-        for key, _, w in cols_config:
-            val = str(row.get(key, ""))
-            # Nettoyage pour PDF
-            val = val.encode('latin-1', 'replace').decode('latin-1')
-            pdf.cell(w, 8, val[:50], 1, 0, 'C')
+    def is_rdc(agent_name):
+        a_lower = str(agent_name).lower()
+        for k in team_rdc_keywords:
+            if k in a_lower:
+                return True
+        return False
+
+    # Séparation des données
+    df_rdc = df[df['Agent'].apply(is_rdc)]
+    df_etage = df[~df['Agent'].apply(is_rdc)]
+
+    def draw_team_table(team_df, team_title):
+        if team_df.empty:
+            return
+        
+        pdf.ln(5)
+        # Titre de la section
+        pdf.set_font('Arial', 'B', 11)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_fill_color(31, 41, 55) # Dark navy header
+        pdf.cell(0, 10, f"  {team_title.encode('latin-1', 'replace').decode('latin-1')}", 0, 1, 'L', 1)
+        
+        # En-têtes du tableau
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_font('Arial', 'B', 9)
+        pdf.set_fill_color(240, 240, 240)
+        
+        for _, label, w in cols_config:
+            pdf.cell(w, 10, label.encode('latin-1', 'replace').decode('latin-1'), 1, 0, 'C', 1)
         pdf.ln()
+        
+        # Lignes
+        pdf.set_font('Arial', '', 8)
+        for _, row in team_df.iterrows():
+            if pdf.get_y() > 260:
+                pdf.add_page()
+                pdf.set_font('Arial', 'B', 9)
+                for _, label, w in cols_config: 
+                    pdf.cell(w, 10, label.encode('latin-1', 'replace').decode('latin-1'), 1, 0, 'C', 1)
+                pdf.ln()
+                pdf.set_font('Arial', '', 8)
+                
+            for key, _, w in cols_config:
+                val = str(row.get(key, ""))
+                val = val.encode('latin-1', 'replace').decode('latin-1')
+                pdf.cell(w, 8, val[:50], 1, 0, 'C')
+            pdf.ln()
+
+    # Dessiner les deux tableaux
+    draw_team_table(df_rdc, "ÉQUIPE RDC & FILIALE (Direction, Stock, Logistique)")
+    draw_team_table(df_etage, "ÉQUIPE 1ER ÉTAGE (Supervision & Préparation)")
     
-    # Pied de page administratif
-    pdf.ln(10)
+    # Pied de page administratif avec validation DRH
+    pdf.ln(15)
     pdf.set_font('Arial', 'B', 10)
-    pdf.cell(0, 10, "VALIDATION DIRECTION", 0, 1, 'R')
+    pdf.cell(95, 10, "Mme Samra (DRH / DG)", 0, 0, 'C')
+    pdf.cell(95, 10, "VALIDATION SUPERVISEUR", 0, 1, 'C')
     pdf.ln(10)
-    pdf.cell(0, 0, "__________________", 0, 1, 'R')
+    pdf.cell(95, 0, "__________________", 0, 0, 'C')
+    pdf.cell(95, 0, "__________________", 0, 1, 'C')
 
     raw = pdf.output(dest='S')
     if isinstance(raw, (bytes, bytearray)):
