@@ -119,11 +119,21 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ── KPIs ────────────────────────────────────────────────────────────────────
+# Trophées thématiques
+def get_mod_count(mod_name):
+    if u_logs.empty or 'module' not in u_logs.columns: return 0
+    return u_logs['module'].value_counts().get(mod_name, 0)
+
 TROPHY_DEFS = [
-    ("Maître Stock",    "📦", (u_logs['module'].value_counts().get("Inventaire Détail",0)+u_logs['module'].value_counts().get("Inventaire",0)) >= 50 if not u_logs.empty else False, "50+ actions stock"),
-    ("Logisticien",     "🚚", u_logs['module'].value_counts().get("Logistique",0) >= 30 if not u_logs.empty else False,  "30+ expéditions"),
-    ("As Recouvrement", "💰", u_logs['module'].value_counts().get("Recouvrement",0) >= 20 if not u_logs.empty else False,"20+ factures"),
-    ("Scanneur",        "📱", (u_logs['module'].value_counts().get("Scanneur QR",0)+u_logs['module'].value_counts().get("Scan Mobile",0)) >= 15 if not u_logs.empty else False, "15+ scans"),
+    ("Maître Stock",    "📦", (get_mod_count("Inventaire Détail") + get_mod_count("Inventaire")) >= 50, "50+ actions stock"),
+    ("Logisticien",     "🚚", get_mod_count("Logistique") >= 30,  "30+ expéditions"),
+    ("As Recouvrement", "💰", get_mod_count("Recouvrement") >= 20, "20+ factures"),
+    ("Scanneur",        "📱", (get_mod_count("Scanneur QR") + get_mod_count("Scan Mobile")) >= 15, "15+ scans"),
+    ("Expert Litiges",  "⚖️", get_mod_count("Litiges") >= 10, "10+ réclamations"),
+    ("Maître des Logos","🎨", get_mod_count("Page de Garde") >= 5, "5+ logos/pages de garde"),
+    ("Analyseur IA",    "🧠", "IA" in str(u_logs['action'].tolist()) if not u_logs.empty else False, "Utilisation de l'IA"),
+    ("Gardien Dates",   "⌛", get_mod_count("Périmables") >= 20, "20+ actions dates"),
+    ("Zéro Papier",    "📄", get_mod_count("Transferts") >= 10, "10+ transferts digitaux"),
     ("Vétéran",         "🎖️", total_actions >= 200, "200+ actions"),
     ("Pionnier",        "🚀", total_actions >= 1,   "1ère action"),
 ]
