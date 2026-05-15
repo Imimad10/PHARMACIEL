@@ -124,6 +124,17 @@ st.markdown("""
 
 # ── HERO ─────────────────────────────────────────────────────────────────────
 df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+
+# Migration : Assurer l'existence de la colonne 'metier'
+if not df_users.empty and 'metier' not in df_users.columns:
+    df_users['metier'] = df_users.apply(
+        lambda row: 'Admin' if row.get('role') == 'Admin' else ('Superviseur' if row.get('role') == 'Superviseur' else 'Préparateur'),
+        axis=1
+    )
+    # Mapping depuis GOLDEN_USERS pour la précision
+    for g_usr in GOLDEN_USERS:
+        df_users.loc[df_users['username'] == g_usr[0], 'metier'] = g_usr[3]
+    save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
 df_roles = load_gs_data(DB_ROLES_WORKSHEET, DB_ROLES_FALLBACK, COLS_ROLES)
 if 'permissions' in df_roles.columns:
     df_roles['permissions'] = df_roles['permissions'].apply(parse_list)
