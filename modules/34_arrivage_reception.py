@@ -41,6 +41,14 @@ def save_arrivage(arrivage_data):
     }])
     df_old = pd.concat([df_old, new_row], ignore_index=True)
     save_gs_data(df_old, "Arrivages", DB_ARRIVAGES)
+    
+    # Création automatique de la mission dans la Coordination
+    if not arrivage_data.get('id'): # C'est une création (on le détecte si le param initial n'avait pas d'id)
+        # Mais on vient de lui en donner un ligne 28. Vérifions autrement : on crée la mission systématiquement
+        pass
+    
+    # On va plutôt l'intégrer directement dans le bouton ENREGISTRER L'ARRIVAGE pour s'assurer qu'on ne duplique pas
+
 
 # Initialisation
 if "current_arrivage" not in st.session_state:
@@ -96,7 +104,34 @@ with tabs[0]:
             st.session_state.current_arrivage['statut'] = st.selectbox("Statut", ["Planifiée", "Camion sur place", "En cours de vérification", "Clôturée"])
             
             if st.button("💾 ENREGISTRER L'ARRIVAGE", use_container_width=True, type="primary"):
+                # Vérifier si c'est un nouvel arrivage
+                is_new = not bool(st.session_state.current_arrivage.get('id'))
                 save_arrivage(st.session_state.current_arrivage)
+                
+                # Si c'est nouveau, on crée la mission pour l'équipe
+                if is_new:
+                    try:
+                        df_tasks = load_gs_data("DB_Tasks_Team", "data/db_tasks.csv", ["id", "creation_date", "real_creation_date", "task", "assigned_to", "priority", "status", "start_time"])
+                        v_date = st.session_state.current_arrivage['date'] + " " + (st.session_state.current_arrivage['heure_arrivee'] if st.session_state.current_arrivage['heure_arrivee'] else "08:00")
+                        r_date = datetime.now().strftime("%Y-%m-%d %H:%M")
+                        
+                        agents_list = st.session_state.current_arrivage.get('agents', [])
+                        assigned = "Tous" if not agents_list else ", ".join(agents_list)
+                        
+                        new_task = {
+                            "id": len(df_tasks) + 1,
+                            "creation_date": v_date,
+                            "real_creation_date": r_date,
+                            "task": f"📦 Réception Fournisseur : {st.session_state.current_arrivage['fournisseur']} (N° {st.session_state.current_arrivage['facture_num']})",
+                            "assigned_to": assigned,
+                            "priority": "Haute",
+                            "status": "À faire"
+                        }
+                        df_tasks = pd.concat([df_tasks, pd.DataFrame([new_task])], ignore_index=True)
+                        save_gs_data(df_tasks, "DB_Tasks_Team", "data/db_tasks.csv")
+                    except Exception as e:
+                        st.warning(f"Erreur création mission: {e}")
+
                 st.success("Arrivage enregistré avec succès !")
                 st.balloons()
                 st.session_state.current_arrivage = {

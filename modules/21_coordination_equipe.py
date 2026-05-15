@@ -170,7 +170,7 @@ if is_admin_coord:
                 final_task = f"{selected_template} : {task_input}"
 
             col1, col2 = st.columns(2)
-            assigned = col1.selectbox("👤 Assigner à", active_agents)
+            assigned = col1.selectbox("👤 Assigner à", ["Tous"] + active_agents)
             priority = col2.select_slider("🎯 Priorité", options=["Basse", "Moyenne", "Haute", "Critique"], value="Moyenne")
 
             if st.form_submit_button("🚀 Lancer la mission", use_container_width=True, type="primary"):
@@ -311,7 +311,7 @@ st.divider()
 # --- 3. MES MISSIONS PERSONNELLES (filtré par utilisateur, même pour l'Admin) ---
 st.subheader("📬 Mes Missions & Notifications")
 
-my_tasks = df_tasks[df_tasks['assigned_to'] == current_agent]
+my_tasks = df_tasks[df_tasks['assigned_to'].apply(lambda x: str(x) == "Tous" or current_agent in str(x))]
 
 if my_tasks.empty:
     st.info(f"Aucune mission assignée à **{current_agent}** pour le moment.")
@@ -325,27 +325,58 @@ else:
             st.warning(f"🔔 **{row['task']}**")
             st.caption(f"🎯 Priorité : {row.get('priority', '—')} | Créé le : {row.get('creation_date', '—')}")
             c1, c2, c3 = st.columns(3)
-            if c1.button("✅ Accepter", key=f"acc_{row['id']}", use_container_width=True):
-                df_tasks.at[idx, 'status'] = "Accepté"
-                save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
-                play_sound("notification")
-                st.rerun()
+            
+            # Gestion "Tous" ou Multiple Agents
+            is_pool_task = ("Tous" in str(row['assigned_to']))
+            has_joined = (current_agent in str(row['assigned_to']) and "Tous" not in str(row['assigned_to'])) or (is_pool_task and f"({current_agent})" in str(row['assigned_to']))
+            
+            if is_pool_task:
+                if not has_joined:
+                    if c1.button("🙋‍♂️ Rejoindre", key=f"join_{row['id']}", use_container_width=True):
+                        # On s'ajoute à la liste des volontaires
+                        new_assign = str(row['assigned_to']).replace("Tous", f"Tous, {current_agent}") if "Tous," not in str(row['assigned_to']) else str(row['assigned_to']) + f", {current_agent}"
+                        df_tasks.at[idx, 'assigned_to'] = new_assign
+                        df_tasks.at[idx, 'status'] = "Accepté"
+                        save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                        play_sound("notification")
+                        st.rerun()
+                else:
+                    c1.button("✅ Déjà rejoint", disabled=True, key=f"alr_{row['id']}", use_container_width=True)
+            else:
+                if c1.button("✅ Accepter", key=f"acc_{row['id']}", use_container_width=True):
+                    df_tasks.at[idx, 'status'] = "Accepté"
+                    save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                    play_sound("notification")
+                    st.rerun()
+            
+            # Bouton Démarrer (Bloque la mission pour les autres)
             if c2.button("▶️ Démarrer", key=f"start2_{row['id']}", use_container_width=True):
+                # Si c'était "Tous", on nettoie pour que seuls ceux qui ont rejoint restent (ou celui qui clique)
+                new_assign = str(row['assigned_to']).replace("Tous, ", "").replace(", Tous", "").replace("Tous", current_agent)
+                df_tasks.at[idx, 'assigned_to'] = new_assign
                 df_tasks.at[idx, 'status'] = "En cours"
                 save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
                 st.rerun()
+                
             if c3.button("❌ Refuser", key=f"ref_{row['id']}", use_container_width=True):
-                available_next = [a for a in active_agents if a != row['assigned_to']]
-                if available_next:
-                    df_tasks.at[idx, 'assigned_to'] = available_next[0]
+                if is_pool_task:
+                    # Retire l'agent de la liste
+                    new_assign = str(row['assigned_to']).replace(f", {current_agent}", "").replace(f"{current_agent}, ", "")
+                    df_tasks.at[idx, 'assigned_to'] = new_assign
                     save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
-                    st.info(f"Mission réassignée à {available_next[0]}.")
                     st.rerun()
+                else:
+                    available_next = [a for a in active_agents if a != current_agent]
+                    if available_next:
+                        df_tasks.at[idx, 'assigned_to'] = available_next[0]
+                        save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                        st.info(f"Mission réassignée à {available_next[0]}.")
+                        st.rerun()
 
 # --- VUE ADMIN : Gestion de toute l'équipe ---
 if is_admin_coord:
     with st.expander("👑 Vue Admin — Gestion de toutes les missions", expanded=False):
-        df_all_pending = df_tasks[df_tasks['status'].isin(["À faire", "Accepté", "En cours"])]
+        df_all_pending = df_tasks[df_tasks['status'].isin(["À faire", "Accepté", "En cours", "En pause"])]
         if df_all_pending.empty:
             st.info("Aucune mission active dans l'équipe.")
         else:
@@ -400,14 +431,23 @@ with tabs[0]:
                     st.caption(f"👤 {row['assigned_to']} | {row['priority']} | Prévu: {row.get('creation_date', '—')}{admin_date_info}")
                 else:
                     st.caption(f"🎯 {row['priority']} | {row['status']}")
-                if row['status'] == "Accepté" and st.button("▶️ Démarrer", key=f"start_{row['id']}"):
-                    df_tasks.at[idx, 'status'] = "En cours"
-                    save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
-                    st.rerun()
+                if row['status'] == "Accepté":
+                    if is_admin_coord and st.button("▶️ Forcer Démarrage", key=f"start_admin_{row['id']}"):
+                        new_assign = str(row['assigned_to']).replace("Tous, ", "").replace(", Tous", "").replace("Tous", "Non assigné")
+                        df_tasks.at[idx, 'assigned_to'] = new_assign
+                        df_tasks.at[idx, 'status'] = "En cours"
+                        save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                        st.rerun()
+                    elif not is_admin_coord and st.button("▶️ Démarrer", key=f"start_{row['id']}"):
+                        new_assign = str(row['assigned_to']).replace("Tous, ", "").replace(", Tous", "").replace("Tous", current_agent)
+                        df_tasks.at[idx, 'assigned_to'] = new_assign
+                        df_tasks.at[idx, 'status'] = "En cours"
+                        save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                        st.rerun()
 
     with col_doing:
-        st.markdown("#### 🟧 En cours")
-        tasks = df_kanban[df_kanban['status'] == "En cours"]
+        st.markdown("#### 🟧 En cours / Pause")
+        tasks = df_kanban[df_kanban['status'].isin(["En cours", "En pause"])]
         if tasks.empty:
             st.info("Aucune tâche.")
         for idx, row in tasks.iterrows():
@@ -415,11 +455,24 @@ with tabs[0]:
                 st.write(f"**{row['task']}**")
                 if is_admin_coord:
                     st.caption(f"👤 {row['assigned_to']}")
-                if st.button("✅ Terminer", key=f"done_{row['id']}"):
-                    df_tasks.at[idx, 'status'] = "Terminé"
-                    save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
-                    play_sound("success")
-                    st.rerun()
+                
+                if row['status'] == "En cours":
+                    c_b1, c_b2 = st.columns(2)
+                    if c_b1.button("⏸️ Pause", key=f"pause_{row['id']}"):
+                        df_tasks.at[idx, 'status'] = "En pause"
+                        save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                        st.rerun()
+                    if c_b2.button("✅ Terminer", key=f"done_{row['id']}"):
+                        df_tasks.at[idx, 'status'] = "Terminé"
+                        save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                        play_sound("success")
+                        st.rerun()
+                else: # En pause
+                    st.caption("⏳ Mission en pause...")
+                    if st.button("▶️ Reprendre", key=f"resume_{row['id']}"):
+                        df_tasks.at[idx, 'status'] = "En cours"
+                        save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                        st.rerun()
 
     with col_done:
         st.markdown("#### 🟩 Terminées")
