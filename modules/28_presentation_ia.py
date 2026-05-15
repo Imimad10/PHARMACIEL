@@ -194,14 +194,22 @@ st.markdown("""
         border-color: white !important;
     }
 
-    /* Progress Indicator */
+    /* Luminous Progress Line */
     .progress-bar {
         position: fixed;
         top: 0; left: 0;
-        height: 4px;
-        background: linear-gradient(90deg, #7c3aed, #3b82f6, #ec4899);
+        height: 3px;
+        background: linear-gradient(90deg, #7c3aed, #3b82f6, #10b981, #7c3aed);
+        background-size: 200% 100%;
         z-index: 10002;
-        transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: 0 0 15px rgba(124, 58, 237, 0.8), 0 0 5px rgba(59, 130, 246, 0.5);
+        animation: gradientFlow 3s linear infinite;
+    }
+    
+    @keyframes gradientFlow {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 200% 50%; }
     }
 </style>
 <div class="mesh-bg"></div>
