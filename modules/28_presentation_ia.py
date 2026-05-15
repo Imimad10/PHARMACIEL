@@ -439,32 +439,38 @@ elif st.session_state.keynote_mode == "PRESENTATION":
         st.markdown('</div>', unsafe_allow_html=True)
 
     elif current_key == "CONCLUSION":
-        if not st.session_state.conclusion_clicked:
+        # Pré-génération si nécessaire
+        if "conclusion_msg" not in st.session_state:
             with st.spinner("Rédaction du message final..."):
-                msg = ask_ai("Rédige un message de conclusion TRÈS BREF et inspirant pour une réunion logistique. Utilise beaucoup d'emojis. Remercie pour le 98.4% de service.")
-                vibe = ask_ai("Choisis un seul mot parmi: EXPLOSION, ECLAIR, DECHIRURE selon l'excellence des résultats (98.4%). Réponds par un seul mot.")
-                st.session_state.conclusion_vibe = vibe.strip().upper()
-                
-                st.markdown(f"""
-                    <h1 class="slide-title">Conclusion &<br>Remerciements</h1>
-                    <div class="glass-card" style="text-align:center; cursor:pointer;">
-                        <div style="font-size:2.2rem; line-height:1.4; font-family:Sora; color:#f8fafc; margin-bottom:40px;">
-                            {msg}
-                        </div>
-                        <p style="color:#94a3b8; font-size:1rem; font-style:italic;">Cliquez sur le message pour terminer...</p>
+                try:
+                    st.session_state.conclusion_msg = ask_ai("Rédige un message de conclusion TRÈS BREF et inspirant pour une réunion logistique. Utilise beaucoup d'emojis. Remercie pour le 98.4% de service.")
+                    vibe = ask_ai("Choisis un seul mot parmi: EXPLOSION, ECLAIR, DECHIRURE selon l'excellence des résultats (98.4%). Réponds par un seul mot.")
+                    st.session_state.conclusion_vibe = vibe.strip().upper()
+                except:
+                    st.session_state.conclusion_msg = "Merci à tous pour votre engagement exceptionnel ! 🚀✨"
+                    st.session_state.conclusion_vibe = "EXPLOSION"
+
+        if not st.session_state.conclusion_clicked:
+            st.markdown(f"""
+                <h1 class="slide-title">Conclusion &<br>Remerciements</h1>
+                <div class="glass-card" style="text-align:center;">
+                    <div style="font-size:2.2rem; line-height:1.4; font-family:Sora; color:#f8fafc; margin-bottom:40px;">
+                        {st.session_state.conclusion_msg}
                     </div>
-                """, unsafe_allow_html=True)
-                
-                if st.button("✨ TERMINER LA RÉUNION", use_container_width=True):
-                    st.session_state.conclusion_clicked = True
-                    st.rerun()
+                    <p style="color:#94a3b8; font-size:1.1rem; font-style:italic; animation: pulse 2s infinite;">Cliquez sur le bouton ci-dessous pour le mot de la fin...</p>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            if st.button("✨ TERMINER LA RÉUNION", use_container_width=True):
+                st.session_state.conclusion_clicked = True
+                st.rerun()
         else:
             # PLAY ANIMATION BASED ON VIBE
             vibe_class = "anim-explosion"
             if "ECLAIR" in st.session_state.get("conclusion_vibe", ""): vibe_class = "anim-lightning"
             
             st.markdown(f"""
-                <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:80vh;">
+                <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:70vh;">
                     <div class="{vibe_class}">
                         <div class="merci-text">MERCI !</div>
                     </div>
@@ -474,6 +480,8 @@ elif st.session_state.keynote_mode == "PRESENTATION":
             
             if st.button("🔄 REVENIR AU BUILDER", use_container_width=True):
                 st.session_state.conclusion_clicked = False
+                # Reset msg to allow re-generation next time if needed
+                del st.session_state.conclusion_msg
                 st.session_state.keynote_mode = "BUILDER"
                 st.rerun()
 
