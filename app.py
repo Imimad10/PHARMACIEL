@@ -1071,5 +1071,47 @@ with st.sidebar:
     else:
         st.markdown('<h2 style="text-align:center; color:#5b6cf9;">DarPharm</h2>', unsafe_allow_html=True)
 
+# --- WIDGET DE TRADUCTION GOOGLE (ARABE / FRANCAIS) ---
+import streamlit.components.v1 as components
+components.html("""
+<script>
+const doc = window.parent.document;
+if (!doc.getElementById('google_translate_script')) {
+    const script1 = doc.createElement('script');
+    script1.type = 'text/javascript';
+    script1.innerHTML = `
+        function googleTranslateElementInit() {
+          new window.google.translate.TranslateElement({
+              pageLanguage: 'fr', 
+              includedLanguages: 'ar,fr,en', 
+              layout: window.google.translate.TranslateElement.InlineLayout.SIMPLE, 
+              autoDisplay: false
+          }, 'google_translate_element');
+        }
+    `;
+    doc.head.appendChild(script1);
+    
+    const script2 = doc.createElement('script');
+    script2.id = 'google_translate_script';
+    script2.type = 'text/javascript';
+    script2.src = '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+    doc.head.appendChild(script2);
+    
+    const floatingDiv = doc.createElement('div');
+    floatingDiv.id = 'google_translate_element';
+    floatingDiv.style.position = 'fixed';
+    floatingDiv.style.bottom = '20px';
+    floatingDiv.style.right = '20px';
+    floatingDiv.style.zIndex = '999999';
+    floatingDiv.style.background = 'white';
+    floatingDiv.style.padding = '5px 10px';
+    floatingDiv.style.borderRadius = '8px';
+    floatingDiv.style.boxShadow = '0 4px 15px rgba(0,0,0,0.1)';
+    floatingDiv.style.fontFamily = 'sans-serif';
+    doc.body.appendChild(floatingDiv);
+}
+</script>
+""", height=0, width=0)
+
 # Exécuter la page
 pg.run()
