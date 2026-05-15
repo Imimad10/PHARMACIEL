@@ -60,7 +60,38 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-tab_list, tab_add, tab_ia = st.tabs(["📋 Liste des Clients", "➕ Ajouter un Client", "🤖 Assistant IA CRM"])
+tab_list, tab_add, tab_ia, tab_admin = st.tabs(["📋 Liste des Clients", "➕ Ajouter un Client", "🤖 Assistant IA CRM", "⚙️ Configuration"])
+
+# --- TAB 0 : ADMIN / SYNC ---
+with tab_admin:
+    st.subheader("⚙️ Synchronisation de la Base Clients")
+    st.write("Importez votre base de données clients existante (Excel/CSV) pour l'intégrer au CRM.")
+    
+    if st.session_state.current_user.get('role') != 'Admin':
+        st.warning("Accès réservé aux administrateurs.")
+    else:
+        uploaded_file = st.file_uploader("📤 Téléverser la base client (XLSX, XLS, CSV)", type=['xlsx', 'xls', 'csv'])
+        if uploaded_file:
+            try:
+                if uploaded_file.name.endswith('.csv'):
+                    df_new = pd.read_csv(uploaded_file)
+                else:
+                    df_new = pd.read_excel(uploaded_file)
+                
+                # Normalisation sommaire
+                df_new.columns = [c.strip().replace(' ', '_') for c in df_new.columns]
+                
+                if st.button("🔥 Remplacer la base actuelle par ce fichier", type="primary", use_container_width=True):
+                    # On s'assure d'avoir les bonnes colonnes
+                    for col in COLUMNS:
+                        if col not in df_new.columns: df_new[col] = ""
+                    
+                    df_to_save = df_new[COLUMNS]
+                    save_gs_data(df_to_save, WORKSHEET_NAME, FALLBACK_PATH)
+                    st.success("✅ Base CRM synchronisée avec succès !")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Erreur lors de l'import : {e}")
 
 with tab_list:
     col_s1, col_s2 = st.columns([2, 1])
