@@ -147,18 +147,20 @@ with tabs[0]:
                 "Préparateur": str(['Profil', 'Pointage Marchandise', 'Inventaire Détail', 'Scanneur QR', 'Scan Mobile', 'Transferts']),
             }
             GOLDEN_USERS_LOCAL = [
-                {'username': 'admin_imad', 'metier': 'Admin',               'role': 'Admin'},
-                {'username': 'Ayoub',      'metier': 'Agent de Stock',       'role': 'Saisie'},
-                {'username': 'Islem',      'metier': 'Agent de Stock',       'role': 'Saisie'},
-                {'username': 'Seif',       'metier': 'Agent de Stock',       'role': 'Saisie'},
-                {'username': 'Karim',      'metier': 'Chef Livreurs & Parc', 'role': 'Saisie'},
-                {'username': 'Rami',       'metier': 'Superviseur',          'role': 'Saisie'},
-                {'username': 'Idris',      'metier': 'Préparateur',          'role': 'Saisie'},
-                {'username': 'Aymen',      'metier': 'Préparateur',          'role': 'Saisie'},
-                {'username': 'Kheiro',     'metier': 'Préparateur',          'role': 'Saisie'},
-                {'username': 'Rabeh',      'metier': 'Préparateur',          'role': 'Saisie'},
-                {'username': 'Yacine',     'metier': 'Préparateur',          'role': 'Saisie'},
-                {'username': 'Aek',        'metier': 'Préparateur',          'role': 'Saisie'},
+                {'username': 'admin_imad', 'metier': 'Admin',               'role': 'Admin',   'depot': 'Administration'},
+                {'username': 'Ayoub',      'metier': 'Agent de Stock',       'role': 'Saisie',  'depot': 'Stock'},
+                {'username': 'Islem',      'metier': 'Agent de Stock',       'role': 'Saisie',  'depot': 'Stock'},
+                {'username': 'Seif',       'metier': 'Agent de Stock',       'role': 'Saisie',  'depot': 'Stock'},
+                {'username': 'Karim',      'metier': 'Chef Livreurs & Parc', 'role': 'Saisie',  'depot': 'Expédition'},
+                {'username': 'Rami',       'metier': 'Superviseur',          'role': 'Saisie',  'depot': 'Administration'},
+                {'username': 'Idris',      'metier': 'Préparateur',          'role': 'Saisie',  'depot': 'Préparation'},
+                {'username': 'Aymen',      'metier': 'Préparateur',          'role': 'Saisie',  'depot': 'Préparation'},
+                {'username': 'Kheiro',     'metier': 'Préparateur',          'role': 'Saisie',  'depot': 'Préparation'},
+                {'username': 'Rabeh',      'metier': 'Préparateur',          'role': 'Saisie',  'depot': 'Préparation'},
+                {'username': 'Yacine',     'metier': 'Préparateur',          'role': 'Saisie',  'depot': 'Préparation'},
+                {'username': 'Aek',        'metier': 'Préparateur',          'role': 'Saisie',  'depot': 'Préparation'},
+                {'username': 'Aymenk',     'metier': 'Préparateur',          'role': 'Saisie',  'depot': 'Préparation'},
+                {'username': 'Mustapha',   'metier': 'Préparateur',          'role': 'Saisie',  'depot': 'Préparation'},
             ]
             restored = 0
             for gu in GOLDEN_USERS_LOCAL:
