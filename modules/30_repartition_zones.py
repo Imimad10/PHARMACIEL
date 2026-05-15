@@ -12,6 +12,26 @@ COLS_REPARTITION = ["designation", "lot", "zone", "dosage", "is_frigo"]
 
 # --- 2. FONCTIONS DE RÉPARTITION ---
 
+def clean_repartition_cols(df):
+    mapping = {
+        'designation': ['designation', 'produit', 'article', 'libelle', 'nom'],
+        'lot': ['lot', 'n°lot', 'nlot', 'batch'],
+        'zone': ['zone', 'emplacement', 'sector'],
+        'rotation': ['rotation', 'ventes', 'flux', 'freq', 'sorties']
+    }
+    
+    new_cols = {}
+    found_cols = []
+    
+    for target, alternatives in mapping.items():
+        for col in df.columns:
+            if any(alt in str(col).lower() for alt in alternatives):
+                new_cols[col] = target
+                found_cols.append(target)
+                break
+    
+    return df.rename(columns=new_cols), found_cols
+
 def extract_dosage(designation):
     """Extrait le dosage d'une désignation (ex: 500MG, 1G, 10MG/ML)."""
     # Regex pour capturer les dosages classiques
@@ -112,15 +132,18 @@ st.title("🧩 Répartition Intelligente des Stocks")
 st.info("Ce module optimise le rangement du dépôt. Règle : Les différents dosages d'un même produit sont séparés dans 4 zones distinctes (Anti-Confusion).")
 
 # Chargement des données
-df_master = load_gs_data(MASTER_WORKSHEET, MASTER_FALLBACK)
+df_master_raw = load_gs_data(MASTER_WORKSHEET, MASTER_FALLBACK)
 
-if df_master.empty:
+if df_master_raw.empty:
     st.warning("Aucune donnée trouvée dans le Master Inventaire.")
     st.stop()
 
-# Nettoyage basique
-if 'designation' not in df_master.columns:
-    st.error("La colonne 'designation' est absente du fichier source.")
+# Nettoyage et détection des colonnes
+df_master, found_cols = clean_repartition_cols(df_master_raw)
+
+if 'designation' not in found_cols:
+    st.error("🚨 Impossible de trouver la colonne 'Désignation' ou 'Produit' dans votre fichier source.")
+    st.info(f"Colonnes détectées : {list(df_master_raw.columns)}")
     st.stop()
 
 tabs = st.tabs(["⚡ Calculateur", "📊 Statistiques", "⚙️ Paramètres"])
