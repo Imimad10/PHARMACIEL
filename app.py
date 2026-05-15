@@ -741,7 +741,7 @@ if not isinstance(user_pages, list):
 is_admin = user.get('role') == 'Admin'
 
 if is_admin:
-    for extra_page in ["Automatisation", "Liste des Lots", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Assistant IA", "Transferts", "Coordination", "Qualité IA", "Mon Coin", "Briefing IA", "Maintenance", "Académie", "Prévisions", "Mode Meeting", "Page de Garde"]:
+    for extra_page in ["Automatisation", "Liste des Lots", "Répartition Zones", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Assistant IA", "Transferts", "Coordination", "Qualité IA", "Mon Coin", "Briefing IA", "Maintenance", "Académie", "Prévisions", "Mode Meeting", "Page de Garde"]:
         if extra_page not in user_pages:
             user_pages.append(extra_page)
 
@@ -778,6 +778,7 @@ ALL_PAGES = {
     "Académie": st.Page("modules/26_academie.py", title="Académie DarPharm", icon="🎓"),
     "Prévisions": st.Page("modules/27_prevision_charge.py", title="Prévision de Charge", icon="📈"),
     "Mode Meeting": st.Page("modules/28_presentation_ia.py", title="Mode Meeting (DataShow)", icon="📽️"),
+    "Répartition Zones": st.Page("modules/30_repartition_zones.py", title="Répartition Zones", icon="🧩"),
     "Profil": st.Page("modules/17_profil.py", title="Mon Profil", icon="👤")
 }
 
@@ -792,7 +793,7 @@ assigned_keys = []
 CATEGORIES = {
     "👤 MON PROFIL": ["Profil", "Mon Coin"],
     "📊 SUPERVISION": ["Dashboard", "Analyse Rotation", "Prévisions", "Mode Meeting", "Suivi", "Dashboard Premium"],
-    "📦 GESTION DES STOCKS": ["Inventaire", "Inventaire Détail", "Inventaire Triple", "Péremptions", "Liste des Lots", "Catalogue Produits"],
+    "📦 GESTION DES STOCKS": ["Inventaire", "Inventaire Détail", "Inventaire Triple", "Péremptions", "Liste des Lots", "Catalogue Produits", "Répartition Zones"],
     "📝 POINTAGES & FLUX": ["Pointage", "Pointage Expéditeur", "Pointage Marchandise", "Page de Garde", "Recouvrement", "Logistique", "Scanneur QR", "Scan Mobile", "Transferts", "Clients"],
     "🤖 DARPHARM IA": ["Assistant IA", "Qualité IA", "Briefing IA", "Automatisation", "Coordination", "Académie"],
     "🏛️ ADMINISTRATION": ["Admin Centrale", "Gestion des Accès", "RH", "RH Planning"]
