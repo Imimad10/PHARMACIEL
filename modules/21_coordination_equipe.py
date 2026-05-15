@@ -258,11 +258,19 @@ if is_admin_coord:
     3. EXCEPTION FINANCE : N'attribue JAMAIS de tâches de 'Recouvrement & Finance' ou de 'Pointage factures'. Ces tâches sont la responsabilité exclusive de Karim (Responsable de Parc).
     4. Max 3 missions actives par agent.{saturday_rules}
 
+    CHRONOLOGIE TYPE & FLUX DE TRAVAIL (À PRENDRE EN COMPTE POUR L'ORGANISATION) :
+    - Dès 09h00 : Transfert des produits (Stock vers Détail/Vrac), étalage et vérification.
+    - Matinée (après transfert) : Préparation des bons de commande dès validation des commerciaux.
+    - 12h15 - 13h00 : Préparation des expéditions et fiches (vérif colis, factures, dispatch par zones, instructions livreurs en présence de Karim).
+    - 13h00 - 14h00 : Pause déjeuner d'une heure.
+    - 14h00 - Fin de journée : Vérification des besoins de transfert, puis préparation continue des bons.
+    - Avant la fin (17h/18h semaine, 15h samedi) : Impression finale, contrôle des expéditions et dispatch final.
+
     Catalogue des missions :
     {all_missions_list}
 
     TA MISSION :
-    1. Propose un plan de journée stratégique en français avec des emojis.
+    1. Propose un plan de journée stratégique en respectant la chronologie ci-dessus (en français avec emojis).
     2. À la fin de ta réponse, ajoute IMPÉRATIVEMENT un bloc JSON contenant la liste technique des missions à créer, exactement sous ce format :
     ```json
     [
