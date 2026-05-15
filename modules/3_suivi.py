@@ -165,10 +165,11 @@ with tabs[0]:
         """, unsafe_allow_html=True)
 
     with col_info:
-        st.markdown(f"""<div class="quick-btn" onclick="">🚀 ENREGISTREMENT RAPIDE (4.0°C)</div>""", unsafe_allow_html=True)
-        if st.button("Confirmer 4.0°C", use_container_width=True):
+        st.markdown(f"""<div class="quick-btn" onclick="">🚀 ENREGISTREMENT RAPIDE ({val_temp:.1f}°C)</div>""", unsafe_allow_html=True)
+        if st.button(f"Confirmer {val_temp:.1f}°C", use_container_width=True):
             now = get_now()
-            save_entry({"Date": now.strftime("%d/%m/%Y"), "Heure": now.strftime("%H:%M"), "Température": 4.0, "Agent": st.session_state.current_user['username'], "Statut": "OK", "Commentaire": "Rapide", "Type": "Plage idéale :+2°C+8°C", "Chambre": room})
+            status = "OK" if 2.0 <= val_temp <= 8.0 else "ALERTE"
+            save_entry({"Date": now.strftime("%d/%m/%Y"), "Heure": now.strftime("%H:%M"), "Température": val_temp, "Agent": st.session_state.current_user['username'], "Statut": status, "Commentaire": "Rapide", "Type": "Plage idéale :+2°C+8°C", "Chambre": room})
             st.rerun()
             
         with st.form("full_entry", clear_on_submit=True):
