@@ -177,11 +177,11 @@ with tab_taches:
                 col_btn1, col_btn2 = st.columns([1, 1])
                 if current_status == "À faire":
                     if col_btn1.button("✅ Accepter", key=f"acc_{task_id}", use_container_width=True):
-                        df_tasks.loc[df_tasks['id'] == task_id, 'status'] = "Accepté"
+                        df_tasks.loc[df_tasks['id'].astype(str) == task_id, 'status'] = "Accepté"
                         save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
                         st.rerun()
                     if col_btn2.button("❌ Refuser", key=f"ref_{task_id}", use_container_width=True):
-                        df_tasks.loc[df_tasks['id'] == task_id, 'status'] = "Refusé"
+                        df_tasks.loc[df_tasks['id'].astype(str) == task_id, 'status'] = "Refusé"
                         save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
                         st.rerun()
                 elif current_status == "Accepté":
@@ -189,8 +189,8 @@ with tab_taches:
                         if 'start_time' not in df_tasks.columns:
                             df_tasks['start_time'] = ''
                         df_tasks['start_time'] = df_tasks['start_time'].astype(object)
-                        df_tasks.loc[df_tasks['id'] == task_id, 'status'] = "En cours"
-                        df_tasks.loc[df_tasks['id'] == task_id, 'start_time'] = datetime.now().timestamp()
+                        df_tasks.loc[df_tasks['id'].astype(str) == task_id, 'status'] = "En cours"
+                        df_tasks.loc[df_tasks['id'].astype(str) == task_id, 'start_time'] = datetime.now().timestamp()
                         save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
                         st.rerun()
                 elif current_status == "En cours":
@@ -219,7 +219,7 @@ with tab_taches:
                     components.html(timer_html, height=50)
 
                     if st.button("🏆 Marquer comme Réussie (Terminé)", key=f"done_{task_id}", type="primary", use_container_width=True):
-                        df_tasks.loc[df_tasks['id'] == task_id, 'status'] = "Terminé"
+                        df_tasks.loc[df_tasks['id'].astype(str) == task_id, 'status'] = "Terminé"
                         save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
                         st.rerun()
                 
