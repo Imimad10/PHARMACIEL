@@ -1,3 +1,15 @@
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from datetime import datetime
+from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui
+from utils_ia import ask_ai, is_ia_enabled
+
+# --- 1. CONFIGURATION ---
+RECLAM_WORKSHEET = "Analyse_Reclamations"
+RECLAM_FALLBACK = "data/db_reclamations_analyse.csv"
+
 # --- 1. CSS & STYLES ---
 st.markdown("""
 <style>
