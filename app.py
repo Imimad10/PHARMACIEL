@@ -762,6 +762,8 @@ ALL_PAGES = {
     "Analyse Rotation": st.Page("modules/11_analyse_rotation.py", title="Analyse Rotation", icon="📈"),
     "Scan Mobile": st.Page("modules/12_mobile_scan.py", title="Scan Mobile", icon="📱"),
     "RH": st.Page("modules/13_rh.py", title="RH & Performance", icon="👥"),
+    "RH Planning": st.Page("modules/22_rh_permanence.py", title="RH & Planning (Permanence)", icon="📅"),
+    "Clients": st.Page("modules/12_gestion_clients.py", title="Gestion Clients (CRM)", icon="🤝"),
     "Liste des Lots": st.Page("modules/14_liste_des_lots.py", title="Liste des Lots", icon="📑"),
     "Catalogue Produits": st.Page("modules/17_catalogue_produits.py", title="Catalogue Produits", icon="📚"),
     "Pointage Marchandise": st.Page("modules/18_reception.py", title="Pointage Marchandise", icon="📦"),
@@ -791,9 +793,9 @@ CATEGORIES = {
     "👤 MON PROFIL": ["Profil", "Mon Coin"],
     "📊 SUPERVISION": ["Dashboard", "Analyse Rotation", "Prévisions", "Mode Meeting", "Suivi", "Dashboard Premium"],
     "📦 GESTION DES STOCKS": ["Inventaire", "Inventaire Détail", "Inventaire Triple", "Péremptions", "Liste des Lots", "Catalogue Produits"],
-    "📝 POINTAGES & FLUX": ["Pointage", "Pointage Expéditeur", "Pointage Marchandise", "Page de Garde", "Recouvrement", "Logistique", "Scanneur QR", "Scan Mobile", "Transferts"],
+    "📝 POINTAGES & FLUX": ["Pointage", "Pointage Expéditeur", "Pointage Marchandise", "Page de Garde", "Recouvrement", "Logistique", "Scanneur QR", "Scan Mobile", "Transferts", "Clients"],
     "🤖 DARPHARM IA": ["Assistant IA", "Qualité IA", "Briefing IA", "Automatisation", "Coordination", "Académie"],
-    "🏛️ ADMINISTRATION": ["Admin Centrale", "Gestion des Accès", "RH"]
+    "🏛️ ADMINISTRATION": ["Admin Centrale", "Gestion des Accès", "RH", "RH Planning"]
 }
 
 # 1. On remplit les groupes définis
