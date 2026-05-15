@@ -550,6 +550,11 @@ if "setup_done" not in st.session_state:
 
             # On corrige si le métier a changé ou si les pages ne correspondent plus à la règle dynamique actuelle
             if current_metier != umetier or current_pages != correct_pages or not current_pages or current_pages in ['nan', '[]', '']:
+                for col in ['metier', 'depot', 'pages', 'role']:
+                    if col not in df_users.columns:
+                        df_users[col] = ''
+                    df_users[col] = df_users[col].astype(object)
+                
                 df_users.loc[mask, 'metier'] = umetier
                 df_users.loc[mask, 'depot']  = udepot
                 df_users.loc[mask, 'pages']  = correct_pages
