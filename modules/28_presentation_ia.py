@@ -35,6 +35,7 @@ st.markdown("""
     .slide-container {
         animation: slideInRight 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
         padding: 40px;
+        padding-bottom: 120px; /* Espace pour le dock */
         min-height: 80vh;
     }
     
@@ -60,6 +61,11 @@ st.markdown("""
         padding: 40px;
         margin-bottom: 20px;
         box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+        transition: all 0.3s ease;
+    }
+    .glass-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.06);
     }
     
     .metric-hero {
@@ -70,37 +76,77 @@ st.markdown("""
         text-shadow: 2px 2px 0px rgba(124, 58, 237, 0.05);
     }
     
-    /* Navigation Bar Light */
-    .nav-dock {
+    /* Navigation Dock Premium */
+    .nav-dock-bg {
         position: fixed;
         bottom: 30px;
         left: 50%;
         transform: translateX(-50%);
-        background: rgba(255, 255, 255, 0.9);
-        backdrop-filter: blur(15px);
-        padding: 10px 30px;
-        border-radius: 50px;
-        border: 1px solid rgba(124, 58, 237, 0.2);
+        width: 320px;
+        height: 80px;
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(25px);
+        -webkit-backdrop-filter: blur(25px);
+        border-radius: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        z-index: 9999;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.1);
         display: flex;
-        gap: 20px;
-        z-index: 1000;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        justify-content: center;
+        align-items: center;
     }
-    
+
+    /* Target Streamlit Buttons to be fixed in the dock */
+    div[data-testid="stBaseButton-k_prev"], 
+    div[data-testid="stBaseButton-k_home"], 
+    div[data-testid="stBaseButton-k_next"] {
+        position: fixed !important;
+        bottom: 42px !important;
+        z-index: 10000 !important;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+    }
+
+    div[data-testid="stBaseButton-k_prev"] { left: calc(50% - 110px) !important; }
+    div[data-testid="stBaseButton-k_home"] { left: 50% !important; transform: translateX(-50%) !important; }
+    div[data-testid="stBaseButton-k_next"] { left: calc(50% + 110px) !important; }
+
     .stButton button {
-        border-radius: 50px !important;
+        border-radius: 16px !important;
         background: white !important;
-        border: 1px solid #e2e8f0 !important;
+        border: 1px solid rgba(0,0,0,0.05) !important;
         color: #1d1d1f !important;
-        padding: 10px 25px !important;
-        height: 50px !important;
-        font-weight: 600 !important;
+        width: 60px !important;
+        height: 55px !important;
+        font-size: 1.5rem !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
     }
+
     .stButton button:hover {
+        background: #f8f9fa !important;
+        transform: scale(1.1) !important;
         border-color: #7c3aed !important;
         color: #7c3aed !important;
-        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(124, 58, 237, 0.2) !important;
     }
+
+    /* iPhone-style bottom indicator */
+    .bottom-indicator {
+        position: fixed;
+        bottom: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 120px;
+        height: 5px;
+        background: rgba(0,0,0,0.1);
+        border-radius: 10px;
+        z-index: 10001;
+    }
+</style>
+<div class="bokeh-bg"></div>
+
     
     /* Table Styling */
     .stTable {
@@ -248,22 +294,25 @@ elif st.session_state.keynote_mode == "PRESENTATION":
     st.markdown('</div>', unsafe_allow_html=True)
 
     # --- DOCK NAVIGATION ---
-    st.markdown('<div class="nav-dock">', unsafe_allow_html=True)
-    c_p, c_h, c_n = st.columns([1,1,1])
+    st.markdown('<div class="nav-dock-bg"></div><div class="bottom-indicator"></div>', unsafe_allow_html=True)
     
-    if c_p.button("⬅️", key="k_prev"):
-        if st.session_state.current_slide_idx > 0:
-            st.session_state.current_slide_idx -= 1
-            play_slide_fx()
-            st.rerun()
+    c_p, c_h, c_n = st.columns(3)
+    
+    with c_p:
+        if st.button("⬅️", key="k_prev"):
+            if st.session_state.current_slide_idx > 0:
+                st.session_state.current_slide_idx -= 1
+                play_slide_fx()
+                st.rerun()
             
-    if c_h.button("🏠", key="k_home"):
-        st.session_state.keynote_mode = "BUILDER"
-        st.rerun()
-        
-    if c_n.button("➡️", key="k_next"):
-        if st.session_state.current_slide_idx < len(slides) - 1:
-            st.session_state.current_slide_idx += 1
-            play_slide_fx()
+    with c_h:
+        if st.button("🏠", key="k_home"):
+            st.session_state.keynote_mode = "BUILDER"
             st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
+        
+    with c_n:
+        if st.button("➡️", key="k_next"):
+            if st.session_state.current_slide_idx < len(slides) - 1:
+                st.session_state.current_slide_idx += 1
+                play_slide_fx()
+                st.rerun()
