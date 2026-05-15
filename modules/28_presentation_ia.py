@@ -109,7 +109,10 @@ st.markdown("""
     div[data-testid="stBaseButton-k_home"] { left: 50% !important; transform: translateX(-50%) !important; }
     div[data-testid="stBaseButton-k_next"] { left: calc(50% + 110px) !important; }
 
-    .stButton button {
+    /* Target specific dock buttons only to avoid breaking the sidebar */
+    div[data-testid="stBaseButton-k_prev"] button, 
+    div[data-testid="stBaseButton-k_home"] button, 
+    div[data-testid="stBaseButton-k_next"] button {
         border-radius: 16px !important;
         background: white !important;
         border: 1px solid rgba(0,0,0,0.05) !important;
@@ -123,7 +126,9 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
     }
 
-    .stButton button:hover {
+    div[data-testid="stBaseButton-k_prev"] button:hover, 
+    div[data-testid="stBaseButton-k_home"] button:hover, 
+    div[data-testid="stBaseButton-k_next"] button:hover {
         background: #f8f9fa !important;
         transform: scale(1.1) !important;
         border-color: #7c3aed !important;
