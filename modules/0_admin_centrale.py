@@ -71,53 +71,49 @@ with tabs[0]:
         else:
             df_up = pd.read_excel(f_up)
         
-        # Détection automatique du type de données
+        # Détection automatique du type de données (si non défini par le PDF)
         cols = [str(c).strip() for c in df_up.columns.tolist()]
         cols_lower = [c.lower() for c in cols]
         
-        target = None
-        mapping = {}
-
-        if "prenom" in cols_lower or "prénom" in cols_lower:
-            target = "Livreurs"
-            mapping = {c: "Prénom" for c in cols if c.lower() in ["prenom","prénom"]}
-            mapping.update({c: "Nom" for c in cols if c.lower() == "nom"})
-            mapping.update({c: "Secteur" for c in cols if c.lower() == "secteur"})
-            mapping.update({c: "Téléphone" for c in cols if c.lower() in ["téléphone","telephone","tel"]})
-        elif "ville" in cols_lower:
-            target = "Secteurs"
-            mapping = {c: "Client" for c in cols if c.lower() in ["client","raison sociale","raison sociale","nom client"]}
-            mapping.update({c: "Ville" for c in cols if c.lower() == "ville"})
-            mapping.update({c: "Secteur" for c in cols if c.lower() == "secteur"})
-            mapping.update({c: "Tel" for c in cols if c.lower() in ["tel","téléphone","telephone"]})
-        elif any(c.lower() in ["raison sociale","nom client","nom"] for c in cols):
-            target = "Base_Clients"
-            mapping = {c: "Nom Client" for c in cols if c.lower() in ["raison sociale","nom client","nom"]}
-            mapping.update({c: "Région" for c in cols if c.lower() in ["région","region"]})
-            mapping.update({c: "Secteur" for c in cols if c.lower() == "secteur"})
-            mapping.update({c: "Téléphone" for c in cols if c.lower() in ["téléphone","telephone","tel"]})
-        
-        elif "username" in cols_lower:
-            target = "Utilisateurs"
-            mapping = {c: "username" for c in cols if c.lower() == "username"}
-            mapping.update({c: "password" for c in cols if c.lower() in ["password", "mot de passe", "pwd"]})
-            mapping.update({c: "nom" for c in cols if c.lower() == "nom"})
-            mapping.update({c: "prenom" for c in cols if c.lower() in ["prenom", "prénom"]})
-            mapping.update({c: "role" for c in cols if c.lower() in ["role", "rôle"]})
-            mapping.update({c: "zone" for c in cols if c.lower() == "zone"})
-            mapping.update({c: "pages" for c in cols if c.lower() == "pages"})
-        
-        elif any(x in cols_lower for x in ["dépôt", "depot", "quantité dépôt", "quantité depot", "qte.globale"]):
-            target = "Master_Inventaire_Zone"
-            mapping = {c: "depot" for c in cols if c.lower() in ["dépôt", "depot"]}
-            mapping.update({c: "produit" for c in cols if c.lower() in ["produit", "article", "désignation", "designation"]})
-            mapping.update({c: "lot" for c in cols if c.lower() in ["n°lot", "lot", "batch", "nlot"]})
-            mapping.update({c: "qte_logi" for c in cols if c.lower() in ["quantité dépôt", "quantité depot", "qte.globale", "quantité", "qte"]})
-            mapping.update({c: "colissage" for c in cols if c.lower() in ["colis", "u/colis", "colissage", "nbr colis"]})
-            mapping.update({c: "zone" for c in cols if c.lower() in ["zone produit", "zone", "emplacement"]})
-            mapping.update({c: "ddp" for c in cols if c.lower() in ["ddp", "peremption", "péremption", "exp", "date"]})
-            mapping.update({c: "ppa" for c in cols if c.lower() in ["ppa", "prix public", "prix"]})
-            mapping.update({c: "shp" for c in cols if c.lower() in ["shp", "tarif"]})
+        if not target:
+            if "prenom" in cols_lower or "prénom" in cols_lower:
+                target = "Livreurs"
+                mapping = {c: "Prénom" for c in cols if c.lower() in ["prenom","prénom"]}
+                mapping.update({c: "Nom" for c in cols if c.lower() == "nom"})
+                mapping.update({c: "Secteur" for c in cols if c.lower() == "secteur"})
+                mapping.update({c: "Téléphone" for c in cols if c.lower() in ["téléphone","telephone","tel"]})
+            elif "ville" in cols_lower:
+                target = "Secteurs"
+                mapping = {c: "Client" for c in cols if c.lower() in ["client","raison sociale","raison sociale","nom client"]}
+                mapping.update({c: "Ville" for c in cols if c.lower() == "ville"})
+                mapping.update({c: "Secteur" for c in cols if c.lower() == "secteur"})
+                mapping.update({c: "Tel" for c in cols if c.lower() in ["tel","téléphone","telephone"]})
+            elif any(c.lower() in ["raison sociale","nom client","nom"] for c in cols):
+                target = "Base_Clients"
+                mapping = {c: "Nom Client" for c in cols if c.lower() in ["raison sociale","nom client","nom"]}
+                mapping.update({c: "Région" for c in cols if c.lower() in ["région","region"]})
+                mapping.update({c: "Secteur" for c in cols if c.lower() == "secteur"})
+                mapping.update({c: "Téléphone" for c in cols if c.lower() in ["téléphone","telephone","tel"]})
+            elif "username" in cols_lower:
+                target = "Utilisateurs"
+                mapping = {c: "username" for c in cols if c.lower() == "username"}
+                mapping.update({c: "password" for c in cols if c.lower() in ["password", "mot de passe", "pwd"]})
+                mapping.update({c: "nom" for c in cols if c.lower() == "nom"})
+                mapping.update({c: "prenom" for c in cols if c.lower() in ["prenom", "prénom"]})
+                mapping.update({c: "role" for c in cols if c.lower() in ["role", "rôle"]})
+                mapping.update({c: "zone" for c in cols if c.lower() == "zone"})
+                mapping.update({c: "pages" for c in cols if c.lower() == "pages"})
+            elif any(x in cols_lower for x in ["dépôt", "depot", "quantité dépôt", "quantité depot", "qte.globale"]):
+                target = "Master_Inventaire_Zone"
+                mapping = {c: "depot" for c in cols if c.lower() in ["dépôt", "depot"]}
+                mapping.update({c: "produit" for c in cols if c.lower() in ["produit", "article", "désignation", "designation"]})
+                mapping.update({c: "lot" for c in cols if c.lower() in ["n°lot", "lot", "batch", "nlot"]})
+                mapping.update({c: "qte_logi" for c in cols if c.lower() in ["quantité dépôt", "quantité depot", "qte.globale", "quantité", "qte"]})
+                mapping.update({c: "colissage" for c in cols if c.lower() in ["colis", "u/colis", "colissage", "nbr colis"]})
+                mapping.update({c: "zone" for c in cols if c.lower() in ["zone produit", "zone", "emplacement"]})
+                mapping.update({c: "ddp" for c in cols if c.lower() in ["ddp", "peremption", "péremption", "exp", "date"]})
+                mapping.update({c: "ppa" for c in cols if c.lower() in ["ppa", "prix public", "prix"]})
+                mapping.update({c: "shp" for c in cols if c.lower() in ["shp", "tarif"]})
         
         elif not target:
             # Si le fichier était un Excel mais sans colonnes reconnues
