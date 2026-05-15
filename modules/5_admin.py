@@ -36,18 +36,19 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&display=swap');
     
     .admin-card {
-        background: rgba(255, 255, 255, 0.03);
+        background: rgba(124, 58, 237, 0.04);
         backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(124, 58, 237, 0.15);
         border-radius: 16px;
         padding: 24px;
         margin-bottom: 20px;
         transition: all 0.3s ease;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
     
     .admin-card:hover {
-        border-color: rgba(124, 58, 237, 0.5);
-        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(124, 58, 237, 0.4);
+        background: rgba(124, 58, 237, 0.06);
     }
     
     .user-badge {
@@ -63,8 +64,8 @@ st.markdown("""
     .badge-super { background: rgba(124, 58, 237, 0.2); color: #a78bfa; border: 1px solid rgba(124, 58, 237, 0.3); }
     .badge-saisie { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
     
-    .stat-val { font-size: 2rem; font-weight: 800; color: #f8fafc; }
-    .stat-label { font-size: 0.9rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+    .stat-val { font-size: 2rem; font-weight: 800; color: #1e293b; }
+    .stat-label { font-size: 0.9rem; color: #475569; text-transform: uppercase; letter-spacing: 1px; }
     
     .module-group {
         border-left: 3px solid #7c3aed;

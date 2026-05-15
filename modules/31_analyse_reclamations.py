@@ -4,28 +4,30 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&display=swap');
     
     .reclam-card {
-        background: rgba(255, 255, 255, 0.03);
+        background: rgba(124, 58, 237, 0.04);
         backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(124, 58, 237, 0.15);
         border-radius: 16px;
         padding: 24px;
         margin-bottom: 20px;
         transition: all 0.3s ease;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
     
     .ia-report {
-        background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(30, 41, 59, 0.4) 100%);
+        background: linear-gradient(135deg, rgba(124, 58, 237, 0.08) 0%, rgba(30, 41, 59, 0.05) 100%);
         border-left: 5px solid #7c3aed;
         padding: 30px;
         border-radius: 12px;
-        color: #f8fafc;
+        color: #1e293b;
         line-height: 1.6;
         font-family: 'Sora', sans-serif;
+        border: 1px solid rgba(124, 58, 237, 0.1);
     }
     
     .stat-box { text-align: center; }
-    .stat-val { font-size: 2.2rem; font-weight: 800; color: #f8fafc; margin-bottom: 0px; }
-    .stat-label { font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+    .stat-val { font-size: 2.2rem; font-weight: 800; color: #1e293b; margin-bottom: 0px; }
+    .stat-label { font-size: 0.8rem; color: #475569; text-transform: uppercase; letter-spacing: 1px; }
     
     .severity-high { color: #ef4444; }
     .severity-med { color: #f59e0b; }
