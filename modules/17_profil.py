@@ -145,32 +145,77 @@ with tab_taches:
     st.write("#### 🎯 Mes Missions du Jour")
     if not df_tasks.empty:
         my_tasks = df_tasks[df_tasks['assigned_to'] == username]
+        
         if my_tasks.empty:
             st.info("Aucune tâche ne vous est assignée pour le moment. Bon travail ! 🎉")
         else:
-            for _, row in my_tasks.iterrows():
-                # Définition des couleurs selon la priorité et le statut
+            active_tasks = my_tasks[~my_tasks['status'].isin(['Terminé', 'Refusé'])]
+            done_tasks   = my_tasks[my_tasks['status'].isin(['Terminé', 'Refusé'])]
+            
+            # --- TÂCHES ACTIVES ---
+            for _, row in active_tasks.iterrows():
                 priority_colors = {"Urgent": "#ef4444", "Normale": "#f59e0b", "Basse": "#3b82f6"}
-                status_colors = {"À faire": "#f1f5f9", "En cours": "#fef3c7", "Terminé": "#dcfce3"}
+                status_colors = {"À faire": "#f1f5f9", "Accepté": "#e0f2fe", "En cours": "#fef3c7"}
                 p_col = priority_colors.get(str(row.get('priority')), "#94a3b8")
-                s_col = status_colors.get(str(row.get('status')), "#ffffff")
-                
-                # Checkbox pour marquer comme fait (visuel uniquement, le vrai changement se fait par l'Admin ou via le Dashboard)
-                is_done = row.get('status') == "Terminé"
-                icon_done = "✅" if is_done else "⏳"
+                s_col = status_colors.get(str(row.get('status')), "#f1f5f9")
+                task_id = str(row.get('id'))
+                current_status = str(row.get('status'))
                 
                 st.markdown(f"""
-                <div style="background:{s_col}; border-left: 5px solid {p_col}; padding: 15px; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <div style="background:{s_col}; border-left: 5px solid {p_col}; padding: 15px; border-radius: 10px; margin-bottom: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
                         <span style="font-weight: 700; font-size: 1.05rem; color: #1e293b;">{row.get('task', 'Tâche')}</span>
                         <span style="font-size: 0.8rem; background: {p_col}22; color: {p_col}; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Priorité {row.get('priority', 'Normale')}</span>
                     </div>
-                    <div style="font-size: 0.85rem; color: #64748b;">
-                        {icon_done} Statut : <b>{row.get('status', 'À faire')}</b>
+                    <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 10px;">
+                        ⏳ Statut : <b>{current_status}</b>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-            st.caption("ℹ️ Vos tâches sont gérées par le Superviseur ou l'Administrateur via le module de Coordination.")
+                
+                # Actions interactives
+                col_btn1, col_btn2 = st.columns([1, 1])
+                if current_status == "À faire":
+                    if col_btn1.button("✅ Accepter", key=f"acc_{task_id}", use_container_width=True):
+                        df_tasks.loc[df_tasks['id'] == task_id, 'status'] = "Accepté"
+                        save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                        st.rerun()
+                    if col_btn2.button("❌ Refuser", key=f"ref_{task_id}", use_container_width=True):
+                        df_tasks.loc[df_tasks['id'] == task_id, 'status'] = "Refusé"
+                        save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                        st.rerun()
+                elif current_status == "Accepté":
+                    if st.button("🚀 Commencer", key=f"start_{task_id}", type="primary", use_container_width=True):
+                        df_tasks.loc[df_tasks['id'] == task_id, 'status'] = "En cours"
+                        save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                        st.rerun()
+                elif current_status == "En cours":
+                    if st.button("🏆 Marquer comme Réussie (Terminé)", key=f"done_{task_id}", type="primary", use_container_width=True):
+                        df_tasks.loc[df_tasks['id'] == task_id, 'status'] = "Terminé"
+                        save_gs_data(df_tasks, TASKS_WORKSHEET, TASKS_FALLBACK)
+                        st.rerun()
+                
+                st.write("") # Espacement
+
+            # --- TÂCHES ACHEVÉES ---
+            if not done_tasks.empty:
+                st.markdown("---")
+                st.write("#### 🏁 Missions et Tâches Achevées")
+                for _, row in done_tasks.iterrows():
+                    priority_colors = {"Urgent": "#ef4444", "Normale": "#f59e0b", "Basse": "#3b82f6"}
+                    p_col = priority_colors.get(str(row.get('priority')), "#94a3b8")
+                    is_done = row.get('status') == "Terminé"
+                    bg_col = "#dcfce3" if is_done else "#fee2e2"
+                    icon = "✅" if is_done else "❌"
+                    
+                    st.markdown(f"""
+                    <div style="background:{bg_col}; border-left: 5px solid {p_col}; padding: 12px; border-radius: 8px; margin-bottom: 8px; opacity: 0.8;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 600; font-size: 0.95rem; color: #1e293b; text-decoration: {'line-through' if is_done else 'none'};">{row.get('task', 'Tâche')}</span>
+                            <span style="font-size: 0.75rem; color: #64748b;">{icon} {row.get('status')}</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
     else:
         st.info("Aucune tâche ne vous est assignée pour le moment.")
 
