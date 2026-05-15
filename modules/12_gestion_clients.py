@@ -64,34 +64,75 @@ tab_list, tab_add, tab_ia, tab_admin = st.tabs(["📋 Liste des Clients", "➕ A
 
 # --- TAB 0 : ADMIN / SYNC ---
 with tab_admin:
-    st.subheader("⚙️ Synchronisation de la Base Clients")
-    st.write("Importez votre base de données clients existante (Excel/CSV) pour l'intégrer au CRM.")
+    st.subheader("⚙️ Synchronisation & Maintenance")
     
     if st.session_state.current_user.get('role') != 'Admin':
         st.warning("Accès réservé aux administrateurs.")
     else:
-        uploaded_file = st.file_uploader("📤 Téléverser la base client (XLSX, XLS, CSV)", type=['xlsx', 'xls', 'csv'])
-        if uploaded_file:
-            try:
-                if uploaded_file.name.endswith('.csv'):
-                    df_new = pd.read_csv(uploaded_file)
-                else:
-                    df_new = pd.read_excel(uploaded_file)
+        # --- BOUTON SYNC RECOUVREMENT ---
+        st.markdown("#### 🔄 Intégration avec le Recouvrement")
+        st.write("Importer les clients depuis la base de recouvrement pour éviter les saisies multiples.")
+        
+        if st.button("📥 Synchroniser avec la base Recouvrement", use_container_width=True):
+            with st.spinner("Fusion des bases de données..."):
+                # Charger la base recouvrement
+                from modules.4_recouvrement import DATA_CLIENTS, COLS_CLIENTS
+                df_recouv = load_gs_data("Base_Clients", DATA_CLIENTS, COLS_CLIENTS)
                 
-                # Normalisation sommaire
-                df_new.columns = [c.strip().replace(' ', '_') for c in df_new.columns]
-                
-                if st.button("🔥 Remplacer la base actuelle par ce fichier", type="primary", use_container_width=True):
-                    # On s'assure d'avoir les bonnes colonnes
-                    for col in COLUMNS:
-                        if col not in df_new.columns: df_new[col] = ""
+                if not df_recouv.empty:
+                    count_added = 0
+                    current_names = [str(n).upper().strip() for n in df_clients['Nom_Pharmacie'].tolist()]
                     
-                    df_to_save = df_new[COLUMNS]
-                    save_gs_data(df_to_save, WORKSHEET_NAME, FALLBACK_PATH)
-                    st.success("✅ Base CRM synchronisée avec succès !")
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Erreur lors de l'import : {e}")
+                    new_rows = []
+                    for _, row in df_recouv.iterrows():
+                        name = str(row.get('Nom Client', row.get('Nom_Client', ''))).upper().strip()
+                        if name and name not in current_names:
+                            new_rows.append({
+                                "ID": len(df_clients) + len(new_rows) + 1,
+                                "Nom_Pharmacie": name,
+                                "Gerant": "A compléter",
+                                "Ville": row.get('Secteur', ''),
+                                "Adresse": "",
+                                "Telephone": "",
+                                "Coordonnees": "",
+                                "Email": "",
+                                "Statut": "A prospecter",
+                                "Commentaire": "Importé depuis Recouvrement"
+                            })
+                            count_added += 1
+                    
+                    if new_rows:
+                        df_clients = pd.concat([df_clients, pd.DataFrame(new_rows)], ignore_index=True)
+                        save_gs_data(df_clients, WORKSHEET_NAME, FALLBACK_PATH)
+                        st.success(f"✨ {count_added} nouveaux clients importés depuis le recouvrement !")
+                        st.rerun()
+                    else:
+                        st.info("Tout est déjà à jour. Aucun nouveau client trouvé.")
+                else:
+                    st.error("Impossible de charger la base de recouvrement.")
+
+        st.divider()
+        
+        # --- BOUTON NETTOYAGE DOUBLONS ---
+        st.markdown("#### 🧹 Nettoyage des Doublons")
+        if st.button("Supprimer les doublons (par nom de pharmacie)", use_container_width=True):
+            old_len = len(df_clients)
+            df_clients['Nom_Pharmacie'] = df_clients['Nom_Pharmacie'].str.upper().str.strip()
+            df_clients = df_clients.drop_duplicates(subset=['Nom_Pharmacie'], keep='first')
+            new_len = len(df_clients)
+            
+            if old_len > new_len:
+                save_gs_data(df_clients, WORKSHEET_NAME, FALLBACK_PATH)
+                st.success(f"✅ {old_len - new_len} doublons supprimés !")
+                st.rerun()
+            else:
+                st.info("Aucun doublon détecté.")
+
+        st.divider()
+        
+        # --- IMPORT FICHIER EXTERNE ---
+        st.markdown("#### 📤 Importation de fichier externe")
+        uploaded_file = st.file_uploader("Téléverser la base client (XLSX, XLS, CSV)", type=['xlsx', 'xls', 'csv'], key="crm_up")
 
 with tab_list:
     col_s1, col_s2 = st.columns([2, 1])
