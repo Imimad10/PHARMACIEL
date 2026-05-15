@@ -68,11 +68,18 @@ def generate_cover_pdf(fournisseur, date_recep, nb_factures, observation, model=
     
     pdf.ln(5)
     
-    # Fournisseur (Très Gros)
-    pdf.set_font("Arial", 'B', 60)
-    pdf.cell(0, 45, fournisseur.upper()[:25], ln=True, align='C')
+    # Fournisseur (Dynamique selon longueur)
+    name_clean = fournisseur.upper().strip()
+    f_size = 65
+    if len(name_clean) > 15: f_size = 55
+    if len(name_clean) > 25: f_size = 40
+    if len(name_clean) > 35: f_size = 30
     
-    pdf.ln(10)
+    pdf.set_font("Arial", 'B', f_size)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(0, 40, name_clean, ln=True, align='C')
+    
+    pdf.ln(5)
     
     # Date et Détails
     pdf.set_font("Arial", 'B', 30)
@@ -85,7 +92,7 @@ def generate_cover_pdf(fournisseur, date_recep, nb_factures, observation, model=
         
     # Observation (En bas)
     if observation:
-        pdf.ln(10)
+        pdf.ln(5)
         pdf.set_font("Arial", 'I', 18)
         pdf.set_text_color(100, 100, 100)
         pdf.multi_cell(0, 10, f"Observation: {observation}", align='C')
