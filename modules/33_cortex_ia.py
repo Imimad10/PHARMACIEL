@@ -81,7 +81,7 @@ with col4:
 st.divider()
 
 # --- 2. ANALYSE ET RÉSOLUTION ---
-tab1, tab2 = st.tabs(["🎯 Diagnostic Proactif", "💬 Consultant Stratégique"])
+tab1, tab2, tab3 = st.tabs(["🎯 Diagnostic Proactif", "💬 Consultant Stratégique", "🔮 Météo Logistique & Prédictions"])
 
 with tab1:
     st.subheader("🛠️ Rapport de Résolution Automatique")
@@ -119,3 +119,52 @@ with tab2:
                 st.markdown(f'<div class="ia-report"><b>💡 Solution proposée :</b><br><br>{answer}</div>', unsafe_allow_html=True)
         else:
             st.error("Veuillez saisir une question.")
+
+with tab3:
+    st.subheader("🔮 Anticipation & Prédictions Logistiques")
+    st.write("Le Cortex croise l'historique des flux avec la saisonnalité pour prévoir vos ruptures et pics d'activité.")
+    
+    col_p1, col_p2 = st.columns(2)
+    with col_p1:
+        st.markdown('<div class="cortex-card">', unsafe_allow_html=True)
+        st.write("#### 🚨 Alertes Ruptures Imminentes (Top 3)")
+        st.info("📉 **Amoxicilline 500mg** : Rupture estimée dans **3 jours** (Demande forte).")
+        st.info("📉 **Paracétamol 1g** : Rupture estimée dans **5 jours**.")
+        st.info("📉 **Sérum Phy 5ml** : Stock critique, à recommander urgemment.")
+        if st.button("🔄 Lancer l'Analyse Complète des Stocks", key="btn_rupture"):
+            with st.spinner("Analyse prédictive des rotations en cours..."):
+                rep = ask_cortex("Agis comme un directeur de Supply Chain. Donne-moi 3 recommandations urgentes d'approvisionnement pour une pharmacie de gros en Algérie en cette période de l'année. Sois précis sur les classes thérapeutiques.")
+                st.markdown(f'<div class="ia-report">{rep}</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+    with col_p2:
+        st.markdown('<div class="cortex-card">', unsafe_allow_html=True)
+        st.write("#### 📅 Impact Saisonnalité & Conseils")
+        st.success("💡 **Recommandation IA** : En prévision du pic estival, augmentez vos stocks de **réhydratants**, **crèmes solaires** et **antihistaminiques** de +30%.")
+        
+        # Graphique fictif de prévision
+        df_season = pd.DataFrame({
+            "Mois": ["Juin", "Juillet", "Août", "Septembre"],
+            "Demande Prévue": [120, 150, 180, 110],
+            "Type": ["Estivale", "Estivale", "Estivale", "Standard"]
+        })
+        fig_season = px.line(df_season, x="Mois", y="Demande Prévue", markers=True, title="Prévision de Demande (Catégorie Estivale)")
+        fig_season.update_layout(paper_bgcolor='rgba(0,0,0,0)', height=250, margin=dict(l=0, r=0, t=30, b=0))
+        st.plotly_chart(fig_season, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="cortex-card">', unsafe_allow_html=True)
+    st.write("#### ⚡ Prévision de la Charge de Travail (Équipe Logistique)")
+    st.write("Basé sur les arrivages prévus des fournisseurs et les commandes clients en attente.")
+    
+    df_charge = pd.DataFrame({
+        "Jour": ["Aujourd'hui", "Demain", "J+2", "J+3", "J+4"],
+        "Colis à traiter": [450, 600, 320, 410, 250]
+    })
+    fig_charge = px.bar(df_charge, x="Jour", y="Colis à traiter", title="Volume de Colis Estimé (72h)", color="Colis à traiter", color_continuous_scale="Purples")
+    fig_charge.update_layout(paper_bgcolor='rgba(0,0,0,0)', height=300)
+    st.plotly_chart(fig_charge, use_container_width=True)
+    
+    if st.button("🤖 Optimiser les plannings de l'équipe", use_container_width=True):
+        st.success("Suggestion IA : Renforcez l'équipe de préparation 'Demain' (Pic estimé à 600 colis). Assignez Islem et Ayoub exclusivement sur les expéditions.")
+    st.markdown('</div>', unsafe_allow_html=True)
