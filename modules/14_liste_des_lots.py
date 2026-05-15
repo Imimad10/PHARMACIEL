@@ -1,10 +1,11 @@
-# --- 1. CONFIGURATION ---
-from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui, DB_USERS_WORKSHEET, DB_USERS_FALLBACK
-from utils_ia import ask_ai, is_ia_enabled
-
+import streamlit as st
 import os
 import unicodedata
 from datetime import datetime
+from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui, DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+from utils_ia import ask_ai, is_ia_enabled
+
+# --- 1. CONFIGURATION ---
 DATA_DIR = "data_inventaire_detail"
 MASTER_WORKSHEET = "Master_Inventaire_Zone"
 MASTER_FALLBACK = os.path.join(DATA_DIR, "master_detail.csv")
