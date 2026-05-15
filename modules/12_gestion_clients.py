@@ -194,18 +194,22 @@ with tab_list:
                             st.rerun()
 
 with tab_add:
-    st.subheader("Nouvelle fiche client")
+    st.subheader("💊 Nouvelle fiche Professionnelle")
     with st.form("form_add_client"):
         c1, c2 = st.columns(2)
-        nom = c1.text_input("Nom de la Pharmacie", placeholder="Ex: Pharmacie du Progrès")
-        gerant = c2.text_input("Gérant (Nom complet)")
-        ville = c1.selectbox("Ville", ["Alger", "Oran", "Constantine", "Sétif", "Annaba", "Blida", "Tizi Ouzou", "Autre..."])
-        adresse = c2.text_input("Adresse précise")
-        tel = c1.text_input("Téléphone")
-        email = c2.text_input("Email")
-        status = st.selectbox("Type de Client", ["Privé", "Étatique", "Grossiste", "Particulier"])
+        nom = c1.text_input("Nom de l'Établissement", placeholder="Ex: Pharmacie Centrale")
+        gerant = c2.text_input("Pharmacien Directeur / Gérant")
         
-        if st.form_submit_button("✅ Enregistrer le Client", use_container_width=True, type="primary"):
+        ville = c1.selectbox("Wilaya / Ville", ["Alger", "Oran", "Constantine", "Sétif", "Annaba", "Blida", "Tizi Ouzou", "Batna", "Autre..."])
+        adresse = c2.text_input("Adresse (Rue, Quartier)")
+        
+        tel = c1.text_input("Téléphone (Fixe/Mobile)")
+        email = c2.text_input("Email Professionnel")
+        
+        # Mise à jour des types selon la demande utilisateur
+        status = st.selectbox("Type d'Établissement", ["Officine (Pharmacie)", "Grossiste Répartiteur", "Parapharmacie", "Laboratoire", "Autre"])
+        
+        if st.form_submit_button("✅ Enregistrer dans le Réseau", use_container_width=True, type="primary"):
             if nom and gerant:
                 new_row = {
                     "ID": len(df_clients) + 1,
@@ -221,31 +225,38 @@ with tab_add:
                 }
                 df_clients = pd.concat([df_clients, pd.DataFrame([new_row])], ignore_index=True)
                 save_gs_data(df_clients, WORKSHEET_NAME, FALLBACK_PATH)
-                st.success("Client ajouté !")
+                st.success(f"✅ {status} ajouté avec succès !")
                 st.rerun()
             else:
-                st.error("Nom et Gérant obligatoires.")
+                st.error("Le Nom et le Gérant sont obligatoires.")
 
 with tab_ia:
-    st.subheader("🛠️ Enrichissement IA du CRM")
-    st.info("L'IA peut scanner le web et ses bases pour compléter les informations manquantes (Tél, Coordonnées, etc.)")
+    st.subheader("🧠 Intelligence Artificielle Pharmaceutique")
+    st.info("L'IA DarPharm analyse le secteur pour compléter les fiches techniques de vos clients.")
     
-    target_client = st.selectbox("Choisir un client à enrichir :", df_clients['Nom_Pharmacie'].tolist(), key="ia_crm_select")
+    target_client = st.selectbox("Sélectionner l'établissement à enrichir :", df_clients['Nom_Pharmacie'].tolist(), key="ia_crm_select")
     
-    if st.button("🧠 Rechercher et Compléter avec l'IA", use_container_width=True, type="primary"):
+    if st.button("🔍 Lancer l'analyse sectorielle", use_container_width=True, type="primary"):
         client_data = df_clients[df_clients['Nom_Pharmacie'] == target_client].iloc[0]
-        with st.spinner("L'IA recherche les informations..."):
-            prompt = f"""Tu es un assistant CRM expert. Je veux compléter la fiche de la pharmacie : 
+        with st.spinner("Recherche dans les bases pharmaceutiques..."):
+            prompt = f"""Tu es un expert du marché pharmaceutique algérien. 
+            Je veux compléter les informations pour l'établissement suivant : 
             Nom: {client_data['Nom_Pharmacie']}
-            Ville: {client_data['Ville']}
-            Adresse: {client_data['Adresse']}
+            Type: {client_data['Statut']}
+            Localisation: {client_data['Ville']}, {client_data['Adresse']}
             
-            Recherche ou déduis les informations suivantes si elles sont manquantes :
-            - Numéro de téléphone (format algérien)
-            - Coordonnées GPS (Latitude, Longitude)
-            - Email de contact
+            Recherche spécifiquement :
+            1. Le numéro de téléphone professionnel.
+            2. Les coordonnées GPS précises pour la logistique (lat, lon).
+            3. L'email de contact.
             
-            Réponds uniquement sous format JSON : 
+            Réponds uniquement sous format JSON strict : 
+            {{
+              "Telephone": "...",
+              "Coordonnees": "lat, lon",
+              "Email": "..."
+            }}"""
+
             {{
               "Telephone": "...",
               "Coordonnees": "lat, lon",
