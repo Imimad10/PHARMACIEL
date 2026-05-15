@@ -189,11 +189,17 @@ with tabs[0]:
                         
                         try:
                             res_raw = ask_ai_vision(prompt, img_str)
-                            # Nettoyage JSON si markdown présent
-                            if "```json" in res_raw: res_raw = res_raw.split("```json")[1].split("```")[0].strip()
-                            elif "```" in res_raw: res_raw = res_raw.split("```")[1].split("```")[0].strip()
                             
-                            data = json.loads(res_raw)
+                            if res_raw.startswith("⚠️") or res_raw.startswith("Erreur"):
+                                raise ValueError(res_raw)
+                                
+                            # Extraction robuste du JSON
+                            import re
+                            json_match = re.search(r'\{.*\}', res_raw, re.DOTALL)
+                            if not json_match:
+                                raise ValueError(f"Aucun JSON trouvé dans la réponse: {res_raw[:100]}...")
+                                
+                            data = json.loads(json_match.group(0))
                             
                             # Matching Base Système si activé
                             if "Base Système" in ia_mode:
