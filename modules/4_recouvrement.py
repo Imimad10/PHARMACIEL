@@ -11,18 +11,19 @@ from utils_ia import ask_ai, is_ia_enabled
 import gspread
 from google.oauth2.service_account import Credentials
 
+from utils_gsheets import (
+    load_gs_data, save_gs_data, show_sync_ui, 
+    get_gs_client, get_gs_url, GS_CREDS_PATH, GS_CONFIG_PATH
+)
+
 # --- CONFIGURATION ET CHEMINS ---
 DATA_RECOUV = "data_recouvrement.csv"
 DATA_CLIENTS = "base_clients.csv"
 COLS_RECOUV = ["Client", "Facture", "Date", "Montant Initial", "Montant Réglé", "Reste à payer", "Mode Paiement", "Livreur", "Région", "Statut", "Commentaires"]
 COLS_CLIENTS = ["Nom Client", "Secteur"]
 STATUS_OPTIONS = ["En attente", "Partiel", "Réglé", "Clôturé", "Annulé", "Litige"]
-GS_CREDS_PATH = "google_creds.json"
-GS_CONFIG_PATH = "gs_config.txt"
 RECOUV_MAPPING_PATH = "data_recouvrement_mapping.csv"
 RECOUV_MAPPING_WORKSHEET = "Recouv_Mapping"
-
-from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui, get_gs_client, get_gs_url, GS_CREDS_PATH, GS_CONFIG_PATH
 
 st.set_page_config(page_title="Recouvrement Pharmaciel", layout="wide")
 show_sync_ui("Recouvrement", DATA_RECOUV, COLS_RECOUV)
@@ -62,7 +63,6 @@ def get_livreur(region_val):
                 return str(match_map.iloc[0]["Livreur"]).strip().upper()
 
         # 2. Fallback sur la base Livreurs générale
-        from utils_gsheets import load_gs_data
         df_livreurs = load_gs_data("Livreurs", "data_expedition/livreurs.csv", ["Nom", "Prénom", "Téléphone", "Secteur"])
         if not df_livreurs.empty:
             match = df_livreurs[df_livreurs["Secteur"].astype(str).str.strip().str.upper() == reg]
@@ -616,7 +616,6 @@ with tabs[5]:
     # Chargement des bases
     df_map = load_gs_data(RECOUV_MAPPING_WORKSHEET, RECOUV_MAPPING_PATH, ["Région", "Livreur"])
     df_clients_db = load_data(DATA_CLIENTS, COLS_CLIENTS)
-    from utils_gsheets import load_gs_data
     df_liv_db = load_gs_data("Livreurs", "data_expedition/livreurs.csv", ["Nom", "Secteur"])
     
     regions_list = sorted(df_clients_db["Secteur"].dropna().unique().tolist()) if not df_clients_db.empty else []
@@ -706,7 +705,7 @@ with tabs[5]:
         c_mig3, c_mig4 = st.columns(2)
         if c_mig3.button("🚚 Migrer Livreurs", use_container_width=True):
             import importlib.util
-            spec = importlib.util.spec_from_file_location("expedition", "pages/1_expedition.py")
+            spec = importlib.util.spec_from_file_location("expedition", "modules/1_expedition.py")
             exp_mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(exp_mod)
             with st.spinner("Migration..."):
@@ -716,7 +715,7 @@ with tabs[5]:
 
         if c_mig4.button("🗺️ Migrer Secteurs/Clients Logistique", use_container_width=True):
             import importlib.util
-            spec = importlib.util.spec_from_file_location("expedition", "pages/1_expedition.py")
+            spec = importlib.util.spec_from_file_location("expedition", "modules/1_expedition.py")
             exp_mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(exp_mod)
             with st.spinner("Migration..."):
@@ -742,7 +741,7 @@ with tabs[5]:
     with col_sync2:
         if st.session_state.current_user.get('role') == 'Admin':
             if st.button("🚀 Aller à l'Administration Centrale", use_container_width=True):
-                st.switch_page("pages/0_admin_centrale.py")
+                st.switch_page("modules/0_admin_centrale.py")
         else:
             st.warning("Accès Admin Centrale restreint.")
 

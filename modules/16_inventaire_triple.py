@@ -9,7 +9,6 @@ import difflib
 import re
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Inventaire Triple Pro - Pharmaciel", layout="wide")
 
 from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui
 

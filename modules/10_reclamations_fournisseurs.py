@@ -19,7 +19,6 @@ os.makedirs(PHOTO_DIR, exist_ok=True)
 
 COLUMNS = ["Date", "Heure", "Facture", "Fournisseur", "Agent", "Produit", "Lot", "Quantite", "Type", "Priorite", "Statut", "Commentaire", "Photo_Path", "Date_Resolution", "IA_Analyse"]
 
-st.set_page_config(page_title="Litiges Fournisseurs", layout="wide", page_icon="📦")
 show_sync_ui(WORKSHEET_NAME, FALLBACK_PATH, COLUMNS)
 
 # --- CHARGEMENT DES DONNÉES ---

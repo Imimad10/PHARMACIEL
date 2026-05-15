@@ -74,7 +74,6 @@ st.divider()
 # 1. COLLECTE DES KPIs DE TOUS LES MODULES
 # ═══════════════════════════════════════════
 @st.cache_data(ttl=60)  # Rafraîchissement auto toutes les 60 secondes
-@st.cache_data(ttl=60)  # Rafraîchissement auto toutes les 60 secondes
 def collect_all_kpis():
     kpis = {}
     now = datetime.now()

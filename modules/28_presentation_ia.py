@@ -9,7 +9,6 @@ from utils_ia import ask_ai, is_ia_enabled
 from utils_gsheets import load_gs_data
 
 # --- CONFIGURATION PAGE ---
-st.set_page_config(page_title="DarPharm Keynote Engine", layout="wide", initial_sidebar_state="collapsed")
 
 # --- CSS: EBLOUISSANTES TRANSITIONS & ANIMATIONS ---
 st.markdown("""
