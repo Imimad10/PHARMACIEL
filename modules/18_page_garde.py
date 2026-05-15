@@ -35,9 +35,16 @@ def generate_cover_pdf(fournisseur, date_recep, nb_factures, observation, model=
         pdf.rect(12, 12, 273, 186)
 
     # Entête DarPharm & Logo
-    pdf.set_font("Arial", 'B', 15)
-    pdf.set_text_color(*theme_color)
+    turquoise = (0, 157, 196)
+    pdf.set_font("Arial", 'B', 18)
+    pdf.set_text_color(*turquoise)
     pdf.set_xy(15, 15)
+    
+    # Logo Société DarPharm
+    if os.path.exists("logo.png"):
+        pdf.image("logo.png", x=15, y=12, w=25)
+        pdf.set_xy(45, 18)
+    
     pdf.cell(0, 10, "DARPHARM SOLUTION", ln=True, align='L')
     
     # Affichage du logo fournisseur en haut à droite s'il existe
@@ -51,44 +58,39 @@ def generate_cover_pdf(fournisseur, date_recep, nb_factures, observation, model=
         except Exception:
             pass
 
-    pdf.ln(15)
+    pdf.ln(30) # Espace après entête
     
     # Badge Urgent
     if model == "Urgent / Alerte":
-        pdf.set_font("Arial", 'B', 40)
+        pdf.set_font("Arial", 'B', 45)
         pdf.set_text_color(255, 75, 75)
-        pdf.cell(0, 20, "!!! URGENT !!!", ln=True, align='C')
-    
-    pdf.ln(10)
-    
-    # Titre Central
-    pdf.set_font("Arial", 'B', 40)
-    pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 30, "PAGE DE GARDE RÉCEPTION", ln=True, align='C')
-    
-    pdf.ln(5)
+        pdf.cell(0, 25, "!!! URGENT !!!", ln=True, align='C')
+        pdf.ln(10)
     
     # Fournisseur (Dynamique selon longueur)
     name_clean = fournisseur.upper().strip()
-    f_size = 65
+    f_size = 70
     if len(name_clean) > 15: f_size = 55
     if len(name_clean) > 25: f_size = 40
     if len(name_clean) > 35: f_size = 30
     
     pdf.set_font("Arial", 'B', f_size)
     pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 40, name_clean, ln=True, align='C')
+    pdf.cell(0, 50, name_clean, ln=True, align='C')
     
-    pdf.ln(5)
+    pdf.ln(10)
     
-    # Date et Détails
-    pdf.set_font("Arial", 'B', 30)
-    pdf.set_text_color(*theme_color)
-    pdf.cell(135, 20, f"DATE: {date_recep}", ln=False, align='L')
+    # Date (Centrée, sans le mot "Date")
+    pdf.set_font("Arial", 'B', 35)
+    pdf.set_text_color(*turquoise)
+    pdf.cell(0, 25, date_recep, ln=True, align='C')
+    
+    # Détails Facturation (Si présents)
     if nb_factures:
-        pdf.cell(135, 20, f"FACTURATIONS: {nb_factures}", ln=True, align='R')
-    else:
-        pdf.ln(20)
+        pdf.ln(5)
+        pdf.set_font("Arial", 'B', 20)
+        pdf.set_text_color(100, 100, 100)
+        pdf.cell(0, 15, f"NOMBRE DE FACTURES : {nb_factures}", ln=True, align='C')
         
     # Observation (En bas)
     if observation:
@@ -99,7 +101,7 @@ def generate_cover_pdf(fournisseur, date_recep, nb_factures, observation, model=
 
     # Pied de page (Forcé sur la page 1)
     pdf.set_auto_page_break(auto=False)
-    pdf.set_y(-15)
+    pdf.set_y(-35) # Plus haut
     pdf.set_font("Arial", '', 10)
     pdf.set_text_color(150, 150, 150)
     pdf.cell(0, 10, f"Généré par DarPharm Solutions le {datetime.now().strftime('%d/%m/%Y à %H:%M')}", align='C')
