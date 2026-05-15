@@ -3,11 +3,16 @@ import pandas as pd
 from datetime import datetime
 from fpdf import FPDF
 import io
+import os
+import base64
+import tempfile
+import requests
+from utils_gsheets import load_gs_data, save_gs_data
 
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Générateur de Page de Garde", layout="centered", page_icon="📄")
 
-def generate_cover_pdf(fournisseur, date_recep, nb_factures, observation, model="Classique"):
+def generate_cover_pdf(fournisseur, date_recep, nb_factures, observation, model="Classique", logo_b64=""):
     # Création du PDF en orientation paysage (L)
     pdf = FPDF(orientation='L', unit='mm', format='A4')
     pdf.add_page()
@@ -29,12 +34,24 @@ def generate_cover_pdf(fournisseur, date_recep, nb_factures, observation, model=
         pdf.set_line_width(0.5)
         pdf.rect(12, 12, 273, 186)
 
-    # Logo / Nom Entreprise
-    pdf.set_font("Arial", 'B', 20)
+    # Entête DarPharm & Logo
+    pdf.set_font("Arial", 'B', 15)
     pdf.set_text_color(*theme_color)
-    pdf.cell(0, 15, "DARPHARM SOLUTION", ln=True, align='L')
+    pdf.set_xy(15, 15)
+    pdf.cell(0, 10, "DARPHARM SOLUTION", ln=True, align='L')
     
-    pdf.ln(10)
+    # Affichage du logo fournisseur en haut à droite s'il existe
+    if logo_b64 and logo_b64 != "nan":
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+                tmp.write(base64.b64decode(logo_b64))
+                tmp_path = tmp.name
+            pdf.image(tmp_path, x=240, y=15, w=40)
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+
+    pdf.ln(15)
     
     # Badge Urgent
     if model == "Urgent / Alerte":
@@ -49,11 +66,11 @@ def generate_cover_pdf(fournisseur, date_recep, nb_factures, observation, model=
     pdf.set_text_color(0, 0, 0)
     pdf.cell(0, 30, "PAGE DE GARDE RÉCEPTION", ln=True, align='C')
     
-    pdf.ln(10)
+    pdf.ln(5)
     
     # Fournisseur (Très Gros)
-    pdf.set_font("Arial", 'B', 70)
-    pdf.cell(0, 45, fournisseur.upper(), ln=True, align='C')
+    pdf.set_font("Arial", 'B', 60)
+    pdf.cell(0, 45, fournisseur.upper()[:25], ln=True, align='C')
     
     pdf.ln(10)
     
@@ -79,7 +96,6 @@ def generate_cover_pdf(fournisseur, date_recep, nb_factures, observation, model=
     pdf.set_text_color(150, 150, 150)
     pdf.cell(0, 10, f"Généré par Pharmaciel Pro le {datetime.now().strftime('%d/%m/%Y à %H:%M')}", align='C')
 
-    # On gère les différentes versions de FPDF (dest='S' ou retour direct)
     try:
         raw = pdf.output(dest='S')
     except:
@@ -89,11 +105,16 @@ def generate_cover_pdf(fournisseur, date_recep, nb_factures, observation, model=
         return raw.encode('latin-1', 'replace')
     return bytes(raw)
 
+
+# --- CHARGEMENT DES DONNÉES ---
+df_fournisseurs = load_gs_data("DB_Fournisseurs", "data/db_fournisseurs.csv", ["Etablissement", "Wilaya", "Activité", "Logo"])
+fourn_list = sorted(df_fournisseurs['Etablissement'].dropna().unique().tolist()) if not df_fournisseurs.empty else []
+
 # --- INTERFACE ---
 st.markdown("""
     <div style="text-align: center; padding: 20px;">
         <h1 style="color: #5b6cf9; font-weight: 900;">📄 Générateur de Page de Garde</h1>
-        <p style="color: #64748b;">Créez instantanément une couverture pour vos dossiers de factures physiques.</p>
+        <p style="color: #64748b;">Créez instantanément une couverture avec logo pour vos dossiers de factures.</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -101,7 +122,12 @@ with st.container(border=True):
     col1, col2 = st.columns(2)
     
     with col1:
-        fourn = st.text_input("🏢 Nom du Fournisseur / Laboratoire", placeholder="Ex: SANOFI, BIOPHARM...")
+        choix_fourn = st.selectbox("🏢 Nom du Fournisseur / Laboratoire", ["-- Nouveau / Saisie Manuelle --"] + fourn_list)
+        if choix_fourn == "-- Nouveau / Saisie Manuelle --":
+            fourn = st.text_input("Saisissez le nom manuellement")
+        else:
+            fourn = choix_fourn
+            
         date_rec = st.date_input("📅 Date de Réception", value=datetime.now())
         
     with col2:
@@ -111,14 +137,62 @@ with st.container(border=True):
 
     st.divider()
     
-    if fourn:
-        pdf_bytes = generate_cover_pdf(fourn, date_rec.strftime("%d/%m/%Y"), nb_fac, obs, model=model_sel)
+    # --- GESTION DU LOGO ---
+    st.subheader("🖼️ Identité Visuelle (Logo)")
+    logo_base64 = ""
+    
+    if fourn and not df_fournisseurs.empty and fourn in df_fournisseurs['Etablissement'].values:
+        row = df_fournisseurs[df_fournisseurs['Etablissement'] == fourn].iloc[0]
+        logo_base64 = str(row.get("Logo", ""))
+        if logo_base64.lower() == 'nan': logo_base64 = ""
+
+    col_l1, col_l2 = st.columns([1, 2])
+    with col_l1:
+        if logo_base64:
+            st.image(f"data:image/png;base64,{logo_base64}", width=150, caption="Logo enregistré")
+        else:
+            st.info("Aucun logo pour le moment.")
+            
+    with col_l2:
+        img_up = st.file_uploader("📥 Glissez une image (Drag & Drop)", type=["png", "jpg", "jpeg"])
+        img_url = st.text_input("🔗 Ou collez l'URL d'une image (ex: https://...)")
         
-        st.success(f"✅ Modèle '{model_sel}' prêt !")
+        new_logo_b64 = ""
+        if img_up:
+            new_logo_b64 = base64.b64encode(img_up.read()).decode()
+        elif img_url:
+            try:
+                resp = requests.get(img_url, timeout=5)
+                if resp.status_code == 200:
+                    new_logo_b64 = base64.b64encode(resp.content).decode()
+            except:
+                st.error("Impossible de récupérer l'image depuis ce lien.")
+                
+        if new_logo_b64:
+            st.image(f"data:image/png;base64,{new_logo_b64}", width=80, caption="Aperçu du nouveau logo")
+            if st.button("💾 Sauvegarder ce Logo en Base de Données", type="primary"):
+                if not df_fournisseurs.empty and fourn in df_fournisseurs['Etablissement'].values:
+                    df_fournisseurs.loc[df_fournisseurs['Etablissement'] == fourn, 'Logo'] = new_logo_b64
+                else:
+                    new_row = {"Etablissement": fourn, "Wilaya": "", "Activité": "", "Logo": new_logo_b64}
+                    df_fournisseurs = pd.concat([df_fournisseurs, pd.DataFrame([new_row])])
+                
+                save_gs_data(df_fournisseurs, "DB_Fournisseurs", "data/db_fournisseurs.csv")
+                st.success("✅ Logo sauvegardé avec succès ! Il sera réutilisé automatiquement.")
+                st.rerun()
+
+    # Le logo final utilisé pour le PDF est soit le nouveau (non sauvegardé encore, mais uploadé), soit celui en base
+    final_logo_b64 = new_logo_b64 if new_logo_b64 else logo_base64
+
+    st.divider()
+    
+    if fourn:
+        pdf_bytes = generate_cover_pdf(fourn, date_rec.strftime("%d/%m/%Y"), nb_fac, obs, model=model_sel, logo_b64=final_logo_b64)
+        
         st.download_button(
-            label=f"📥 Télécharger Page de Garde ({model_sel})",
+            label=f"📥 Télécharger la Page de Garde",
             data=pdf_bytes,
-            file_name=f"PageGarde_{model_sel}_{fourn}_{date_rec}.pdf",
+            file_name=f"PageGarde_{fourn}_{date_rec}.pdf",
             mime="application/pdf",
             type="primary",
             use_container_width=True
@@ -139,12 +213,15 @@ with st.container(border=True):
         elif model_sel == "Moderne / Chic":
             preview_border = "3px solid #e94560"
             preview_color = "#e94560"
+            
+        logo_html = f'<img src="data:image/png;base64,{final_logo_b64}" style="position:absolute; top:20px; right:20px; width:80px; object-fit:contain;">' if final_logo_b64 else ''
 
         html_preview = f"""
-            <div style="border: {preview_border}; border-radius: 10px; padding: 40px; background: white; text-align: center; margin-top: 20px;">
+            <div style="position:relative; border: {preview_border}; border-radius: 10px; padding: 40px; background: white; text-align: center; margin-top: 20px;">
+                {logo_html}
                 <h3 style="color: #64748b; margin: 0; font-family: sans-serif;">APERÇU DU MODÈLE</h3>
                 {urgent_badge}
-                <h1 style="font-size: 55px; margin: 20px 0; color: black; font-family: sans-serif;">{fourn.upper()}</h1>
+                <h1 style="font-size: 50px; margin: 20px 0; color: black; font-family: sans-serif;">{fourn.upper()[:25]}</h1>
                 <h2 style="color: {preview_color}; font-family: sans-serif;">{date_rec.strftime("%d/%m/%Y")}</h2>
             </div>
         """

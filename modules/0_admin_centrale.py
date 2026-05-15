@@ -40,9 +40,36 @@ with tabs[0]:
     st.subheader("🚀 Importation Centralisée")
     st.info("Déposez un fichier Excel contenant vos données. Le système détectera automatiquement s'il s'agit de clients, de livreurs ou de secteurs.")
     
-    f_up = st.file_uploader("Fichier Master Data (Excel)", type=["xlsx"])
+    f_up = st.file_uploader("Fichier Master Data (Excel ou PDF Fournisseurs)", type=["xlsx", "pdf"])
     if f_up:
-        df_up = pd.read_excel(f_up)
+        target = None
+        mapping = {}
+        
+        if f_up.name.endswith(".pdf"):
+            import pdfplumber
+            st.info("Traitement du PDF en cours... Extraction des données des établissements de fabrication.")
+            try:
+                extracted_data = []
+                with pdfplumber.open(f_up) as pdf:
+                    for page in pdf.pages:
+                        table = page.extract_table()
+                        if table:
+                            for row in table:
+                                # On cherche les lignes qui ressemblent à la table officielle (N°, Etablissement, Wilaya, Activité)
+                                if row and len(row) >= 4 and str(row[0]).strip().isdigit():
+                                    extracted_data.append({
+                                        "Etablissement": str(row[1]).replace('\n', ' ').strip() if row[1] else "",
+                                        "Wilaya": str(row[2]).replace('\n', ' ').strip() if row[2] else "",
+                                        "Activité": str(row[3]).replace('\n', ' ').strip() if row[3] else ""
+                                    })
+                df_up = pd.DataFrame(extracted_data)
+                target = "Fournisseurs"
+                mapping = {"Etablissement": "Etablissement", "Wilaya": "Wilaya", "Activité": "Activité"}
+            except Exception as e:
+                st.error(f"Erreur lors de la lecture du PDF : {e}")
+                df_up = pd.DataFrame()
+        else:
+            df_up = pd.read_excel(f_up)
         
         # Détection automatique du type de données
         cols = [str(c).strip() for c in df_up.columns.tolist()]
@@ -92,7 +119,12 @@ with tabs[0]:
             mapping.update({c: "ppa" for c in cols if c.lower() in ["ppa", "prix public", "prix"]})
             mapping.update({c: "shp" for c in cols if c.lower() in ["shp", "tarif"]})
         
-        st.write("**Aperçu des données :**")
+        elif not target:
+            # Si le fichier était un Excel mais sans colonnes reconnues
+            pass
+        
+        if not df_up.empty:
+            st.write("**Aperçu des données :**")
         st.dataframe(df_up.head(5), use_container_width=True)
         
         if target:
@@ -108,10 +140,24 @@ with tabs[0]:
                 db_path, db_cols, key = DB_USERS_FALLBACK, ["username", "password", "role", "pages", "nom", "prenom", "zone"], "username"
             elif target == "Master_Inventaire_Zone":
                 db_path, db_cols, key = "data_inventaire_detail/master_detail.csv", ["depot", "zone", "produit", "lot", "qte_logi", "colissage", "ddp", "ppa", "shp"], "lot"
+            elif target == "Fournisseurs":
+                db_path, db_cols, key = "data/db_fournisseurs.csv", ["Etablissement", "Wilaya", "Activité", "Logo"], "Etablissement"
             else:
                 db_path, db_cols, key = DATA_SECTEURS, COLS_SECTEURS, "Client"
 
-            if st.button(f"📥 Fusionner avec la base {target}", type="primary", use_container_width=True):
+            if target == "Fournisseurs":
+                if st.button(f"📥 Fusionner avec la base {target}", type="primary", use_container_width=True):
+                    df_old = load_gs_data(target, db_path, db_cols)
+                    
+                    df_merged = df_up.copy()
+                    df_merged["Logo"] = ""
+                    
+                    # On concatène en gardant les nouveaux s'il y a conflit
+                    df_final = pd.concat([df_old, df_merged]).drop_duplicates(subset=[key], keep='last')
+                    save_gs_data(df_final, "DB_Fournisseurs", db_path)
+                    st.success(f"{len(df_final)} fournisseurs sauvegardés avec succès ! ✅")
+                    
+            elif st.button(f"📥 Fusionner avec la base {target}", type="primary", use_container_width=True):
                 # On renomme intelligemment pour éviter les colonnes en double
                 new_cols = []
                 mapped_targets = set()
