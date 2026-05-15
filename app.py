@@ -887,13 +887,21 @@ st.markdown("""
             font-size: 1rem !important;
             font-weight: 600 !important;
             color: var(--sidebar-text-color, #4a5568) !important;
-            padding: 8px 12px !important;
+            padding: 10px 15px !important;
             border-radius: 8px !important;
-            margin: 2px 0 !important;
-            display: block !important;
+            margin: 4px 0 !important;
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            white-space: nowrap !important;
+            text-decoration: none !important;
         }
         [data-testid="stSidebar"] a:hover {
             background: rgba(0,0,0,0.03) !important;
+        }
+        /* Fix for vertical text in sidebar icons/labels */
+        [data-testid="stSidebar"] span {
+            white-space: nowrap !important;
         }
     </style>
 """, unsafe_allow_html=True)
