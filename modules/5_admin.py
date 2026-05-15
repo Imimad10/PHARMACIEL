@@ -274,8 +274,20 @@ with tabs[1]:
     if is_admin:
         df_roles_edit = load_gs_data(DB_ROLES_WORKSHEET, DB_ROLES_FALLBACK, COLS_ROLES)
         if not df_roles_edit.empty:
+            # --- SYNCHRONISATION FORCÉE AVEC GOLDEN METIERS ---
+            # Supprimer les anciens noms de métiers obsolètes (ex: "stock")
+            df_roles_edit = df_roles_edit[df_roles_edit['role_name'].isin(GOLDEN_METIERS.keys())].copy()
+            
+            # Ajouter les métiers manquants de la Charte
+            for m in GOLDEN_METIERS.keys():
+                if m not in df_roles_edit['role_name'].values:
+                    perms = PAGES_BY_METIER.get(m, "[]")
+                    new_r = pd.DataFrame([{'role_name': m, 'permissions': perms, 'icon': GOLDEN_METIERS[m]['icon'], 'description': ''}])
+                    df_roles_edit = pd.concat([df_roles_edit, new_r], ignore_index=True)
+                    
             df_roles_edit['permissions'] = df_roles_edit['permissions'].apply(parse_list)
-            role_to_edit = st.selectbox("Configurer le métier :", df_roles_edit['role_name'].tolist())
+            
+            role_to_edit = st.selectbox("Configurer le métier :", list(GOLDEN_METIERS.keys()))
             if role_to_edit:
                 r_idx = df_roles_edit[df_roles_edit['role_name'] == role_to_edit].index[0]
                 r_cur = df_roles_edit.loc[r_idx]
