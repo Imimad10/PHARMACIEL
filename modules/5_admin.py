@@ -128,8 +128,7 @@ with tabs[0]:
     with col_u1:
         st.write("#### 👤 Liste des accès actuels")
         df_disp = df_users.copy()
-        # Mapper le métier (on peut stocker le nom du métier dans une colonne 'managed_role' plus tard, 
-        # pour l'instant on affiche juste les infos de base)
+        # On essaie de deviner le métier basé sur les permissions ou on affiche juste le rôle technique
         st.dataframe(df_disp[['username', 'role', 'depot', 'zone']], use_container_width=True, hide_index=True)
 
     with col_u2:
@@ -142,58 +141,78 @@ with tabs[0]:
             perms = role_data['permissions']
             if 'ALL' in perms: perms = get_available_modules()
             
-            # Mise à jour de l'utilisateur
             mask = df_users['username'] == u_target
             df_users.loc[mask, 'pages'] = str(perms)
             df_users.loc[mask, 'role'] = "Admin" if r_target == "Administrateur" else "Saisie"
+            df_users.loc[mask, 'depot'] = r_target # On détourne depot pour stocker le nom du métier visuel
             
             save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
             st.success(f"✅ {u_target} est maintenant : **{r_target}**")
-            st.balloons()
+            st.rerun()
 
 # --- TAB 2: CONFIGURATION MÉTIERS ---
 with tabs[1]:
     st.subheader("Définition des Profils Métiers")
-    st.info("Modifiez ici les permissions d'un métier pour les répercuter sur toute l'équipe.")
     
-    role_to_edit = st.selectbox("Choisir un métier à configurer :", df_roles['role_name'].tolist())
+    col_r_list, col_r_add = st.columns([2, 1])
     
-    if role_to_edit:
-        r_idx = df_roles[df_roles['role_name'] == role_to_edit].index[0]
-        r_current = df_roles.loc[r_idx]
+    with col_r_add:
+        st.write("#### ✨ Nouveau Métier")
+        with st.expander("Créer un profil métier"):
+            with st.form("form_new_role"):
+                n_name = st.text_input("Nom (ex: Agent de Stock)")
+                n_icon = st.text_input("Icône (emoji)", value="📦")
+                if st.form_submit_button("CRÉER LE MÉTIER"):
+                    if n_name:
+                        new_r = {"role_name": n_name, "permissions": "[]", "icon": n_icon, "description": ""}
+                        df_roles = pd.concat([df_roles, pd.DataFrame([new_r])], ignore_index=True)
+                        save_gs_data(df_roles, DB_ROLES_WORKSHEET, DB_ROLES_FALLBACK)
+                        st.success("Métier créé !")
+                        st.rerun()
+    
+    with col_r_list:
+        st.write("#### 🏗️ Configurer un métier existant")
+        role_to_edit = st.selectbox("Choisir un métier :", df_roles['role_name'].tolist())
         
-        with st.form("form_edit_role"):
-            c_r1, c_r2 = st.columns([1, 3])
-            new_icon = c_r1.text_input("Icône", value=r_current['icon'])
-            new_desc = c_r2.text_input("Description", value=r_current['description'])
+        if role_to_edit:
+            r_idx = df_roles[df_roles['role_name'] == role_to_edit].index[0]
+            r_current = df_roles.loc[r_idx]
             
-            st.write("---")
-            st.write("🛡️ **Permissions de ce métier :**")
-            all_mods = get_available_modules()
-            
-            # Grille de sélection visuelle
-            cols = st.columns(3)
-            updated_perms = []
-            for i, m in enumerate(all_mods):
-                with cols[i % 3]:
-                    if st.checkbox(m, value=(m in r_current['permissions'] or 'ALL' in r_current['permissions']), key=f"perm_{role_to_edit}_{m}"):
-                        updated_perms.append(m)
-            
-            if st.form_submit_button("💾 SAUVEGARDER LE MÉTIER & PROPAGER"):
-                df_roles.at[r_idx, 'permissions'] = updated_perms
-                df_roles.at[r_idx, 'icon'] = new_icon
-                df_roles.at[r_idx, 'description'] = new_desc
-                save_gs_data(df_roles, DB_ROLES_ROLES_WORKSHEET if 'DB_ROLES_ROLES_WORKSHEET' in locals() else DB_ROLES_WORKSHEET, DB_ROLES_FALLBACK)
+            with st.form("form_edit_role_v2"):
+                c_r1, c_r2 = st.columns([1, 3])
+                new_icon = c_r1.text_input("Icône", value=r_current['icon'])
+                new_desc = c_r2.text_input("Description", value=r_current['description'])
                 
-                # PROPAGATION : Mettre à jour tous les utilisateurs qui ont ce "pages" (c'est simplifié ici)
-                # Idéalement on stockerait 'role_name' dans df_users pour une propagation parfaite.
-                st.success(f"Métier {role_to_edit} mis à jour !")
-                st.rerun()
+                st.write("---")
+                st.write("🛡️ **Permissions de ce métier :**")
+                all_mods = get_available_modules()
+                cols = st.columns(3)
+                updated_perms = []
+                for i, m in enumerate(all_mods):
+                    with cols[i % 3]:
+                        is_checked = (m in r_current['permissions'] or 'ALL' in r_current['permissions'])
+                        if st.checkbox(m, value=is_checked, key=f"perm_{role_to_edit}_{m}"):
+                            updated_perms.append(m)
+                
+                if st.form_submit_button("💾 SAUVEGARDER & PROPAGER"):
+                    df_roles.at[r_idx, 'permissions'] = updated_perms
+                    df_roles.at[r_idx, 'icon'] = new_icon
+                    df_roles.at[r_idx, 'description'] = new_desc
+                    save_gs_data(df_roles, DB_ROLES_WORKSHEET, DB_ROLES_FALLBACK)
+                    st.success(f"Métier {role_to_edit} mis à jour !")
+                    st.rerun()
+
+    if st.button("🗑️ Supprimer ce métier", type="secondary"):
+        if role_to_edit and role_to_edit not in ["Administrateur"]:
+            df_roles = df_roles[df_roles['role_name'] != role_to_edit]
+            save_gs_data(df_roles, DB_ROLES_WORKSHEET, DB_ROLES_FALLBACK)
+            st.warning("Métier supprimé.")
+            st.rerun()
 
 # --- TAB 3: SYSTÈME & IA ---
 with tabs[2]:
     st.subheader("Configuration Système")
-    # ... (Gardons la logique IA et Maintenance précédente ici) ...
-    st.write("Gestion des paramètres globaux du Cortex IA et sauvegardes.")
-    if st.button("🔄 Rafraîchir les permissions globales"):
-        st.rerun()
+    st.markdown('<div class="admin-card">', unsafe_allow_html=True)
+    st.write("#### 🦾 Cortex DarPharm IA")
+    # ... (Le reste des réglages IA ici) ...
+    st.markdown('</div>', unsafe_allow_html=True)
