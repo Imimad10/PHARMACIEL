@@ -448,7 +448,7 @@ st.markdown("""
 from utils_gsheets import load_gs_data, save_gs_data, DB_USERS_WORKSHEET, DB_USERS_FALLBACK
 
 # Chargement initial des utilisateurs
-USER_COLUMNS = ["username", "password", "role", "pages", "nom", "prenom", "zone", "depot"]
+USER_COLUMNS = ["username", "password", "role", "pages", "nom", "prenom", "zone", "depot", "metier", "sous_metier", "tel"]
 df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, USER_COLUMNS)
 
 # ═══════════════════════════════════════════════════════
@@ -788,9 +788,13 @@ if not isinstance(user_pages, list):
 is_admin = user.get('role') == 'Admin'
 
 if is_admin:
-    for extra_page in ["Cortex IA", "Automatisation", "Liste des Lots", "Répartition Zones", "Analyse Réclamations", "Performance Ventes", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Assistant IA", "Transferts", "Coordination", "Qualité IA", "Mon Coin", "Briefing IA", "Maintenance", "Académie", "Prévisions", "Mode Meeting", "Page de Garde"]:
+    for extra_page in ["Cortex IA", "Automatisation", "Gestion des Accès", "Liste des Lots", "Répartition Zones", "Analyse Réclamations", "Performance Ventes", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Assistant IA", "Transferts", "Coordination", "Qualité IA", "Mon Coin", "Briefing IA", "Maintenance", "Académie", "Prévisions", "Mode Meeting", "Page de Garde"]:
         if extra_page not in user_pages:
             user_pages.append(extra_page)
+
+# Profil toujours accessible à tous les utilisateurs
+if "Profil" not in user_pages:
+    user_pages.append("Profil")
 
 # Dictionnaire de toutes les pages possibles (Key: Nom, Value: Path)
 ALL_PAGES = {
@@ -808,6 +812,7 @@ ALL_PAGES = {
     "Litiges Fournisseurs": st.Page("modules/10_reclamations_fournisseurs.py", title="Litiges Fournisseurs", icon="🏢"),
     "Analyse Rotation": st.Page("modules/11_analyse_rotation.py", title="Analyse Rotation", icon="📈"),
     "Scan Mobile": st.Page("modules/12_mobile_scan.py", title="Scan Mobile", icon="📱"),
+    "Gestion des Accès": st.Page("modules/5_admin.py", title="Gestion des Accès", icon="🛡️"),
     "RH": st.Page("modules/13_rh.py", title="RH & Performance", icon="👥"),
     "RH Planning": st.Page("modules/22_rh_permanence.py", title="RH & Planning (Permanence)", icon="📅"),
     "Clients": st.Page("modules/12_gestion_clients.py", title="Gestion Clients (CRM)", icon="🤝"),

@@ -1,333 +1,361 @@
 import streamlit as st
 import pandas as pd
-import os
-import shutil
-import re
-import ast
+import ast, re
 from utils_gsheets import load_gs_data, save_gs_data, DB_USERS_WORKSHEET, DB_USERS_FALLBACK
 
-# Configuration GSheets
-DB_LOGS_WORKSHEET = "Logs"
-DB_LOGS_FALLBACK = "data/db_logs.csv"
-COLS_LOGS = ["timestamp", "user", "module", "action"]
-
 DB_ROLES_WORKSHEET = "Roles_Config"
-DB_ROLES_FALLBACK = "data/db_roles.csv"
-COLS_ROLES = ["role_name", "permissions", "icon", "description"]
-
+DB_ROLES_FALLBACK  = "data/db_roles.csv"
+COLS_ROLES         = ["role_name","permissions","icon","description"]
 DB_SETTINGS_WORKSHEET = "Settings"
-DB_SETTINGS_FALLBACK = "data/db_settings.csv"
-COLS_SETTINGS = ["name", "value"]
+DB_SETTINGS_FALLBACK  = "data/db_settings.csv"
+COLS_SETTINGS         = ["name","value"]
 
-def get_available_modules():
-    modules = ["Admin Centrale"]
-    try:
-        with open("app.py", "r", encoding="utf-8") as f:
-            content = f.read()
-            match = re.search(r'ALL_PAGES\s*=\s*\{(.*?)\}', content, re.DOTALL)
-            if match:
-                dict_content = match.group(1)
-                keys = re.findall(r'"([^"]+)"\s*:\s*st\.Page', dict_content)
-                for k in keys:
-                    if k not in modules: modules.append(k)
-    except:
-        modules = ["Admin Centrale", "Dashboard", "Logistique", "Inventaire", "Inventaire Détail", "Suivi", "Recouvrement", "Pointage", "Péremptions", "Scanneur QR", "Analyse Rotation", "Scan Mobile", "Liste des Lots", "Répartition Zones", "Analyse Réclamations", "Performance Ventes", "Profil"]
-    return modules
-
-# --- 1. CSS & STYLES ---
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&display=swap');
-    
-    .admin-card {
-        background: rgba(124, 58, 237, 0.04);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(124, 58, 237, 0.15);
-        border-radius: 16px;
-        padding: 24px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-    }
-    
-    .role-card {
-        background: white;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 15px;
-        text-align: center;
-        transition: all 0.3s ease;
-        cursor: pointer;
-    }
-    .role-card:hover { border-color: #7c3aed; box-shadow: 0 10px 15px -3px rgba(124, 58, 237, 0.1); }
-    .role-active { border: 2px solid #7c3aed; background: rgba(124, 58, 237, 0.02); }
-    
-    .stat-val { font-size: 2rem; font-weight: 800; color: #1e293b; }
-    .stat-label { font-size: 0.8rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
-    
-    .module-badge {
-        display: inline-block;
-        padding: 2px 8px;
-        background: #f1f5f9;
-        border-radius: 6px;
-        font-size: 0.7rem;
-        color: #475569;
-        margin: 2px;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# Sécurité
-user = st.session_state.get('current_user')
-if not user or user.get('role') not in ['Admin', 'Superviseur']:
-    st.error("Accès refusé.")
-    st.stop()
-
-is_admin = user.get('role') == 'Admin'
-
-st.title("🛡️ Gouvernance DarPharm")
-st.write("Gérez votre équipe via des profils métiers intelligents et centralisés.")
-
-# Chargement des données
-df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
-df_roles = load_gs_data(DB_ROLES_WORKSHEET, DB_ROLES_FALLBACK, COLS_ROLES)
-
-# Charte Officielle DarPharm — Métiers
 GOLDEN_METIERS = {
-    "Admin":                {'icon': '👑', 'color': '#7c3aed', 'description': 'Accès total au système'},
-    "Agent de Stock":       {'icon': '📦', 'color': '#3b82f6', 'description': 'Inventaires, stocks, péremptions'},
-    "Chef Livreurs & Parc": {'icon': '🚚', 'color': '#10b981', 'description': 'Logistique, flotte et livraisons'},
-    "Superviseur":          {'icon': '🔭', 'color': '#f59e0b', 'description': 'Supervision et reporting opérationnel'},
-    "Préparateur":          {'icon': '⚙️', 'color': '#64748b', 'description': 'Préparation commandes et pointage'},
+    "Admin":                {'icon':'👑','color':'#7c3aed','bg':'#f5f3ff'},
+    "Agent de Stock":       {'icon':'📦','color':'#2563eb','bg':'#eff6ff'},
+    "Chef Livreurs & Parc": {'icon':'🚚','color':'#059669','bg':'#ecfdf5'},
+    "Superviseur":          {'icon':'🔭','color':'#d97706','bg':'#fffbeb'},
+    "Préparateur":          {'icon':'⚙️','color':'#64748b','bg':'#f8fafc'},
 }
-
-# Initialisation des rôles par défaut si vide
-if df_roles.empty:
-    default_roles = [
-        {"role_name": k, "permissions": "[]", "icon": v['icon'], "description": v['description']}
-        for k, v in GOLDEN_METIERS.items()
-    ]
-    df_roles = pd.DataFrame(default_roles)
-    save_gs_data(df_roles, DB_ROLES_WORKSHEET, DB_ROLES_FALLBACK)
+PAGES_BY_METIER = {
+    "Admin": str(['Dashboard','Profil','Admin Centrale','Gestion des Accès','Logistique','Inventaire','Inventaire Détail','Inventaire Triple','Suivi','Recouvrement','Pointage','Pointage Expéditeur','Pointage Marchandise','Péremptions','Scanneur QR','Scan Mobile','Litiges Fournisseurs','Analyse Rotation','RH','RH Planning','Clients','Liste des Lots','Catalogue Produits','Page de Garde','Assistant IA','Transferts','Coordination','Qualité IA','Mon Coin','Briefing IA','Maintenance','Académie','Prévisions','Mode Meeting','Répartition Zones','Analyse Réclamations','Performance Ventes','Cortex IA','Automatisation']),
+    "Agent de Stock":       str(['Profil','Dashboard','Inventaire','Inventaire Détail','Inventaire Triple','Péremptions','Liste des Lots','Catalogue Produits','Répartition Zones','Scanneur QR','Scan Mobile','Transferts']),
+    "Chef Livreurs & Parc": str(['Profil','Dashboard','Logistique','Pointage Expéditeur','Recouvrement','Maintenance','Clients','Coordination','Suivi','Analyse Rotation','Transferts','Page de Garde']),
+    "Superviseur":          str(['Profil','Dashboard','Analyse Rotation','Analyse Réclamations','Performance Ventes','Prévisions','Logistique','Inventaire','RH','Coordination','Briefing IA','Mode Meeting']),
+    "Préparateur":          str(['Profil','Pointage Marchandise','Inventaire Détail','Scanneur QR','Scan Mobile','Transferts']),
+}
+GOLDEN_USERS = [
+    ('admin_imad','admin_imad_pwd','Admin','Admin','Administration'),
+    ('Ayoub','ayoub2026','Saisie','Agent de Stock','Stock'),
+    ('Islem','islem2026','Saisie','Agent de Stock','Stock'),
+    ('Seif','seif2026','Saisie','Agent de Stock','Stock'),
+    ('Karim','karim2026','Saisie','Chef Livreurs & Parc','Expédition'),
+    ('Rami','rami2026','Saisie','Superviseur','Administration'),
+    ('Idris','idris2026','Saisie','Préparateur','Préparation'),
+    ('Aymen','aymen2026','Saisie','Préparateur','Préparation'),
+    ('Kheiro','kheiro2026','Saisie','Préparateur','Préparation'),
+    ('Rabeh','rabeh2026','Saisie','Préparateur','Préparation'),
+    ('Yacine','yacine2026','Saisie','Préparateur','Préparation'),
+    ('Aek','aek2026','Saisie','Préparateur','Préparation'),
+    ('Aymenk','aymenk2026','Saisie','Préparateur','Préparation'),
+    ('Mustapha','mustapha2026','Saisie','Préparateur','Préparation'),
+]
 
 def parse_list(p):
     if isinstance(p, list): return p
     if not isinstance(p, str) or not p.strip(): return []
     try: return ast.literal_eval(p)
-    except: return [x.strip() for x in p.replace('[','').replace(']','').replace("'","").split(',') if x.strip()]
+    except: return [x.strip() for x in p.replace('[','').replace(']','').replace("'",'').split(',') if x.strip()]
 
-df_roles['permissions'] = df_roles['permissions'].apply(parse_list)
+def get_available_modules():
+    mods = ["Admin Centrale"]
+    try:
+        with open("app.py","r",encoding="utf-8") as f:
+            content = f.read()
+            match = re.search(r'ALL_PAGES\s*=\s*\{(.*?)\}', content, re.DOTALL)
+            if match:
+                for k in re.findall(r'"([^"]+)"\s*:\s*st\.Page', match.group(1)):
+                    if k not in mods: mods.append(k)
+    except: pass
+    return mods
 
-# --- 2. KPIs ---
-c1, c2, c3, c4 = st.columns(4)
-with c1: st.markdown(f'<div class="admin-card stat-box"><div class="stat-label">Équipe</div><div class="stat-val">{len(df_users)}</div></div>', unsafe_allow_html=True)
-with c2: st.markdown(f'<div class="admin-card stat-box"><div class="stat-label">Métiers Actifs</div><div class="stat-val">{len(df_roles)}</div></div>', unsafe_allow_html=True)
-with c3: st.markdown(f'<div class="admin-card stat-box"><div class="stat-label">Zones</div><div class="stat-val">5</div></div>', unsafe_allow_html=True)
-with c4: st.markdown(f'<div class="admin-card stat-box"><div class="stat-label">Sécurité</div><div class="stat-val">OK</div></div>', unsafe_allow_html=True)
+# ── Sécurité ─────────────────────────────────────────────────────────────────
+user     = st.session_state.get('current_user')
+if not user or user.get('role') not in ['Admin','Superviseur']:
+    st.error("⛔ Accès réservé à l'Administration."); st.stop()
+is_admin = user.get('role') == 'Admin'
 
-st.divider()
-tabs = st.tabs(["👥 Gestion Équipe", "🏗️ Configuration des Métiers", "⚙️ Système & IA"])
+# ── CSS Elite Minimal ────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
+* { font-family:'Outfit',sans-serif; }
 
-# --- TAB 1: GESTION ÉQUIPE ---
+.admin-hero {
+    background: linear-gradient(135deg,#1e293b 0%,#0f172a 100%);
+    border-radius:20px; padding:30px 35px; color:white; margin-bottom:28px;
+    display:flex; align-items:center; justify-content:space-between;
+}
+.admin-hero h1 { font-size:1.8rem; font-weight:800; margin:0; }
+.admin-hero p  { opacity:.65; margin:4px 0 0; font-size:.95rem; }
+
+.kpi-mini {
+    background:white; border-radius:14px; padding:20px;
+    border:1px solid #f1f5f9; text-align:center;
+    box-shadow:0 2px 8px rgba(0,0,0,0.04);
+    transition:all .25s ease;
+}
+.kpi-mini:hover { transform:translateY(-3px); box-shadow:0 8px 20px rgba(0,0,0,0.08); }
+.kpi-mini .num  { font-size:2rem; font-weight:800; color:#1e293b; }
+.kpi-mini .lbl  { font-size:.72rem; color:#94a3b8; text-transform:uppercase; letter-spacing:1px; }
+
+.user-row {
+    display:grid; grid-template-columns:1.5fr 1.5fr 1fr 1fr 1fr;
+    padding:12px 16px; border-radius:10px; border:1px solid #f1f5f9;
+    margin-bottom:6px; background:white; align-items:center;
+    transition:all .2s ease;
+}
+.user-row:hover { border-color:#6366f1; box-shadow:0 4px 12px rgba(99,102,241,.08); }
+.metier-pill {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:3px 10px; border-radius:20px; font-size:.78rem; font-weight:700;
+}
+
+.restore-banner {
+    background: linear-gradient(135deg,#4f46e5,#7c3aed);
+    border-radius:14px; padding:16px 20px; color:white; margin-bottom:20px;
+    display:flex; align-items:center; justify-content:space-between;
+}
+
+.section-title {
+    font-size:1rem; font-weight:700; color:#1e293b;
+    margin:0 0 14px; padding-bottom:8px; border-bottom:2px solid #f1f5f9;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ── HERO ─────────────────────────────────────────────────────────────────────
+df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+df_roles = load_gs_data(DB_ROLES_WORKSHEET, DB_ROLES_FALLBACK, COLS_ROLES)
+if 'permissions' in df_roles.columns:
+    df_roles['permissions'] = df_roles['permissions'].apply(parse_list)
+
+nb_metiers = len(df_roles) if not df_roles.empty else len(GOLDEN_METIERS)
+
+st.markdown(f"""
+<div class="admin-hero">
+    <div>
+        <h1>🛡️ Gouvernance DarPharm</h1>
+        <p>Administration · Gestion des accès & des métiers</p>
+    </div>
+    <div style="text-align:right;opacity:.7;font-size:.85rem;">
+        Connecté : <b>{user['username']}</b><br>
+        {__import__('datetime').datetime.now().strftime('%d/%m/%Y — %H:%M')}
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# KPIs
+k1,k2,k3,k4 = st.columns(4)
+k1.markdown(f'<div class="kpi-mini"><div class="num">{len(df_users)}</div><div class="lbl">Collaborateurs</div></div>', unsafe_allow_html=True)
+k2.markdown(f'<div class="kpi-mini"><div class="num">{nb_metiers}</div><div class="lbl">Métiers</div></div>', unsafe_allow_html=True)
+k3.markdown(f'<div class="kpi-mini"><div class="num">{len(df_users[df_users["role"]=="Admin"]) if "role" in df_users.columns else 1}</div><div class="lbl">Admins</div></div>', unsafe_allow_html=True)
+k4.markdown(f'<div class="kpi-mini"><div class="num" style="color:#10b981;">OK</div><div class="lbl">Sécurité</div></div>', unsafe_allow_html=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ── TABS ─────────────────────────────────────────────────────────────────────
+tabs = st.tabs(["👥 Équipe & Accès","🏗️ Métiers","⚙️ Système & IA"])
+
+# ═══════════════════════════════════════════════════════════════════
+# TAB 1 : ÉQUIPE & ACCÈS
+# ═══════════════════════════════════════════════════════════════════
 with tabs[0]:
-    st.subheader("Attribution des Métiers aux Collaborateurs")
 
-    # --- BOUTON RESTAURATION DORÉE ---
-    st.markdown('<div class="admin-card" style="border-left: 4px solid #7c3aed;">', unsafe_allow_html=True)
-    rb1, rb2 = st.columns([3, 1])
-    rb1.markdown("**🔐 Charte Officielle DarPharm** — En cas de problème d'accès, restaurez les rôles depuis le point de sauvegarde officiel.")
-    if rb2.button("🛡️ Restaurer la Charte", type="primary", use_container_width=True, key="btn_golden_restore"):
-        import json, ast
-        try:
-            # Importation du golden backup depuis app.py (déjà défini)
-            PAGES_BY_METIER_LOCAL = {
-                "Admin": str(['Dashboard', 'Profil', 'Admin Centrale', 'Gestion des Accès', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Pointage Marchandise', 'Péremptions', 'Scanneur QR', 'Scan Mobile', 'Litiges Fournisseurs', 'Analyse Rotation', 'RH', 'RH Planning', 'Clients', 'Liste des Lots', 'Catalogue Produits', 'Page de Garde', 'Assistant IA', 'Transferts', 'Coordination', 'Qualité IA', 'Mon Coin', 'Briefing IA', 'Maintenance', 'Académie', 'Prévisions', 'Mode Meeting', 'Répartition Zones', 'Analyse Réclamations', 'Performance Ventes', 'Cortex IA', 'Automatisation']),
-                "Agent de Stock": str(['Profil', 'Dashboard', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Péremptions', 'Liste des Lots', 'Catalogue Produits', 'Répartition Zones', 'Scanneur QR', 'Scan Mobile', 'Transferts']),
-                "Chef Livreurs & Parc": str(['Profil', 'Dashboard', 'Logistique', 'Pointage Expéditeur', 'Recouvrement', 'Maintenance', 'Clients', 'Coordination', 'Suivi', 'Analyse Rotation', 'Transferts', 'Page de Garde']),
-                "Superviseur": str(['Profil', 'Dashboard', 'Analyse Rotation', 'Analyse Réclamations', 'Performance Ventes', 'Prévisions', 'Logistique', 'Inventaire', 'RH', 'Coordination', 'Briefing IA', 'Mode Meeting']),
-                "Préparateur": str(['Profil', 'Pointage Marchandise', 'Inventaire Détail', 'Scanneur QR', 'Scan Mobile', 'Transferts']),
-            }
-            GOLDEN_USERS_LOCAL = [
-                {'username': 'admin_imad', 'metier': 'Admin',               'role': 'Admin',   'depot': 'Administration'},
-                {'username': 'Ayoub',      'metier': 'Agent de Stock',       'role': 'Saisie',  'depot': 'Stock'},
-                {'username': 'Islem',      'metier': 'Agent de Stock',       'role': 'Saisie',  'depot': 'Stock'},
-                {'username': 'Seif',       'metier': 'Agent de Stock',       'role': 'Saisie',  'depot': 'Stock'},
-                {'username': 'Karim',      'metier': 'Chef Livreurs & Parc', 'role': 'Saisie',  'depot': 'Expédition'},
-                {'username': 'Rami',       'metier': 'Superviseur',          'role': 'Saisie',  'depot': 'Administration'},
-                {'username': 'Idris',      'metier': 'Préparateur',          'role': 'Saisie',  'depot': 'Préparation'},
-                {'username': 'Aymen',      'metier': 'Préparateur',          'role': 'Saisie',  'depot': 'Préparation'},
-                {'username': 'Kheiro',     'metier': 'Préparateur',          'role': 'Saisie',  'depot': 'Préparation'},
-                {'username': 'Rabeh',      'metier': 'Préparateur',          'role': 'Saisie',  'depot': 'Préparation'},
-                {'username': 'Yacine',     'metier': 'Préparateur',          'role': 'Saisie',  'depot': 'Préparation'},
-                {'username': 'Aek',        'metier': 'Préparateur',          'role': 'Saisie',  'depot': 'Préparation'},
-                {'username': 'Aymenk',     'metier': 'Préparateur',          'role': 'Saisie',  'depot': 'Préparation'},
-                {'username': 'Mustapha',   'metier': 'Préparateur',          'role': 'Saisie',  'depot': 'Préparation'},
-            ]
+    # ── Bannière Restauration ──────────────────────────────────────
+    col_b1, col_b2 = st.columns([4,1])
+    col_b1.markdown("**🔐 Point de Sauvegarde Officiel** — Restaurez la Charte des Rôles DarPharm en un clic si les accès sont corrompus.")
+    if col_b2.button("🛡️ Restaurer la Charte", type="primary", use_container_width=True):
+        restored = 0
+        for (uname,_,urole,umetier,udepot) in GOLDEN_USERS:
+            mask = df_users['username'] == uname
+            if mask.any():
+                df_users.loc[mask,'metier'] = umetier
+                df_users.loc[mask,'depot']  = udepot
+                df_users.loc[mask,'pages']  = PAGES_BY_METIER.get(umetier, PAGES_BY_METIER['Préparateur'])
+                df_users.loc[mask,'role']   = urole
+                restored += 1
+        save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+        st.success(f"✅ Charte restaurée pour {restored} utilisateurs.")
+        st.rerun()
+
+    st.markdown("---")
+
+    # ── Tableau des Utilisateurs + Identifiants ────────────────────
+    col_table, col_quick = st.columns([3,2])
+
+    with col_table:
+        st.markdown('<div class="section-title">📋 Liste des Collaborateurs</div>', unsafe_allow_html=True)
+
+        # Toggle mot de passe
+        show_pwd = st.toggle("👁️ Afficher les mots de passe", value=False, key="toggle_pwd")
+
+        if not df_users.empty:
+            for _, row in df_users.iterrows():
+                uname    = row.get('username','')
+                umetier  = str(row.get('metier','') or row.get('depot',''))
+                urole    = str(row.get('role',''))
+                udepot   = str(row.get('depot',''))
+                upwd     = str(row.get('password','')) if show_pwd else '••••••••'
+                info     = GOLDEN_METIERS.get(umetier, {'icon':'👤','color':'#64748b','bg':'#f8fafc'})
+
+                st.markdown(f"""
+                <div class="user-row">
+                    <div><b>{uname}</b></div>
+                    <div><span class="metier-pill" style="background:{info['bg']};color:{info['color']};">{info['icon']} {umetier}</span></div>
+                    <div style="color:#94a3b8;font-size:.82rem;">{udepot}</div>
+                    <div style="color:#94a3b8;font-size:.82rem;font-family:monospace;">{upwd}</div>
+                    <div style="color:#94a3b8;font-size:.75rem;">{urole}</div>
+                </div>""", unsafe_allow_html=True)
+        else:
+            st.info("Aucun utilisateur chargé.")
+
+    with col_quick:
+        st.markdown('<div class="section-title">⚡ Affectation Rapide</div>', unsafe_allow_html=True)
+
+        u_list = df_users['username'].tolist() if not df_users.empty else []
+        u_target = st.selectbox("Collaborateur", u_list, key="u_assign")
+        m_target = st.selectbox("Nouveau Métier", list(GOLDEN_METIERS.keys()), key="m_assign")
+
+        if m_target in GOLDEN_METIERS:
+            info = GOLDEN_METIERS[m_target]
+            st.markdown(f"<span style='color:{info['color']};font-weight:600;'>{info['icon']} Métier sélectionné</span>", unsafe_allow_html=True)
+
+        if st.button("✅ Appliquer", type="primary", use_container_width=True):
+            mask = df_users['username'] == u_target
+            df_users.loc[mask,'metier'] = m_target
+            df_users.loc[mask,'pages']  = PAGES_BY_METIER.get(m_target, PAGES_BY_METIER['Préparateur'])
+            df_users.loc[mask,'role']   = 'Admin' if m_target == 'Admin' else 'Saisie'
+            save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+            st.success(f"✅ {u_target} → {GOLDEN_METIERS[m_target]['icon']} {m_target}")
+            st.rerun()
+
+        st.markdown("---")
+        st.markdown('<div class="section-title">➕ Nouvel Utilisateur</div>', unsafe_allow_html=True)
+        with st.form("form_add_user"):
+            nu = st.text_input("Nom d'utilisateur")
+            np_ = st.text_input("Mot de passe", type="password")
+            nm = st.selectbox("Métier", list(GOLDEN_METIERS.keys()), key="nm_new")
+            if st.form_submit_button("Créer le compte", use_container_width=True):
+                if nu and np_:
+                    if not df_users.empty and nu in df_users['username'].values:
+                        st.error("Utilisateur déjà existant.")
+                    else:
+                        new_row = {'username':nu,'password':np_,'role':'Saisie' if nm!='Admin' else 'Admin',
+                                   'metier':nm,'depot':GOLDEN_METIERS[nm]['icon'],
+                                   'pages':PAGES_BY_METIER.get(nm,PAGES_BY_METIER['Préparateur']),
+                                   'nom':nu,'prenom':'','zone':'Aucune'}
+                        df_users = pd.concat([df_users, pd.DataFrame([new_row])], ignore_index=True)
+                        save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+                        st.success(f"✅ Compte {nu} créé !")
+                        st.rerun()
+                else:
+                    st.error("Remplissez tous les champs.")
+
+# ═══════════════════════════════════════════════════════════════════
+# TAB 2 : MÉTIERS
+# ═══════════════════════════════════════════════════════════════════
+with tabs[1]:
+    st.markdown('<div class="section-title">🏗️ Carte des Métiers DarPharm</div>', unsafe_allow_html=True)
+
+    # Aperçu visuel des métiers
+    m_cols = st.columns(len(GOLDEN_METIERS))
+    for i,(nom_m,info) in enumerate(GOLDEN_METIERS.items()):
+        nb = len(df_users[df_users.get('metier','_') == nom_m]) if 'metier' in df_users.columns else 0
+        m_cols[i].markdown(f"""
+        <div class="kpi-mini" style="border-top:4px solid {info['color']};">
+            <div style="font-size:2rem;">{info['icon']}</div>
+            <div style="font-weight:700;font-size:.9rem;color:#1e293b;">{nom_m}</div>
+            <div class="num" style="font-size:1.6rem;color:{info['color']};">{nb}</div>
+            <div class="lbl">membres</div>
+        </div>""", unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # Édition avancée des permissions
+    if is_admin:
+        df_roles_edit = load_gs_data(DB_ROLES_WORKSHEET, DB_ROLES_FALLBACK, COLS_ROLES)
+        if not df_roles_edit.empty:
+            df_roles_edit['permissions'] = df_roles_edit['permissions'].apply(parse_list)
+            role_to_edit = st.selectbox("Configurer le métier :", df_roles_edit['role_name'].tolist())
+            if role_to_edit:
+                r_idx = df_roles_edit[df_roles_edit['role_name'] == role_to_edit].index[0]
+                r_cur = df_roles_edit.loc[r_idx]
+                with st.form("form_edit_metier"):
+                    c1,c2 = st.columns([1,3])
+                    new_icon = c1.text_input("Icône", value=r_cur['icon'])
+                    new_desc = c2.text_input("Description", value=r_cur['description'])
+                    st.write("**Permissions :**")
+                    all_mods = get_available_modules()
+                    cols3 = st.columns(3)
+                    updated = []
+                    for j,m in enumerate(all_mods):
+                        with cols3[j%3]:
+                            if st.checkbox(m, value=(m in r_cur['permissions'] or 'ALL' in r_cur['permissions']), key=f"p_{role_to_edit}_{m}"):
+                                updated.append(m)
+                    if st.form_submit_button("💾 Sauvegarder", type="primary", use_container_width=True):
+                        df_roles_edit.at[r_idx,'permissions'] = updated
+                        df_roles_edit.at[r_idx,'icon'] = new_icon
+                        df_roles_edit.at[r_idx,'description'] = new_desc
+                        save_gs_data(df_roles_edit, DB_ROLES_WORKSHEET, DB_ROLES_FALLBACK)
+                        st.success("✅ Métier mis à jour !")
+                        st.rerun()
+    else:
+        st.info("La configuration avancée est réservée aux administrateurs.")
+
+# ═══════════════════════════════════════════════════════════════════
+# TAB 3 : SYSTÈME & IA
+# ═══════════════════════════════════════════════════════════════════
+with tabs[2]:
+    col_ia, col_maint = st.columns(2)
+
+    with col_ia:
+        st.markdown('<div class="section-title">🤖 Configuration IA</div>', unsafe_allow_html=True)
+        df_settings = load_gs_data(DB_SETTINGS_WORKSHEET, DB_SETTINGS_FALLBACK, COLS_SETTINGS)
+
+        def get_s(n, d=""): 
+            if df_settings.empty: return d
+            r = df_settings[df_settings['name'] == n]
+            return str(r['value'].values[0]) if not r.empty else d
+
+        with st.form("form_ia"):
+            ia_on   = st.toggle("🟢 IA Activée Globalement", value=get_s('ia_global_enabled','True')=='True')
+            provider= st.selectbox("Moteur IA",["OpenRouter","Gemini (Google)","Claude"])
+            key_or  = st.text_input("Clé API OpenRouter", value=get_s('openrouter_api_key'), type="password")
+            key_gm  = st.text_input("Clé API Gemini",     value=get_s('gemini_api_key'),     type="password")
+            if st.form_submit_button("Sauvegarder", type="primary", use_container_width=True):
+                new_s = pd.DataFrame([
+                    {'name':'ia_global_enabled','value':str(ia_on)},
+                    {'name':'active_provider',  'value':provider},
+                    {'name':'openrouter_api_key','value':key_or},
+                    {'name':'gemini_api_key',    'value':key_gm},
+                ])
+                save_gs_data(new_s, DB_SETTINGS_WORKSHEET, DB_SETTINGS_FALLBACK)
+                st.success("✅ Configuration IA sauvegardée !")
+
+    with col_maint:
+        st.markdown('<div class="section-title">💾 Maintenance & Backup</div>', unsafe_allow_html=True)
+        st.info("Utilisez ces outils pour maintenir l'intégrité des données.")
+
+        if st.button("📦 Exporter les Utilisateurs (CSV)", use_container_width=True):
+            csv = df_users.to_csv(index=False).encode('utf-8')
+            st.download_button("⬇️ Télécharger", csv, "darpharm_users_backup.csv", "text/csv", use_container_width=True)
+
+        st.markdown("---")
+
+        st.markdown("**🔄 Restauration d'Urgence**")
+        if st.button("🛡️ Restaurer Charte Officielle", type="primary", use_container_width=True, key="sys_restore"):
             restored = 0
-            for gu in GOLDEN_USERS_LOCAL:
-                mask = df_users['username'] == gu['username']
+            for (uname,_,urole,umetier,udepot) in GOLDEN_USERS:
+                mask = df_users['username'] == uname
                 if mask.any():
-                    df_users.loc[mask, 'pages'] = PAGES_BY_METIER_LOCAL.get(gu['metier'], PAGES_BY_METIER_LOCAL['Préparateur'])
-                    df_users.loc[mask, 'metier'] = gu['metier']
-                    df_users.loc[mask, 'role'] = gu['role']
+                    df_users.loc[mask,'metier'] = umetier
+                    df_users.loc[mask,'depot']  = udepot
+                    df_users.loc[mask,'pages']  = PAGES_BY_METIER.get(umetier, PAGES_BY_METIER['Préparateur'])
+                    df_users.loc[mask,'role']   = urole
                     restored += 1
             save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
-            st.success(f"✅ Charte restaurée pour {restored} utilisateurs. Les accès sont redevenus officiels.")
-            st.rerun()
-        except Exception as e:
-            st.error(f"Erreur de restauration : {e}")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    col_u1, col_u2 = st.columns([3, 2])
-    
-    with col_u1:
-        st.write("#### 👤 Tableau des Métiers Officiels")
-        df_disp = df_users.copy()
-        
-        # Enrichissement du tableau avec les couleurs de métier
-        def badge(metier):
-            info = GOLDEN_METIERS.get(metier, {'icon': '👤', 'color': '#64748b'})
-            return f"{info['icon']} {metier}"
-        
-        metier_col = 'metier' if 'metier' in df_disp.columns else 'depot'
-        df_disp['Métier'] = df_disp[metier_col].apply(lambda x: badge(str(x)) if pd.notna(x) else '👤 Non assigné')
-        cols_show = [c for c in ['username', 'Métier', 'role', 'depot', 'zone'] if c in df_disp.columns]
-        st.dataframe(df_disp[cols_show], use_container_width=True, hide_index=True)
-
-    with col_u2:
-        st.write("#### ⚡ Affectation Rapide")
-        u_target = st.selectbox("Sélectionner un collaborateur :", df_users['username'].tolist(), key="u_assign")
-        
-        metier_names = list(GOLDEN_METIERS.keys())
-        r_target = st.selectbox("Lui attribuer le métier :", metier_names, key="r_assign")
-        
-        # Affichage de la description du métier sélectionné
-        if r_target in GOLDEN_METIERS:
-            info = GOLDEN_METIERS[r_target]
-            st.caption(f"{info['icon']} {info['description']}")
-        
-        if st.button("🔄 APPLIQUER LE MÉTIER", type="primary", use_container_width=True):
-            import ast as _ast
-            PAGES_APPLY = {
-                "Admin": str(['Dashboard', 'Profil', 'Admin Centrale', 'Gestion des Accès', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Pointage Marchandise', 'Péremptions', 'Scanneur QR', 'Scan Mobile', 'Litiges Fournisseurs', 'Analyse Rotation', 'RH', 'RH Planning', 'Clients', 'Liste des Lots', 'Catalogue Produits', 'Page de Garde', 'Assistant IA', 'Transferts', 'Coordination', 'Qualité IA', 'Mon Coin', 'Briefing IA', 'Maintenance', 'Académie', 'Prévisions', 'Mode Meeting', 'Répartition Zones', 'Analyse Réclamations', 'Performance Ventes', 'Cortex IA', 'Automatisation']),
-                "Agent de Stock": str(['Profil', 'Dashboard', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Péremptions', 'Liste des Lots', 'Catalogue Produits', 'Répartition Zones', 'Scanneur QR', 'Scan Mobile', 'Transferts']),
-                "Chef Livreurs & Parc": str(['Profil', 'Dashboard', 'Logistique', 'Pointage Expéditeur', 'Recouvrement', 'Maintenance', 'Clients', 'Coordination', 'Suivi', 'Analyse Rotation', 'Transferts', 'Page de Garde']),
-                "Superviseur": str(['Profil', 'Dashboard', 'Analyse Rotation', 'Analyse Réclamations', 'Performance Ventes', 'Prévisions', 'Logistique', 'Inventaire', 'RH', 'Coordination', 'Briefing IA', 'Mode Meeting']),
-                "Préparateur": str(['Profil', 'Pointage Marchandise', 'Inventaire Détail', 'Scanneur QR', 'Scan Mobile', 'Transferts']),
-            }
-            mask = df_users['username'] == u_target
-            df_users.loc[mask, 'pages'] = PAGES_APPLY.get(r_target, PAGES_APPLY['Préparateur'])
-            df_users.loc[mask, 'metier'] = r_target
-            df_users.loc[mask, 'role'] = "Admin" if r_target == "Admin" else "Saisie"
-            
-            save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
-            st.success(f"✅ **{u_target}** est maintenant : **{GOLDEN_METIERS[r_target]['icon']} {r_target}**")
+            st.success(f"✅ {restored} comptes restaurés depuis la Charte Officielle.")
             st.rerun()
 
-# --- TAB 2: CONFIGURATION MÉTIERS ---
-with tabs[1]:
-    st.subheader("Définition des Profils Métiers")
-    
-    col_r_list, col_r_add = st.columns([2, 1])
-    
-    with col_r_add:
-        st.write("#### ✨ Nouveau Métier")
-        with st.expander("Créer un profil métier"):
-            with st.form("form_new_role"):
-                n_name = st.text_input("Nom (ex: Agent de Stock)")
-                n_icon = st.text_input("Icône (emoji)", value="📦")
-                if st.form_submit_button("CRÉER LE MÉTIER"):
-                    if n_name:
-                        new_r = {"role_name": n_name, "permissions": "[]", "icon": n_icon, "description": ""}
-                        df_roles = pd.concat([df_roles, pd.DataFrame([new_r])], ignore_index=True)
-                        save_gs_data(df_roles, DB_ROLES_WORKSHEET, DB_ROLES_FALLBACK)
-                        st.success("Métier créé !")
-                        st.rerun()
-    
-    with col_r_list:
-        st.write("#### 🏗️ Configurer un métier existant")
-        role_to_edit = st.selectbox("Choisir un métier :", df_roles['role_name'].tolist())
-        
-        if role_to_edit:
-            r_idx = df_roles[df_roles['role_name'] == role_to_edit].index[0]
-            r_current = df_roles.loc[r_idx]
-            
-            with st.form("form_edit_role_v2"):
-                c_r1, c_r2 = st.columns([1, 3])
-                new_icon = c_r1.text_input("Icône", value=r_current['icon'])
-                new_desc = c_r2.text_input("Description", value=r_current['description'])
-                
-                st.write("---")
-                st.write("🛡️ **Permissions de ce métier :**")
-                all_mods = get_available_modules()
-                cols = st.columns(3)
-                updated_perms = []
-                for i, m in enumerate(all_mods):
-                    with cols[i % 3]:
-                        is_checked = (m in r_current['permissions'] or 'ALL' in r_current['permissions'])
-                        if st.checkbox(m, value=is_checked, key=f"perm_{role_to_edit}_{m}"):
-                            updated_perms.append(m)
-                
-                if st.form_submit_button("💾 SAUVEGARDER & PROPAGER"):
-                    df_roles.at[r_idx, 'permissions'] = updated_perms
-                    df_roles.at[r_idx, 'icon'] = new_icon
-                    df_roles.at[r_idx, 'description'] = new_desc
-                    save_gs_data(df_roles, DB_ROLES_WORKSHEET, DB_ROLES_FALLBACK)
-                    st.success(f"Métier {role_to_edit} mis à jour !")
-                    st.rerun()
-
-    if st.button("🗑️ Supprimer ce métier", type="secondary"):
-        if role_to_edit and role_to_edit not in ["Administrateur"]:
-            df_roles = df_roles[df_roles['role_name'] != role_to_edit]
-            save_gs_data(df_roles, DB_ROLES_WORKSHEET, DB_ROLES_FALLBACK)
-            st.warning("Métier supprimé.")
-            st.rerun()
-
-# --- TAB 3: SYSTÈME & IA ---
-with tabs[2]:
-    st.subheader("Configuration Système")
-    
-    col_sys1, col_sys2 = st.columns(2)
-    
-    with col_sys1:
-        st.markdown('<div class="admin-card">', unsafe_allow_html=True)
-        st.write("#### 🦾 Cortex DarPharm IA")
-        df_settings = load_gs_data(DB_SETTINGS_WORKSHEET, DB_SETTINGS_FALLBACK, COLS_SETTINGS)
-        
-        def get_setting(name, default=""):
-            if df_settings.empty: return default
-            res = df_settings[df_settings['name'] == name]
-            return str(res['value'].values[0]) if not res.empty else default
-
-        with st.form("form_ia_admin"):
-            ia_en = st.toggle("Activer l'IA Globalement", value=get_setting('ia_global_enabled', 'True') == 'True')
-            active_p = st.selectbox("Moteur IA", ["OpenRouter", "Gemini (Google)", "Claude"], index=0)
-            
-            st.write("---")
-            st.text_input("Clé API OpenRouter", value=get_setting('openrouter_api_key'), type="password")
-            st.text_input("Clé API Gemini", value=get_setting('gemini_api_key'), type="password")
-            
-            if st.form_submit_button("SAUVEGARDER CONFIG IA"):
-                new_settings = pd.DataFrame([
-                    {'name': 'ia_global_enabled', 'value': str(ia_en)},
-                    {'name': 'active_provider', 'value': active_p}
-                ])
-                # Note: merging with existing settings is better in real app
-                save_gs_data(new_settings, DB_SETTINGS_WORKSHEET, DB_SETTINGS_FALLBACK)
-                st.success("Paramètres IA mis à jour")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with col_sys2:
-        st.markdown('<div class="admin-card">', unsafe_allow_html=True)
-        st.write("#### 💾 Maintenance & Cloud")
-        st.info("Sauvegardez vos données ou restaurez les comptes par défaut.")
-        
-        if st.button("📦 GÉNÉRER BACKUP ZIP", use_container_width=True):
-            st.toast("Génération du pack de sauvegarde...")
-            # Logic here...
-            
-        st.divider()
-        if st.button("🔄 RESTAURATION DE SÉCURITÉ", type="primary", use_container_width=True):
-            from utils_gsheets import restore_users_from_config
-            res, msg = restore_users_from_config()
-            st.success(msg)
-        st.markdown('</div>', unsafe_allow_html=True)
+        if is_admin:
+            st.markdown("---")
+            st.markdown("**⚠️ Zone Sensible**")
+            del_target = st.selectbox("Supprimer un compte :", 
+                [u for u in df_users['username'].tolist() if u != 'admin_imad'] if not df_users.empty else [], 
+                key="del_user")
+            if st.button("🗑️ Supprimer ce compte", key="btn_del"):
+                df_users = df_users[df_users['username'] != del_target]
+                save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+                st.warning(f"Compte {del_target} supprimé.")
+                st.rerun()
