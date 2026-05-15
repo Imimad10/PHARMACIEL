@@ -97,11 +97,12 @@ def generate_cover_pdf(fournisseur, date_recep, nb_factures, observation, model=
         pdf.set_text_color(100, 100, 100)
         pdf.multi_cell(0, 10, f"Observation: {observation}", align='C')
 
-    # Pied de page
-    pdf.set_y(-25)
-    pdf.set_font("Arial", '', 12)
+    # Pied de page (Forcé sur la page 1)
+    pdf.set_auto_page_break(auto=False)
+    pdf.set_y(-15)
+    pdf.set_font("Arial", '', 10)
     pdf.set_text_color(150, 150, 150)
-    pdf.cell(0, 10, f"Généré par Pharmaciel Pro le {datetime.now().strftime('%d/%m/%Y à %H:%M')}", align='C')
+    pdf.cell(0, 10, f"Généré par DarPharm Solutions le {datetime.now().strftime('%d/%m/%Y à %H:%M')}", align='C')
 
     try:
         raw = pdf.output(dest='S')
