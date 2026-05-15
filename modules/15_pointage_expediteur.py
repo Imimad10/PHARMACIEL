@@ -158,8 +158,11 @@ with tab_pointage:
 
             # --- DATA EDITOR ---
             df_view = df_filtre.copy()
-            # Initialisation de la case à cocher
-            df_view.insert(0, "Vérifié", st.session_state.sel_all_exp & df_view['Peut_Valider'])
+            # Initialisation de la case à cocher (Sécurisée contre TypeError)
+            if st.session_state.sel_all_exp:
+                df_view.insert(0, "Vérifié", df_view['Peut_Valider'])
+            else:
+                df_view.insert(0, "Vérifié", False)
 
             edited_df = st.data_editor(
                 df_view,
