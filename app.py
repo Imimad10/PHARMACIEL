@@ -799,16 +799,21 @@ if st.session_state.current_user is None:
 
 # --- 5. DÉFINITION DES PAGES DISPONIBLES ---
 user = st.session_state.current_user
-user_pages = user.get('pages', [])
+umetier = user.get('metier', '')
+urole = user.get('role', '')
 
-# Conversion sécurisée si pages est stocké sous forme de chaîne (GSheets)
+# Force la lecture en temps réel de la Charte Dynamique
+if urole == 'Admin':
+    user_pages = PAGES_BY_METIER.get('Admin', '[]')
+else:
+    user_pages = PAGES_BY_METIER.get(umetier, user.get('pages', '[]'))
+
+# Conversion sécurisée si pages est stocké sous forme de chaîne
 if isinstance(user_pages, str):
     import ast
     try:
-        # Tente de parser "['p1', 'p2']"
         user_pages = ast.literal_eval(user_pages)
     except:
-        # Fallback : split par virgule si format simple "p1, p2"
         user_pages = [p.strip() for p in user_pages.replace('[','').replace(']','').replace("'","").split(',') if p.strip()]
 
 if not isinstance(user_pages, list):
