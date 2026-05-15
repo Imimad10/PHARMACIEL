@@ -149,6 +149,83 @@ THEMES_DEFAULT = {
             }
         },
         {
+            "id": "theme_executive_white",
+            "name": "Executive White",
+            "description": "Thème blanc pur — Style Apple, épuré et ultra-professionnel",
+            "preview_color": "#ffffff",
+            "accent_color": "#7c3aed",
+            "active": True,
+            "css_vars": {
+                "--bg-main": "#f8f9fa",
+                "--bg-sidebar": "#ffffff",
+                "--bg-card": "#ffffff",
+                "--text-primary": "#1d1d1f",
+                "--text-secondary": "#6e6e73",
+                "--accent": "#7c3aed",
+                "--accent-hover": "#5b21b6",
+                "--sidebar-header": "#1d1d1f",
+                "--sidebar-text": "#1d1d1f",
+                "--shadow-neu": "0 10px 30px rgba(0,0,0,0.03)",
+                "--shadow-neu-inset": "inset 0 2px 4px rgba(0,0,0,0.05)"
+            }
+        },
+        {
+            "id": "theme_glass_pro",
+            "name": "Glass Pro",
+            "description": "Effet Glassmorphism — Transparence, flou et modernité",
+            "preview_color": "#e2e8f0",
+            "accent_color": "#3b82f6",
+            "active": True,
+            "css_vars": {
+                "--bg-main": "linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%)",
+                "--bg-sidebar": "rgba(255, 255, 255, 0.4)",
+                "--bg-card": "rgba(255, 255, 255, 0.6)",
+                "--text-primary": "#102a43",
+                "--text-secondary": "#334e68",
+                "--accent": "#3b82f6",
+                "--accent-hover": "#2563eb",
+                "--backdrop-blur": "20px",
+                "--shadow-neu": "0 8px 32px 0 rgba(31, 38, 135, 0.1)"
+            }
+        },
+        {
+            "id": "theme_midnight_gold",
+            "name": "Midnight Gold",
+            "description": "Thème luxueux — Bleu minuit et or pour un rendu prestige",
+            "preview_color": "#0f172a",
+            "accent_color": "#fbbf24",
+            "active": True,
+            "css_vars": {
+                "--bg-main": "#0f172a",
+                "--bg-sidebar": "#1e293b",
+                "--bg-card": "#1e293b",
+                "--text-primary": "#f8fafc",
+                "--text-secondary": "#94a3b8",
+                "--accent": "#fbbf24",
+                "--accent-hover": "#f59e0b",
+                "--sidebar-header": "#fbbf24",
+                "--shadow-neu": "0 10px 25px rgba(0,0,0,0.4)"
+            }
+        },
+        {
+            "id": "theme_nordic_clean",
+            "name": "Nordic Clean",
+            "description": "Minimalisme nordique — Tons gris, bleus froids et clarté",
+            "preview_color": "#f1f5f9",
+            "accent_color": "#64748b",
+            "active": True,
+            "css_vars": {
+                "--bg-main": "#f8fafc",
+                "--bg-sidebar": "#f1f5f9",
+                "--bg-card": "#ffffff",
+                "--text-primary": "#334155",
+                "--text-secondary": "#64748b",
+                "--accent": "#64748b",
+                "--accent-hover": "#475569",
+                "--shadow-neu": "0 1px 3px rgba(0,0,0,0.12)"
+            }
+        }
+        {
             "id": "theme_mca_green_red",
             "name": "MCA - Mouloudia",
             "description": "Vert et Rouge — Le Doyen d'Algérie",
@@ -256,17 +333,23 @@ def apply_theme_css(theme: dict):
         --font: 'Nunito', sans-serif;
         --shadow-neu: {v.get('--shadow-neu', '0 4px 12px rgba(0,0,0,0.1)')};
         --shadow-neu-inset: {v.get('--shadow-neu-inset', 'none')};
+        --sidebar-header-color: {v.get('--sidebar-header', accent)};
+        --sidebar-text-color: {v.get('--sidebar-text', v.get('--text-primary', '#1a1f3c'))};
+        --backdrop-blur: {v.get('--backdrop-blur', '0px')};
     }}
 
     .stApp {{
+        background: var(--bg-main) !important;
         background-color: var(--bg-main) !important;
         font-family: var(--font) !important;
     }}
 
     [data-testid="stSidebar"] {{
         background-color: var(--bg-sidebar) !important;
-        border-right: 2px solid #d0d4e8 !important;
-        box-shadow: 4px 0 15px rgba(0,0,0,0.05) !important;
+        backdrop-filter: blur(var(--backdrop-blur)) !important;
+        -webkit-backdrop-filter: blur(var(--backdrop-blur)) !important;
+        border-right: 1px solid rgba(0,0,0,0.05) !important;
+        box-shadow: 4px 0 15px rgba(0,0,0,0.03) !important;
     }}
 
     /* --- EFFET NEUMORPHIC SUR LES METRICS --- */
@@ -275,11 +358,11 @@ def apply_theme_css(theme: dict):
         border-radius: 20px !important;
         padding: 20px !important;
         box-shadow: var(--shadow-neu) !important;
-        border: none !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
         margin-bottom: 15px !important;
     }}
 
-    /* --- BOUTONS FLUFFY --- */
+    /* --- BOUTONS --- */
     .stButton > button {{
         background: linear-gradient(135deg, var(--accent), var(--accent-h)) !important;
         color: white !important;
@@ -287,33 +370,25 @@ def apply_theme_css(theme: dict):
         border-radius: 15px !important;
         padding: 12px 25px !important;
         font-weight: 800 !important;
-        box-shadow: 4px 4px 10px rgba(91,108,249,0.3), -2px -2px 8px rgba(255,255,255,0.8) !important;
-        transition: all 0.2s ease !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
+        transition: all 0.3s ease !important;
     }}
 
-    .stButton > button:active {{
-        transform: scale(0.97) !important;
-        box-shadow: inset 3px 3px 8px rgba(0,0,0,0.2) !important;
+    .stButton > button:hover {{
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
     }}
 
-    /* --- INPUTS INSET --- */
+    /* --- INPUTS --- */
     .stTextInput input, .stSelectbox select, .stNumberInput input {{
-        background-color: var(--bg-main) !important;
-        box-shadow: var(--shadow-neu-inset) !important;
-        border: none !important;
+        background-color: var(--bg-card) !important;
+        border: 1px solid rgba(0,0,0,0.05) !important;
         border-radius: 12px !important;
         color: var(--text-p) !important;
         padding: 12px !important;
     }}
 
-    /* --- CACHER LE MENU STREAMLIT (Minimalisme) --- */
-    #MainMenu {{visibility: hidden; display: none !important;}}
-    footer {{visibility: hidden; display: none !important;}}
-    [data-testid="stDecoration"] {{display: none !important;}}
-    [data-testid="stStatusWidget"] {{display: none !important;}}
-    .stDeployButton {{display: none !important;}}
-
-    /* --- SIDEBAR ULTIMATE MINIMALIST --- */
+    /* --- SIDEBAR CUSTOMIZATION --- */
     [data-testid="stSidebarNav"] {{
         padding-top: 20px !important;
     }}
@@ -322,66 +397,51 @@ def apply_theme_css(theme: dict):
     [data-testid="stSidebarNav"] li div {{
         background: transparent !important;
         padding: 25px 15px 8px 15px !important;
-        color: var(--text-p) !important;
+        color: var(--sidebar-header-color) !important;
         font-weight: 900 !important;
         font-size: 0.75rem !important;
         text-transform: uppercase !important;
         letter-spacing: 2px !important;
         border: none !important;
-        opacity: 0.95 !important;
+        opacity: 0.9 !important;
     }}
 
     /* Navigation Items (Links) */
     [data-testid="stSidebarNav"] li a {{
         background: transparent !important;
-        border-radius: 0 !important;
-        margin: 0 !important;
-        padding: 12px 20px !important;
+        border-radius: 12px !important;
+        margin: 4px 12px !important;
+        padding: 10px 15px !important;
         transition: all 0.2s ease !important;
-        border-left: 4px solid transparent !important;
-        color: #1a1f3c !important; /* Dark solid color for better contrast */
+        color: var(--sidebar-text-color) !important;
         text-decoration: none !important;
     }}
 
-    /* Text Style */
     [data-testid="stSidebarNav"] li a span {{
-        white-space: normal !important;
-        line-height: 1.3 !important;
-        font-size: 0.95rem !important;
-        font-weight: 700 !important; /* Bolder text */
-        color: #1a1f3c !important;
-        letter-spacing: 0.3px !important;
+        font-size: 0.9rem !important;
+        font-weight: 600 !important;
+        color: var(--sidebar-text-color) !important;
     }}
 
     /* Hover State */
     [data-testid="stSidebarNav"] li a:hover {{
-        background: rgba(91,108,249,0.06) !important;
-        border-left: 4px solid rgba(91,108,249,0.4) !important;
+        background: rgba(0,0,0,0.03) !important;
         transform: translateX(5px);
     }}
 
     /* Active Page State */
     [data-testid="stSidebarNav"] li a[aria-current="page"] {{
-        background: rgba(91,108,249,0.08) !important;
-        border-left: 4px solid var(--accent) !important;
-        color: var(--accent) !important;
+        background: var(--accent) !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
     }}
     
     [data-testid="stSidebarNav"] li a[aria-current="page"] span {{
         font-weight: 800 !important;
-        color: var(--accent) !important;
+        color: white !important;
     }}
 
-    /* Specific Group Colors for Headers (Optional but beautiful) */
-    [data-testid="stSidebarNav"] ul li:nth-child(1) div {{ color: #8b5cf6 !important; }}
-    [data-testid="stSidebarNav"] ul li:nth-child(3) div {{ color: #3b82f6 !important; }}
-    [data-testid="stSidebarNav"] ul li:nth-child(9) div {{ color: #10b981 !important; }}
-
-    /* --- TITRES GRADIENT --- */
+    /* Force visibility of h1, h2, h3 */
     h1, h2, h3 {{
-        background: linear-gradient(135deg, #5b6cf9, #9b6fd4, #1ab8c4);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: initial !important; /* Fix for invisible icons/text */
         color: var(--accent) !important;
         font-weight: 900 !important;
     }}

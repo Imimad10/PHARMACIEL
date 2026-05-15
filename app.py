@@ -685,7 +685,7 @@ if st.session_state.current_user is None:
 
     with col2:
         # Thème selector très compact
-        themes_login = ["Clair", "Sombre", "Chic Animé", "USMH", "CRB", "USMA", "MCA"]
+        themes_login = ["Clair", "Sombre", "Chic Animé", "Executive White", "Glass Pro", "Midnight Gold", "Nordic Clean", "USMH", "CRB", "USMA", "MCA"]
         idx_theme = themes_login.index(st.session_state.theme) if st.session_state.theme in themes_login else 0
         choix_theme = st.selectbox("Thème", themes_login, index=idx_theme, key="login_theme_selector", label_visibility="collapsed")
         if choix_theme != st.session_state.theme:
@@ -851,9 +851,6 @@ pg = st.navigation(pages_to_show, position="hidden")
 # Injection CSS pour la lisibilité
 st.markdown("""
     <style>
-        [data-testid="stSidebar"] {
-            background-color: #f8f9fa !important;
-        }
         [data-testid="stSidebar"] .stButton > button {
             font-size: 1.1rem !important;
             font-weight: 700 !important;
@@ -918,7 +915,7 @@ with st.sidebar:
             </div>
         """, unsafe_allow_html=True)
         
-        themes_disponibles = ["Clair", "Sombre", "Chic Animé", "USMH", "CRB", "USMA", "MCA"]
+        themes_disponibles = ["Clair", "Sombre", "Chic Animé", "Executive White", "Glass Pro", "Midnight Gold", "Nordic Clean", "USMH", "CRB", "USMA", "MCA"]
         current_index = themes_disponibles.index(st.session_state.theme) if st.session_state.theme in themes_disponibles else 0
         new_theme = st.selectbox("🎨 Thème visuel", themes_disponibles, index=current_index, key="sidebar_theme_selector")
         if new_theme != st.session_state.theme:
