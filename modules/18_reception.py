@@ -421,29 +421,29 @@ with tabs[3]:
             except: qte_val = row.get('qte', '0')
             
             feed_html += f"""
-            <div style="background:{bg_color}; border-left: 5px solid {border_color}; border-radius: 12px; padding: 15px 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); display:flex; justify-content:space-between; align-items:center;">
-                <div style="display:flex; align-items:center; gap: 15px;">
-                    <div style="font-size: 1.8rem; background: {badge_bg}; width: 55px; height: 55px; display:flex; justify-content:center; align-items:center; border-radius: 12px; flex-shrink: 0;">{icon}</div>
-                    <div>
-                        <div style="font-size: 0.85rem; color: #6b7299; font-weight: 600; margin-bottom:3px;">
-                            <span style="color:#1a1f3c; font-weight:800; text-transform:uppercase;">{row.get('utilisateur', 'Inconnu')}</span> • {row.get('timestamp', '')}
-                        </div>
-                        <div style="font-size: 1.1rem; font-weight: 800; color: #1a1f3c; margin-bottom: 8px;">
-                            {row.get('designation', '')}
-                        </div>
-                        <div style="display:flex; flex-wrap:wrap; gap: 10px; font-size: 0.85rem;">
-                            <span style="background: rgba(0,0,0,0.03); padding: 4px 10px; border-radius: 8px;">📦 Qte: <b style="color:#1a1f3c;">{qte_val}</b></span>
-                            <span style="background: rgba(0,0,0,0.03); padding: 4px 10px; border-radius: 8px;">🏷️ Lot: <b style="color:#1a1f3c;">{row.get('lot', '')}</b></span>
-                            <span style="background: rgba(0,0,0,0.03); padding: 4px 10px; border-radius: 8px;">⏳ Exp: <b style="color:#1a1f3c;">{row.get('ddp', '')}</b></span>
-                            <span style="background: rgba(0,0,0,0.03); padding: 4px 10px; border-radius: 8px;">💵 PPA: <b style="color:#1a1f3c;">{ppa_val} DA</b></span>
-                        </div>
-                    </div>
-                </div>
-                <div style="background: {badge_bg}; color: {badge_color}; padding: 6px 12px; border-radius: 20px; font-weight: 800; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;">
-                    {method}
-                </div>
+<div style="background:{bg_color}; border-left: 5px solid {border_color}; border-radius: 12px; padding: 15px 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); display:flex; justify-content:space-between; align-items:center;">
+    <div style="display:flex; align-items:center; gap: 15px;">
+        <div style="font-size: 1.8rem; background: {badge_bg}; width: 55px; height: 55px; display:flex; justify-content:center; align-items:center; border-radius: 12px; flex-shrink: 0;">{icon}</div>
+        <div>
+            <div style="font-size: 0.85rem; color: #6b7299; font-weight: 600; margin-bottom:3px;">
+                <span style="color:#1a1f3c; font-weight:800; text-transform:uppercase;">{row.get('utilisateur', 'Inconnu')}</span> • {row.get('timestamp', '')}
             </div>
-            """
+            <div style="font-size: 1.1rem; font-weight: 800; color: #1a1f3c; margin-bottom: 8px;">
+                {row.get('designation', '')}
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap: 10px; font-size: 0.85rem;">
+                <span style="background: rgba(0,0,0,0.03); padding: 4px 10px; border-radius: 8px;">📦 Qte: <b style="color:#1a1f3c;">{qte_val}</b></span>
+                <span style="background: rgba(0,0,0,0.03); padding: 4px 10px; border-radius: 8px;">🏷️ Lot: <b style="color:#1a1f3c;">{row.get('lot', '')}</b></span>
+                <span style="background: rgba(0,0,0,0.03); padding: 4px 10px; border-radius: 8px;">⏳ Exp: <b style="color:#1a1f3c;">{row.get('ddp', '')}</b></span>
+                <span style="background: rgba(0,0,0,0.03); padding: 4px 10px; border-radius: 8px;">💵 PPA: <b style="color:#1a1f3c;">{ppa_val} DA</b></span>
+            </div>
+        </div>
+    </div>
+    <div style="background: {badge_bg}; color: {badge_color}; padding: 6px 12px; border-radius: 20px; font-weight: 800; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;">
+        {method}
+    </div>
+</div>
+"""
         feed_html += "</div>"
         
         st.markdown(feed_html, unsafe_allow_html=True)
