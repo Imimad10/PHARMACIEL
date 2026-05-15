@@ -215,6 +215,45 @@ for i, (name, emoji, earned, desc) in enumerate(trophy_list):
 
 st.markdown("<br>", unsafe_allow_html=True)
 
+# --- AGENDA RH SECTION ---
+st.write("### 📅 Mon Agenda DarPharm")
+RH_WORKSHEET = "DB_RH_Gestion"
+RH_FALLBACK = "data/db_rh.csv"
+RH_COLS = ["ID", "Date_Debut", "Date_Fin", "Agent", "Type", "Statut", "Commentaire", "Date_Creation"]
+
+df_rh = load_gs_data(RH_WORKSHEET, RH_FALLBACK, RH_COLS)
+
+if not df_rh.empty:
+    u_planning = df_rh[df_rh['Agent'] == username].sort_values("Date_Debut", ascending=False)
+    if u_planning.empty:
+        st.info("🕒 Aucun événement prévu dans votre agenda pour le moment.")
+    else:
+        plan_cols = st.columns(2)
+        for i, (idx, row) in enumerate(u_planning.head(4).iterrows()):
+            with plan_cols[i % 2]:
+                status_color = "#10b981" if row['Statut'] == "Validé" else "#f59e0b"
+                icon = "🕒" if "Permanence" in row['Type'] else "🏥"
+                st.markdown(f"""
+                    <div style="background: white; border-radius: 16px; padding: 15px; border-left: 5px solid {status_color}; 
+                                box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 800; color: #1e293b;">{icon} {row['Type']}</span>
+                            <span style="font-size: 0.7rem; background: {status_color}22; color: {status_color}; 
+                                         padding: 2px 8px; border-radius: 10px; font-weight: bold;">{row['Statut']}</span>
+                        </div>
+                        <div style="font-size: 0.9rem; color: #64748b; margin-top: 5px;">
+                            📅 Du <b>{row['Date_Debut']}</b> au <b>{row['Date_Fin']}</b>
+                        </div>
+                        <div style="font-size: 0.8rem; color: #94a3b8; font-style: italic; margin-top: 5px;">
+                            {row['Commentaire'] if row['Commentaire'] else 'Aucune observation'}
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+else:
+    st.info("🕒 Le planning RH est en cours de configuration.")
+
+st.markdown("<br>", unsafe_allow_html=True)
+
 # --- MISSIONS & ACTIVITÉ ---
 col_act1, col_act2 = st.columns([1.5, 1])
 
