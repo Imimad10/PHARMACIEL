@@ -559,6 +559,14 @@ if _setup_key not in st.session_state:
         if len(df_users) < initial_len:
             changes_made = True
 
+    # --- PURGE DES UTILISATEURS NON-AUTORISÉS (Pour Pharmaciel) ---
+    if _active_etab == "pharmaciel" and not df_users.empty:
+        allowed_unames = [u[0].lower() for u in _golden] + [un.lower() for un in MULTI_ETABLISSEMENT_USERNAMES]
+        mask_to_keep = df_users['username'].astype(str).str.lower().str.strip().isin(allowed_unames)
+        if not mask_to_keep.all():
+            df_users = df_users[mask_to_keep].reset_index(drop=True)
+            changes_made = True
+
     for (uname, pwd, urole, umetier, udepot) in _golden:
         correct_pages = apply_golden_pages(umetier, urole, _active_etab)
         user_exists = not df_users.empty and uname.lower() in df_users['username'].astype(str).str.lower().str.strip().values

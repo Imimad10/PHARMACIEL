@@ -191,15 +191,16 @@ def load_gs_data(worksheet_name, fallback_path, columns=None, force_cloud=False)
             return df.reindex(columns=columns)
         except: pass
     
-    # 3. Restauration de sécurité pour les Utilisateurs
+    # 3. Restauration de sécurité pour les Utilisateurs (Uniquement pour DarPharm)
     if worksheet_name == DB_USERS_WORKSHEET:
-        try:
-            from config_users import DEFAULT_USERS
-            st.info("⚠️ Base utilisateurs vide détectée. Restauration automatique depuis la sauvegarde de sécurité...")
-            df = pd.DataFrame(DEFAULT_USERS)
-            # On ne sauvegarde pas forcément ici pour éviter les boucles, mais on retourne les données par défaut
-            return df.reindex(columns=columns)
-        except: pass
+        _active_etab = st.session_state.get('etablissement', 'darpharm')
+        if _active_etab == 'darpharm':
+            try:
+                from config_users import DEFAULT_USERS
+                st.info("⚠️ Base utilisateurs vide détectée (DarPharm). Restauration depuis la sauvegarde...")
+                df = pd.DataFrame(DEFAULT_USERS)
+                return df.reindex(columns=columns)
+            except: pass
 
     return pd.DataFrame(columns=columns)
 
