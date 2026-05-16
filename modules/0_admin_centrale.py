@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 from datetime import datetime
-from utils_gsheets import load_gs_data, save_gs_data, get_gs_client, get_gs_url
+from utils_gsheets import load_gs_data, save_gs_data, get_gs_client, get_gs_url, USER_COLUMNS
 from utils import log_action
 from utils_themes import (
     load_themes_db, save_themes_db, get_active_themes,
@@ -589,8 +589,7 @@ with tabs[5]:
 
     # Charger la liste des utilisateurs
     from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
-    df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK,
-                            ["username", "nom", "prenom", "role"])
+    df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, USER_COLUMNS)
 
     active_themes = get_active_themes(themes_data)
     theme_options = {t["id"]: t["name"] for t in active_themes}

@@ -445,7 +445,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- 2. CONFIGURATION BASE DE DONNÉES (Établissement-Aware) ---
-from utils_gsheets import load_gs_data, save_gs_data, DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+from utils_gsheets import load_gs_data, save_gs_data, DB_USERS_WORKSHEET, DB_USERS_FALLBACK, USER_COLUMNS
 from config_etablissements import ETABLISSEMENTS, MULTI_ETABLISSEMENT_USERNAMES
 
 # Init établissement depuis session
@@ -457,7 +457,6 @@ _etab_cfg = ETABLISSEMENTS[_etab_id]
 _users_ws  = _etab_cfg["users_worksheet"]
 _users_fb  = _etab_cfg["users_fallback"] or "data/db_users_empty.csv"
 
-USER_COLUMNS = ["username", "password", "role", "pages", "nom", "prenom", "zone", "depot", "metier", "sous_metier", "tel"]
 df_users = load_gs_data(_users_ws, _users_fb, USER_COLUMNS)
 
 # ═══════════════════════════════════════════════════════

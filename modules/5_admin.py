@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import ast, re
-from utils_gsheets import load_gs_data, save_gs_data, DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+from utils_gsheets import load_gs_data, save_gs_data, DB_USERS_WORKSHEET, DB_USERS_FALLBACK, USER_COLUMNS
 
 DB_ROLES_WORKSHEET = "Roles_Config"
 DB_ROLES_FALLBACK  = "data/db_roles.csv"
@@ -123,7 +123,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── HERO ─────────────────────────────────────────────────────────────────────
-df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, USER_COLUMNS)
 
 # Migration : Assurer l'existence de la colonne 'metier'
 if not df_users.empty and 'metier' not in df_users.columns:

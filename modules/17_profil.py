@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime
-from utils_gsheets import load_gs_data, save_gs_data, DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+from utils_gsheets import load_gs_data, save_gs_data, DB_USERS_WORKSHEET, DB_USERS_FALLBACK, USER_COLUMNS
 
 LOGS_WORKSHEET = "Logs"
 LOGS_FALLBACK  = "data/db_logs.csv"
@@ -80,7 +80,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Chargement des données ───────────────────────────────────────────────────
-df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, USER_COLUMNS)
 df_logs  = load_gs_data(LOGS_WORKSHEET, LOGS_FALLBACK, ["timestamp","user","module","action"])
 df_rh    = load_gs_data(RH_WORKSHEET,   RH_FALLBACK,   ["ID","Date_Debut","Date_Fin","Agent","Type","Statut","Commentaire"])
 df_tasks = load_gs_data(TASKS_WORKSHEET, TASKS_FALLBACK, COLS_TASKS)
