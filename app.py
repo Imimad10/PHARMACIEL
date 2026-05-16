@@ -444,12 +444,21 @@ st.markdown("""
     <meta name="theme-color" content="#1877f2">
 """, unsafe_allow_html=True)
 
-# --- 2. CONFIGURATION BASE DE DONNÉES ---
+# --- 2. CONFIGURATION BASE DE DONNÉES (Établissement-Aware) ---
 from utils_gsheets import load_gs_data, save_gs_data, DB_USERS_WORKSHEET, DB_USERS_FALLBACK
+from config_etablissements import ETABLISSEMENTS, MULTI_ETABLISSEMENT_USERNAMES
 
-# Chargement initial des utilisateurs
+# Init établissement depuis session
+if "etablissement" not in st.session_state:
+    st.session_state.etablissement = None
+
+_etab_id = st.session_state.etablissement or "darpharm"
+_etab_cfg = ETABLISSEMENTS[_etab_id]
+_users_ws  = _etab_cfg["users_worksheet"]
+_users_fb  = _etab_cfg["users_fallback"] or "data/db_users_empty.csv"
+
 USER_COLUMNS = ["username", "password", "role", "pages", "nom", "prenom", "zone", "depot", "metier", "sous_metier", "tel"]
-df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, USER_COLUMNS)
+df_users = load_gs_data(_users_ws, _users_fb, USER_COLUMNS)
 
 # ═══════════════════════════════════════════════════════
 # CHARTE OFFICIELLE DES RÔLES DARPHARM — GOLDEN BACKUP
@@ -494,7 +503,6 @@ except Exception as e:
 #                                                Aymenk, Mustapha
 # ─────────────────────────────────────────────────────────────────
 GOLDEN_USERS = [
-    # username        password           role      metier                   depot
     ('admin_imad',   'admin_imad_pwd',  'Admin',  'Admin',                 'Administration'),
     ('Ayoub',        'ayoub2026',       'Saisie', 'Agent de Stock',        'Stock'),
     ('Islem',        'islem2026',       'Saisie', 'Agent de Stock',        'Stock'),
@@ -511,12 +519,36 @@ GOLDEN_USERS = [
     ('Mustapha',     'mustapha2026',    'Saisie', 'Préparateur',           'Préparation'),
 ]
 
-def apply_golden_pages(metier, role):
-    if role == 'Admin':
-        return PAGES_BY_METIER['Admin']
-    return PAGES_BY_METIER.get(metier, PAGES_BY_METIER['Préparateur'])
+# ═══════════════════════════════════════════════════════════════════
+# CHARTE PHARMACIEL (Filiale) — Golden Backup
+# ═══════════════════════════════════════════════════════════════════
+PAGES_BY_METIER_PHARMACIEL = {
+    "Admin": str(['Dashboard', 'Profil', 'Admin Centrale', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Pointage Marchandise', 'Réception Fournisseurs', 'Péremptions', 'Scanneur QR', 'Scan Mobile', 'Litiges Fournisseurs', 'Analyse Rotation', 'RH', 'RH Planning', 'Liste des Lots', 'Catalogue Produits', 'Page de Garde', 'Assistant IA', 'Transferts', 'Coordination', 'Qualité IA', 'Mon Coin', 'Briefing IA', 'Académie', 'Prévisions', 'Répartition Zones', 'Analyse Réclamations', 'Performance Ventes', 'Cortex IA', 'Automatisation']),
+    "Gestionnaire de Stock": str(['Profil', 'Dashboard', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Péremptions', 'Liste des Lots', 'Catalogue Produits', 'Répartition Zones', 'Scanneur QR', 'Scan Mobile', 'Transferts', 'Réception Fournisseurs', 'Coordination', 'Analyse Rotation']),
+    "Préparateur": str(['Profil', 'Pointage Marchandise', 'Réception Fournisseurs', 'Inventaire Détail', 'Scanneur QR', 'Scan Mobile', 'Transferts', 'Coordination']),
+}
 
-if "setup_done" not in st.session_state:
+GOLDEN_USERS_PHARMACIEL = [
+    ('Imad',     'admin_imad_pwd',  'Admin',  'Admin',                  'Administration'),
+    ('Ayoub',    'ayoub2026',       'Saisie', 'Gestionnaire de Stock',  'Stock'),
+    ('Islem',    'islem2026',       'Saisie', 'Gestionnaire de Stock',  'Stock'),
+    ('Seif',     'seif2026',        'Saisie', 'Gestionnaire de Stock',  'Stock'),
+    ('Karime',   'karime2026',      'Saisie', 'Préparateur',            'Préparation'),
+    ('Malek',    'malek2026',       'Saisie', 'Préparateur',            'Préparation'),
+]
+
+def apply_golden_pages(metier, role, etab="darpharm"):
+    pages_dict = PAGES_BY_METIER_PHARMACIEL if etab == "pharmaciel" else PAGES_BY_METIER
+    fallback = list(pages_dict.values())[-1]
+    if role == 'Admin':
+        return pages_dict.get('Admin', fallback)
+    return pages_dict.get(metier, fallback)
+
+_setup_key = _etab_cfg["setup_key"]
+
+if _setup_key not in st.session_state:
+    _active_etab = st.session_state.etablissement or "darpharm"
+    _golden = GOLDEN_USERS_PHARMACIEL if _active_etab == "pharmaciel" else GOLDEN_USERS
     changes_made = False
 
     # --- NETTOYAGE DES DOUBLONS ---
@@ -527,14 +559,11 @@ if "setup_done" not in st.session_state:
         if len(df_users) < initial_len:
             changes_made = True
 
-    for (uname, pwd, urole, umetier, udepot) in GOLDEN_USERS:
-        correct_pages = apply_golden_pages(umetier, urole)
-
-        # Vérification d'existence insensible à la casse
+    for (uname, pwd, urole, umetier, udepot) in _golden:
+        correct_pages = apply_golden_pages(umetier, urole, _active_etab)
         user_exists = not df_users.empty and uname.lower() in df_users['username'].astype(str).str.lower().str.strip().values
-        
+
         if not user_exists:
-            # Utilisateur absent → création complète
             new_row = {
                 'username': uname, 'password': pwd, 'role': urole,
                 'metier': umetier, 'depot': udepot, 'zone': 'Aucune',
@@ -543,18 +572,14 @@ if "setup_done" not in st.session_state:
             df_users = pd.concat([df_users, pd.DataFrame([new_row])], ignore_index=True)
             changes_made = True
         else:
-            # Utilisateur existant → force-correction du métier et du dépôt
             mask = df_users['username'].astype(str).str.lower().str.strip() == uname.lower()
             current_metier = str(df_users.loc[mask, 'metier'].values[0]) if 'metier' in df_users.columns else ''
             current_pages  = str(df_users.loc[mask, 'pages'].values[0])  if 'pages'  in df_users.columns else ''
-
-            # On corrige si le métier a changé ou si les pages ne correspondent plus à la règle dynamique actuelle
             if current_metier != umetier or current_pages != correct_pages or not current_pages or current_pages in ['nan', '[]', '']:
                 for col in ['metier', 'depot', 'pages', 'role']:
                     if col not in df_users.columns:
                         df_users[col] = ''
                     df_users[col] = df_users[col].astype(object)
-                
                 df_users.loc[mask, 'metier'] = umetier
                 df_users.loc[mask, 'depot']  = udepot
                 df_users.loc[mask, 'pages']  = correct_pages
@@ -562,9 +587,9 @@ if "setup_done" not in st.session_state:
                 changes_made = True
 
     if changes_made:
-        save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+        save_gs_data(df_users, _users_ws, _users_fb)
 
-    st.session_state.setup_done = True
+    st.session_state[_setup_key] = True
 
 # --- 3. GESTION DE SESSION ET COOKIES ---
 if "current_user" not in st.session_state:
@@ -573,15 +598,23 @@ if "current_user" not in st.session_state:
 # Initialiser le contrôleur de cookies
 controller = CookieController(key="main_cookie_controller")
 
-# On tente de récupérer le token depuis les cookies de façon transparente
+# Récupérer tokens depuis cookies
 try:
     token_user = controller.get("user_token")
 except Exception:
     token_user = None
+try:
+    token_etab = controller.get("etab_token")
+except Exception:
+    token_etab = None
+
+# Restaurer l'établissement depuis le cookie (si pas déjà en session)
+if st.session_state.etablissement is None and token_etab in ETABLISSEMENTS:
+    st.session_state.etablissement = token_etab
+    st.rerun()
 
 # --- Auto-Login via Cookie ---
-# Si on a un cookie mais pas encore de session, on tente la reconnexion automatique
-if st.session_state.current_user is None and token_user:
+if st.session_state.current_user is None and token_user and st.session_state.etablissement:
     res = df_users[df_users['username'] == token_user]
     if not res.empty:
         st.session_state.current_user = res.iloc[0].to_dict()
@@ -598,8 +631,93 @@ if st.session_state.current_user:
 
 # --- 4. ÉCRAN DE CONNEXION ---
 if st.session_state.current_user is None:
+
+    # ── Si aucun établissement choisi → Afficher le sélecteur ─────────────────
+    if st.session_state.etablissement is None:
+        st.markdown("""
+        <style>
+            [data-testid="stSidebar"], [data-testid="stSidebarNav"] {display: none;}
+            section[data-testid="stSidebar"] {width: 0px;}
+            [data-testid="stHeader"] {display: none;}
+            .stApp { background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%) !important; }
+            .main .block-container { max-width: 900px; padding-top: 80px; margin: auto; }
+            @keyframes cardFloat { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-8px)} }
+            @keyframes fadeInUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+        </style>
+        """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <div style="text-align:center; animation: fadeInUp 0.8s ease forwards; margin-bottom: 40px;">
+            <div style="font-size:3rem; margin-bottom:8px;">⚕️</div>
+            <h1 style="color:white; font-size:2.2rem; font-weight:800; margin:0; letter-spacing:-1px;">
+                Groupe Pharmaceutique
+            </h1>
+            <p style="color:rgba(255,255,255,0.5); font-size:1rem; margin-top:6px;">
+                Choisissez votre établissement pour continuer
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        col_dp, col_ph = st.columns(2, gap="large")
+
+        with col_dp:
+            st.markdown("""
+            <div style="background:linear-gradient(135deg,#1877f2,#0f3460);border-radius:20px;padding:40px 30px;
+                        text-align:center;cursor:pointer;animation:cardFloat 4s ease-in-out infinite;
+                        box-shadow:0 20px 60px rgba(24,119,242,0.4);border:1px solid rgba(255,255,255,0.15);">
+                <div style="font-size:4rem;margin-bottom:12px;">🏭</div>
+                <h2 style="color:white;margin:0;font-size:1.6rem;font-weight:800;">DarPharm</h2>
+                <p style="color:rgba(255,255,255,0.7);margin:8px 0 0;font-size:0.9rem;">
+                    Grossiste & Distribution Pharmaceutique
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+            if st.button("🏭  Accéder à DarPharm", key="btn_select_darpharm",
+                         use_container_width=True, type="primary"):
+                st.session_state.etablissement = "darpharm"
+                st.cache_data.clear()
+                try:
+                    controller.set("etab_token", "darpharm", max_age=86400 * 30)
+                except Exception:
+                    pass
+                st.rerun()
+
+        with col_ph:
+            st.markdown("""
+            <div style="background:linear-gradient(135deg,#6B46C1,#2D6A4F);border-radius:20px;padding:40px 30px;
+                        text-align:center;cursor:pointer;animation:cardFloat 4s ease-in-out infinite 0.5s;
+                        box-shadow:0 20px 60px rgba(107,70,193,0.4);border:1px solid rgba(255,255,255,0.15);">
+                <div style="font-size:4rem;margin-bottom:12px;">🏪</div>
+                <h2 style="color:white;margin:0;font-size:1.6rem;font-weight:800;">Pharmaciel</h2>
+                <p style="color:rgba(255,255,255,0.7);margin:8px 0 0;font-size:0.9rem;">
+                    Filiale — Distribution & Répartition
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+            if st.button("🏪  Accéder à Pharmaciel", key="btn_select_pharmaciel",
+                         use_container_width=True):
+                st.session_state.etablissement = "pharmaciel"
+                st.cache_data.clear()
+                try:
+                    controller.set("etab_token", "pharmaciel", max_age=86400 * 30)
+                except Exception:
+                    pass
+                st.rerun()
+
+        st.stop()
+
+    # ── Établissement choisi → Afficher la page de login ──────────────────────
+    _active_etab_login = st.session_state.etablissement
+    _etab_info = ETABLISSEMENTS[_active_etab_login]
+    _etab_color = _etab_info["color_primary"]
+    _etab_nom   = _etab_info["nom_complet"]
+    _etab_icon  = _etab_info["icon"]
+
     # Variables dynamiques pour le login selon le thème
     if st.session_state.theme == "Chic Animé":
+
         login_bg = "transparent"
         logo_color = "#e94560"
         slogan_color = "#ffffff"
@@ -760,8 +878,15 @@ if st.session_state.current_user is None:
         st.markdown('<div class="fb-left-container">', unsafe_allow_html=True)
         if os.path.exists("logo.png"):
             st.image("logo.png", width=220)
-        st.markdown('<h1 class="fb-logo-text">DarPharm®Solutions</h1>', unsafe_allow_html=True)
-        st.markdown('<p class="fb-slogan">DarPharm®Solutions vous aide à gérer vos stocks, vos expéditions et votre logistique en toute simplicité.</p>', unsafe_allow_html=True)
+        st.markdown(f'<h1 class="fb-logo-text">{_etab_icon} {_etab_nom}</h1>', unsafe_allow_html=True)
+        st.markdown(f'<p class="fb-slogan">{_etab_info["subtitle"]}</p>', unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("⬅️ Changer d'établissement", key="btn_change_etab",
+                     use_container_width=False):
+            st.session_state.etablissement = None
+            st.session_state.current_user = None
+            st.cache_data.clear()
+            st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
@@ -775,30 +900,32 @@ if st.session_state.current_user is None:
 
         u = st.text_input("Username", placeholder="Nom d'utilisateur", label_visibility="collapsed", key="login_u")
         p = st.text_input("Password", type="password", placeholder="Mot de passe", label_visibility="collapsed", key="login_p")
-        
+
         rester_connecte = st.checkbox("Rester connecté", value=True)
-        
-        if st.button("Se connecter", type="primary", use_container_width=True):
+
+        if st.button(f"Se connecter — {_etab_icon} {_etab_info['nom']}", type="primary", use_container_width=True):
             res = df_users[(df_users['username'] == u) & (df_users['password'] == p)]
             if not res.empty:
                 user_data = res.iloc[0].to_dict()
                 st.session_state.current_user = user_data
+                st.session_state.etablissement = _active_etab_login
                 if rester_connecte:
                     st.session_state.remember_me = True
                     try:
-                        controller.set("user_token", str(user_data['username']), max_age=86400 * 30) 
+                        controller.set("user_token", str(user_data['username']), max_age=86400 * 30)
+                        controller.set("etab_token", _active_etab_login, max_age=86400 * 30)
                     except Exception as e:
                         st.warning(f"Note : Connexion auto non enregistrée ({e})")
                 else:
                     st.session_state.remember_me = False
                     try:
-                        if controller.get("user_token"):
-                            controller.remove("user_token")
+                        controller.remove("user_token")
+                        controller.remove("etab_token")
                     except Exception:
                         pass
                 st.rerun()
             else:
-                st.error("Identifiants incorrects.")
+                st.error(f"❌ Identifiants incorrects pour {_etab_info['nom']}.")
 
     st.stop()
 
@@ -806,12 +933,14 @@ if st.session_state.current_user is None:
 user = st.session_state.current_user
 umetier = user.get('metier', '')
 urole = user.get('role', '')
+_etab_actif = st.session_state.get('etablissement', 'darpharm')
+_pages_ref = PAGES_BY_METIER_PHARMACIEL if _etab_actif == 'pharmaciel' else PAGES_BY_METIER
 
 # Force la lecture en temps réel de la Charte Dynamique
 if urole == 'Admin':
-    user_pages = PAGES_BY_METIER.get('Admin', '[]')
+    user_pages = _pages_ref.get('Admin', '[]')
 else:
-    user_pages = PAGES_BY_METIER.get(umetier, user.get('pages', '[]'))
+    user_pages = _pages_ref.get(umetier, user.get('pages', '[]'))
 
 # Conversion sécurisée si pages est stocké sous forme de chaîne
 if isinstance(user_pages, str):
