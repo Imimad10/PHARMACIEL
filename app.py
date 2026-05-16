@@ -715,10 +715,307 @@ if st.session_state.current_user is None:
     _etab_nom   = _etab_info["nom_complet"]
     _etab_icon  = _etab_info["icon"]
 
-    # Variables dynamiques pour le login selon le thème
-    if st.session_state.theme == "Chic Animé":
+    # ── Variables de branding par établissement ────────────────────────────────
+    _c1 = _etab_info["color_primary"]
+    _c2 = _etab_info["color_secondary"]
+    _grad = _etab_info["color_gradient"]
 
-        login_bg = "transparent"
+    # ── CSS Premium ────────────────────────────────────────────────────────────
+    st.markdown(f"""
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap');
+
+        [data-testid="stSidebar"], [data-testid="stSidebarNav"] {{display:none!important;}}
+        section[data-testid="stSidebar"] {{width:0!important;}}
+        [data-testid="stHeader"] {{display:none!important;}}
+        [data-testid="stStatusWidget"] {{display:none!important;}}
+        /* Masquer les warnings pendant le login */
+        [data-testid="stAlertContainer"] {{display:none!important;}}
+        .stAlert {{display:none!important;}}
+
+        * {{ font-family: 'Inter', sans-serif !important; }}
+
+        .stApp {{
+            background: linear-gradient(135deg, #0a0a1a 0%, #0d1b2a 40%, #0a0a1a 100%) !important;
+            min-height: 100vh;
+        }}
+
+        .main .block-container {{
+            padding: 0 !important;
+            max-width: 100% !important;
+        }}
+
+        /* ── Colonne gauche (branding) ── */
+        [data-testid="column"]:nth-of-type(1) > div:first-child {{
+            background: {_grad} !important;
+            min-height: 100vh;
+            padding: 60px 50px !important;
+            position: relative;
+            overflow: hidden;
+        }}
+
+        /* ── Colonne droite (formulaire) ── */
+        [data-testid="column"]:nth-of-type(2) > div:first-child {{
+            background: transparent !important;
+            min-height: 100vh;
+            padding: 60px 50px !important;
+            display: flex;
+            align-items: center;
+        }}
+
+        /* ── Inputs ── */
+        .stTextInput > div > div > input {{
+            background: rgba(255,255,255,0.07) !important;
+            border: 1.5px solid rgba(255,255,255,0.15) !important;
+            border-radius: 14px !important;
+            color: white !important;
+            font-size: 15px !important;
+            height: 54px !important;
+            padding: 0 18px !important;
+            transition: all 0.3s ease !important;
+            backdrop-filter: blur(10px);
+        }}
+        .stTextInput > div > div > input:focus {{
+            border-color: {_c1} !important;
+            background: rgba(255,255,255,0.1) !important;
+            box-shadow: 0 0 0 3px {_c1}33 !important;
+        }}
+        .stTextInput > div > div > input::placeholder {{
+            color: rgba(255,255,255,0.4) !important;
+        }}
+        /* Eye icon */
+        .stTextInput > div > div > button {{
+            color: rgba(255,255,255,0.5) !important;
+            background: transparent !important;
+            border: none !important;
+        }}
+
+        /* ── Bouton principal ── */
+        .stButton > button[kind="primary"] {{
+            background: {_grad} !important;
+            border: none !important;
+            border-radius: 14px !important;
+            color: white !important;
+            font-size: 16px !important;
+            font-weight: 700 !important;
+            height: 54px !important;
+            width: 100% !important;
+            letter-spacing: 0.5px;
+            box-shadow: 0 8px 30px {_c1}55 !important;
+            transition: all 0.3s cubic-bezier(0.175,0.885,0.32,1.275) !important;
+        }}
+        .stButton > button[kind="primary"]:hover {{
+            transform: translateY(-3px) !important;
+            box-shadow: 0 14px 40px {_c1}77 !important;
+        }}
+
+        /* ── Bouton secondaire (Changer) ── */
+        .stButton > button[kind="secondary"] {{
+            background: rgba(255,255,255,0.08) !important;
+            border: 1px solid rgba(255,255,255,0.2) !important;
+            border-radius: 30px !important;
+            color: rgba(255,255,255,0.8) !important;
+            font-size: 13px !important;
+            font-weight: 600 !important;
+            height: 38px !important;
+            padding: 0 18px !important;
+            transition: all 0.2s ease !important;
+        }}
+        .stButton > button[kind="secondary"]:hover {{
+            background: rgba(255,255,255,0.15) !important;
+            border-color: rgba(255,255,255,0.4) !important;
+            color: white !important;
+        }}
+
+        /* ── Checkbox ── */
+        [data-testid="stCheckbox"] label span {{
+            color: rgba(255,255,255,0.6) !important;
+            font-size: 14px !important;
+        }}
+
+        /* ── Selectbox (thème) ── */
+        [data-testid="stSelectbox"] > div > div {{
+            background: rgba(255,255,255,0.07) !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            border-radius: 10px !important;
+            color: rgba(255,255,255,0.7) !important;
+        }}
+
+        @keyframes fadeLeft {{
+            from {{ opacity:0; transform:translateX(-30px); }}
+            to {{ opacity:1; transform:translateX(0); }}
+        }}
+        @keyframes fadeRight {{
+            from {{ opacity:0; transform:translateX(30px); }}
+            to {{ opacity:1; transform:translateX(0); }}
+        }}
+        @keyframes pulse-ring {{
+            0% {{ transform:scale(0.95); box-shadow:0 0 0 0 {_c1}88; }}
+            70% {{ transform:scale(1); box-shadow:0 0 0 15px transparent; }}
+            100% {{ transform:scale(0.95); box-shadow:0 0 0 0 transparent; }}
+        }}
+    </style>
+    """, unsafe_allow_html=True)
+
+    # ── Layout principal ───────────────────────────────────────────────────────
+    col1, col2 = st.columns([1, 1], gap="small")
+
+    # ── Colonne gauche : Branding ──────────────────────────────────────────────
+    with col1:
+        st.markdown(f"""
+        <div style="animation:fadeLeft 0.8s ease forwards; height:100%; display:flex;
+                    flex-direction:column; justify-content:center; min-height:85vh;">
+
+            <!-- Badge établissement -->
+            <div style="display:inline-flex; align-items:center; gap:8px;
+                        background:rgba(255,255,255,0.15); backdrop-filter:blur(10px);
+                        border:1px solid rgba(255,255,255,0.25); border-radius:30px;
+                        padding:8px 18px; width:fit-content; margin-bottom:40px;">
+                <span style="font-size:1.1rem;">{_etab_icon}</span>
+                <span style="color:white; font-size:0.85rem; font-weight:600; letter-spacing:0.5px;">
+                    {_etab_info['nom'].upper()}
+                </span>
+            </div>
+
+            <!-- Titre principal -->
+            <h1 style="color:white; font-size:3.2rem; font-weight:900; line-height:1.1;
+                       margin:0 0 16px; letter-spacing:-2px;">
+                {_etab_nom}
+            </h1>
+
+            <!-- Sous-titre -->
+            <p style="color:rgba(255,255,255,0.7); font-size:1.1rem; margin:0 0 50px;
+                      line-height:1.6; font-weight:400; max-width:340px;">
+                {_etab_info['subtitle']}
+            </p>
+
+            <!-- Séparateur décoratif -->
+            <div style="width:60px; height:4px; background:rgba(255,255,255,0.5);
+                        border-radius:4px; margin-bottom:40px;"></div>
+
+            <!-- Features -->
+            <div style="display:flex; flex-direction:column; gap:16px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="width:36px; height:36px; background:rgba(255,255,255,0.15);
+                                border-radius:10px; display:flex; align-items:center;
+                                justify-content:center; font-size:1rem;">📦</div>
+                    <span style="color:rgba(255,255,255,0.8); font-size:0.9rem;">
+                        Gestion stocks & inventaires
+                    </span>
+                </div>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="width:36px; height:36px; background:rgba(255,255,255,0.15);
+                                border-radius:10px; display:flex; align-items:center;
+                                justify-content:center; font-size:1rem;">🚛</div>
+                    <span style="color:rgba(255,255,255,0.8); font-size:0.9rem;">
+                        Logistique & expéditions
+                    </span>
+                </div>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="width:36px; height:36px; background:rgba(255,255,255,0.15);
+                                border-radius:10px; display:flex; align-items:center;
+                                justify-content:center; font-size:1rem;">🤖</div>
+                    <span style="color:rgba(255,255,255,0.8); font-size:0.9rem;">
+                        Assistant IA intégré
+                    </span>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # ── Colonne droite : Formulaire ────────────────────────────────────────────
+    with col2:
+        st.markdown(f"""
+        <div style="animation:fadeRight 0.8s ease forwards;">
+            <div style="background:rgba(255,255,255,0.05); backdrop-filter:blur(20px);
+                        -webkit-backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.12);
+                        border-radius:24px; padding:48px 44px; box-shadow:0 30px 80px rgba(0,0,0,0.5);">
+                <p style="color:rgba(255,255,255,0.45); font-size:0.8rem; font-weight:600;
+                           letter-spacing:2px; text-transform:uppercase; margin:0 0 8px;">
+                    CONNEXION
+                </p>
+                <h2 style="color:white; font-size:1.8rem; font-weight:800; margin:0 0 32px;
+                            letter-spacing:-0.5px;">
+                    Bienvenue 👋
+                </h2>
+        """, unsafe_allow_html=True)
+
+        # Thème selector compact
+        themes_login = ["Clair", "Sombre", "Chic Animé", "Executive White", "Glass Pro",
+                        "Midnight Gold", "Nordic Clean", "USMH", "CRB", "USMA", "MCA"]
+        idx_theme = themes_login.index(st.session_state.theme) if st.session_state.theme in themes_login else 0
+        choix_theme = st.selectbox("🎨 Thème", themes_login, index=idx_theme,
+                                   key="login_theme_selector", label_visibility="collapsed")
+        if choix_theme != st.session_state.theme:
+            st.session_state.theme = choix_theme
+            st.rerun()
+
+        u = st.text_input("u", placeholder="👤  Nom d'utilisateur",
+                          label_visibility="collapsed", key="login_u")
+        p = st.text_input("p", type="password", placeholder="🔒  Mot de passe",
+                          label_visibility="collapsed", key="login_p")
+
+        c1b, c2b = st.columns([1, 1])
+        with c1b:
+            rester_connecte = st.checkbox("Rester connecté", value=True)
+        with c2b:
+            st.markdown("")
+
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+        if st.button(f"Se connecter  {_etab_icon}", type="primary", use_container_width=True):
+            res = df_users[(df_users['username'] == u) & (df_users['password'] == p)]
+            if not res.empty:
+                user_data = res.iloc[0].to_dict()
+                st.session_state.current_user = user_data
+                st.session_state.etablissement = _active_etab_login
+                if rester_connecte:
+                    st.session_state.remember_me = True
+                    try:
+                        controller.set("user_token", str(user_data['username']), max_age=86400 * 30)
+                        controller.set("etab_token", _active_etab_login, max_age=86400 * 30)
+                    except Exception as e:
+                        pass
+                else:
+                    st.session_state.remember_me = False
+                    try:
+                        controller.remove("user_token")
+                        controller.remove("etab_token")
+                    except Exception:
+                        pass
+                st.rerun()
+            else:
+                st.markdown(f"""
+                <div style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4);
+                             border-radius:12px; padding:14px 18px; margin-top:12px;
+                             color:#fca5a5; font-size:0.9rem; font-weight:500;">
+                    ❌ Identifiants incorrects — vérifiez vos informations
+                </div>
+                """, unsafe_allow_html=True)
+
+        st.markdown("""
+            <div style="text-align:center; margin-top:24px;">
+                <div style="width:100%; height:1px; background:rgba(255,255,255,0.08);
+                             margin-bottom:20px;"></div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        if st.button("⬅️  Changer d'établissement", key="btn_change_etab",
+                     use_container_width=True):
+            st.session_state.etablissement = None
+            st.session_state.current_user = None
+            st.cache_data.clear()
+            try:
+                controller.remove("etab_token")
+                controller.remove("user_token")
+            except Exception:
+                pass
+            st.rerun()
+
+        st.markdown("</div></div>", unsafe_allow_html=True)
+
+    st.stop()
+
         logo_color = "#e94560"
         slogan_color = "#ffffff"
         card_bg_color = "rgba(255, 255, 255, 0.1)"
