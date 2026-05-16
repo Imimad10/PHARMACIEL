@@ -12,8 +12,12 @@ GS_CONFIG_PATH = "gs_config.txt"
 DB_USERS_WORKSHEET = "Utilisateurs"
 DB_USERS_FALLBACK = "data/db_users.json"
 
-# Liste des modules qui DOIVENT rester sur le Cloud en permanence (Admin, Config, Suivi critique)
+# Liste des modules qui DOIVENT rester sur le Cloud en permanence
 ALWAYS_CLOUD = [DB_USERS_WORKSHEET, "Base_Clients", "Secteurs", "Livreurs", "Suivi_Frigo", "Logs"]
+
+def get_active_etablissement():
+    """Retourne l'établissement actif depuis la session (darpharm par défaut)."""
+    return st.session_state.get("etablissement", "darpharm")
 
 def get_storage_mode():
     """Récupère le mode de stockage actuel (Cloud ou Local)."""
@@ -46,21 +50,33 @@ def get_gs_client():
     return None
 
 def get_gs_url(worksheet_name=None):
-    # 1. Priorité absolue aux Secrets Streamlit (Cloud)
-    if "GS_URL" in st.secrets: 
+    """Retourne l'URL Google Sheets selon l'établissement actif."""
+    etab = get_active_etablissement()
+
+    # ─── PHARMACIEL ───────────────────────────────────────────────────────────
+    if etab == "pharmaciel":
+        if "GS_URL_PHARMACIEL" in st.secrets:
+            return st.secrets["GS_URL_PHARMACIEL"]
+        # Pas de fallback local pour Pharmaciel — Cloud obligatoire
+        return None
+
+    # ─── DARPHARM (défaut) ───────────────────────────────────────────────────
+    # 1. Secret Streamlit dédié
+    if "GS_URL" in st.secrets:
         return st.secrets["GS_URL"]
-    
+
     if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
         if "spreadsheet" in st.secrets["connections"]["gsheets"]:
             return st.secrets["connections"]["gsheets"]["spreadsheet"]
 
-    # 2. Base dédiée pour les Utilisateurs (Fallback)
+    # 2. Fallback URL fixe pour les Utilisateurs DarPharm
     if worksheet_name == DB_USERS_WORKSHEET:
         return "https://docs.google.com/spreadsheets/d/1tJDJCtk7cCNSBIfQLKS9J2oH95VcaNMoCVPX8V_cDc/edit"
-        
+
     # 3. Config locale
     if os.path.exists(GS_CONFIG_PATH):
-        with open(GS_CONFIG_PATH, "r") as f: return f.read().strip()
+        with open(GS_CONFIG_PATH, "r") as f:
+            return f.read().strip()
     return None
 
 def _load_local_data(fallback_path, columns):
