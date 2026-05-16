@@ -241,6 +241,26 @@ THEMES_DEFAULT = {
                 "--accent": "#16a34a",
                 "--accent-hover": "#15803d"
             }
+        },
+        {
+            "id": "theme_pharmaciel_luxe",
+            "name": "Pharmaciel Luxe",
+            "description": "Signature Pharmaciel — Dégradé Violet & Vert avec effet Glassmorphism",
+            "preview_color": "#6B46C1",
+            "accent_color": "#10B981",
+            "active": True,
+            "css_vars": {
+                "--bg-main": "linear-gradient(135deg, #2D1B69 0%, #064E3B 100%)",
+                "--bg-sidebar": "rgba(255, 255, 255, 0.05)",
+                "--bg-card": "rgba(255, 255, 255, 0.1)",
+                "--text-primary": "#FFFFFF",
+                "--text-secondary": "#A7F3D0",
+                "--accent": "#10B981",
+                "--accent-hover": "#34D399",
+                "--backdrop-blur": "25px",
+                "--sidebar-header": "#10B981",
+                "--shadow-neu": "0 10px 40px rgba(0,0,0,0.3)"
+            }
         }
     ],
     "user_theme_assignments": {}

@@ -29,6 +29,16 @@ def ask_ai(prompt, fallback_msg="⚠️ L'IA n'est pas configurée. Allez dans A
     provider = get_setting('active_ai_provider')
     if not provider:
         provider = 'OpenRouter' # Défaut
+    
+    # --- PERSONNALISATION IA PAR ÉTABLISSEMENT ---
+    from utils_gsheets import get_active_etablissement
+    etab = get_active_etablissement()
+    if etab == "pharmaciel":
+        system_context = "Tu es l'IA de Pharmaciel Pro, filiale de distribution pharmaceutique. Ton ton est professionnel, précis et orienté vers la répartition de proximité."
+    else:
+        system_context = "Tu es l'IA de DarPharm Solutions, grossiste répartiteur leader. Ton ton est stratégique, orienté vers la logistique de masse et la performance opérationnelle."
+    
+    full_prompt = f"{system_context}\n\nQuestion utilisateur : {prompt}"
         
     try:
         if provider == 'Gemini (Google)':
@@ -51,7 +61,7 @@ def ask_ai(prompt, fallback_msg="⚠️ L'IA n'est pas configurée. Allez dans A
                     target_model = "gemini-1.5-flash"
                 
                 model = genai.GenerativeModel(target_model)
-                response = model.generate_content(prompt)
+                response = model.generate_content(full_prompt)
                 return response.text
             except Exception as e:
                 err_msg = str(e)
@@ -66,7 +76,7 @@ def ask_ai(prompt, fallback_msg="⚠️ L'IA n'est pas configurée. Allez dans A
             message = client.messages.create(
                 model="claude-3-5-sonnet-20241022",
                 max_tokens=1000,
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{"role": "user", "content": full_prompt}]
             )
             return message.content[0].text
             
@@ -76,7 +86,7 @@ def ask_ai(prompt, fallback_msg="⚠️ L'IA n'est pas configurée. Allez dans A
             client = OpenAI(api_key=api_key)
             response = client.chat.completions.create(
                 model="gpt-4o",
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{"role": "user", "content": full_prompt}]
             )
             return response.choices[0].message.content
             
@@ -86,7 +96,7 @@ def ask_ai(prompt, fallback_msg="⚠️ L'IA n'est pas configurée. Allez dans A
             client = OpenAI(api_key=api_key, base_url="https://api.x.ai/v1")
             response = client.chat.completions.create(
                 model="grok-beta",
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{"role": "user", "content": full_prompt}]
             )
             return response.choices[0].message.content
             
@@ -96,7 +106,7 @@ def ask_ai(prompt, fallback_msg="⚠️ L'IA n'est pas configurée. Allez dans A
             client = OpenAI(api_key=api_key, base_url="https://openrouter.ai/api/v1")
             response = client.chat.completions.create(
                 model="openai/gpt-4o-mini", # Modèle par défaut pour OpenRouter, très rapide et qualitatif
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{"role": "user", "content": full_prompt}]
             )
             return response.choices[0].message.content
             

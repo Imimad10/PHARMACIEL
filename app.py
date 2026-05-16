@@ -1033,6 +1033,7 @@ if "Profil" not in user_pages:
 
 # Dictionnaire de toutes les pages possibles (Key: Nom, Value: Path)
 ALL_PAGES = {
+    "Master Global": st.Page("modules/0_master_control.py", title="Master Global Control", icon="🌐"),
     "Dashboard": st.Page("modules/0_tableau_de_bord.py", title="Tableau de Bord", icon="📊"),
     "Logistique": st.Page("modules/1_expedition.py", title="Logistique", icon="🚛"),
     "Inventaire": st.Page("modules/2_inventaire.py", title="Inventaire", icon="📦"),
@@ -1083,7 +1084,7 @@ assigned_keys = []
 # Définition des groupes et de leurs membres (clés de ALL_PAGES)
 CATEGORIES = {
     "👤 MON PROFIL": ["Profil", "Mon Coin"],
-    "📊 SUPERVISION": ["Dashboard", "Analyse Rotation", "Prévisions", "Mode Meeting", "Analyse Réclamations", "Performance Ventes", "Suivi", "Dashboard Premium"],
+    "📊 SUPERVISION": ["Master Global", "Dashboard", "Analyse Rotation", "Prévisions", "Mode Meeting", "Analyse Réclamations", "Performance Ventes", "Suivi", "Dashboard Premium"],
     "📦 GESTION DES STOCKS": ["Inventaire", "Inventaire Détail", "Inventaire Triple", "Péremptions", "Liste des Lots", "Catalogue Produits", "Répartition Zones"],
     "📝 POINTAGES & FLUX": ["Pointage", "Pointage Expéditeur", "Pointage Marchandise", "Réception Fournisseurs", "Page de Garde", "Recouvrement", "Logistique", "Scanneur QR", "Scan Mobile", "Transferts", "Clients"],
     "🤖 DARPHARM IA": ["Cortex IA", "Assistant IA", "Base IA", "Qualité IA", "Briefing IA", "Automatisation", "Coordination", "Académie"],
@@ -1253,7 +1254,7 @@ with st.sidebar:
         """, unsafe_allow_html=True)
 
         
-        themes_disponibles = ["Clair", "Sombre", "Chic Animé", "Executive White", "Glass Pro", "Midnight Gold", "Nordic Clean", "USMH", "CRB", "USMA", "MCA"]
+        themes_disponibles = ["Clair", "Sombre", "Chic Animé", "Executive White", "Glass Pro", "Midnight Gold", "Nordic Clean", "Pharmaciel Luxe", "USMH", "CRB", "USMA", "MCA"]
         current_index = themes_disponibles.index(st.session_state.theme) if st.session_state.theme in themes_disponibles else 0
         new_theme = st.selectbox("🎨 Thème visuel", themes_disponibles, index=current_index, key="sidebar_theme_selector")
         if new_theme != st.session_state.theme:

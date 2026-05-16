@@ -105,7 +105,7 @@ def _load_local_data(fallback_path, columns):
     return pd.DataFrame(columns=columns)
 
 @st.cache_data(ttl=600)
-def load_gs_data(worksheet_name, fallback_path, columns=None, force_cloud=False):
+def load_gs_data(worksheet_name, fallback_path, columns=None, force_cloud=False, override_url=None):
     """
     Charge les données depuis GSheets ou se replie sur le fichier local si hors-ligne.
     """
@@ -119,7 +119,7 @@ def load_gs_data(worksheet_name, fallback_path, columns=None, force_cloud=False)
 
     if force_cloud or is_protected or mode == "Cloud":
         client = get_gs_client()
-        url = get_gs_url(worksheet_name)
+        url = override_url if override_url else get_gs_url(worksheet_name)
         if client and url:
             try:
                 sh = client.open_by_url(url)
@@ -205,7 +205,7 @@ def load_gs_data(worksheet_name, fallback_path, columns=None, force_cloud=False)
 
     return pd.DataFrame(columns=columns)
 
-def save_gs_data(df, worksheet_name, fallback_path, force_cloud=False):
+def save_gs_data(df, worksheet_name, fallback_path, force_cloud=False, override_url=None):
     """
     Sauvegarde selon le mode.
     Mode Cloud -> GSheets + Local
@@ -218,7 +218,7 @@ def save_gs_data(df, worksheet_name, fallback_path, force_cloud=False):
     # 1. Cloud
     if force_cloud or is_protected or mode == "Cloud":
         client = get_gs_client()
-        url = get_gs_url(worksheet_name)
+        url = override_url if override_url else get_gs_url(worksheet_name)
         if client and url:
             try:
                 sh = client.open_by_url(url)
