@@ -1171,13 +1171,20 @@ with st.sidebar:
 
     # 3. INFOS UTILISATEUR & THÈME (EN BAS)
     with st.expander("👤 MON COMPTE", expanded=False):
+        _etab_badge_color = ETABLISSEMENTS.get(_etab_actif, {}).get("color_primary", "#1877f2")
+        _etab_badge_nom   = ETABLISSEMENTS.get(_etab_actif, {}).get("nom", "DarPharm")
+        _etab_badge_icon  = ETABLISSEMENTS.get(_etab_actif, {}).get("icon", "🏭")
         st.markdown(f"""
             <div class="user-box">
-                <p style="margin: 0; font-size: 0.9rem; color: #6b7299;">Connecté en tant que :</p>
+                <p style="margin:0 0 4px; font-size:0.75rem; font-weight:700; color:white;
+                           background:{_etab_badge_color}; padding:3px 10px; border-radius:20px;
+                           display:inline-block;">{_etab_badge_icon} {_etab_badge_nom}</p>
+                <p style="margin: 4px 0 0; font-size: 0.9rem; color: #6b7299;">Connecté en tant que :</p>
                 <p style="margin: 0; font-size: 1.1rem; font-weight: 800; color: #1a1f3c;">{user['username']}</p>
                 <p style="margin: 0; font-size: 0.85rem; color: #5b6cf9; font-weight: 600;">Rôle : {user.get('role', 'Saisie')}</p>
             </div>
         """, unsafe_allow_html=True)
+
         
         themes_disponibles = ["Clair", "Sombre", "Chic Animé", "Executive White", "Glass Pro", "Midnight Gold", "Nordic Clean", "USMH", "CRB", "USMA", "MCA"]
         current_index = themes_disponibles.index(st.session_state.theme) if st.session_state.theme in themes_disponibles else 0
