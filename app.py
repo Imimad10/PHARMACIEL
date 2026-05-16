@@ -886,6 +886,11 @@ if st.session_state.current_user is None:
             st.session_state.etablissement = None
             st.session_state.current_user = None
             st.cache_data.clear()
+            try:
+                controller.remove("etab_token")
+                controller.remove("user_token")
+            except Exception:
+                pass
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
