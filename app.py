@@ -865,36 +865,36 @@ if st.session_state.current_user is None:
         st.markdown(f"""
 <div style="animation:fadeLeft 0.8s ease forwards; height:100%; display:flex; flex-direction:column; justify-content:center; min-height:85vh;">
 
-    <!-- Badge établissement -->
-    <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,0.15); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.25); border-radius:30px; padding:8px 18px; width:fit-content; margin-bottom:40px;">
-        <span style="font-size:1.1rem;">{_etab_icon}</span>
-        <span style="color:white; font-size:0.85rem; font-weight:600; letter-spacing:0.5px;">{_etab_info['nom'].upper()}</span>
-    </div>
+<!-- Badge établissement -->
+<div style="display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,0.15); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.25); border-radius:30px; padding:8px 18px; width:fit-content; margin-bottom:40px;">
+<span style="font-size:1.1rem;">{_etab_icon}</span>
+<span style="color:white; font-size:0.85rem; font-weight:600; letter-spacing:0.5px;">{_etab_info['nom'].upper()}</span>
+</div>
 
-    <!-- Titre principal -->
-    <h1 style="color:white; font-size:3.2rem; font-weight:900; line-height:1.1; margin:0 0 16px; letter-spacing:-2px;">{_etab_nom}</h1>
+<!-- Titre principal -->
+<h1 style="color:white; font-size:3.2rem; font-weight:900; line-height:1.1; margin:0 0 16px; letter-spacing:-2px;">{_etab_nom}</h1>
 
-    <!-- Sous-titre -->
-    <p style="color:rgba(255,255,255,0.7); font-size:1.1rem; margin:0 0 50px; line-height:1.6; font-weight:400; max-width:340px;">{_etab_info['subtitle']}</p>
+<!-- Sous-titre -->
+<p style="color:rgba(255,255,255,0.7); font-size:1.1rem; margin:0 0 50px; line-height:1.6; font-weight:400; max-width:340px;">{_etab_info['subtitle']}</p>
 
-    <!-- Séparateur décoratif -->
-    <div style="width:60px; height:4px; background:rgba(255,255,255,0.5); border-radius:4px; margin-bottom:40px;"></div>
+<!-- Séparateur décoratif -->
+<div style="width:60px; height:4px; background:rgba(255,255,255,0.5); border-radius:4px; margin-bottom:40px;"></div>
 
-    <!-- Features -->
-    <div style="display:flex; flex-direction:column; gap:16px;">
-        <div style="display:flex; align-items:center; gap:12px;">
-            <div style="width:36px; height:36px; background:rgba(255,255,255,0.15); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1rem;">📦</div>
-            <span style="color:rgba(255,255,255,0.8); font-size:0.9rem;">Gestion stocks & inventaires</span>
-        </div>
-        <div style="display:flex; align-items:center; gap:12px;">
-            <div style="width:36px; height:36px; background:rgba(255,255,255,0.15); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1rem;">🚛</div>
-            <span style="color:rgba(255,255,255,0.8); font-size:0.9rem;">Logistique & expéditions</span>
-        </div>
-        <div style="display:flex; align-items:center; gap:12px;">
-            <div style="width:36px; height:36px; background:rgba(255,255,255,0.15); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1rem;">🤖</div>
-            <span style="color:rgba(255,255,255,0.8); font-size:0.9rem;">Assistant IA intégré</span>
-        </div>
-    </div>
+<!-- Features -->
+<div style="display:flex; flex-direction:column; gap:16px;">
+<div style="display:flex; align-items:center; gap:12px;">
+<div style="width:36px; height:36px; background:rgba(255,255,255,0.15); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1rem;">📦</div>
+<span style="color:rgba(255,255,255,0.8); font-size:0.9rem;">Gestion stocks & inventaires</span>
+</div>
+<div style="display:flex; align-items:center; gap:12px;">
+<div style="width:36px; height:36px; background:rgba(255,255,255,0.15); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1rem;">🚛</div>
+<span style="color:rgba(255,255,255,0.8); font-size:0.9rem;">Logistique & expéditions</span>
+</div>
+<div style="display:flex; align-items:center; gap:12px;">
+<div style="width:36px; height:36px; background:rgba(255,255,255,0.15); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1rem;">🤖</div>
+<span style="color:rgba(255,255,255,0.8); font-size:0.9rem;">Assistant IA intégré</span>
+</div>
+</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -902,13 +902,13 @@ if st.session_state.current_user is None:
     with col2:
         st.markdown(f"""
 <div style="animation:fadeRight 0.8s ease forwards;">
-    <div style="background:rgba(255,255,255,0.05); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.12); border-radius:24px; padding:48px 44px; box-shadow:0 30px 80px rgba(0,0,0,0.5);">
-        <p style="color:rgba(255,255,255,0.45); font-size:0.8rem; font-weight:600; letter-spacing:2px; text-transform:uppercase; margin:0 0 8px;">
-            CONNEXION
-        </p>
-        <h2 style="color:white; font-size:1.8rem; font-weight:800; margin:0 0 32px; letter-spacing:-0.5px;">
-            Bienvenue 👋
-        </h2>
+<div style="background:rgba(255,255,255,0.05); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.12); border-radius:24px; padding:48px 44px; box-shadow:0 30px 80px rgba(0,0,0,0.5);">
+<p style="color:rgba(255,255,255,0.45); font-size:0.8rem; font-weight:600; letter-spacing:2px; text-transform:uppercase; margin:0 0 8px;">
+CONNEXION
+</p>
+<h2 style="color:white; font-size:1.8rem; font-weight:800; margin:0 0 32px; letter-spacing:-0.5px;">
+Bienvenue 👋
+</h2>
 """, unsafe_allow_html=True)
 
         # Thème selector compact
