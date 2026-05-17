@@ -261,6 +261,28 @@ THEMES_DEFAULT = {
                 "--sidebar-header": "#10B981",
                 "--shadow-neu": "0 10px 40px rgba(0,0,0,0.3)"
             }
+        },
+        {
+            "id": "theme_pharmaciel_brilliance",
+            "name": "Pharmaciel Brilliance",
+            "description": "Thème Clair Next Level — Animations sublimes, Glassmorphism pur et effets brillants.",
+            "preview_color": "#ffffff",
+            "accent_color": "#10B981",
+            "active": True,
+            "css_vars": {
+                "--bg-main": "#f4f7f6",
+                "--bg-sidebar": "rgba(255, 255, 255, 0.7)",
+                "--bg-card": "rgba(255, 255, 255, 0.8)",
+                "--text-primary": "#1f2937",
+                "--text-secondary": "#4b5563",
+                "--accent": "#10B981",
+                "--accent-hover": "#059669",
+                "--backdrop-blur": "30px",
+                "--sidebar-header": "#6B46C1",
+                "--shadow-neu": "0 10px 30px rgba(0,0,0,0.06)",
+                "--shadow-neu-inset": "inset 0 2px 5px rgba(0,0,0,0.02)",
+                "--extra-css": "brilliance"
+            }
         }
     ],
     "user_theme_assignments": {}
@@ -472,6 +494,65 @@ def apply_theme_css(theme: dict):
         vertical-align: middle;
         margin-right: 8px;
     }}
+    
+    /* --- BRILLIANCE EXTRA CSS --- */
+    {'''
+    @keyframes floatingCard {
+        0% { transform: translateY(0px) rotate(0deg); }
+        50% { transform: translateY(-8px) rotate(0.5deg); box-shadow: 0 15px 35px rgba(16,185,129,0.2); border-color: rgba(107,70,193,0.3); }
+        100% { transform: translateY(0px) rotate(0deg); }
+    }
+    @keyframes pulseGlowBtn {
+        0% { box-shadow: 0 0 10px rgba(16,185,129,0.4); }
+        50% { box-shadow: 0 0 25px rgba(16,185,129,0.8), 0 0 15px rgba(107,70,193,0.5); }
+        100% { box-shadow: 0 0 10px rgba(16,185,129,0.4); }
+    }
+    @keyframes gradientBg {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+    .stApp {
+        background: linear-gradient(-45deg, #f8fafc, #f1f5f9, #eef2ff, #f0fdf4) !important;
+        background-size: 400% 400% !important;
+        animation: gradientBg 15s ease infinite !important;
+    }
+    [data-testid="stMetric"], .stMetric {
+        animation: floatingCard 6s ease-in-out infinite !important;
+        border: 1px solid rgba(16,185,129,0.1) !important;
+        background: rgba(255, 255, 255, 0.7) !important;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+    }
+    [data-testid="stMetric"]:hover {
+        transform: translateY(-12px) scale(1.05) !important;
+        box-shadow: 0 20px 40px rgba(107,70,193,0.2) !important;
+        border: 1px solid rgba(107,70,193,0.5) !important;
+    }
+    .stButton > button {
+        background: linear-gradient(135deg, #10B981, #059669) !important;
+        border: 2px solid transparent !important;
+        overflow: hidden !important;
+        position: relative !important;
+    }
+    .stButton > button::before {
+        content: '';
+        position: absolute;
+        top: 0; left: -100%;
+        width: 50%; height: 100%;
+        background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%);
+        transform: skewX(-25deg);
+        animation: shine 3s infinite;
+    }
+    @keyframes shine {
+        0% { left: -100%; }
+        20% { left: 200%; }
+        100% { left: 200%; }
+    }
+    .stButton > button:hover {
+        animation: pulseGlowBtn 2s infinite !important;
+        border-color: #6B46C1 !important;
+    }
+    ''' if v.get('--extra-css') == 'brilliance' else ''}
 </style>
 """
     st.markdown(css, unsafe_allow_html=True)

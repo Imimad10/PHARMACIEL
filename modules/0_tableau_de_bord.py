@@ -43,23 +43,32 @@ snapshot = get_strategic_snapshot()
 
 st.markdown(f"""
 <div style="background: {pulse_grad}; 
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
             border: 1px solid {border_col}; 
-            border-radius: 12px; padding: 15px; margin-bottom: 25px; 
+            border-radius: 20px; padding: 20px; margin-bottom: 30px; 
             display: flex; align-items: center; gap: 20px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.05);">
-    <div style="font-size: 1.5rem; animation: pulse 2s infinite;">🧠</div>
-    <div style="flex: 1;">
-        <div style="font-size: 0.7rem; color: {theme_accent}; font-weight: 800; text-transform: uppercase; letter-spacing: 2px;">Cortex IA Intelligence Pulse</div>
-        <div style="font-size: 1rem; color: {t['text']}; font-weight: 600;">
-            <b>Analyse :</b> CA {snapshot.get('total_ca', 0):,.0f} DA · 
-            <span style="color:#ef4444;">{snapshot.get('total_reclamations', 0)} litiges à résoudre</span> · 
-            <span style="color:#10b981;">Pic de charge : {snapshot.get('peak_hour', 'N/A')}h</span>
+            box-shadow: 0 10px 30px rgba(107,70,193,0.1), inset 0 2px 10px rgba(255,255,255,0.5);
+            position: relative; overflow: hidden; animation: bannerFloat 6s ease-in-out infinite;">
+    
+    <!-- Éclairages de fond animés -->
+    <div style="position:absolute; top:-50%; left:-50%; width:200%; height:200%; background:radial-gradient(circle, rgba(16,185,129,0.1) 0%, transparent 70%); animation: spinGlow 10s linear infinite;"></div>
+
+    <div style="font-size: 2.5rem; animation: pulseGlow 2s infinite; z-index: 2; text-shadow: 0 0 20px rgba(107,70,193,0.5);">🧠✨</div>
+    <div style="flex: 1; z-index: 2;">
+        <div style="font-size: 0.8rem; color: {theme_accent}; font-weight: 900; text-transform: uppercase; letter-spacing: 3px; margin-bottom: 5px;">Cortex IA Intelligence Pulse</div>
+        <div style="font-size: 1.1rem; color: {t['text']}; font-weight: 700;">
+            <span style="display:inline-block; animation: slideInUp 0.5s ease-out forwards;"><b>Analyse :</b> CA {snapshot.get('total_ca', 0):,.0f} DA</span> · 
+            <span style="color:#ef4444; display:inline-block; animation: slideInUp 0.6s ease-out forwards;">🔥 {snapshot.get('total_reclamations', 0)} litiges à résoudre</span> · 
+            <span style="color:#10b981; display:inline-block; animation: slideInUp 0.7s ease-out forwards;">⚡ Pic de charge : {snapshot.get('peak_hour', 'N/A')}h</span>
         </div>
     </div>
-    <div style="background: {theme_accent}; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 800;">LIVE</div>
+    <div style="background: {theme_accent}; color: white; padding: 6px 15px; border-radius: 30px; font-size: 0.8rem; font-weight: 900; z-index: 2; box-shadow: 0 0 15px {theme_accent}; animation: pulse 2s infinite;">LIVE 🟢</div>
 </div>
 <style>
-@keyframes pulse {{ 0% {{ opacity: 0.5; transform: scale(1); }} 50% {{ opacity: 1; transform: scale(1.1); }} 100% {{ opacity: 0.5; transform: scale(1); }} }}
+@keyframes pulseGlow {{ 0% {{ opacity: 0.8; transform: scale(1); filter: drop-shadow(0 0 5px {theme_accent}); }} 50% {{ opacity: 1; transform: scale(1.1); filter: drop-shadow(0 0 20px {theme_accent}); }} 100% {{ opacity: 0.8; transform: scale(1); filter: drop-shadow(0 0 5px {theme_accent}); }} }}
+@keyframes spinGlow {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }}
+@keyframes bannerFloat {{ 0% {{ transform: translateY(0); }} 50% {{ transform: translateY(-5px); }} 100% {{ transform: translateY(0); }} }}
+@keyframes slideInUp {{ from {{ opacity: 0; transform: translateY(10px); }} to {{ opacity: 1; transform: translateY(0); }} }}
 </style>
 """, unsafe_allow_html=True)
 

@@ -341,7 +341,7 @@ if not applied_theme and st.session_state.get('current_user'):
 # 3. Fallback sur le thème par défaut (selon l'établissement) si rien d'autre n'est appliqué
 if not applied_theme:
     _etab = st.session_state.get('etablissement', 'darpharm')
-    fallback_id = "theme_pharmaciel_luxe" if _etab == "pharmaciel" else "theme_darpharm_fluffy"
+    fallback_id = "theme_pharmaciel_brilliance" if _etab == "pharmaciel" else "theme_darpharm_fluffy"
     fallback_theme = next((t for t in _tdb["themes"] if t["id"] == fallback_id), None)
     
     if fallback_theme:
