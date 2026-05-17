@@ -54,7 +54,29 @@ def build_context():
         context += f"- Logistique : {len(df_p)} factures pointées à ce jour.\n"
     except: pass
 
-    context += "\nTa mission : Analyser ces chiffres pour aider le directeur à prendre des décisions. Sois visionnaire, précis et force de proposition. Utilise des emojis."
+    # 6. Master Inventaire & IA Médicale Intégrée
+    try:
+        df_master = load_gs_data("Master_Inventaire_Zone", "data_inventaire_detail/master_detail.csv", [])
+        if not df_master.empty:
+            context += f"- Base Produits & Lots (Master Inventaire) : {len(df_master)} lots en stock partagé.\n"
+            if "designation" in df_master.columns:
+                top_products = df_master["designation"].dropna().unique()[:5].tolist()
+                context += f"  Exemples de produits en stock : {', '.join(top_products)}\n"
+            context += "- CONNAISSANCE MÉDICALE INTÉGRÉE : Tu es lié à l'IA médicale. Si l'utilisateur pose une question sur un médicament, fournis la classe thérapeutique, les interactions possibles, et les recommandations de santé.\n"
+    except: pass
+
+    # 7. Cerveau Global IA (Règles Apprises Partagées)
+    try:
+        df_rules = load_gs_data("IA_Rules", "data/db_ia_rules.csv", [])
+        if not df_rules.empty:
+            active_rules = df_rules[df_rules['actif'] == True]
+            if not active_rules.empty:
+                context += "- RÈGLES MÉTIER (Base d'apprentissage IA Partagée) :\n"
+                for _, row in active_rules.iterrows():
+                    context += f"  * Règle '{row['mot_cle']}' : {row['instruction']}\n"
+    except: pass
+
+    context += "\nTa mission : Analyser ces chiffres et ces règles pour aider le directeur à prendre des décisions. Tu es le cerveau central qui relie tous les modules. Sois visionnaire, précis et force de proposition. Utilise des emojis."
     return context
 
 context = build_context()

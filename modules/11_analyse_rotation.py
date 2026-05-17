@@ -15,8 +15,37 @@ st.write("Identifiez les produits immobilisés qui ne tournent pas assez vite po
 tab_import, tab_analyse = st.tabs(["📊 Import des Données", "🔍 Analyse de Rotation"])
 
 with tab_import:
-    st.info("💡 **Nouveauté** : Si votre fichier contient déjà une colonne 'Rotation', importez-le simplement dans 'Stock Actuel'.")
+    st.info("💡 **Nouveauté** : Utilisez les données de la base centrale ou importez un fichier manuellement.")
     
+    col_db1, col_db2 = st.columns(2)
+    with col_db1:
+        if st.button("📥 Charger Master Inventaire (Liste des Lots)", use_container_width=True, type="primary"):
+            from utils_gsheets import load_gs_data
+            df_master = load_gs_data("Master_Inventaire_Zone", "data_inventaire_detail/master_detail.csv", [])
+            if not df_master.empty:
+                df_master.columns = [str(c).strip().upper() for c in df_master.columns]
+                st.session_state.df_stock_rot = df_master
+                if "ROTATION" in df_master.columns:
+                    st.session_state.rotation_directe = True
+                else:
+                    st.session_state.rotation_directe = False
+                st.success("✅ Base Centrale chargée !")
+            else:
+                st.error("❌ Base Centrale vide. Importez via Admin Centrale d'abord.")
+    
+    with col_db2:
+        if st.button("📥 Charger Master Ventes", use_container_width=True, type="primary"):
+            from utils_gsheets import load_gs_data
+            df_ventes = load_gs_data("Analyse_Ventes_Perf", "data/db_ventes_performance.csv", [])
+            if not df_ventes.empty:
+                df_ventes.columns = [str(c).strip().upper() for c in df_ventes.columns]
+                st.session_state.df_sales_rot = df_ventes
+                st.success("✅ Base Ventes chargée !")
+            else:
+                st.error("❌ Base Ventes vide. Importez via Admin Centrale d'abord.")
+                
+    st.divider()
+    st.write("Ou importez manuellement :")
     col1, col2 = st.columns(2)
     with col1:
         file_stock = st.file_uploader("1. Importez votre Stock Actuel / Liste des Lots", type=["csv", "xlsx"])
