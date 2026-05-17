@@ -241,6 +241,34 @@ with tabs[0]:
             # Heatmap pour plus de "WOW"
             fig_heat = px.imshow(pivot, text_auto=True, color_continuous_scale='YlOrRd', template="plotly_dark")
             st.plotly_chart(fig_heat, use_container_width=True)
+
+        st.divider()
+        col_alerte, col_detail = st.columns([1, 2])
+        
+        with col_alerte:
+            st.markdown("#### 🚨 Alerte Tolérance (Max 5 Err. Comm)")
+            if 'commercial' in df_p.columns and 'categorie_motif' in df_p.columns:
+                err_by_comm = df_p[df_p['categorie_motif'] == "Erreur Commerciale"].groupby('commercial').size().reset_index(name='Nb_Erreurs')
+                over_limit = err_by_comm[err_by_comm['Nb_Erreurs'] > 5]
+                
+                if not over_limit.empty:
+                    for _, row in over_limit.iterrows():
+                        st.error(f"⚠️ **{row['commercial']}** : **{row['Nb_Erreurs']}** erreurs (Dépassement de la limite de 5).")
+                else:
+                    st.success("✅ Aucun commercial ne dépasse la limite des 5 erreurs.")
+        
+        with col_detail:
+            st.markdown("#### 📋 Base de Données des Retours")
+            cat_filter = st.selectbox("Afficher spécifiquement :", ["Tous les retours", "PNC (Non Conforme)", "Erreur Commerciale", "Erreur Dépôt", "Erreur Pharmacien"], label_visibility="collapsed")
+            
+            cols_to_show = ['date', 'commercial', 'client', 'produit', 'categorie_motif', 'motif', 'quantite', 'remarque_ligne']
+            cols_present = [c for c in cols_to_show if c in df_p.columns]
+            
+            df_details = df_p[cols_present].copy()
+            if cat_filter != "Tous les retours" and 'categorie_motif' in df_details.columns:
+                df_details = df_details[df_details['categorie_motif'] == cat_filter]
+                
+            st.dataframe(df_details, use_container_width=True, hide_index=True)
     else:
         st.warning("Aucune donnée disponible.")
 
