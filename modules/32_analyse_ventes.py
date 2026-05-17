@@ -126,7 +126,10 @@ with tabs[0]:
 
         if 'mois_annee' in df.columns and 'prix_vente' in df.columns:
             st.markdown("#### 📅 Évolution Mensuelle de la Performance")
-            df_monthly = df.groupby('mois_annee')[['prix_vente', 'marge']].sum().reset_index().dropna(subset=['mois_annee'])
+            cols_to_group = ['prix_vente']
+            if 'marge' in df.columns:
+                cols_to_group.append('marge')
+            df_monthly = df.groupby('mois_annee')[cols_to_group].sum().reset_index().dropna(subset=['mois_annee'])
             df_monthly = df_monthly.sort_values('mois_annee')
             
             if not df_monthly.empty:
