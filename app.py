@@ -965,7 +965,7 @@ Bienvenue 👋
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
         if st.button(f"Se connecter  {_etab_icon}", type="primary", use_container_width=True):
-            res = df_users[(df_users['username'] == u) & (df_users['password'] == p)]
+            res = df_users[(df_users['username'].astype(str).str.lower() == str(u).lower()) & (df_users['password'] == p)]
             if not res.empty:
                 user_data = res.iloc[0].to_dict()
                 st.session_state.current_user = user_data
