@@ -42,17 +42,9 @@ from utils_cortex import get_strategic_snapshot
 snapshot = get_strategic_snapshot()
 
 st.markdown(f"""
-<div style="background: {pulse_grad}; 
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border: 1px solid {border_col}; 
-            border-radius: 20px; padding: 20px; margin-bottom: 30px; 
-            display: flex; align-items: center; gap: 20px;
-            box-shadow: 0 10px 30px rgba(107,70,193,0.1), inset 0 2px 10px rgba(255,255,255,0.5);
-            position: relative; overflow: hidden; animation: bannerFloat 6s ease-in-out infinite;">
-    
+<div style="background: {pulse_grad}; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid {border_col}; border-radius: 20px; padding: 20px; margin-bottom: 30px; display: flex; align-items: center; gap: 20px; box-shadow: 0 10px 30px rgba(107,70,193,0.1), inset 0 2px 10px rgba(255,255,255,0.5); position: relative; overflow: hidden; animation: bannerFloat 6s ease-in-out infinite;">
     <!-- Éclairages de fond animés -->
     <div style="position:absolute; top:-50%; left:-50%; width:200%; height:200%; background:radial-gradient(circle, rgba(16,185,129,0.1) 0%, transparent 70%); animation: spinGlow 10s linear infinite;"></div>
-
     <div style="font-size: 2.5rem; animation: pulseGlow 2s infinite; z-index: 2; text-shadow: 0 0 20px rgba(107,70,193,0.5);">🧠✨</div>
     <div style="flex: 1; z-index: 2;">
         <div style="font-size: 0.8rem; color: {theme_accent}; font-weight: 900; text-transform: uppercase; letter-spacing: 3px; margin-bottom: 5px;">Cortex IA Intelligence Pulse</div>
