@@ -338,11 +338,14 @@ if not applied_theme and st.session_state.get('current_user'):
         apply_theme_css(u_theme)
         applied_theme = True
 
-# 3. Fallback sur le thème DarPharm Fluffy (Défaut) si rien d'autre n'est appliqué
+# 3. Fallback sur le thème par défaut (selon l'établissement) si rien d'autre n'est appliqué
 if not applied_theme:
-    fluffy = next((t for t in _tdb["themes"] if t["id"] == "theme_darpharm_fluffy"), None)
-    if fluffy:
-        apply_theme_css(fluffy)
+    _etab = st.session_state.get('etablissement', 'darpharm')
+    fallback_id = "theme_pharmaciel_luxe" if _etab == "pharmaciel" else "theme_darpharm_fluffy"
+    fallback_theme = next((t for t in _tdb["themes"] if t["id"] == fallback_id), None)
+    
+    if fallback_theme:
+        apply_theme_css(fallback_theme)
         
     # Style Responsive et Bouton Déconnexion
     st.markdown("""
@@ -1167,8 +1170,13 @@ if "active_group" not in st.session_state:
 # Initialiser la navigation (Masquer le menu par défaut)
 pg = st.navigation(pages_to_show, position="hidden")
 
+# --- BRANDING DE L'ETABLISSEMENT ---
+_etab_badge_color = ETABLISSEMENTS.get(_etab_actif, {}).get("color_primary", "#5b6cf9")
+_etab_badge_nom   = ETABLISSEMENTS.get(_etab_actif, {}).get("nom", "DarPharm")
+_etab_badge_icon  = ETABLISSEMENTS.get(_etab_actif, {}).get("icon", "🏭")
+
 # Injection CSS pour la lisibilité
-st.markdown("""
+st.markdown(f"""
     <style>
         [data-testid="stSidebar"] .stButton > button {
             font-size: 1.1rem !important;
@@ -1248,7 +1256,7 @@ with st.sidebar:
             st.session_state.active_group = group_name
             
         if is_active:
-            st.markdown('<div style="padding-left: 15px; border-left: 3px solid #5b6cf9; margin-top: 5px; margin-bottom: 15px;">', unsafe_allow_html=True)
+            st.markdown(f'<div style="padding-left: 15px; border-left: 3px solid {_etab_badge_color}; margin-top: 5px; margin-bottom: 15px;">', unsafe_allow_html=True)
             for p in pages:
                 st.page_link(p, label=p.title, icon=p.icon)
             st.markdown('</div>', unsafe_allow_html=True)
@@ -1263,9 +1271,6 @@ with st.sidebar:
 
     # 3. INFOS UTILISATEUR & THÈME (EN BAS)
     with st.expander("👤 MON COMPTE", expanded=False):
-        _etab_badge_color = ETABLISSEMENTS.get(_etab_actif, {}).get("color_primary", "#1877f2")
-        _etab_badge_nom   = ETABLISSEMENTS.get(_etab_actif, {}).get("nom", "DarPharm")
-        _etab_badge_icon  = ETABLISSEMENTS.get(_etab_actif, {}).get("icon", "🏭")
         st.markdown(f"""
             <div class="user-box">
                 <p style="margin:0 0 4px; font-size:0.75rem; font-weight:700; color:white;
@@ -1273,7 +1278,7 @@ with st.sidebar:
                            display:inline-block;">{_etab_badge_icon} {_etab_badge_nom}</p>
                 <p style="margin: 4px 0 0; font-size: 0.9rem; color: #6b7299;">Connecté en tant que :</p>
                 <p style="margin: 0; font-size: 1.1rem; font-weight: 800; color: #1a1f3c;">{user['username']}</p>
-                <p style="margin: 0; font-size: 0.85rem; color: #5b6cf9; font-weight: 600;">Rôle : {user.get('role', 'Saisie')}</p>
+                <p style="margin: 0; font-size: 0.85rem; color: {_etab_badge_color}; font-weight: 600;">Rôle : {user.get('role', 'Saisie')}</p>
             </div>
         """, unsafe_allow_html=True)
 
@@ -1296,10 +1301,13 @@ with st.sidebar:
     st.divider()
 
     # 4. LOGO (TOUT EN BAS)
-    if os.path.exists("logo.png"):
+    logo_file = "logo_pharmaciel.png" if _etab_actif == "pharmaciel" else "logo.png"
+    if os.path.exists(logo_file):
+        st.image(logo_file, use_container_width=True)
+    elif os.path.exists("logo.png"):
         st.image("logo.png", use_container_width=True)
     else:
-        st.markdown('<h2 style="text-align:center; color:#5b6cf9;">DarPharm</h2>', unsafe_allow_html=True)
+        st.markdown(f'<h2 style="text-align:center; color:{_etab_badge_color};">{_etab_badge_icon} {_etab_badge_nom}</h2>', unsafe_allow_html=True)
 
 # --- WIDGET DE TRADUCTION GOOGLE (ARABE / FRANCAIS) ---
 import streamlit.components.v1 as components
