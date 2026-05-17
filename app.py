@@ -771,25 +771,48 @@ if st.session_state.current_user is None:
         }}
 
         /* ── Inputs ── */
-        .stTextInput > div > div > input {{
+        .stTextInput > div {{
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }}
+        .stTextInput > div > div {{
             background: rgba(255,255,255,0.07) !important;
             border: 1.5px solid rgba(255,255,255,0.15) !important;
             border-radius: 14px !important;
-            color: white !important;
-            font-size: 15px !important;
-            height: 54px !important;
-            padding: 0 18px !important;
             transition: all 0.3s ease !important;
             backdrop-filter: blur(10px);
+            height: 54px !important;
+            padding-right: 10px !important;
         }}
-        .stTextInput > div > div > input:focus {{
+        .stTextInput > div > div:focus-within {{
             border-color: {_c1} !important;
             background: rgba(255,255,255,0.1) !important;
             box-shadow: 0 0 0 3px {_c1}33 !important;
         }}
+        .stTextInput > div > div > input {{
+            color: white !important;
+            font-size: 15px !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 18px !important;
+            height: 100% !important;
+        }}
         .stTextInput > div > div > input::placeholder {{
             color: rgba(255,255,255,0.4) !important;
         }}
+        
+        /* Autofill fixes */
+        .stTextInput input:-webkit-autofill,
+        .stTextInput input:-webkit-autofill:hover, 
+        .stTextInput input:-webkit-autofill:focus, 
+        .stTextInput input:-webkit-autofill:active {{
+            -webkit-box-shadow: 0 0 0 30px #0a0a1a inset !important;
+            -webkit-text-fill-color: white !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }}
+
         /* Eye icon */
         .stTextInput > div > div > button {{
             color: rgba(255,255,255,0.5) !important;
