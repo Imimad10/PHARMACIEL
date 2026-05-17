@@ -385,8 +385,14 @@ with tabs[0]:
             pass
         
         if not df_up.empty:
+            # Sécurité contre les colonnes dupliquées (ex: 2 colonnes qui pointent vers "marge")
+            cols = pd.Series(df_up.columns)
+            for dup in cols[cols.duplicated()].unique():
+                cols[cols[cols == dup].index.values.tolist()] = [f"{dup}_{i}" if i != 0 else dup for i in range(sum(cols == dup))]
+            df_up.columns = cols
+            
             st.write("**Aperçu des données :**")
-        st.dataframe(df_up.head(5), use_container_width=True)
+            st.dataframe(df_up.head(5), use_container_width=True)
         
         if target:
             st.success(f"🎯 Type détecté : **{target}**")
