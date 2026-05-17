@@ -374,17 +374,17 @@ if not applied_theme:
             transition: all 0.2s ease !important;
         }
         [data-testid="stSidebarNav"] a[aria-current="page"] {
-            background-color: rgba(91, 108, 249, 0.12) !important;
-            border-left: 4px solid #5b6cf9 !important;
+            background-color: rgba(0, 0, 0, 0.1) !important;
+            border-left: 4px solid var(--accent, #5b6cf9) !important;
         }
         [data-testid="stSidebarNav"] span {
             font-size: 0.88rem !important;
             font-weight: 600 !important;
             line-height: 1.2 !important;
-            color: #4b5563 !important;
+            color: var(--sidebar-text-color, #4b5563) !important;
         }
         [data-testid="stSidebarNav"] a[aria-current="page"] span {
-            color: #5b6cf9 !important;
+            color: var(--accent, #5b6cf9) !important;
         }
         
         /* Sidebar Group Headers - BALANCED COMPACT */
@@ -401,7 +401,7 @@ if not applied_theme:
             text-transform: uppercase !important;
             font-size: 0.68rem !important;
             letter-spacing: 0.8px !important;
-            color: #5b6cf9 !important;
+            color: var(--accent, #5b6cf9) !important;
             opacity: 0.9;
             display: block !important;
             clear: both !important;
@@ -1276,8 +1276,8 @@ with st.sidebar:
                 <p style="margin:0 0 4px; font-size:0.75rem; font-weight:700; color:white;
                            background:{_etab_badge_color}; padding:3px 10px; border-radius:20px;
                            display:inline-block;">{_etab_badge_icon} {_etab_badge_nom}</p>
-                <p style="margin: 4px 0 0; font-size: 0.9rem; color: #6b7299;">Connecté en tant que :</p>
-                <p style="margin: 0; font-size: 1.1rem; font-weight: 800; color: #1a1f3c;">{user['username']}</p>
+                <p style="margin: 4px 0 0; font-size: 0.9rem; color: var(--text-secondary, #6b7299);">Connecté en tant que :</p>
+                <p style="margin: 0; font-size: 1.1rem; font-weight: 800; color: var(--text-primary, #1a1f3c);">{user['username']}</p>
                 <p style="margin: 0; font-size: 0.85rem; color: {_etab_badge_color}; font-weight: 600;">Rôle : {user.get('role', 'Saisie')}</p>
             </div>
         """, unsafe_allow_html=True)
