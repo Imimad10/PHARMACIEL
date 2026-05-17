@@ -156,7 +156,17 @@ with tabs[1]:
         try:
             df_raw = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
             df_clean, found = clean_reclam_cols(df_raw)
-            if 'motif' in df_clean.columns: df_clean['categorie_motif'] = df_clean['motif'].apply(categorize_motif)
+            
+            # Fallbacks to prevent KeyErrors in the UI
+            if 'motif' in df_clean.columns: 
+                df_clean['categorie_motif'] = df_clean['motif'].apply(categorize_motif)
+            else:
+                df_clean['motif'] = "Non Renseigné"
+                df_clean['categorie_motif'] = "Autre / Non Classé"
+                
+            if 'commercial' not in df_clean.columns:
+                df_clean['commercial'] = "Inconnu"
+                
             st.session_state.df_reclam_analysed = df_clean
             st.success("✅ Données importées et catégorisées !")
             if st.button("💾 Synchroniser avec le Cloud"):
