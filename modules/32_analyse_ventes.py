@@ -45,20 +45,89 @@ st.markdown("""
 
 def clean_sales_cols(df):
     mapping = {
-        'designation': ['designation', 'produit', 'article', 'libelle'],
-        'quantite': ['quantite', 'qte', 'volume', 'nombre'],
-        'prix_vente': ['prix vente', 'prix_v', 'ca', 'montant', 'total ht'],
+        'designation': ['designation', 'produit', 'article', 'libelle', 'désignation'],
+        'quantite': ['quantite', 'qte', 'volume', 'nombre', 'quantité'],
+        'prix_vente': ['h.t', 'ht', 'prix vente', 'prix_v', 'ca', 'montant', 'total ht', 't.t.c', 'ttc'],
         'marge': ['marge', 'profit', 'rentabilite', 'benefice', 'gain'],
         'date': ['date', 'jour', 'facturé le'],
         'heure': ['heure', 'time', 'moment'],
-        'colis': ['colis', 'nb colis', 'colissage', 'paquets']
+        'colis': ['colis', 'nb colis', 'colissage', 'paquets'],
+        'client': ['client'],
+        'reference': ['référence', 'reference', 'ref'],
+        'remise': ['remise'],
+        'tva': ['t.v.a', 'tva'],
+        'timbre': ['timbre'],
+        'montant_regle': ['montant réglé', 'montant regle'],
+        'reste_a_payer': ['reste à payer', 'reste a payer'],
+        'cagnotte': ['cagnotte'],
+        'commercial': ['commercial attaché', 'commercial', 'créer par', 'creer par'],
+        'date_creation': ['date création', 'date creation'],
+        'echeance': ['echéance', 'echeance'],
+        'bl': ['b.l', 'bl'],
+        'region': ['région', 'region'],
+        'reclam': ['réclam.', 'reclam'],
+        'categorie': ['catégorie', 'categorie'],
+        'remarque': ['remarque'],
+        'num_client': ['n°client', 'n client'],
+        'preparateur': ['préparateur', 'preparateur'],
+        'verificateur': ['vérificateur', 'verificateur'],
+        'verificateur_2': ['vérificateur 2', 'verificateur 2'],
+        'id_priorite': ['id_priorite'],
+        'blocage_client': ['blocage client'],
+        'tx_rm': ['tx rm'],
+        'depot': ['dépôt', 'depot'],
+        'type_client': ['type client'],
+        'statut': ['statut'],
+        'verification': ['vérification', 'verification'],
+        'code_client': ['code client'],
+        'prepare': ['préparé', 'prepare'],
+        'frig_psy': ['frig/psy.', 'frig/psy'],
+        'nbr_impres': ['nbr impres.', 'nbr impres'],
+        'ville': ['ville'],
+        'remise_ligne': ['remise ligne'],
+        'nbr_ligne': ['nbr ligne'],
+        'wilaya': ['wilaya'],
+        'brouillant': ['brouillant'],
+        'categorie_prod': ['catégorie prod.', 'categorie prod'],
+        'cloture': ['clôture', 'cloture'],
+        'compta': ['compta.'],
+        'imprime_reclam': ['imprime réclam', 'imprime reclam'],
+        'frigo': ['frigo'],
+        'psy': ['psy.'],
+        'chers': ['chers'],
+        'sachet': ['sachet'],
+        'cde_en_ligne': ['cde.en ligne'],
+        'superviseur': ['superviseur'],
+        'offre_lab': ['offre lab.'],
+        'annuler': ['annuler'],
+        'cash': ['cash'],
+        'tx_qt': ['tx qt%'],
+        'part': ['part'],
+        'mg': ['mg'],
+        'cat_client': ['cat.client'],
+        'n_ordre': ['n° ordre', 'n ordre']
     }
+    
     new_cols = {}
-    for target, alts in mapping.items():
-        for col in df.columns:
-            if any(alt in str(col).lower() for alt in alts):
+    
+    # Correspondance exacte d'abord pour éviter les faux positifs
+    for col in df.columns:
+        col_str = str(col).lower().strip()
+        for target, alts in mapping.items():
+            if col_str in alts:
                 new_cols[col] = target
                 break
+                
+    # Correspondance partielle (fallback)
+    for col in df.columns:
+        if col in new_cols: continue
+        col_str = str(col).lower().strip()
+        for target, alts in mapping.items():
+            valid_alts = [a for a in alts if len(a) > 4 and a not in ['date', 'heure']]
+            if any(alt in col_str for alt in valid_alts):
+                new_cols[col] = target
+                break
+                
     return df.rename(columns=new_cols)
 
 def process_time_features(df):
