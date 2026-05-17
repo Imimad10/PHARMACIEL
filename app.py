@@ -1253,7 +1253,11 @@ with st.sidebar:
         
         if st.button(group_name, key=f"grp_{group_name}", use_container_width=True, 
                      type="primary" if is_active else "secondary"):
-            st.session_state.active_group = group_name
+            if is_active:
+                st.session_state.active_group = None  # Permet de fermer le groupe
+            else:
+                st.session_state.active_group = group_name
+            st.rerun()  # Rerun immédiat pour éviter le double clic
             
         if is_active:
             st.markdown(f'<div style="padding-left: 15px; border-left: 3px solid {_etab_badge_color}; margin-top: 5px; margin-bottom: 15px;">', unsafe_allow_html=True)
