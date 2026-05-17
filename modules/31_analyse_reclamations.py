@@ -131,7 +131,7 @@ def categorize_motif(motif_str):
     m = str(motif_str).upper()
     if any(k in m for k in ["COMMERCIAL", "SAISIE", "FORCE", "REVENU", "EXCUSE"]): return "Erreur Commerciale"
     if any(k in m for k in ["PHARMACIEN", "DOSAGE", "FORME", "DCI", "MARQUE"]): return "Erreur Pharmacien"
-    if any(k in m for k in ["DEPOT", "PREPARATION", "BOITE", "PLUS", "MOIN", "QUANTITE"]): return "Erreur Dépôt"
+    if any(k in m for k in ["DEPOT", "PREPARATION", "BOITE", "PLUS", "MOIN", "QUANTITE", "MANQUE"]): return "Erreur Dépôt"
     if any(k in m for k in ["PNC", "CONFORME", "VIGNETTE", "ABIMEE", "CASSEE", "DETERIORE"]): return "PNC (Non Conforme)"
     if any(k in m for k in ["SUPERVISEUR", "MODIFICATION", "REFAIRE", "BON DEJA"]): return "Erreur Superviseur"
     return "Autre / Non Classé"
@@ -177,8 +177,13 @@ with tabs[1]:
 
 with tabs[0]:
     if "df_reclam_analysed" in st.session_state:
-        df = st.session_state.df_reclam_analysed
+        df = st.session_state.df_reclam_analysed.copy()
         
+        # Filtre Global: Exclure les réclamations "Refusées" de toute l'analyse
+        if 'statut' in df.columns:
+            df['statut_clean'] = df['statut'].astype(str).str.upper().str.strip()
+            df = df[~df['statut_clean'].str.contains("REFUS", na=False)]
+            
         # Fallback de sécurité si le dataframe provient d'un ancien cache ou DB
         if 'motif' not in df.columns: df['motif'] = "Non Renseigné"
         if 'categorie_motif' not in df.columns: df['categorie_motif'] = "Autre / Non Classé"
@@ -200,16 +205,16 @@ with tabs[0]:
         
         # KPIs
         c1, c2, c3, c4 = st.columns(4)
-        with c1: st.markdown(f'<div class="reclam-card stat-box"><div class="stat-label">Total Retours</div><div class="stat-val">{len(df_p)}</div></div>', unsafe_allow_html=True)
+        with c1: st.markdown(f'<div class="reclam-card stat-box"><div class="stat-label">Réclam. Validées</div><div class="stat-val">{len(df_p)}</div></div>', unsafe_allow_html=True)
         with c2: 
             err_c = len(df_p[df_p['categorie_motif'] == "Erreur Commerciale"])
-            st.markdown(f'<div class="reclam-card stat-box"><div class="stat-label">Risque Comm</div><div class="stat-val severity-high">{err_c}</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="reclam-card stat-box"><div class="stat-label">Fautes Comm.</div><div class="stat-val severity-high">{err_c}</div></div>', unsafe_allow_html=True)
         with c3:
-            pnc = len(df_p[df_p['categorie_motif'] == "PNC (Non Conforme)"])
-            st.markdown(f'<div class="reclam-card stat-box"><div class="stat-label">Qualité (PNC)</div><div class="stat-val severity-med">{pnc}</div></div>', unsafe_allow_html=True)
+            manques = len(df_p[df_p['motif'].astype(str).str.upper().str.contains("MANQUE", na=False)])
+            st.markdown(f'<div class="reclam-card stat-box"><div class="stat-label">Manques (Dépôt)</div><div class="stat-val severity-med">{manques}</div></div>', unsafe_allow_html=True)
         with c4:
-            tx = (err_c / len(df_p) * 100) if len(df_p) > 0 else 0
-            st.markdown(f'<div class="reclam-card stat-box"><div class="stat-label">% Erreur Saisie</div><div class="stat-val">{tx:.1f}%</div></div>', unsafe_allow_html=True)
+            pnc = len(df_p[df_p['categorie_motif'] == "PNC (Non Conforme)"])
+            st.markdown(f'<div class="reclam-card stat-box"><div class="stat-label">Qualité (PNC)</div><div class="stat-val severity-high">{pnc}</div></div>', unsafe_allow_html=True)
 
         col_g1, col_g2 = st.columns([1, 1])
         
