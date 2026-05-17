@@ -72,6 +72,14 @@ def process_time_features(df):
             df['heure_int'] = pd.to_datetime(df['heure'], errors='coerce').dt.hour
     elif 'date_dt' in df.columns:
         df['heure_int'] = df['date_dt'].dt.hour
+        
+    for col in ['prix_vente', 'marge', 'colis', 'quantite']:
+        if col in df.columns:
+            if df[col].dtype == 'object':
+                try: df[col] = df[col].astype(str).str.replace(' ', '', regex=False).str.replace(',', '.', regex=False)
+                except: pass
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+            
     return df
 
 # --- 4. UI ---
@@ -105,10 +113,10 @@ with tabs[0]:
         df = st.session_state.df_ventes_perf
         c1, c2, c3, c4 = st.columns(4)
         
-        ca = df['prix_vente'].sum() if 'prix_vente' in df.columns else 0
-        marge = df['marge'].sum() if 'marge' in df.columns else 0
+        ca = pd.to_numeric(df['prix_vente'], errors='coerce').sum() if 'prix_vente' in df.columns else 0
+        marge = pd.to_numeric(df['marge'], errors='coerce').sum() if 'marge' in df.columns else 0
         lignes = len(df)
-        colis = df['colis'].sum() if 'colis' in df.columns else 0
+        colis = pd.to_numeric(df['colis'], errors='coerce').sum() if 'colis' in df.columns else 0
         
         with c1: st.markdown(f'<div class="perf-card stat-box"><div class="stat-label">Chiffre d\'Affaires</div><div class="stat-val">{ca:,.0f} DA</div></div>', unsafe_allow_html=True)
         with c2: st.markdown(f'<div class="perf-card stat-box"><div class="stat-label">Rentabilité</div><div class="stat-val">{marge:,.0f} DA</div></div>', unsafe_allow_html=True)

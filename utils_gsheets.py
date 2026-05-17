@@ -226,13 +226,16 @@ def save_gs_data(df, worksheet_name, fallback_path, force_cloud=False, override_
                 except: worksheet = sh.add_worksheet(title=worksheet_name, rows="100", cols="20")
                 
                 worksheet.clear()
-                df_gs = df.copy().fillna("")
+                df_gs = df.copy()
                 for col in df_gs.columns:
                     if pd.api.types.is_datetime64_any_dtype(df_gs[col]):
                         df_gs[col] = df_gs[col].dt.strftime('%Y-%m-%d %H:%M:%S')
                     else:
                         df_gs[col] = df_gs[col].apply(lambda x: x.strftime('%Y-%m-%d %H:%M:%S') if hasattr(x, 'strftime') else x)
                     df_gs[col] = df_gs[col].apply(lambda x: str(x) if isinstance(x, (list, dict)) else x)
+                
+                import numpy as np
+                df_gs = df_gs.replace([np.inf, -np.inf], np.nan).fillna("")
                 
                 # Unique headers
                 new_cols, c_count = [], {}
