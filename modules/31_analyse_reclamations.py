@@ -57,10 +57,10 @@ st.markdown("""
 
 def categorize_motif(motif_str):
     m = str(motif_str).upper()
-    if any(k in m for k in ["COMMERCIAL", "SAISIE", "FORCE", "REVENU", "EXCUSE"]): return "Erreur Commerciale"
-    if any(k in m for k in ["PHARMACIEN", "DOSAGE", "FORME", "DCI", "MARQUE"]): return "Erreur Pharmacien"
+    if any(k in m for k in ["COMMERCIAL", "SAISIE", "FORCE", "REVENU", "EXCUSE", "PRODUIT NON COMMANDE"]): return "Erreur Commerciale"
+    if any(k in m for k in ["PHARMACIEN", "DOSAGE", "FORME", "DCI", "MARQUE", "RETOUR CLIENT"]): return "Erreur Pharmacien"
     if any(k in m for k in ["DEPOT", "PREPARATION", "BOITE", "PLUS", "MOIN", "QUANTITE", "MANQUE"]): return "Erreur Dépôt"
-    if any(k in m for k in ["PNC", "CONFORME", "VIGNETTE", "ABIMEE", "CASSEE", "DETERIORE"]): return "PNC (Non Conforme)"
+    if any(k in m for k in ["PNC", "CONFORME", "VIGNETTE", "ABIMEE", "CASSEE", "DETERIORE", "PRODUIT ABIME"]): return "PNC (Non Conforme)"
     if any(k in m for k in ["SUPERVISEUR", "MODIFICATION", "REFAIRE", "BON DEJA"]): return "Erreur Superviseur"
     return "Autre / Non Classé"
 
@@ -93,12 +93,14 @@ with tabs[0]:
             
         # Fallback de sécurité si le dataframe provient d'un ancien cache ou DB
         if 'motif' not in df.columns: df['motif'] = "Non Renseigné"
-        if 'categorie_motif' not in df.columns: df['categorie_motif'] = "Autre / Non Classé"
         if 'commercial' not in df.columns: df['commercial'] = "Inconnu"
         
         # Nettoyage strict des valeurs vides (NaN) qui font crasher Plotly Sunburst
         df['motif'] = df['motif'].fillna("Non Renseigné").astype(str)
-        df['categorie_motif'] = df['categorie_motif'].fillna("Autre / Non Classé").astype(str)
+        
+        # Application stricte de nos règles de catégorisation
+        df['categorie_motif'] = df['motif'].apply(categorize_motif)
+        
         df['commercial'] = df['commercial'].fillna("Inconnu").astype(str)
         
         # Filtres
@@ -185,16 +187,40 @@ with tabs[0]:
 
 with tabs[2]:
     if is_ia_enabled() and "df_reclam_analysed" in st.session_state:
-        st.subheader("🧠 Intelligence Artificielle - Root Cause Analysis")
-        if st.button("🚀 LANCER L'AUDIT DE PERFORMANCE", use_container_width=True, type="primary"):
-            df = st.session_state.df_reclam_analysed
+        st.subheader("🧠 Intelligence Artificielle - Root Cause Analysis (Deep Dive)")
+        st.write("L'IA va croiser les données (Commerciaux, Produits, Clients, Motifs) pour trouver la vraie source des problèmes.")
+        
+        if st.button("🚀 LANCER L'AUDIT DE PERFORMANCE APPROFONDI", use_container_width=True, type="primary"):
+            df = st.session_state.df_reclam_analysed.copy()
+            df['motif'] = df.get('motif', "Non Renseigné").fillna("Non Renseigné").astype(str)
+            df['categorie_motif'] = df['motif'].apply(categorize_motif)
+            df['commercial'] = df.get('commercial', "Inconnu").fillna("Inconnu").astype(str)
+            
             summary = df.groupby(['commercial', 'categorie_motif']).size().reset_index(name='count').to_dict('records')
             
-            prompt = f"Tu es un expert en audit logistique. Analyse ces réclamations : {summary}. Identifie les acteurs critiques et propose un plan d'action immédiat. Sois bref et percutant."
+            top_produits = df['produit'].value_counts().head(5).to_dict() if 'produit' in df.columns else "Non disponible"
+            top_clients = df['client'].value_counts().head(5).to_dict() if 'client' in df.columns else "Non disponible"
+            top_motifs = df['motif'].value_counts().head(5).to_dict()
             
-            with st.spinner("L'IA scanne les comportements..."):
+            prompt = f"""
+            Tu es un auditeur logistique et commercial de très haut niveau pour DarPharm.
+            Voici une extraction riche des réclamations :
+            - Bilan Commerciaux vs Catégories : {summary}
+            - Produits causant le plus de litiges : {top_produits}
+            - Pharmacies/Clients les plus touchés : {top_clients}
+            - Raisons textuelles exactes (Motifs) : {top_motifs}
+            
+            TA MISSION :
+            1. **Le Diagnostic Vérité** : Dis-moi exactement ce qui ne va pas (Est-ce que les commerciaux forcent la vente ? Est-ce que le dépôt est négligent sur certains types de produits ?).
+            2. **Les Points de Fuite** : Identifie le croisement critique (ex: "Le commercial X a trop de problèmes avec le produit Y").
+            3. **Plan d'Action Choc** : Donne 3 solutions immédiates et radicales pour stopper l'hémorragie.
+            
+            Sois tranchant, professionnel, analytique, et utilise le Markdown (gras, listes) pour structurer ta réponse.
+            """
+            
+            with st.spinner("L'IA croise les données (Produits/Clients/Commerciaux)..."):
                 report = ask_ai(prompt)
                 st.markdown(f'<div class="ia-report">{report}</div>', unsafe_allow_html=True)
                 st.balloons()
     else:
-        st.info("Importez des données pour activer le diagnostic IA.")
+        st.info("Importez des données et activez l'IA pour le diagnostic.")
