@@ -80,52 +80,8 @@ def clean_reclam_cols(df):
         'ref_facture': ['réf. facture', 'ref. facture', 'ref facture'],
         'date_facture': ['date facture', 'date de facture', 'date_fac'],
         'categorie': ['catégorie', 'categorie'],
-        'facture_cree_par': ['facture crée par', 'facture cree par'],
-        'zone_produit': ['zone produit'],
-        'preparateur': ['préparateur', 'preparateur'],
-        'verif1': ['vérif1.', 'verif1'],
-        'verif2': ['vérif2.', 'verif2'],
-        'obs_bon': ['obs bon'],
-        'date_denvoi': ['date d\'envoi', 'date denvoi'],
-        'date_retour': ['date retour'],
-        'reponse': ['reponse', 'réponse'],
-        'emp_produit': ['emp.produit', 'emp produit'],
-        'responsable': ['responsable'],
-        'avis_dt': ['avis dt'],
-        'verifier_par': ['vérifier par', 'verifier par'],
-        'envoyer_par': ['envoyer par'],
-        'recu_par': ['reçu par', 'recu par'],
-        'date_verification': ['date vérification', 'date verification'],
-        'date_reception': ['date réception', 'date reception'],
-        'nbr_jours': ['nbr jours'],
-        'offre': ['offre'],
-        'delai_reclam': ['délai réclam.', 'délai réclam', 'delai reclam']
-    }
-    
-    new_cols = {}
-    found = []
-    
-    # Correspondance exacte d'abord pour éviter les faux positifs (ex: "date" vs "date création")
-    for col in df.columns:
-        col_str = str(col).lower().strip()
-        for target, alts in mapping.items():
-            if col_str in alts:
-                new_cols[col] = target
-                found.append(target)
-                break
-                
-    # Correspondance partielle (fallback)
-    for col in df.columns:
-        if col in new_cols: continue
-        col_str = str(col).lower().strip()
-        for target, alts in mapping.items():
-            valid_alts = [a for a in alts if len(a) > 4 and a != 'date']
-            if any(alt in col_str for alt in valid_alts):
-                new_cols[col] = target
-                found.append(target)
-                break
-                
-    return df.rename(columns=new_cols), found
+
+# (Fonction de nettoyage déplacée dans Admin Centrale)
 
 def categorize_motif(motif_str):
     m = str(motif_str).upper()
@@ -151,28 +107,7 @@ tabs = st.tabs(["📊 Tableau de Bord", "📥 Import de Données", "🧠 Diagnos
 with tabs[1]:
     st.markdown('<div class="reclam-card">', unsafe_allow_html=True)
     st.subheader("📥 Source de Données")
-    uploaded_file = st.file_uploader("Glissez votre fichier de réclamations (Excel/CSV)", type=["xlsx", "csv"])
-    if uploaded_file:
-        try:
-            df_raw = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
-            df_clean, found = clean_reclam_cols(df_raw)
-            
-            # Fallbacks to prevent KeyErrors in the UI
-            if 'motif' in df_clean.columns: 
-                df_clean['categorie_motif'] = df_clean['motif'].apply(categorize_motif)
-            else:
-                df_clean['motif'] = "Non Renseigné"
-                df_clean['categorie_motif'] = "Autre / Non Classé"
-                
-            if 'commercial' not in df_clean.columns:
-                df_clean['commercial'] = "Inconnu"
-                
-            st.session_state.df_reclam_analysed = df_clean
-            st.success("✅ Données importées et catégorisées !")
-            if st.button("💾 Synchroniser avec le Cloud"):
-                save_gs_data(df_clean, RECLAM_WORKSHEET, RECLAM_FALLBACK, force_cloud=True)
-                st.toast("Cloud Synced!")
-        except Exception as e: st.error(f"Erreur : {e}")
+    st.info("L'importation de fichiers de réclamations se fait désormais via le module **Administration Centrale** pour garantir la cohérence des données avec l'ensemble de la plateforme.")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with tabs[0]:

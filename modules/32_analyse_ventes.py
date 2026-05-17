@@ -90,45 +90,7 @@ def clean_sales_cols(df):
         'brouillant': ['brouillant'],
         'categorie_prod': ['catégorie prod.', 'categorie prod'],
         'cloture': ['clôture', 'cloture'],
-        'compta': ['compta.'],
-        'imprime_reclam': ['imprime réclam', 'imprime reclam'],
-        'frigo': ['frigo'],
-        'psy': ['psy.'],
-        'chers': ['chers'],
-        'sachet': ['sachet'],
-        'cde_en_ligne': ['cde.en ligne'],
-        'superviseur': ['superviseur'],
-        'offre_lab': ['offre lab.'],
-        'annuler': ['annuler'],
-        'cash': ['cash'],
-        'tx_qt': ['tx qt%'],
-        'part': ['part'],
-        'mg': ['mg'],
-        'cat_client': ['cat.client'],
-        'n_ordre': ['n° ordre', 'n ordre']
-    }
-    
-    new_cols = {}
-    
-    # Correspondance exacte d'abord pour éviter les faux positifs
-    for col in df.columns:
-        col_str = str(col).lower().strip()
-        for target, alts in mapping.items():
-            if col_str in alts:
-                new_cols[col] = target
-                break
-                
-    # Correspondance partielle (fallback)
-    for col in df.columns:
-        if col in new_cols: continue
-        col_str = str(col).lower().strip()
-        for target, alts in mapping.items():
-            valid_alts = [a for a in alts if len(a) > 4 and a not in ['date', 'heure']]
-            if any(alt in col_str for alt in valid_alts):
-                new_cols[col] = target
-                break
-                
-    return df.rename(columns=new_cols)
+# Fonction de nettoyage déplacée dans Admin Centrale
 
 def process_time_features(df):
     if 'date' in df.columns:
@@ -165,17 +127,8 @@ tabs = st.tabs(["🚀 Dashboard", "📅 Analyse Flux", "📥 Import"])
 
 with tabs[2]:
     st.markdown('<div class="perf-card">', unsafe_allow_html=True)
-    uploaded_file = st.file_uploader("Fichier Ventes (Excel/CSV)", type=["xlsx", "csv"])
-    if uploaded_file:
-        try:
-            df_raw = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
-            df_proc = process_time_features(clean_sales_cols(df_raw))
-            st.session_state.df_ventes_perf = df_proc
-            st.success(f"✅ {len(df_proc)} lignes analysées.")
-            if st.button("💾 Sauvegarder dans le Cloud"):
-                save_gs_data(df_proc, SALES_WORKSHEET, SALES_FALLBACK, force_cloud=True)
-                st.toast("Saved!")
-        except Exception as e: st.error(f"Erreur : {e}")
+    st.markdown("#### 📤 Centralisation Data Master")
+    st.info("L'importation de fichiers de ventes complets se fait désormais via le module **Administration Centrale** pour garantir la puissance d'analyse avec les autres modules.")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with tabs[0]:

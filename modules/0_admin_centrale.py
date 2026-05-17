@@ -166,6 +166,88 @@ def clean_inventory_cols(df):
             new_cols[col] = col # On garde les noms de colonnes originaux pour ne rien perdre
     return df.rename(columns=new_cols)
 
+def clean_sales_cols(df):
+    mapping = {
+        'designation': ['designation', 'produit', 'article', 'libelle', 'désignation'],
+        'quantite': ['quantite', 'qte', 'volume', 'nombre', 'quantité'],
+        'prix_vente': ['h.t', 'ht', 'prix vente', 'prix_v', 'ca', 'montant', 'total ht', 't.t.c', 'ttc'],
+        'marge': ['marge', 'profit', 'rentabilite', 'benefice', 'gain'],
+        'date': ['date', 'jour', 'facturé le'],
+        'heure': ['heure', 'time', 'moment'],
+        'colis': ['colis', 'nb colis', 'colissage', 'paquets'],
+        'client': ['client'],
+        'reference': ['référence', 'reference', 'ref'],
+        'remise': ['remise'],
+        'tva': ['t.v.a', 'tva'],
+        'timbre': ['timbre'],
+        'montant_regle': ['montant réglé', 'montant regle'],
+        'commercial': ['commercial', 'vendeur', 'rep', 'délégué'],
+        'superviseur': ['superviseur'],
+        'offre_lab': ['offre lab.'],
+        'annuler': ['annuler'],
+        'cash': ['cash'],
+        'tx_qt': ['tx qt%'],
+        'part': ['part'],
+        'mg': ['mg'],
+        'cat_client': ['cat.client'],
+        'n_ordre': ['n° ordre', 'n ordre']
+    }
+    
+    new_cols = {}
+    for col in df.columns:
+        col_str = str(col).lower().strip()
+        matched = False
+        for target, alts in mapping.items():
+            if col_str in alts:
+                new_cols[col] = target
+                matched = True
+                break
+        if not matched:
+            new_cols[col] = col
+    return df.rename(columns=new_cols)
+
+def clean_reclam_cols(df):
+    mapping = {
+        'client': ['client', 'pharmacie', 'destinataire'],
+        'reference': ['référence', 'reference', 'ref', 'bon', 'commande', 'document'],
+        'type': ['type'],
+        'date': ['date'],
+        'code_client': ['code client'],
+        'region': ['région', 'region'],
+        'produit': ['produit', 'designation', 'article'],
+        'qte_reclam': ['qte réclam.', 'qte reclam', 'quantité'],
+        'qte_fact': ['qte fact.', 'qte fact'],
+        'motif': ['motif', 'raison'],
+        'statut': ['statut', 'etat'],
+        'commercial': ['commercial', 'vendeur'],
+        'date_retour': ['date retour'],
+        'reponse': ['reponse', 'réponse'],
+        'emp_produit': ['emp.produit', 'emp produit'],
+        'responsable': ['responsable'],
+        'avis_dt': ['avis dt'],
+        'verifier_par': ['vérifier par', 'verifier par'],
+        'envoyer_par': ['envoyer par'],
+        'recu_par': ['reçu par', 'recu par'],
+        'date_verification': ['date vérification', 'date verification'],
+        'date_reception': ['date réception', 'date reception'],
+        'nbr_jours': ['nbr jours'],
+        'offre': ['offre'],
+        'delai_reclam': ['délai réclam.', 'délai réclam', 'delai reclam']
+    }
+    
+    new_cols = {}
+    for col in df.columns:
+        col_str = str(col).lower().strip()
+        matched = False
+        for target, alts in mapping.items():
+            if col_str in alts:
+                new_cols[col] = target
+                matched = True
+                break
+        if not matched:
+            new_cols[col] = col
+    return df.rename(columns=new_cols)
+
 # Sécurité
 if "current_user" not in st.session_state or st.session_state.current_user is None:
     st.warning("Veuillez vous connecter.")
@@ -288,6 +370,12 @@ with tabs[0]:
                 mapping.update({c: "role" for c in cols if c.lower() in ["role", "rôle"]})
                 mapping.update({c: "zone" for c in cols if c.lower() == "zone"})
                 mapping.update({c: "pages" for c in cols if c.lower() == "pages"})
+            elif any(x in cols_lower for x in ["motif", "statut", "réclamation", "reclamations", "qte réclam."]):
+                target = "Analyse_Reclamations"
+                df_up = clean_reclam_cols(df_up)
+            elif any(x in cols_lower for x in ["h.t", "prix_vente", "ca", "montant réglé", "total ht", "marge ph."]) and target is None:
+                target = "Analyse_Ventes_Perf"
+                df_up = clean_sales_cols(df_up)
             elif any(x in cols_lower for x in ["dépôt", "depot", "quantité dépôt", "quantité depot", "qte.globale", "n°lot", "zone produit"]):
                 target = "Master_Inventaire_Zone"
                 df_up = clean_inventory_cols(df_up)
@@ -314,6 +402,10 @@ with tabs[0]:
             elif target == "Master_Inventaire_Zone":
                 # db_cols est laissé vide pour accepter toutes les colonnes
                 db_path, db_cols, key = "data_inventaire_detail/master_detail.csv", df_up.columns.tolist(), "lot"
+            elif target == "Analyse_Ventes_Perf":
+                db_path, db_cols, key = "data/db_ventes_performance.csv", df_up.columns.tolist(), "reference"
+            elif target == "Analyse_Reclamations":
+                db_path, db_cols, key = "data/db_reclamations_analyse.csv", df_up.columns.tolist(), "reference"
             elif target == "Fournisseurs":
                 db_path, db_cols, key = "data/db_fournisseurs.csv", ["Etablissement", "Wilaya", "Activité", "Logo"], "Etablissement"
             else:
@@ -353,11 +445,15 @@ with tabs[0]:
                     if 'Région' not in df_merged.columns: df_merged['Région'] = df_merged['Region'].combine_first(df_merged['Wilaya'])
                     if 'Secteur' not in df_merged.columns: df_merged['Secteur'] = df_merged['Region']
                     if 'Téléphone' not in df_merged.columns: df_merged['Téléphone'] = df_merged['Telephone']
-                elif target == "Master_Inventaire_Zone":
-                    # Remplacement COMPLET pour l'inventaire avec TOUTES les colonnes
+                elif target in ["Master_Inventaire_Zone", "Analyse_Ventes_Perf", "Analyse_Reclamations"]:
+                    # Remplacement COMPLET pour les bases master avec TOUTES les colonnes
                     df_merged = df_up
-                    if 'inv_work_df' in st.session_state:
+                    if target == "Master_Inventaire_Zone" and 'inv_work_df' in st.session_state:
                         del st.session_state.inv_work_df
+                    if target == "Analyse_Ventes_Perf" and 'df_ventes_perf' in st.session_state:
+                        del st.session_state.df_ventes_perf
+                    if target == "Analyse_Reclamations" and 'df_reclam_analysed' in st.session_state:
+                        del st.session_state.df_reclam_analysed
                 else:
                     cols_to_keep = [c for c in db_cols if c in df_up.columns]
                     df_merged = pd.concat([df_old, df_up[cols_to_keep]], ignore_index=True).drop_duplicates(subset=[key])
