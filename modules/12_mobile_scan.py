@@ -8,7 +8,8 @@ from utils import log_action
 from utils_themes import apply_theme_css, load_themes_db
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="DarPharm Mobile", layout="centered")
+etab_nom = "Pharmaciel" if st.session_state.get('etablissement') == 'pharmaciel' else "DarPharm"
+st.set_page_config(page_title=f"{etab_nom} Mobile", layout="centered")
 
 # Application du thème Fluffy
 _tdb = load_themes_db()
@@ -46,7 +47,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="mobile-header"><h1>DarPharm Mobile 📱</h1><p style="color:#6b7299; font-weight:700;">Interface Terrain Intelligente</p></div>', unsafe_allow_html=True)
+st.markdown(f'<div class="mobile-header"><h1>{etab_nom} Mobile 📱</h1><p style="color:#6b7299; font-weight:700;">Interface Terrain Intelligente</p></div>', unsafe_allow_html=True)
 
 # Navigation via Boutons Fluffy (Remplace pills)
 if "mobile_mode" not in st.session_state:

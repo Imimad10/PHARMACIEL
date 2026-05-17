@@ -5,7 +5,8 @@ from utils_ia import ask_ai_vision, is_ia_scanner_enabled
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Scanner IA Premium", layout="wide")
 
-st.markdown('<h1 style="text-align:center; color:#5b6cf9; font-weight:900;">Robot Scan IA DarPharm 🤖</h1>', unsafe_allow_html=True)
+etab_nom = "Pharmaciel" if st.session_state.get('etablissement') == 'pharmaciel' else "DarPharm"
+st.markdown(f'<h1 style="text-align:center; color:#5b6cf9; font-weight:900;">Robot Scan IA {etab_nom} 🤖</h1>', unsafe_allow_html=True)
 
 st.markdown("""
 <style>

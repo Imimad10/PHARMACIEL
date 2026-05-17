@@ -5,7 +5,8 @@ from utils_cortex import ask_cortex, generate_daily_diagnostics, get_strategic_s
 from utils_ia import is_ia_enabled
 
 # --- CONFIGURATION PAGE ---
-st.set_page_config(page_title="Cortex IA - DarPharm", page_icon="🧠", layout="wide")
+etab_nom = "Pharmaciel" if st.session_state.get('etablissement') == 'pharmaciel' else "DarPharm"
+st.set_page_config(page_title=f"Cortex IA - {etab_nom}", page_icon="🧠", layout="wide")
 
 # --- CSS: EXECUTIVE GLASSMORPHISM ---
 st.markdown("""
@@ -49,7 +50,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("🧠 Cortex Stratégique IA")
-st.write("L'intelligence omnisciente qui pilote DarPharm Pro vers l'excellence zéro-faute.")
+st.write(f"L'intelligence omnisciente qui pilote {etab_nom} Pro vers l'excellence zéro-faute.")
 
 if not is_ia_enabled():
     st.warning("⚠️ L'IA est actuellement désactivée dans les paramètres système.")

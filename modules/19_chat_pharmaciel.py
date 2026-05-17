@@ -6,13 +6,14 @@ from utils_ia import ask_ai, is_ia_enabled
 from utils_gsheets import load_gs_data
 from utils_sound import play_sound
 
-st.set_page_config(page_title="Assistant IA - DarPharm", page_icon="🤖", layout="wide")
+etab_nom = "Pharmaciel" if st.session_state.get('etablissement') == 'pharmaciel' else "DarPharm"
+st.set_page_config(page_title=f"Assistant IA - {etab_nom}", page_icon="🤖", layout="wide")
 
 if not is_ia_enabled():
     st.error("⚠️ L'Intelligence Artificielle est désactivée. Veuillez contacter un administrateur.")
     st.stop()
 
-st.title("🤖 Ask DarPharm - Votre Assistant Intelligent")
+st.title(f"🤖 Ask {etab_nom} - Votre Assistant Intelligent")
 st.write("Posez vos questions sur vos stocks, vos livreurs, ou demandez de l'aide pour rédiger un document. L'IA a accès à la structure de vos données !")
 
 # Charger un résumé léger des bases de données pour donner du contexte à l'IA
@@ -84,7 +85,7 @@ context = build_context()
 # Initialisation de l'historique de chat
 if "messages_pharmaciel" not in st.session_state:
     st.session_state.messages_pharmaciel = [
-        {"role": "assistant", "content": "Bonjour ! Je suis l'assistant DarPharm. Comment puis-je vous aider aujourd'hui ?"}
+        {"role": "assistant", "content": f"Bonjour ! Je suis l'assistant {etab_nom}. Comment puis-je vous aider aujourd'hui ?"}
     ]
 
 # Affichage des messages
@@ -93,7 +94,7 @@ for message in st.session_state.messages_pharmaciel:
         st.markdown(message["content"])
 
 # Zone de saisie
-if prompt := st.chat_input("Posez votre question à l'assistant DarPharm..."):
+if prompt := st.chat_input(f"Posez votre question à l'assistant {etab_nom}..."):
     # Ajouter message utilisateur
     st.session_state.messages_pharmaciel.append({"role": "user", "content": prompt})
     with st.chat_message("user"):

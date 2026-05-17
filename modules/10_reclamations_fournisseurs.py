@@ -35,7 +35,8 @@ def get_delay(start_date, end_date):
         return (d2 - d1).days
     except: return 0
 
-st.title("📦 DARPHARM - Gestion des Litiges & Réclamations")
+etab_nom = "Pharmaciel" if st.session_state.get('etablissement') == 'pharmaciel' else "DarPharm"
+st.title(f"📦 {etab_nom.upper()} - Gestion des Litiges & Réclamations")
 st.write("Système synchronisé pour le suivi des anomalies de réception et litiges fournisseurs.")
 
 tab_new, tab_list, tab_regl, tab_arch, tab_stats, tab_prods = st.tabs(["➕ Nouveau Rapport", "📋 Suivi Actif", "✅ Réclamations réglées", "🗄️ Archives", "📊 Dashboard Performance", "📦 Base Produits"])

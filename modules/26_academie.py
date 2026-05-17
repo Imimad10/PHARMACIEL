@@ -8,7 +8,8 @@ KNOWLEDGE_WORKSHEET = "DB_Knowledge_Base"
 KNOWLEDGE_FALLBACK = "data/db_knowledge.csv"
 COLS_KB = ["id", "categorie", "titre", "contenu", "date_maj"]
 
-st.title("🎓 Académie DarPharm")
+etab_nom = "Pharmaciel" if st.session_state.get('etablissement') == 'pharmaciel' else "DarPharm"
+st.title(f"🎓 Académie {etab_nom}")
 st.markdown("### Centre de formation & Procédures standards")
 
 # --- 1. CHARGEMENT DONNÉES ---
@@ -21,7 +22,7 @@ with st.sidebar.expander("🤖 Demander à l'IA Formateur", expanded=True):
         if query and is_ia_enabled():
             context = "\n".join(df_kb['contenu'].tolist()) if not df_kb.empty else "Pas de procédures encore."
             prompt = f"""
-            Tu es le formateur de DarPharm. En te basant UNIQUEMENT sur ces procédures : {context}.
+            Tu es le formateur de {etab_nom}. En te basant UNIQUEMENT sur ces procédures : {{context}}.
             Réponds à cette question de l'agent : {query}.
             Si l'info n'est pas dans le contexte, dis-lui de demander au chef d'équipe.
             """
