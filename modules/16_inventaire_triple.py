@@ -135,7 +135,25 @@ if is_admin:
     st.markdown('<div class="admin-box">🛡️ MODE SUPERVISEUR : Accès complet à toutes les zones.</div>', unsafe_allow_html=True)
     raw_zones = df_m['zone'].dropna().astype(str).unique().tolist()
     zones_list = ["Toutes"] + sorted(raw_zones)
-    selected_zone_filter = st.selectbox("🎯 Filtrer la vue globale par Zone :", zones_list)
+    
+    col_zone, col_sync = st.columns([4, 1])
+    selected_zone_filter = col_zone.selectbox("🎯 Filtrer la vue globale par Zone :", zones_list)
+    
+    n_produits = df_m['produit'].nunique() if not df_m.empty else 0
+    n_lots     = len(df_m) if not df_m.empty else 0
+    
+    with col_sync:
+        st.markdown("<div style='margin-top:28px'>", unsafe_allow_html=True)
+        if st.button("🔄 Sync DB", use_container_width=True, help="Recharger la liste des produits depuis la base centrale"):
+            get_master.clear()
+            st.cache_data.clear()
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    if n_produits > 0:
+        st.caption(f"✅ Base chargée : **{n_produits} produits** · **{n_lots} lots** (Dépôt secondaire exclu automatiquement)")
+    else:
+        st.warning("⚠️ Aucune donnée trouvée. Importez d'abord votre liste de produits via **Administration Centrale > Importateur Universel**.")
 else:
     st.info(f"📍 Votre Zone assignée : **{user_zone}**")
     selected_zone_filter = user_zone
