@@ -23,28 +23,40 @@ THEMES_CONFIG = {
 current_theme = st.session_state.get('theme', 'Clair')
 t = THEMES_CONFIG.get(current_theme, THEMES_CONFIG["Clair"])
 
-st.title(f"📡 Supervision Temps Réel — Darpharm Solution")
+active_etab = st.session_state.get('etablissement', 'darpharm')
+if active_etab == "pharmaciel":
+    etab_nom = "Pharmaciel® Pro"
+    theme_accent = "#6B46C1"  # Violet Pharmaciel
+    pulse_grad = "linear-gradient(90deg, rgba(107,70,193,0.15) 0%, rgba(45,106,79,0.15) 100%)"
+    border_col = "rgba(107,70,193,0.4)"
+else:
+    etab_nom = "Darpharm Solution"
+    theme_accent = t['accent']
+    pulse_grad = "linear-gradient(90deg, rgba(124,58,237,0.1) 0%, rgba(59,130,246,0.1) 100%)"
+    border_col = "rgba(124,58,237,0.3)"
+
+st.title(f"📡 Supervision Temps Réel — {etab_nom}")
 
 # --- CORTEX PULSE: PROACTIVE AI BAR ---
 from utils_cortex import get_strategic_snapshot
 snapshot = get_strategic_snapshot()
 
 st.markdown(f"""
-<div style="background: linear-gradient(90deg, rgba(124,58,237,0.1) 0%, rgba(59,130,246,0.1) 100%); 
-            border: 1px solid rgba(124,58,237,0.3); 
+<div style="background: {pulse_grad}; 
+            border: 1px solid {border_col}; 
             border-radius: 12px; padding: 15px; margin-bottom: 25px; 
             display: flex; align-items: center; gap: 20px;
-            box-shadow: 0 0 20px rgba(124,58,237,0.1);">
+            box-shadow: 0 0 20px rgba(0,0,0,0.05);">
     <div style="font-size: 1.5rem; animation: pulse 2s infinite;">🧠</div>
     <div style="flex: 1;">
-        <div style="font-size: 0.7rem; color: #7c3aed; font-weight: 800; text-transform: uppercase; letter-spacing: 2px;">Cortex IA Intelligence Pulse</div>
+        <div style="font-size: 0.7rem; color: {theme_accent}; font-weight: 800; text-transform: uppercase; letter-spacing: 2px;">Cortex IA Intelligence Pulse</div>
         <div style="font-size: 1rem; color: {t['text']}; font-weight: 600;">
             <b>Analyse :</b> CA {snapshot.get('total_ca', 0):,.0f} DA · 
             <span style="color:#ef4444;">{snapshot.get('total_reclamations', 0)} litiges à résoudre</span> · 
             <span style="color:#10b981;">Pic de charge : {snapshot.get('peak_hour', 'N/A')}h</span>
         </div>
     </div>
-    <div style="background: #10b981; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 800;">LIVE</div>
+    <div style="background: {theme_accent}; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 800;">LIVE</div>
 </div>
 <style>
 @keyframes pulse {{ 0% {{ opacity: 0.5; transform: scale(1); }} 50% {{ opacity: 1; transform: scale(1.1); }} 100% {{ opacity: 0.5; transform: scale(1); }} }}
@@ -68,7 +80,7 @@ st.markdown(f"""
         }}
         [data-testid="stMetric"] {{
             background: {t['card']} !important;
-            border-left: 5px solid {t['accent']} !important;
+            border-left: 5px solid {theme_accent} !important;
             border-radius: 15px !important;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
         }}
@@ -243,8 +255,8 @@ if selected_model == "Standard (Narratif)":
     r1_c1, r1_c2, r1_c3, r1_c4 = st.columns(4)
     with r1_c1: kpi_card("Total à Recouvrer", f"{kpis.get('rec_total_du',0):,.0f} DA", f"↑ {kpis.get('rec_en_attente',0)} en attente", "💰", "#f59e0b")
     with r1_c2: kpi_card("Dossiers Archivés", f"{kpis.get('arch_count', 0)}", f"↑ {kpis.get('arch_recouvre',0):,.0f} DA récup.", "✅", "#10b981")
-    with r1_c3: kpi_card("Saisies Inventaire", f"{kpis.get('inv_saisies', 0)}", f"↑ {kpis.get('inv_produits_uniques',0)} produits", "📝", t["accent"])
-    with r1_c4: kpi_card("Inventaire Triple", f"{kpis.get('inv_triple_count', 0)}", "Lignes modifiées", "📋", "#8b5cf6")
+    with r1_c3: kpi_card("Saisies Inventaire", f"{kpis.get('inv_saisies', 0)}", f"↑ {kpis.get('inv_produits_uniques',0)} produits", "📝", theme_accent)
+    with r1_c4: kpi_card("Inventaire Triple", f"{kpis.get('inv_triple_count', 0)}", "Lignes modifiées", "📋", "#2D6A4F" if active_etab == "pharmaciel" else "#8b5cf6")
 
     r2_c1, r2_c2, r2_c3, r2_c4 = st.columns(4)
     with r2_c1: kpi_card("Pointages Exp.", f"{kpis.get('pointages_total', 0)}", f"↑ {kpis.get('pointages_today',0)} aujourd'hui", "🚚", "#3b82f6")
@@ -309,8 +321,8 @@ elif selected_model == "Centre de Commandement":
     r1_c1, r1_c2, r1_c3, r1_c4 = st.columns(4)
     with r1_c1: kpi_card("Total à Recouvrer", f"{kpis.get('rec_total_du',0):,.0f} DA", f"↑ {kpis.get('rec_en_attente',0)} en attente", "💰", "#f59e0b")
     with r1_c2: kpi_card("Dossiers Archivés", f"{kpis.get('arch_count', 0)}", f"↑ {kpis.get('arch_recouvre',0):,.0f} DA récup.", "✅", "#10b981")
-    with r1_c3: kpi_card("Saisies Inventaire", f"{kpis.get('inv_saisies', 0)}", f"↑ {kpis.get('inv_produits_uniques',0)} produits", "📝", t["accent"])
-    with r1_c4: kpi_card("Inventaire Triple", f"{kpis.get('inv_triple_count', 0)}", "Lignes modifiées", "📋", "#8b5cf6")
+    with r1_c3: kpi_card("Saisies Inventaire", f"{kpis.get('inv_saisies', 0)}", f"↑ {kpis.get('inv_produits_uniques',0)} produits", "📝", theme_accent)
+    with r1_c4: kpi_card("Inventaire Triple", f"{kpis.get('inv_triple_count', 0)}", "Lignes modifiées", "📋", "#2D6A4F" if active_etab == "pharmaciel" else "#8b5cf6")
 
     r2_c1, r2_c2, r2_c3, r2_c4 = st.columns(4)
     with r2_c1: kpi_card("Pointages Exp.", f"{kpis.get('pointages_total', 0)}", f"↑ {kpis.get('pointages_today',0)} aujourd'hui", "🚚", "#3b82f6")
