@@ -621,10 +621,14 @@ with tabs[2]:
                     
                     ca, cb = c5.columns(2)
                     if ca.button("💾", key=f"save_{idx}", help="Enregistrer"):
-                        df_liv.at[idx, 'Nom'] = e_nom.upper()
-                        df_liv.at[idx, 'Prénom'] = e_pre.capitalize()
-                        df_liv.at[idx, 'Téléphone'] = e_tel
-                        df_liv.at[idx, 'Secteur'] = e_sec.upper()
+                        for c in ['Nom', 'Prénom', 'Téléphone', 'Secteur']:
+                            if c not in df_liv.columns: df_liv[c] = ""
+                            df_liv[c] = df_liv[c].astype(object)
+                            
+                        df_liv.loc[idx, 'Nom'] = str(e_nom).upper()
+                        df_liv.loc[idx, 'Prénom'] = str(e_pre).capitalize()
+                        df_liv.loc[idx, 'Téléphone'] = str(e_tel)
+                        df_liv.loc[idx, 'Secteur'] = str(e_sec).upper()
                         save_gs_data(df_liv, "Livreurs", DATA_LIVREURS)
                         st.session_state.edit_liv_idx = None
                         st.rerun()
