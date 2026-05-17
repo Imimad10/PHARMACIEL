@@ -140,10 +140,10 @@ def process_time_features(df):
         df['heure_int'] = pd.to_datetime(df['heure'], format='%H:%M:%S', errors='coerce').dt.hour
         if df['heure_int'].isna().all():
             df['heure_int'] = pd.to_datetime(df['heure'], errors='coerce').dt.hour
-    elif 'date_dt' in df.columns:
-        df['heure_int'] = df['date_dt'].dt.hour
-        
-    for col in ['prix_vente', 'marge', 'colis', 'quantite']:
+        if 'heure_int' in df.columns:
+            df['heure_int'] = pd.to_numeric(df['heure_int'], errors='coerce')
+            
+    for col in ['prix_vente', 'marge', 'colis', 'quantite', 'remise']:
         if col in df.columns:
             if df[col].dtype == 'object':
                 try: df[col] = df[col].astype(str).str.replace(' ', '', regex=False).str.replace(',', '.', regex=False)
@@ -220,6 +220,40 @@ with tabs[0]:
             st.markdown("#### 📦 Taille des Envois")
             if 'colis' in df.columns:
                 st.plotly_chart(px.histogram(df, x='colis', color_discrete_sequence=['#7c3aed'], template="plotly_dark"), use_container_width=True)
+
+        st.divider()
+        col_m1, col_m2 = st.columns(2)
+        
+        with col_m1:
+            st.markdown("#### 🗺️ Rentabilité par Région")
+            geo_col = 'region' if 'region' in df.columns else ('wilaya' if 'wilaya' in df.columns else None)
+            if geo_col and 'marge' in df.columns:
+                df_geo = df.groupby(geo_col)['marge'].sum().reset_index()
+                df_geo = df_geo[df_geo['marge'] > 0]
+                df_geo['Pays'] = "Algérie" # Root node
+                fig_geo = px.treemap(df_geo, path=['Pays', geo_col], values='marge',
+                                     color='marge', color_continuous_scale='Mint', template='plotly_dark')
+                fig_geo.update_traces(root_color="rgba(0,0,0,0)")
+                fig_geo.update_layout(margin=dict(t=10, l=10, r=10, b=10))
+                st.plotly_chart(fig_geo, use_container_width=True)
+            else:
+                st.info("Données géographiques ou de marge manquantes.")
+                
+        with col_m2:
+            st.markdown("#### ⚖️ Marge vs Remise par Commercial")
+            if 'commercial' in df.columns and 'marge' in df.columns and 'remise' in df.columns:
+                df_comm = df.groupby('commercial')[['marge', 'remise']].sum().reset_index()
+                df_comm = df_comm[(df_comm['marge'] > 0) | (df_comm['remise'] > 0)]
+                df_comm = df_comm.sort_values('marge', ascending=False).head(15)
+                
+                fig_mr = go.Figure()
+                fig_mr.add_trace(go.Bar(x=df_comm['commercial'], y=df_comm['marge'], name='Marge Nette', marker_color='#10b981'))
+                fig_mr.add_trace(go.Bar(x=df_comm['commercial'], y=df_comm['remise'], name='Remise Accordée', marker_color='#ef4444'))
+                fig_mr.update_layout(barmode='group', template='plotly_dark', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+                st.plotly_chart(fig_mr, use_container_width=True)
+            else:
+                st.info("Données de commerciaux ou de remises manquantes.")
+                
     else: st.warning("Importez des données.")
 
 with tabs[1]:
