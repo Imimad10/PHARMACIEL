@@ -11,6 +11,116 @@ WORKSHEET_NAME = "DB_Clients_CRM"
 FALLBACK_PATH = "data/db_clients.csv"
 COLUMNS = ["ID", "Nom_Pharmacie", "Gerant", "Ville", "Adresse", "Telephone", "Coordonnees", "Email", "Statut", "Commentaire"]
 
+def clean_client_cols(df):
+    mapping = {
+        'ID': ['n°', 'id'],
+        'Code_Client': ['code.', 'code client'],
+        'Nom_Pharmacie': ['raison sociale', 'nom', 'pharmacie', 'client'],
+        'Categorie': ['catégorie', 'categorie'],
+        'Type_Client': ['type client'],
+        'Adresse': ['adresse'],
+        'Wilaya': ['wilaya'],
+        'Region': ['région', 'region'],
+        'Ville': ['ville'],
+        'Conventionne': ['conventionné', 'conventionne'],
+        'Tx_Conv': ['tx conv.', 'tx conv'],
+        'Echeance': ['echéance', 'echeance'],
+        'Nbr_Jour': ['nbr jour'],
+        'Telephone': ['tel prof.', 'telephone', 'téléphone', 'tel'],
+        'Tel_2': ['tél 2', 'tel 2'],
+        'Mobile': ['mobile'],
+        'Code_Postal': ['code postal'],
+        'Fax': ['fax'],
+        'Email': ['email', 'e-mail'],
+        'Web': ['web'],
+        'Filiale': ['filiale'],
+        'Active': ['active'],
+        'Bloque': ['bloqué', 'bloque'],
+        'Agent_Recouvrement': ['agent de recouvrement'],
+        'AI': ['a.i', 'ai'],
+        'Compte': ['compte'],
+        'RC': ['r.c', 'rc'],
+        'NIS': ['nis'],
+        'NIF': ['nif'],
+        'Agence_Bancaire': ['agence bancaire'],
+        'Portefeuille': ['portefeuille'],
+        'Cagnotte': ['cagnotte'],
+        'Commercial_Reserve': ['commercial reserve', 'commercial'],
+        'Famille': ['famille'],
+        'Date_Creation': ['date création', 'date creation'],
+        'Solde_Max': ['solde max'],
+        'Marge': ['marge'],
+        'Calcul_TVA': ['calcul tva'],
+        'Client_EDF': ['client e.d.f', 'client edf'],
+        'Gerant': ['contact 1', 'gerant', 'gérant'],
+        'Tel_Contact_1': ['tél contact 1', 'tel contact 1'],
+        'Contact_2': ['contact 2'],
+        'Tel_Contact_2': ['tél contact 2', 'tel contact 2'],
+        'Commentaire': ['observation', 'commentaire', 'remarque'],
+        'Categorie_UG': ['categorie ug', 'catégorie ug'],
+        'Tel_3': ['tél 3', 'tel 3'],
+        'Client_BL': ['client b.l', 'client bl'],
+        'Contact_3': ['contact 3'],
+        'Tel_Contact_3': ['tél contact 3', 'tel contact 3'],
+        'Latitude': ['latitude'],
+        'Longitude': ['langitude', 'longitude'],
+        'Demi_Marge': ['demi-marge'],
+        'Delegue': ['delegue', 'délégué'],
+        'Mode_Paiement': ['mode paiement'],
+        'Tiers_Fact_Route': ['tiers fact.route', 'tiers fact route'],
+        'Num_Inspection': ['n°inspection', 'n inspection'],
+        'Type_Vente': ['type vente'],
+        'Auxiliaire': ['auxiliare', 'auxiliaire'],
+        'Code_Site': ['code site'],
+        'Assurance': ['assurance'],
+        'Mont_Assure': ['mont.assuré', 'mont assure'],
+        'Site': ['site'],
+        'Forme_Juridique': ['forme juridique'],
+        'Motif_Blocage': ['motif blocage'],
+        'Compte_Ligne': ['compte en ligne'],
+        'BP': ['bp'],
+        'PharmaDrive': ['pharmadrive'],
+        'Blocage_Fin': ['bocage fin.', 'blocage fin', 'blocage financier'],
+        'Date_Recrut': ['date recrut.', 'date recrut'],
+        'Date_Reprise': ['date reprise'],
+        'Num_Modele_Imp': ['n°moldèle imp.', 'n modele imp'],
+        'LogiDrive': ['logidrive'],
+        'Etat_Dossier': ['etat dossier', 'état dossier'],
+        'Exclure_PSY': ['exclure psy.', 'exclure psy'],
+        'Exclure_PSY_SPE': ['exclure psy.spe', 'exclure psy spe'],
+        'Exclure_LogiDrive': ['exclure logidrive'],
+        'Date_Agrement': ['date agrement', 'date agrément'],
+        'Num_Ordre': ['n°ordre', 'n ordre'],
+        'Verification': ['vérification', 'verification'],
+        'Date_Verif': ['date vérif.', 'date verif'],
+        'Verif_Par': ['vérif.par', 'verif par'],
+        'Tx_Vente': ['tx vente%', 'tx vente'],
+        'Cash': ['cash'],
+        'Banque': ['banque'],
+        'NIN': ['nin'],
+        'PI': ['pi'],
+        'VF': ['v.f', 'vf'],
+        'Num_Agrement': ['n°agrement', 'n agrement']
+    }
+    
+    new_cols = {}
+    for col in df.columns:
+        col_str = str(col).lower().strip()
+        matched = False
+        for target, alts in mapping.items():
+            if col_str in alts:
+                new_cols[col] = target
+                matched = True
+                break
+        if not matched:
+            for target, alts in mapping.items():
+                valid_alts = [a for a in alts if len(a) > 3]
+                if any(alt in col_str for alt in valid_alts):
+                    new_cols[col] = target
+                    break
+                    
+    return df.rename(columns=new_cols)
+
 st.title("🤝 Gestion de la Clientèle (CRM)")
 st.markdown("### Suivez et développez votre réseau de pharmacies")
 
@@ -136,6 +246,26 @@ with tab_admin:
         # --- IMPORT FICHIER EXTERNE ---
         st.markdown("#### 📤 Importation de fichier externe")
         uploaded_file = st.file_uploader("Téléverser la base client (XLSX, XLS, CSV)", type=['xlsx', 'xls', 'csv'], key="crm_up")
+        if uploaded_file:
+            try:
+                df_new = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
+                df_new = clean_client_cols(df_new)
+                
+                if 'Nom_Pharmacie' not in df_new.columns:
+                    df_new['Nom_Pharmacie'] = df_new['ID'].astype(str) if 'ID' in df_new.columns else "Client_Inconnu"
+                    
+                st.success(f"Fichier lu avec succès : {len(df_new)} clients trouvés.")
+                
+                if st.button("Fusionner et Sauvegarder dans la base"):
+                    global df_clients
+                    df_clients = pd.concat([df_clients, df_new], ignore_index=True)
+                    # Deduplicate based on Nom_Pharmacie, keeping the most recent (uploaded) data
+                    df_clients = df_clients.drop_duplicates(subset=['Nom_Pharmacie'], keep='last')
+                    save_gs_data(df_clients, WORKSHEET_NAME, FALLBACK_PATH)
+                    st.success("✅ Base de données mise à jour avec le nouveau fichier !")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Erreur lors de la lecture du fichier : {e}")
 
 with tab_list:
     col_s1, col_s2 = st.columns([2, 1])
@@ -161,13 +291,15 @@ with tab_list:
             # --- CARTE DE VISITE ---
             st.markdown(f"""
             <div class="client-card">
-                <div class="client-name">{client['Nom_Pharmacie']}</div>
-                <div class="client-sub">👤 {client['Gerant']}</div>
-                <div class="info-item">📍 <b>Ville:</b> {client['Ville']}</div>
-                <div class="info-item">🏠 <b>Adresse:</b> {client['Adresse']}</div>
-                <div class="info-item">📞 <b>Tél:</b> {client['Telephone']}</div>
-                <div class="info-item">✉️ <b>Email:</b> {client['Email']}</div>
-                <div class="info-item">🏷️ <b>Statut:</b> {client['Statut']}</div>
+                <div class="client-name">{client.get('Nom_Pharmacie', 'Inconnu')}</div>
+                <div class="client-sub">👤 {client.get('Gerant', 'Non spécifié')}</div>
+                <div class="info-item">📍 <b>Lieu:</b> {client.get('Ville', '')} {client.get('Region', '')} {client.get('Wilaya', '')}</div>
+                <div class="info-item">🏠 <b>Adresse:</b> {client.get('Adresse', '')}</div>
+                <div class="info-item">📞 <b>Tél:</b> {client.get('Telephone', '')} {client.get('Mobile', '')}</div>
+                <div class="info-item">✉️ <b>Email:</b> {client.get('Email', '')}</div>
+                <div class="info-item">🏷️ <b>Catégorie:</b> {client.get('Statut', '')} {client.get('Type_Client', '')} {client.get('Categorie', '')}</div>
+                <div class="info-item">💰 <b>Finances:</b> Solde Max: {client.get('Solde_Max', '-')} DA | Marge: {client.get('Marge', '-')}</div>
+                <div class="info-item">🔴 <b>Bloqué:</b> {'Oui' if str(client.get('Bloque', '')).upper() in ['VRAI', 'TRUE', '1', 'OUI'] else 'Non'} - <b>Motif:</b> {client.get('Motif_Blocage', 'Aucun')}</div>
             </div>
             """, unsafe_allow_html=True)
             
