@@ -179,9 +179,17 @@ with tabs[0]:
     if "df_reclam_analysed" in st.session_state:
         df = st.session_state.df_reclam_analysed
         
+        # Fallback de sécurité si le dataframe provient d'un ancien cache ou DB
+        if 'motif' not in df.columns: df['motif'] = "Non Renseigné"
+        if 'categorie_motif' not in df.columns: df['categorie_motif'] = "Autre / Non Classé"
+        if 'commercial' not in df.columns: df['commercial'] = "Inconnu"
+        
         # Filtres
         st.sidebar.subheader("🎯 Pilotage")
-        comm_list = ["Tous"] + sorted(df['commercial'].unique().tolist()) if 'commercial' in df.columns else ["Tous"]
+        comm_list = ["Tous"]
+        if 'commercial' in df.columns:
+            comm_list += sorted([str(x) for x in df['commercial'].dropna().unique()])
+            
         selected_comm = st.sidebar.selectbox("Commercial :", comm_list)
         df_p = df[df['commercial'] == selected_comm] if selected_comm != "Tous" else df
         
