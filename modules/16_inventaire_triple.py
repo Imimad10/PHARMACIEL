@@ -20,7 +20,8 @@ FB_ZONE = "data/db_triple_zone.csv"
 WS_MINI = "Triple_Saisie_Mini"
 FB_MINI = "data/db_triple_mini.csv"
 
-COLS_MASTER = ["depot", "zone", "produit", "lot", "qte_logi", "colissage"]
+# Colonnes minimales garanties dans le master
+COLS_MASTER = ["depot", "zone", "produit", "lot", "qte_logi", "colissage", "ppa", "shp", "ddp", "laboratoire", "categorie", "statut_stock", "is_depot_secondaire"]
 COLS_ENTRY = ["zone", "produit", "lot", "qte", "ddp", "ppa", "shp", "agent"]
 
 if 'current_user' not in st.session_state:
@@ -83,21 +84,40 @@ def normalize_text(text):
     return unicodedata.normalize('NFD', text).encode('ascii', 'ignore').decode('utf-8').upper().strip()
 
 # --- CHARGEMENT ---
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=300)
 def get_master():
-    df = load_gs_data(MASTER_WORKSHEET, MASTER_FALLBACK, COLS_MASTER)
+    # Chargement de la base produits centrale (importée via Admin Centrale)
+    df = load_gs_data(MASTER_WORKSHEET, MASTER_FALLBACK)
     if df.empty: return pd.DataFrame(columns=COLS_MASTER)
-    df.columns = [c.lower() for c in df.columns]
-    mapping = {'dépôt':'depot', 'désignation':'produit', 'n°lot':'lot', 'quantité':'qte_logi', 'colis':'colissage'}
+    
+    # Normalisation des colonnes
+    df.columns = [c.lower().strip() for c in df.columns]
+    mapping = {'dépôt':'depot', 'désignation':'produit', 'n°lot':'lot',
+               'quantité dépôt':'qte_logi', 'qte.globale':'qte_logi',
+               'colis':'colissage', 'marge ph.':'marge_ph', 'marge ph':'marge_ph'}
     df = df.rename(columns=mapping)
-    for c in COLS_MASTER:
+    
+    # Champs essentiels avec valeurs par défaut
+    for c in ['depot','zone','produit','lot','qte_logi','colissage','ppa','shp','ddp','laboratoire','categorie']:
         if c not in df.columns: df[c] = ""
-    df['produit'] = df['produit'].astype(str).str.upper()
-    df['lot'] = df['lot'].astype(str).str.upper()
-    df['zone'] = df['zone'].astype(str).str.upper()
-    try: df['qte_logi'] = pd.to_numeric(df['qte_logi'], errors='coerce').fillna(0)
-    except: df['qte_logi'] = 0
-    return df[COLS_MASTER]
+    
+    df['produit'] = df['produit'].astype(str).str.upper().str.strip()
+    df['lot']     = df['lot'].astype(str).str.upper().str.strip()
+    df['zone']    = df['zone'].astype(str).str.upper().str.strip()
+    df['qte_logi'] = pd.to_numeric(df['qte_logi'], errors='coerce').fillna(0)
+    
+    # Exclure les produits du dépôt secondaire (périmés, abimés, SV...)
+    if 'is_depot_secondaire' in df.columns:
+        df = df[df['is_depot_secondaire'].astype(str).str.upper() != 'TRUE']
+    elif 'statut_stock' in df.columns:
+        df = df[df['statut_stock'].astype(str) == 'Conforme']
+    else:
+        # Détection automatique par code dépôt
+        depot_nc = df['depot'].astype(str).str.upper()
+        df = df[~(depot_nc.isin(['2', '02', 'SEC', 'SECONDAIRE', 'NC', 'SV']) |
+                  depot_nc.str.contains('SEC|PERIMES|ABIMES|NON.CONF|S\.V\.', na=False, regex=True))]
+    
+    return df
 
 df_m = get_master()
 df_z = load_gs_data(WS_ZONE, FB_ZONE, COLS_ENTRY)
@@ -180,8 +200,9 @@ def render_saisie(df_full, ws_name, fb_path, title, key_prefix):
     c1, c2 = st.columns([3, 1])
     sp = c1.selectbox(f"Produit", lp, index=idx_p, key=f"p_{key_prefix}")
     
-    lm_list = sorted(master_w[master_w['produit'] == sp]['lot'].unique().tolist())
-    p_zone = master_w[master_w['produit'] == sp]['zone'].iloc[0]
+    prod_rows = master_w[master_w['produit'] == sp]
+    lm_list = sorted(prod_rows['lot'].unique().tolist())
+    p_zone = prod_rows['zone'].iloc[0] if not prod_rows.empty else ""
     
     idx_l = 0
     if ai_d.get('lot'):
@@ -190,15 +211,25 @@ def render_saisie(df_full, ws_name, fb_path, title, key_prefix):
 
     slm = c2.selectbox(f"Lot Master", lm_list, index=idx_l, key=f"lm_{key_prefix}")
     
+    # Pré-remplissage automatique depuis la base produits (PPA, DDP, SHP)
+    lot_row = prod_rows[prod_rows['lot'] == slm]
+    pre_ppa = float(pd.to_numeric(lot_row['ppa'].values[0], errors='coerce') or 0) if not lot_row.empty and 'ppa' in lot_row.columns else 0.0
+    pre_shp = float(pd.to_numeric(lot_row['shp'].values[0], errors='coerce') or 0) if not lot_row.empty and 'shp' in lot_row.columns else 0.0
+    pre_ddp = str(lot_row['ddp'].values[0]) if not lot_row.empty and 'ddp' in lot_row.columns else ""
+    pre_labo = str(lot_row['laboratoire'].values[0]) if not lot_row.empty and 'laboratoire' in lot_row.columns else ""
+    
+    if pre_labo and pre_labo not in ['', 'nan']:
+        st.caption(f"🏭 Laboratoire : **{pre_labo}** | 📅 DDP Master : **{pre_ddp}** | 💰 PPA : **{pre_ppa}**")
+    
     st.markdown('<div class="entry-card">', unsafe_allow_html=True)
     f1, f2, f3 = st.columns([1, 1, 1])
     lot_r = f1.text_input("Lot Réel", value=slm, key=f"lr_{key_prefix}")
     qte = f2.number_input("Quantité", min_value=0.0, step=1.0, key=f"q_{key_prefix}")
-    ddp = f3.text_input("DDP (MM/AAAA)", key=f"d_{key_prefix}")
+    ddp = f3.text_input("DDP (MM/AAAA)", value=pre_ddp if pre_ddp not in ['', 'nan'] else "", key=f"d_{key_prefix}")
     
     f4, f5 = st.columns(2)
-    ppa = f4.number_input("PPA", min_value=0.0, key=f"pp_{key_prefix}")
-    shp = f5.number_input("SHP", min_value=0.0, key=f"sh_{key_prefix}")
+    ppa = f4.number_input("PPA", min_value=0.0, value=pre_ppa, key=f"pp_{key_prefix}")
+    shp = f5.number_input("SHP", min_value=0.0, value=pre_shp, key=f"sh_{key_prefix}")
     st.markdown('</div>', unsafe_allow_html=True)
     
     if st.button(f"💾 Enregistrer Saisie", type="primary", use_container_width=True, key=f"btn_s_{key_prefix}"):
@@ -305,7 +336,7 @@ with t_admin:
             try:
                 import io
                 output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
                     df_z.sort_values(by='produit').to_excel(writer, sheet_name="Zone", index=False)
                     df_mi.sort_values(by='produit').to_excel(writer, sheet_name="Mini", index=False)
                 st.download_button("📥 Télécharger Sauvegarde Excel", output.getvalue(), "backup_inventaire.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

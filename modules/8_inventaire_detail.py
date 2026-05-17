@@ -138,8 +138,41 @@ with tabs[1]:
             ]
         
         st.dataframe(df_display, use_container_width=True, hide_index=True)
-    else:
-        st.warning("Données Master non disponibles.")
+        
+        # --- DÉPÔT SECONDAIRE : Produits Non Conformes ---
+        st.divider()
+        st.subheader("🚨 Dépôt Secondaire — Produits Non Conformes")
+        
+        if 'is_depot_secondaire' in m_z.columns:
+            df_nc = m_z[m_z['is_depot_secondaire'] == True].copy()
+        elif 'statut_stock' in m_z.columns:
+            df_nc = m_z[m_z['statut_stock'] != 'Conforme'].copy()
+        elif 'depot' in m_z.columns:
+            nc_vals = m_z['depot'].astype(str).str.upper()
+            df_nc = m_z[nc_vals.isin(['2', '02', 'SEC', 'SECONDAIRE', 'NC', 'SV']) | nc_vals.str.contains('SEC|PERIMES|ABIMES|NON.CONF|S\\.V\\.', na=False, regex=True)].copy()
+        else:
+            df_nc = pd.DataFrame()
+        
+        if not df_nc.empty:
+            col_nc1, col_nc2, col_nc3, col_nc4 = st.columns(4)
+            col_nc1.metric("📦 Total Produits NC", len(df_nc))
+            
+            if 'statut_stock' in df_nc.columns:
+                n_perime = len(df_nc[df_nc['statut_stock'] == 'Périmé'])
+                n_quar = len(df_nc[df_nc['statut_stock'] == 'Quarantaine'])
+                n_nc = len(df_nc[df_nc['statut_stock'].str.contains('Non Conforme', na=False)])
+                col_nc2.metric("📅 Périmés", n_perime)
+                col_nc3.metric("⏸️ Quarantaine", n_quar)
+                col_nc4.metric("❌ Autres NC", n_nc)
+            
+            if 'qte_logi' in df_nc.columns:
+                qte_nc = pd.to_numeric(df_nc['qte_logi'], errors='coerce').sum()
+                st.warning(f"⚠️ **{qte_nc:,.0f} unités** en dépôt secondaire (non commercialisables)")
+            
+            cols_to_show = [c for c in ['produit', 'lot', 'qte_logi', 'depot', 'statut_stock', 'ddp', 'laboratoire'] if c in df_nc.columns]
+            st.dataframe(df_nc[cols_to_show].sort_values('statut_stock') if cols_to_show else df_nc, use_container_width=True, hide_index=True)
+        else:
+            st.success("✅ Aucun produit détecté dans le dépôt secondaire. Tous les stocks sont conformes.")
 
 # --- TAB 2 : FICHES VIERGES ---
 with tabs[2]:

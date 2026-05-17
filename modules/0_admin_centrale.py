@@ -217,6 +217,7 @@ def clean_inventory_cols(df):
         'site':               ['site'],
     }
     
+
     new_cols = {}
     for col in df.columns:
         col_str = str(col).lower().strip()
@@ -227,8 +228,38 @@ def clean_inventory_cols(df):
                 matched = True
                 break
         if not matched:
-            new_cols[col] = col # On garde les noms de colonnes originaux pour ne rien perdre
-    return df.rename(columns=new_cols)
+            new_cols[col] = col  # On garde les noms de colonnes originaux
+    df = df.rename(columns=new_cols)
+
+    # --- DETECTION AUTOMATIQUE DU DEPOT SECONDAIRE (Périmés, Abimés, SV...) ---
+    # Dans DarPharm, le dépôt secondaire (ex: ID > 1, ou nommé "SEC", "NON CONFORME") 
+    # contient les produits périmés, abimés ou sans valeur.
+    if 'depot' in df.columns:
+        depot_vals = df['depot'].astype(str).str.strip().str.upper()
+        
+        # Règles de détection du dépôt secondaire
+        is_secondaire = (
+            depot_vals.isin(['2', '02', 'SEC', 'SECONDAIRE', 'NON CONFORME', 'NC', 'SV']) |
+            depot_vals.str.contains('SEC|PERIMES|ABIMES|NON.CONF|S\.V\.|HORS', na=False, regex=True)
+        )
+        
+        # Créer la colonne statut_stock si elle n'existe pas
+        if 'statut_stock' not in df.columns:
+            df['statut_stock'] = 'Conforme'
+        
+        # Affiner avec les colonnes existantes
+        if 'perime' in df.columns:
+            df.loc[df['perime'].astype(str).str.upper().isin(['OUI', 'TRUE', 'VRAI', '1', 'X']), 'statut_stock'] = 'Périmé'
+        if 'quarantaine' in df.columns:
+            df.loc[df['quarantaine'].astype(str).str.upper().isin(['OUI', 'TRUE', 'VRAI', '1', 'X']), 'statut_stock'] = 'Quarantaine'
+        
+        # Le dépôt secondaire prend le dessus si rien d'autre n'est précisé
+        df.loc[is_secondaire & (df['statut_stock'] == 'Conforme'), 'statut_stock'] = 'Non Conforme (Dépôt Sec.)'
+        
+        # Créer une colonne is_secondaire pour filtrage rapide
+        df['is_depot_secondaire'] = is_secondaire
+    
+    return df
 
 def clean_sales_cols(df):
     mapping = {
