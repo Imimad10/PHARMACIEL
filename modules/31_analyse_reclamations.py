@@ -184,6 +184,11 @@ with tabs[0]:
         if 'categorie_motif' not in df.columns: df['categorie_motif'] = "Autre / Non Classé"
         if 'commercial' not in df.columns: df['commercial'] = "Inconnu"
         
+        # Nettoyage strict des valeurs vides (NaN) qui font crasher Plotly Sunburst
+        df['motif'] = df['motif'].fillna("Non Renseigné").astype(str)
+        df['categorie_motif'] = df['categorie_motif'].fillna("Autre / Non Classé").astype(str)
+        df['commercial'] = df['commercial'].fillna("Inconnu").astype(str)
+        
         # Filtres
         st.sidebar.subheader("🎯 Pilotage")
         comm_list = ["Tous"]
@@ -210,7 +215,13 @@ with tabs[0]:
         
         with col_g1:
             st.markdown("#### 🍩 Hiérarchie des Motifs")
-            fig_sun = px.sunburst(df_p, path=['categorie_motif', 'motif'], 
+            
+            # Anti-Crash Plotly: Si un motif a exactement le même nom que sa catégorie, Plotly crashe (A -> A).
+            # On ajoute un espace invisible à la fin pour rendre le noeud unique sans perturber l'affichage.
+            df_p_plot = df_p.copy()
+            df_p_plot['motif_plot'] = df_p_plot['motif'].astype(str) + " "
+            
+            fig_sun = px.sunburst(df_p_plot, path=['categorie_motif', 'motif_plot'], 
                                  color_discrete_sequence=px.colors.qualitative.Pastel,
                                  template="plotly_dark")
             st.plotly_chart(fig_sun, use_container_width=True)
