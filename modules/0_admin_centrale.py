@@ -15,9 +15,119 @@ DATA_CLIENTS = "base_clients.csv"
 DATA_LIVREURS = "data_expedition/livreurs.csv"
 DATA_SECTEURS = "data_expedition/secteurs.csv"
 
-COLS_CLIENTS = ["Nom Client", "Région", "Téléphone", "Secteur"]
+COLS_CLIENTS = ["ID", "Code_Client", "Nom_Pharmacie", "Categorie", "Type_Client", "Adresse", "Wilaya", "Region", "Ville", "Conventionne", "Tx_Conv", "Echeance", "Nbr_Jour", "Telephone", "Tel_2", "Mobile", "Code_Postal", "Fax", "Email", "Web", "Filiale", "Active", "Bloque", "Agent_Recouvrement", "AI", "Compte", "RC", "NIS", "NIF", "Agence_Bancaire", "Portefeuille", "Cagnotte", "Commercial_Reserve", "Famille", "Date_Creation", "Solde_Max", "Marge", "Calcul_TVA", "Client_EDF", "Gerant", "Tel_Contact_1", "Contact_2", "Tel_Contact_2", "Commentaire", "Categorie_UG", "Tel_3", "Client_BL", "Contact_3", "Tel_Contact_3", "Latitude", "Longitude", "Demi_Marge", "Delegue", "Mode_Paiement", "Tiers_Fact_Route", "Num_Inspection", "Type_Vente", "Auxiliaire", "Code_Site", "Assurance", "Mont_Assure", "Site", "Forme_Juridique", "Motif_Blocage", "Compte_Ligne", "BP", "PharmaDrive", "Blocage_Fin", "Date_Recrut", "Date_Reprise", "Num_Modele_Imp", "LogiDrive", "Etat_Dossier", "Exclure_PSY", "Exclure_PSY_SPE", "Exclure_LogiDrive", "Date_Agrement", "Num_Ordre", "Verification", "Date_Verif", "Verif_Par", "Tx_Vente", "Cash", "Banque", "NIN", "PI", "VF", "Num_Agrement"]
 COLS_LIVREURS = ["Nom", "Prénom", "Téléphone", "Secteur"]
 COLS_SECTEURS = ["Client", "Ville", "Tel", "Secteur"]
+
+def clean_client_cols(df):
+    mapping = {
+        'ID': ['n°', 'id'],
+        'Code_Client': ['code.', 'code client'],
+        'Nom_Pharmacie': ['raison sociale', 'nom', 'pharmacie', 'client'],
+        'Categorie': ['catégorie', 'categorie'],
+        'Type_Client': ['type client'],
+        'Adresse': ['adresse'],
+        'Wilaya': ['wilaya'],
+        'Region': ['région', 'region'],
+        'Ville': ['ville'],
+        'Conventionne': ['conventionné', 'conventionne'],
+        'Tx_Conv': ['tx conv.', 'tx conv'],
+        'Echeance': ['echéance', 'echeance'],
+        'Nbr_Jour': ['nbr jour'],
+        'Telephone': ['tel prof.', 'telephone', 'téléphone', 'tel'],
+        'Tel_2': ['tél 2', 'tel 2'],
+        'Mobile': ['mobile'],
+        'Code_Postal': ['code postal'],
+        'Fax': ['fax'],
+        'Email': ['email', 'e-mail'],
+        'Web': ['web'],
+        'Filiale': ['filiale'],
+        'Active': ['active'],
+        'Bloque': ['bloqué', 'bloque'],
+        'Agent_Recouvrement': ['agent de recouvrement'],
+        'AI': ['a.i', 'ai'],
+        'Compte': ['compte'],
+        'RC': ['r.c', 'rc'],
+        'NIS': ['nis'],
+        'NIF': ['nif'],
+        'Agence_Bancaire': ['agence bancaire'],
+        'Portefeuille': ['portefeuille'],
+        'Cagnotte': ['cagnotte'],
+        'Commercial_Reserve': ['commercial reserve', 'commercial'],
+        'Famille': ['famille'],
+        'Date_Creation': ['date création', 'date creation'],
+        'Solde_Max': ['solde max'],
+        'Marge': ['marge'],
+        'Calcul_TVA': ['calcul tva'],
+        'Client_EDF': ['client e.d.f', 'client edf'],
+        'Gerant': ['contact 1', 'gerant', 'gérant'],
+        'Tel_Contact_1': ['tél contact 1', 'tel contact 1'],
+        'Contact_2': ['contact 2'],
+        'Tel_Contact_2': ['tél contact 2', 'tel contact 2'],
+        'Commentaire': ['observation', 'commentaire', 'remarque'],
+        'Categorie_UG': ['categorie ug', 'catégorie ug'],
+        'Tel_3': ['tél 3', 'tel 3'],
+        'Client_BL': ['client b.l', 'client bl'],
+        'Contact_3': ['contact 3'],
+        'Tel_Contact_3': ['tél contact 3', 'tel contact 3'],
+        'Latitude': ['latitude'],
+        'Longitude': ['langitude', 'longitude'],
+        'Demi_Marge': ['demi-marge'],
+        'Delegue': ['delegue', 'délégué'],
+        'Mode_Paiement': ['mode paiement'],
+        'Tiers_Fact_Route': ['tiers fact.route', 'tiers fact route'],
+        'Num_Inspection': ['n°inspection', 'n inspection'],
+        'Type_Vente': ['type vente'],
+        'Auxiliaire': ['auxiliare', 'auxiliaire'],
+        'Code_Site': ['code site'],
+        'Assurance': ['assurance'],
+        'Mont_Assure': ['mont.assuré', 'mont assure'],
+        'Site': ['site'],
+        'Forme_Juridique': ['forme juridique'],
+        'Motif_Blocage': ['motif blocage'],
+        'Compte_Ligne': ['compte en ligne'],
+        'BP': ['bp'],
+        'PharmaDrive': ['pharmadrive'],
+        'Blocage_Fin': ['bocage fin.', 'blocage fin', 'blocage financier'],
+        'Date_Recrut': ['date recrut.', 'date recrut'],
+        'Date_Reprise': ['date reprise'],
+        'Num_Modele_Imp': ['n°moldèle imp.', 'n modele imp'],
+        'LogiDrive': ['logidrive'],
+        'Etat_Dossier': ['etat dossier', 'état dossier'],
+        'Exclure_PSY': ['exclure psy.', 'exclure psy'],
+        'Exclure_PSY_SPE': ['exclure psy.spe', 'exclure psy spe'],
+        'Exclure_LogiDrive': ['exclure logidrive'],
+        'Date_Agrement': ['date agrement', 'date agrément'],
+        'Num_Ordre': ['n°ordre', 'n ordre'],
+        'Verification': ['vérification', 'verification'],
+        'Date_Verif': ['date vérif.', 'date verif'],
+        'Verif_Par': ['vérif.par', 'verif par'],
+        'Tx_Vente': ['tx vente%', 'tx vente'],
+        'Cash': ['cash'],
+        'Banque': ['banque'],
+        'NIN': ['nin'],
+        'PI': ['pi'],
+        'VF': ['v.f', 'vf'],
+        'Num_Agrement': ['n°agrement', 'n agrement']
+    }
+    
+    new_cols = {}
+    for col in df.columns:
+        col_str = str(col).lower().strip()
+        matched = False
+        for target, alts in mapping.items():
+            if col_str in alts:
+                new_cols[col] = target
+                matched = True
+                break
+        if not matched:
+            for target, alts in mapping.items():
+                valid_alts = [a for a in alts if len(a) > 3]
+                if any(alt in col_str for alt in valid_alts):
+                    new_cols[col] = target
+                    break
+                    
+    return df.rename(columns=new_cols)
 
 # Sécurité
 if "current_user" not in st.session_state or st.session_state.current_user is None:
@@ -127,12 +237,11 @@ with tabs[0]:
                 mapping.update({c: "Ville" for c in cols if c.lower() == "ville"})
                 mapping.update({c: "Secteur" for c in cols if c.lower() == "secteur"})
                 mapping.update({c: "Tel" for c in cols if c.lower() in ["tel","téléphone","telephone"]})
-            elif any(c.lower() in ["raison sociale","nom client","nom"] for c in cols):
+            elif any(c.lower() in ["raison sociale","nom client","nom", "client", "pharmacie"] for c in cols):
                 target = "Base_Clients"
-                mapping = {c: "Nom Client" for c in cols if c.lower() in ["raison sociale","nom client","nom"]}
-                mapping.update({c: "Région" for c in cols if c.lower() in ["région","region"]})
-                mapping.update({c: "Secteur" for c in cols if c.lower() == "secteur"})
-                mapping.update({c: "Téléphone" for c in cols if c.lower() in ["téléphone","telephone","tel"]})
+                df_up = clean_client_cols(df_up)
+                if 'Nom_Pharmacie' not in df_up.columns:
+                    df_up['Nom_Pharmacie'] = df_up['ID'].astype(str) if 'ID' in df_up.columns else "Client_Inconnu"
             elif "username" in cols_lower:
                 target = "Utilisateurs"
                 mapping = {c: "username" for c in cols if c.lower() == "username"}
@@ -167,7 +276,7 @@ with tabs[0]:
             
             # Définition des paramètres de destination
             if target == "Base_Clients":
-                db_path, db_cols, key = DATA_CLIENTS, COLS_CLIENTS, "Nom Client"
+                db_path, db_cols, key = DATA_CLIENTS, COLS_CLIENTS, "Nom_Pharmacie"
             elif target == "Livreurs":
                 db_path, db_cols, key = DATA_LIVREURS, COLS_LIVREURS, "Nom"
             elif target == "Utilisateurs":
@@ -207,19 +316,22 @@ with tabs[0]:
                 df_up.columns = new_cols
                 
                 if target == "Base_Clients":
-                    # Région = Secteur si Secteur vide
-                    if "Région" in df_up.columns and ("Secteur" not in df_up.columns or df_up["Secteur"].isnull().all()):
-                        df_up["Secteur"] = df_up["Région"]
-                
-                df_old = load_gs_data(target, db_path, db_cols)
-                cols_to_keep = [c for c in db_cols if c in df_up.columns]
+                    df_merged = pd.concat([df_old, df_up], ignore_index=True).drop_duplicates(subset=[key], keep='last')
+                    
+                    # Also keep backwards compatibility fields for other modules
+                    if 'Nom Client' not in df_merged.columns: df_merged['Nom Client'] = df_merged['Nom_Pharmacie']
+                    if 'Région' not in df_merged.columns: df_merged['Région'] = df_merged['Region'].combine_first(df_merged['Wilaya'])
+                    if 'Secteur' not in df_merged.columns: df_merged['Secteur'] = df_merged['Region']
+                    if 'Téléphone' not in df_merged.columns: df_merged['Téléphone'] = df_merged['Telephone']
+                else:
+                    cols_to_keep = [c for c in db_cols if c in df_up.columns]
                 
                 if target == "Master_Inventaire_Zone":
                     # Remplacement COMPLET pour l'inventaire
                     df_merged = df_up[cols_to_keep]
                     if 'inv_work_df' in st.session_state:
                         del st.session_state.inv_work_df
-                else:
+                elif target != "Base_Clients":
                     # Fusion / Ajout pour les autres bases
                     df_merged = pd.concat([df_old, df_up[cols_to_keep]], ignore_index=True).drop_duplicates(subset=[key])
                 
@@ -247,14 +359,15 @@ with tabs[1]:
         rows = []
         for _, row in df_sec.iterrows():
             rows.append({
+                "Nom_Pharmacie": str(row.get("Client", "")),
                 "Nom Client": str(row.get("Client", "")),
-                "Région":     str(row.get("Ville", "")),
-                "Téléphone":  str(row.get("Tel", "")),
+                "Region":     str(row.get("Ville", "")),
+                "Telephone":  str(row.get("Tel", "")),
                 "Secteur":    str(row.get("Secteur", ""))
             })
-        df_new_clients = pd.DataFrame(rows, columns=COLS_CLIENTS)
+        df_new_clients = pd.DataFrame(rows)
         df_old_clients = load_gs_data("Base_Clients", DATA_CLIENTS, COLS_CLIENTS)
-        df_merged = pd.concat([df_old_clients, df_new_clients], ignore_index=True).drop_duplicates(subset=["Nom Client"])
+        df_merged = pd.concat([df_old_clients, df_new_clients], ignore_index=True).drop_duplicates(subset=["Nom_Pharmacie"])
         save_gs_data(df_merged, "Base_Clients", DATA_CLIENTS)
         st.success(f"✅ Clients importés depuis Secteurs Logistique !")
         st.cache_data.clear()
@@ -266,10 +379,10 @@ with tabs[1]:
         rows = []
         for _, row in df_src.iterrows():
             rows.append({
-                "Client": str(row.get("Nom Client", "")),
-                "Ville":  str(row.get("Région", "")),   # Ville = Région
-                "Tel":    str(row.get("Téléphone", "")),
-                "Secteur": str(row.get("Région", ""))   # Secteur = Région
+                "Client": str(row.get("Nom_Pharmacie", row.get("Nom Client", ""))),
+                "Ville":  str(row.get("Region", row.get("Région", ""))),
+                "Tel":    str(row.get("Telephone", row.get("Téléphone", ""))),
+                "Secteur": str(row.get("Region", row.get("Secteur", "")))
             })
         df_new_sec = pd.DataFrame(rows, columns=COLS_SECTEURS)
         df_old_sec = load_gs_data("Secteurs", DATA_SECTEURS, COLS_SECTEURS)
