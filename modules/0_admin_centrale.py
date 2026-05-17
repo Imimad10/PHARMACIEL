@@ -527,8 +527,11 @@ with tabs[1]:
     col_crm1, col_crm2 = st.columns([1, 2])
     
     # Charger les clients pour la sélection
-    liste_clients_crm = sorted(df_clients["Nom Client"].dropna().unique().tolist())
-    
+    col_name = 'Nom_Pharmacie' if 'Nom_Pharmacie' in df_clients.columns else 'Nom Client'
+    if col_name in df_clients.columns:
+        liste_clients_crm = sorted(df_clients[col_name].dropna().unique().tolist())
+    else:
+        liste_clients_crm = []
     with col_crm1:
         st.write("📝 **Nouvelle Interaction**")
         with st.form("form_crm_note", clear_on_submit=True):
