@@ -126,7 +126,6 @@ with tabs[0]:
         col_g1, col_g2 = st.columns([1, 1])
         
         with col_g1:
-            st.markdown('<div class="reclam-card">', unsafe_allow_html=True)
             st.markdown("#### 🍩 Hiérarchie des Motifs")
             
             df_p_plot = df_p.copy()
@@ -136,10 +135,9 @@ with tabs[0]:
                                  color_discrete_sequence=px.colors.qualitative.Pastel)
             fig_sun.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=450, margin=dict(t=0, l=0, r=0, b=0))
             st.plotly_chart(fig_sun, use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+            
             
         with col_g2:
-            st.markdown('<div class="reclam-card">', unsafe_allow_html=True)
             st.markdown("#### 🏆 Top Responsables")
             comm_stats = df_p['commercial'].value_counts().reset_index()
             comm_stats.columns = ['Commercial', 'Nb']
@@ -147,16 +145,13 @@ with tabs[0]:
                             color='Nb', color_continuous_scale='Purples')
             fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=450, margin=dict(t=0, l=0, r=0, b=0))
             st.plotly_chart(fig_bar, use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
 
-        st.markdown('<div class="reclam-card">', unsafe_allow_html=True)
         st.markdown("#### 🕵️ Matrice des Responsabilités (Commercial vs Catégorie)")
         if 'commercial' in df_p.columns and 'categorie_motif' in df_p.columns:
             pivot = df_p.groupby(['commercial', 'categorie_motif']).size().unstack(fill_value=0)
             fig_heat = px.imshow(pivot, text_auto=True, color_continuous_scale='YlOrRd')
             fig_heat.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=500, margin=dict(t=30, l=0, r=0, b=0))
             st.plotly_chart(fig_heat, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
 
         st.divider()
         col_alerte, col_detail = st.columns([1, 2])
