@@ -154,11 +154,21 @@ with tab_list:
     if df_filtered.empty:
         st.info("Aucun client trouvé.")
     else:
-        # Liste de sélection pour la carte de visite
-        client_selected_name = st.selectbox("Sélectionner un client pour voir sa fiche :", df_filtered['Nom_Pharmacie'].tolist())
+        # Nettoyage rapide pour éviter les 'nan'
+        df_filtered = df_filtered.dropna(subset=['Nom_Pharmacie'])
+        df_filtered = df_filtered[df_filtered['Nom_Pharmacie'].astype(str).str.strip() != '']
         
-        if client_selected_name:
-            client = df_filtered[df_filtered['Nom_Pharmacie'] == client_selected_name].iloc[0]
+        if df_filtered.empty:
+            st.info("Aucun client avec un nom valide n'a été trouvé.")
+        else:
+            # Liste de sélection pour la carte de visite
+            liste_noms = sorted(df_filtered['Nom_Pharmacie'].astype(str).tolist())
+            client_selected_name = st.selectbox("Sélectionner un client pour voir sa fiche :", liste_noms)
+            
+            if client_selected_name:
+                matches = df_filtered[df_filtered['Nom_Pharmacie'].astype(str) == str(client_selected_name)]
+                if not matches.empty:
+                    client = matches.iloc[0]
             
             # --- CARTE DE VISITE ---
             st.markdown(f"""
