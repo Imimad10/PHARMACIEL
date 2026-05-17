@@ -1176,7 +1176,7 @@ _etab_badge_nom   = ETABLISSEMENTS.get(_etab_actif, {}).get("nom", "DarPharm")
 _etab_badge_icon  = ETABLISSEMENTS.get(_etab_actif, {}).get("icon", "🏭")
 
 # Injection CSS pour la lisibilité
-st.markdown(f"""
+st.markdown("""
     <style>
         [data-testid="stSidebar"] .stButton > button {
             font-size: 1.1rem !important;
