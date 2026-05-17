@@ -129,6 +129,43 @@ def clean_client_cols(df):
                     
     return df.rename(columns=new_cols)
 
+def clean_inventory_cols(df):
+    mapping = {
+        'depot': ['dépôt', 'depot', 'id depot'],
+        'produit': ['produit', 'article', 'désignation', 'designation', 'n°produit', 'code'],
+        'lot': ['n°lot', 'lot', 'batch', 'nlot'],
+        'qte_logi': ['quantité dépôt', 'quantité depot', 'qte.globale', 'quantité', 'qte'],
+        'colissage': ['colis', 'u/colis', 'colissage', 'nbr colis'],
+        'zone': ['zone produit', 'zone', 'emplacement'],
+        'ddp': ['ddp', 'peremption', 'péremption', 'exp', 'date'],
+        'ppa': ['ppa', 'prix public', 'prix'],
+        'shp': ['shp', 'tarif'],
+        'laboratoire': ['laboratoire', 'labo'],
+        'fournisseur': ['fournisseur', 'fourn'],
+        'dci': ['d.c.i', 'dci'],
+        'rotation': ['rotation'],
+        'categorie': ['catégorie', 'categorie'],
+        'vrac': ['vrac'],
+        'prix_achat': ['prix d\'achat', 'prix achat', 'valeur achat'],
+        'prix_vente': ['prix vente', 'valeur vente'],
+        'marge': ['marge', 'marge ph.', 'marge ph', 'marge 2'],
+        'tva': ['tva'],
+        'remise': ['remise ug', 'remise achat', 'remise']
+    }
+    
+    new_cols = {}
+    for col in df.columns:
+        col_str = str(col).lower().strip()
+        matched = False
+        for target, alts in mapping.items():
+            if col_str in alts:
+                new_cols[col] = target
+                matched = True
+                break
+        if not matched:
+            new_cols[col] = col # On garde les noms de colonnes originaux pour ne rien perdre
+    return df.rename(columns=new_cols)
+
 # Sécurité
 if "current_user" not in st.session_state or st.session_state.current_user is None:
     st.warning("Veuillez vous connecter.")
@@ -251,17 +288,9 @@ with tabs[0]:
                 mapping.update({c: "role" for c in cols if c.lower() in ["role", "rôle"]})
                 mapping.update({c: "zone" for c in cols if c.lower() == "zone"})
                 mapping.update({c: "pages" for c in cols if c.lower() == "pages"})
-            elif any(x in cols_lower for x in ["dépôt", "depot", "quantité dépôt", "quantité depot", "qte.globale"]):
+            elif any(x in cols_lower for x in ["dépôt", "depot", "quantité dépôt", "quantité depot", "qte.globale", "n°lot", "zone produit"]):
                 target = "Master_Inventaire_Zone"
-                mapping = {c: "depot" for c in cols if c.lower() in ["dépôt", "depot"]}
-                mapping.update({c: "produit" for c in cols if c.lower() in ["produit", "article", "désignation", "designation"]})
-                mapping.update({c: "lot" for c in cols if c.lower() in ["n°lot", "lot", "batch", "nlot"]})
-                mapping.update({c: "qte_logi" for c in cols if c.lower() in ["quantité dépôt", "quantité depot", "qte.globale", "quantité", "qte"]})
-                mapping.update({c: "colissage" for c in cols if c.lower() in ["colis", "u/colis", "colissage", "nbr colis"]})
-                mapping.update({c: "zone" for c in cols if c.lower() in ["zone produit", "zone", "emplacement"]})
-                mapping.update({c: "ddp" for c in cols if c.lower() in ["ddp", "peremption", "péremption", "exp", "date"]})
-                mapping.update({c: "ppa" for c in cols if c.lower() in ["ppa", "prix public", "prix"]})
-                mapping.update({c: "shp" for c in cols if c.lower() in ["shp", "tarif"]})
+                df_up = clean_inventory_cols(df_up)
         
         elif not target:
             # Si le fichier était un Excel mais sans colonnes reconnues
@@ -283,7 +312,8 @@ with tabs[0]:
                 from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
                 db_path, db_cols, key = DB_USERS_FALLBACK, ["username", "password", "role", "pages", "nom", "prenom", "zone"], "username"
             elif target == "Master_Inventaire_Zone":
-                db_path, db_cols, key = "data_inventaire_detail/master_detail.csv", ["depot", "zone", "produit", "lot", "qte_logi", "colissage", "ddp", "ppa", "shp"], "lot"
+                # db_cols est laissé vide pour accepter toutes les colonnes
+                db_path, db_cols, key = "data_inventaire_detail/master_detail.csv", df_up.columns.tolist(), "lot"
             elif target == "Fournisseurs":
                 db_path, db_cols, key = "data/db_fournisseurs.csv", ["Etablissement", "Wilaya", "Activité", "Logo"], "Etablissement"
             else:
@@ -323,16 +353,13 @@ with tabs[0]:
                     if 'Région' not in df_merged.columns: df_merged['Région'] = df_merged['Region'].combine_first(df_merged['Wilaya'])
                     if 'Secteur' not in df_merged.columns: df_merged['Secteur'] = df_merged['Region']
                     if 'Téléphone' not in df_merged.columns: df_merged['Téléphone'] = df_merged['Telephone']
-                else:
-                    cols_to_keep = [c for c in db_cols if c in df_up.columns]
-                
-                if target == "Master_Inventaire_Zone":
-                    # Remplacement COMPLET pour l'inventaire
-                    df_merged = df_up[cols_to_keep]
+                elif target == "Master_Inventaire_Zone":
+                    # Remplacement COMPLET pour l'inventaire avec TOUTES les colonnes
+                    df_merged = df_up
                     if 'inv_work_df' in st.session_state:
                         del st.session_state.inv_work_df
-                elif target != "Base_Clients":
-                    # Fusion / Ajout pour les autres bases
+                else:
+                    cols_to_keep = [c for c in db_cols if c in df_up.columns]
                     df_merged = pd.concat([df_old, df_up[cols_to_keep]], ignore_index=True).drop_duplicates(subset=[key])
                 
                 save_gs_data(df_merged, target, db_path)
