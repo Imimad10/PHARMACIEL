@@ -187,23 +187,36 @@ with tab_list:
             
             # --- CARTE MAPS ---
             st.markdown("#### 📍 Localisation")
-            coords = str(client['Coordonnees'])
-            if coords and "," in coords:
+            lat_val = client.get('Latitude', '')
+            lon_val = client.get('Longitude', '')
+            coords = str(client.get('Coordonnees', ''))
+            
+            if pd.notna(lat_val) and pd.notna(lon_val) and str(lat_val).strip() != '' and str(lon_val).strip() != '':
+                try:
+                    lat, lon = float(lat_val), float(lon_val)
+                    map_data = pd.DataFrame({'lat': [lat], 'lon': [lon]})
+                    st.map(map_data, zoom=14)
+                except:
+                    st.warning("Coordonnées (Latitude/Longitude) invalides.")
+            elif coords and "," in coords and coords != 'nan':
                 try:
                     lat, lon = map(float, coords.split(","))
                     map_data = pd.DataFrame({'lat': [lat], 'lon': [lon]})
                     st.map(map_data, zoom=14)
                 except:
-                    st.warning("Coordonnées invalides.")
+                    st.warning("Coordonnées combinées invalides.")
             else:
                 st.info("Aucun point GPS enregistré pour ce client.")
                 if st.button("🗺️ Rechercher Coordonnées avec l'IA"):
                     with st.spinner("Recherche des coordonnées..."):
-                        prompt = f"Donne les coordonnées GPS (latitude, longitude) approximatives pour la pharmacie {client['Nom_Pharmacie']} à {client['Ville']}, {client['Adresse']}. Réponds UNIQUEMENT sous la forme: lat, lon"
+                        nom_pharm = client.get('Nom_Pharmacie', 'Client')
+                        ville_pharm = client.get('Ville', '')
+                        adr_pharm = client.get('Adresse', '')
+                        prompt = f"Donne les coordonnées GPS (latitude, longitude) approximatives pour l'établissement {nom_pharm} à {ville_pharm}, {adr_pharm}. Réponds UNIQUEMENT sous la forme: lat, lon"
                         res_coords = ask_ai(prompt)
                         st.write(f"Suggéré : {res_coords}")
                         if st.button("Appliquer ces coordonnées"):
-                            df_clients.loc[df_clients['ID'] == client['ID'], 'Coordonnees'] = res_coords
+                            df_clients.loc[df_clients['Nom_Pharmacie'] == nom_pharm, 'Coordonnees'] = res_coords
                             save_gs_data(df_clients, WORKSHEET_NAME, FALLBACK_PATH)
                             st.rerun()
 
@@ -255,9 +268,9 @@ with tab_ia:
         with st.spinner("Recherche dans les bases pharmaceutiques..."):
             prompt = f"""Tu es un expert du marché pharmaceutique algérien. 
             Je veux compléter les informations pour l'établissement suivant : 
-            Nom: {client_data['Nom_Pharmacie']}
-            Type: {client_data['Statut']}
-            Localisation: {client_data['Ville']}, {client_data['Adresse']}
+            Nom: {client_data.get('Nom_Pharmacie', '')}
+            Type: {client_data.get('Statut', '')}
+            Localisation: {client_data.get('Ville', '')}, {client_data.get('Adresse', '')}
             
             Recherche spécifiquement :
             1. Le numéro de téléphone professionnel.
