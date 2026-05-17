@@ -51,22 +51,80 @@ st.markdown("""
 
 def clean_reclam_cols(df):
     mapping = {
-        'reference': ['ref', 'bon', 'commande', 'document'],
         'client': ['client', 'pharmacie', 'destinataire'],
-        'commercial': ['commercial', 'cree par', 'créé par', 'vendeur', 'user'],
+        'reference': ['référence', 'reference', 'ref', 'bon', 'commande', 'document'],
+        'type': ['type'],
+        'date': ['date'],
+        'code_client': ['code client'],
+        'region': ['région', 'region'],
         'produit': ['produit', 'designation', 'article'],
-        'motif': ['motif', 'cause', 'raison', 'type'],
-        'date_creation': ['date de creation', 'date creation', 'cree le', 'date_crea'],
-        'date_facture': ['date de facture', 'date facture', 'date_fac']
+        'statut_bon': ['statut bon'],
+        'num_lot': ['n°lot', 'lot', 'num lot'],
+        'motif': ['motif', 'cause', 'raison'],
+        'prix_vente': ['prix vente', 'prix'],
+        'ppa': ['ppa'],
+        'date_exp': ['date exp.', 'date exp'],
+        'quantite': ['quantité', 'quantite', 'qte'],
+        'tx_vente': ['tx vente'],
+        'valeur_vente': ['valeur vente'],
+        'statut': ['statut'],
+        'remarque_ligne': ['remarque ligne', 'remarque'],
+        'commercial': ['crée par', 'cree par', 'créé par', 'commercial', 'vendeur', 'user'],
+        'date_creation': ['date création', 'date creation', 'cree le', 'date_crea'],
+        'psycho': ['psycho.', 'psycho'],
+        'frigo': ['frigo.', 'frigo'],
+        'chere': ['chère', 'chere'],
+        'date_cloture': ['date clôture', 'date cloture'],
+        'cloturer_par': ['clôturer par', 'cloturer par'],
+        'cout_revient': ['cout de revient', 'coût de revient'],
+        'ref_facture': ['réf. facture', 'ref. facture', 'ref facture'],
+        'date_facture': ['date facture', 'date de facture', 'date_fac'],
+        'categorie': ['catégorie', 'categorie'],
+        'facture_cree_par': ['facture crée par', 'facture cree par'],
+        'zone_produit': ['zone produit'],
+        'preparateur': ['préparateur', 'preparateur'],
+        'verif1': ['vérif1.', 'verif1'],
+        'verif2': ['vérif2.', 'verif2'],
+        'obs_bon': ['obs bon'],
+        'date_denvoi': ['date d\'envoi', 'date denvoi'],
+        'date_retour': ['date retour'],
+        'reponse': ['reponse', 'réponse'],
+        'emp_produit': ['emp.produit', 'emp produit'],
+        'responsable': ['responsable'],
+        'avis_dt': ['avis dt'],
+        'verifier_par': ['vérifier par', 'verifier par'],
+        'envoyer_par': ['envoyer par'],
+        'recu_par': ['reçu par', 'recu par'],
+        'date_verification': ['date vérification', 'date verification'],
+        'date_reception': ['date réception', 'date reception'],
+        'nbr_jours': ['nbr jours'],
+        'offre': ['offre'],
+        'delai_reclam': ['délai réclam.', 'délai réclam', 'delai reclam']
     }
+    
     new_cols = {}
     found = []
-    for target, alts in mapping.items():
-        for col in df.columns:
-            if any(alt in str(col).lower() for alt in alts):
+    
+    # Correspondance exacte d'abord pour éviter les faux positifs (ex: "date" vs "date création")
+    for col in df.columns:
+        col_str = str(col).lower().strip()
+        for target, alts in mapping.items():
+            if col_str in alts:
                 new_cols[col] = target
                 found.append(target)
                 break
+                
+    # Correspondance partielle (fallback)
+    for col in df.columns:
+        if col in new_cols: continue
+        col_str = str(col).lower().strip()
+        for target, alts in mapping.items():
+            valid_alts = [a for a in alts if len(a) > 4 and a != 'date']
+            if any(alt in col_str for alt in valid_alts):
+                new_cols[col] = target
+                found.append(target)
+                break
+                
     return df.rename(columns=new_cols), found
 
 def categorize_motif(motif_str):
