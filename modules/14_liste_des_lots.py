@@ -94,8 +94,6 @@ def load_master_v5(path, mtime):
     except Exception as e: return str(e)
 
 # --- 3. UI ---
-st.title("📑 Liste des Lots")
-
 if "current_user" not in st.session_state or st.session_state.current_user is None:
     st.warning("Veuillez vous connecter.")
     st.stop()
@@ -110,8 +108,24 @@ if not df_master.empty:
 else:
     df_master = None
 
+# --- HEADER + BOUTON SYNC ---
+col_title, col_sync_btn = st.columns([5, 1])
+with col_title:
+    st.title("📑 Liste des Lots")
+with col_sync_btn:
+    st.markdown("<div style='margin-top:20px'>", unsafe_allow_html=True)
+    if st.button("🔄 Sync DB", use_container_width=True, help="Recharger depuis la base centrale (Admin Centrale)"):
+        st.cache_data.clear()
+        st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
+if df_master is not None:
+    n_p = df_master['designation'].nunique() if 'designation' in df_master.columns else 0
+    n_l = len(df_master)
+    st.caption(f"✅ Base chargée : **{n_p} produits** · **{n_l} lots**")
+
 if df_master is None:
-    st.info("Aucun Master Détail trouvé sur GSheets. Veuillez l'importer depuis l'onglet Admin de 'Inventaire Détail'.")
+    st.info("⚠️ Aucune donnée trouvée. Importez votre liste de produits via **Administration Centrale → Importateur Universel**, puis cliquez 🔄 Sync DB.")
     st.stop()
 
 # Filtrer par zone si non-admin
@@ -318,6 +332,6 @@ with tabs[2]:
                 st.rerun()
             
         st.divider()
-        st.info("Pour importer ou gérer le fichier Master, veuillez vous rendre dans l'onglet Admin du module **Inventaire Détail**.")
+        st.info("📤 Pour importer votre liste de produits, utilisez le module **Administration Centrale → Importateur Universel**, puis cliquez le bouton **🔄 Sync DB** ci-dessus.")
     else:
         st.warning("Accès réservé aux Administrateurs et Superviseurs.")
