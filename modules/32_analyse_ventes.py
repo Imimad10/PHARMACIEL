@@ -66,6 +66,7 @@ def process_time_features(df):
         df['date_dt'] = pd.to_datetime(df['date'], errors='coerce')
         df['jour_nom'] = df['date_dt'].dt.day_name()
         df['mois'] = df['date_dt'].dt.month_name()
+        df['mois_annee'] = df['date_dt'].dt.strftime('%Y-%m')
     if 'heure' in df.columns:
         df['heure_int'] = pd.to_datetime(df['heure'], format='%H:%M:%S', errors='coerce').dt.hour
         if df['heure_int'].isna().all():
@@ -122,6 +123,20 @@ with tabs[0]:
         with c2: st.markdown(f'<div class="perf-card stat-box"><div class="stat-label">Rentabilité</div><div class="stat-val">{marge:,.0f} DA</div></div>', unsafe_allow_html=True)
         with c3: st.markdown(f'<div class="perf-card stat-box"><div class="stat-label">Volume Lignes</div><div class="stat-val">{lignes}</div></div>', unsafe_allow_html=True)
         with c4: st.markdown(f'<div class="perf-card stat-box"><div class="stat-label">Expéditions (Colis)</div><div class="stat-val">{int(colis)}</div></div>', unsafe_allow_html=True)
+
+        if 'mois_annee' in df.columns and 'prix_vente' in df.columns:
+            st.markdown("#### 📅 Évolution Mensuelle de la Performance")
+            df_monthly = df.groupby('mois_annee')[['prix_vente', 'marge']].sum().reset_index().dropna(subset=['mois_annee'])
+            df_monthly = df_monthly.sort_values('mois_annee')
+            
+            if not df_monthly.empty:
+                fig_trend = go.Figure()
+                fig_trend.add_trace(go.Scatter(x=df_monthly['mois_annee'], y=df_monthly['prix_vente'], mode='lines+markers', name="Chiffre d'Affaires (DA)", line=dict(color='#3b82f6', width=3, shape='spline')))
+                if 'marge' in df.columns:
+                    fig_trend.add_trace(go.Bar(x=df_monthly['mois_annee'], y=df_monthly['marge'], name="Rentabilité (Marge DA)", marker_color='#10b981', opacity=0.8))
+                
+                fig_trend.update_layout(template="plotly_dark", hovermode='x unified', margin=dict(l=0, r=0, t=30, b=0), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+                st.plotly_chart(fig_trend, use_container_width=True)
 
         col_v1, col_v2 = st.columns(2)
         with col_v1:
