@@ -372,11 +372,15 @@ elif st.session_state.keynote_mode == "PRESENTATION":
     elif current_key == "RECLAMATIONS":
         st.markdown('<h1 class="slide-title">Analyse des<br>Réclamations</h1>', unsafe_allow_html=True)
         col_r1, col_r2 = st.columns([2, 1])
+        df_reclam = st.session_state.get('df_reclam_analysed')
+        
         with col_r1:
-            # Graphique Sunburst Mock ou Real
-            df_reclam = st.session_state.get('df_reclam_analysed')
             if df_reclam is not None and not df_reclam.empty:
-                fig = px.sunburst(df_reclam, path=['categorie_motif', 'motif'], template="plotly_dark")
+                df_p_plot = df_reclam.copy()
+                if 'statut' in df_p_plot.columns:
+                    df_p_plot = df_p_plot[~df_p_plot['statut'].astype(str).str.upper().str.contains("REFUS", na=False)]
+                df_p_plot['motif_plot'] = df_p_plot['motif'].astype(str) + " "
+                fig = px.sunburst(df_p_plot, path=['categorie_motif', 'motif_plot'], template="plotly_dark")
             else:
                 df_mock = pd.DataFrame({
                     "cat": ["Commercial", "Commercial", "Dépôt", "Dépôt", "Pharmacien"],
@@ -386,28 +390,59 @@ elif st.session_state.keynote_mode == "PRESENTATION":
                 fig = px.sunburst(df_mock, path=['cat', 'motif'], values='val', template="plotly_dark")
             fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', height=500)
             st.plotly_chart(fig, use_container_width=True)
+            
         with col_r2:
-            st.markdown('<div class="glass-card"><h3>Point Critique</h3><div class="metric-hero" style="color:#ef4444;">15%</div><p>Erreurs de saisie commerciale détectées.</p><div class="card-detail">Action: Formation requise</div></div>', unsafe_allow_html=True)
+            if df_reclam is not None and not df_reclam.empty:
+                df_valide = df_reclam.copy()
+                if 'statut' in df_valide.columns:
+                    df_valide = df_valide[~df_valide['statut'].astype(str).str.upper().str.contains("REFUS", na=False)]
+                manques = len(df_valide[df_valide['motif'].astype(str).str.upper().str.contains("MANQUE", na=False)])
+                err_c = len(df_valide[df_valide['categorie_motif'] == "Erreur Commerciale"])
+                st.markdown(f'<div class="glass-card" style="margin-bottom:20px; padding:20px;"><h3>Risque Commercial</h3><div class="metric-hero" style="color:#ef4444; font-size:3.5rem;">{err_c}</div><p>Fautes de saisie</p></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="glass-card" style="padding:20px;"><h3>Manques Dépôt</h3><div class="metric-hero" style="color:#f59e0b; font-size:3.5rem;">{manques}</div><p>Produits manquants détectés</p></div>', unsafe_allow_html=True)
+            else:
+                st.markdown('<div class="glass-card"><h3>Point Critique</h3><div class="metric-hero" style="color:#ef4444;">15%</div><p>Erreurs de saisie commerciale détectées.</p><div class="card-detail">Action: Formation requise</div></div>', unsafe_allow_html=True)
 
     elif current_key == "VENTES":
         st.markdown('<h1 class="slide-title">Performance<br>Ventes</h1>', unsafe_allow_html=True)
         v_c1, v_c2, v_c3 = st.columns(3)
         df_v = st.session_state.get('df_ventes_perf')
-        ca = df_v['prix_vente'].sum() if df_v is not None else 84200000
-        marge = df_v['marge'].sum() if df_v is not None else 12500000
+        ca = pd.to_numeric(df_v['prix_vente'], errors='coerce').sum() if df_v is not None and 'prix_vente' in df_v.columns else 84200000
+        marge = pd.to_numeric(df_v['marge'], errors='coerce').sum() if df_v is not None and 'marge' in df_v.columns else 12500000
+        remise = pd.to_numeric(df_v['remise'], errors='coerce').sum() if df_v is not None and 'remise' in df_v.columns else 850000
         
         with v_c1: st.markdown(f'<div class="glass-card"><div class="card-subtitle">Chiffre d\'Affaires</div><div class="metric-hero" style="font-size:3.5rem; color:#10b981;">{ca:,.0f} DA</div></div>', unsafe_allow_html=True)
-        with v_c2: st.markdown(f'<div class="glass-card"><div class="card-subtitle">Rentabilité</div><div class="metric-hero" style="font-size:3.5rem; color:#7c3aed;">{marge:,.0f} DA</div></div>', unsafe_allow_html=True)
-        with v_c3: st.markdown('<div class="glass-card"><div class="card-subtitle">Top Heure Pic</div><div class="metric-hero" style="font-size:3.5rem; color:#f59e0b;">11h</div></div>', unsafe_allow_html=True)
+        with v_c2: st.markdown(f'<div class="glass-card"><div class="card-subtitle">Rentabilité Nette</div><div class="metric-hero" style="font-size:3.5rem; color:#7c3aed;">{marge:,.0f} DA</div></div>', unsafe_allow_html=True)
+        with v_c3: st.markdown(f'<div class="glass-card"><div class="card-subtitle">Remises Accordées</div><div class="metric-hero" style="font-size:3.5rem; color:#ef4444;">{remise:,.0f} DA</div></div>', unsafe_allow_html=True)
         
-        # Graphique rentabilité
         st.markdown('<div style="margin-top:20px;"></div>', unsafe_allow_html=True)
-        if df_v is not None and 'jour_nom' in df_v.columns:
-            order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-            day_perf = df_v.groupby('jour_nom')['marge'].sum().reindex(order).reset_index()
-            fig = px.bar(day_perf, x='jour_nom', y='marge', color='marge', template="plotly_dark")
-            fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=300)
-            st.plotly_chart(fig, use_container_width=True)
+        col_v_g1, col_v_g2 = st.columns(2)
+        
+        with col_v_g1:
+            if df_v is not None and 'commercial' in df_v.columns and 'marge' in df_v.columns and 'remise' in df_v.columns:
+                df_comm = df_v.groupby('commercial')[['marge', 'remise']].sum().reset_index()
+                df_comm = df_comm.sort_values('marge', ascending=False).head(8)
+                fig_mr = go.Figure()
+                fig_mr.add_trace(go.Bar(x=df_comm['commercial'], y=df_comm['marge'], name='Marge', marker_color='#10b981'))
+                fig_mr.add_trace(go.Bar(x=df_comm['commercial'], y=df_comm['remise'], name='Remise', marker_color='#ef4444'))
+                fig_mr.update_layout(title="Marge vs Remise par Commercial", barmode='group', template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=300, margin=dict(t=40, b=0))
+                st.plotly_chart(fig_mr, use_container_width=True)
+            else:
+                st.info("Données commerciales manquantes pour l'analyse Marge vs Remise.")
+                
+        with col_v_g2:
+            if df_v is not None:
+                geo_col = 'region' if 'region' in df_v.columns else ('wilaya' if 'wilaya' in df_v.columns else None)
+                if geo_col and 'marge' in df_v.columns:
+                    df_geo = df_v.groupby(geo_col)['marge'].sum().reset_index()
+                    df_geo = df_geo[df_geo['marge'] > 0]
+                    df_geo['Pays'] = "Algérie"
+                    fig_geo = px.treemap(df_geo, path=['Pays', geo_col], values='marge', color='marge', color_continuous_scale='Mint', template='plotly_dark')
+                    fig_geo.update_traces(root_color="rgba(0,0,0,0)")
+                    fig_geo.update_layout(title="Carte de Rentabilité Régionale", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=300, margin=dict(t=40, l=10, r=10, b=10))
+                    st.plotly_chart(fig_geo, use_container_width=True)
+                else:
+                    st.info("Données géographiques manquantes pour la cartographie.")
 
     elif current_key == "LOGISTIQUE":
         st.markdown('<h1 class="slide-title">Efficacité<br>Logistique</h1>', unsafe_allow_html=True)
