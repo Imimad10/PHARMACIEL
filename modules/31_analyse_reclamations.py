@@ -16,21 +16,25 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&display=swap');
     
     .reclam-card {
-        background: rgba(124, 58, 237, 0.04);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(124, 58, 237, 0.15);
-        border-radius: 16px;
+        background: linear-gradient(145deg, #ffffff, #f8fafc);
+        border: 1px solid #e2e8f0;
+        border-radius: 20px;
         padding: 24px;
         margin-bottom: 20px;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    }
+    .reclam-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 25px -5px rgba(124, 58, 237, 0.1), 0 10px 10px -5px rgba(124, 58, 237, 0.04);
+        border-color: rgba(124, 58, 237, 0.3);
     }
     
     .ia-report {
-        background: linear-gradient(135deg, rgba(124, 58, 237, 0.08) 0%, rgba(30, 41, 59, 0.05) 100%);
+        background: linear-gradient(135deg, rgba(124, 58, 237, 0.05) 0%, rgba(30, 41, 59, 0.02) 100%);
         border-left: 5px solid #7c3aed;
         padding: 30px;
-        border-radius: 12px;
+        border-radius: 16px;
         color: #1e293b;
         line-height: 1.6;
         font-family: 'Sora', sans-serif;
@@ -38,11 +42,11 @@ st.markdown("""
     }
     
     .stat-box { text-align: center; }
-    .stat-val { font-size: 2.2rem; font-weight: 800; color: #1e293b; margin-bottom: 0px; }
-    .stat-label { font-size: 0.8rem; color: #475569; text-transform: uppercase; letter-spacing: 1px; }
-    
-    .severity-high { color: #ef4444; }
-    .severity-med { color: #f59e0b; }
+    .stat-val { font-size: 3rem; font-weight: 800; margin-bottom: 5px; }
+    .val-neutral { background: linear-gradient(90deg, #1e293b, #475569); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .severity-high { background: linear-gradient(90deg, #ef4444, #b91c1c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .severity-med { background: linear-gradient(90deg, #f59e0b, #d97706); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .stat-label { font-size: 0.85rem; color: #64748b; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -108,47 +112,51 @@ with tabs[0]:
         
         # KPIs
         c1, c2, c3, c4 = st.columns(4)
-        with c1: st.markdown(f'<div class="reclam-card stat-box"><div class="stat-label">Réclam. Validées</div><div class="stat-val">{len(df_p)}</div></div>', unsafe_allow_html=True)
+        with c1: st.markdown(f'<div class="reclam-card stat-box"><div class="stat-label">📋 Réclamations Validées</div><div class="stat-val val-neutral">{len(df_p)}</div></div>', unsafe_allow_html=True)
         with c2: 
             err_c = len(df_p[df_p['categorie_motif'] == "Erreur Commerciale"])
-            st.markdown(f'<div class="reclam-card stat-box"><div class="stat-label">Fautes Comm.</div><div class="stat-val severity-high">{err_c}</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="reclam-card stat-box"><div class="stat-label">❌ Fautes Commerciales</div><div class="stat-val severity-high">{err_c}</div></div>', unsafe_allow_html=True)
         with c3:
             manques = len(df_p[df_p['motif'].astype(str).str.upper().str.contains("MANQUE", na=False)])
-            st.markdown(f'<div class="reclam-card stat-box"><div class="stat-label">Manques (Dépôt)</div><div class="stat-val severity-med">{manques}</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="reclam-card stat-box"><div class="stat-label">⚠️ Manques (Dépôt)</div><div class="stat-val severity-med">{manques}</div></div>', unsafe_allow_html=True)
         with c4:
             pnc = len(df_p[df_p['categorie_motif'] == "PNC (Non Conforme)"])
-            st.markdown(f'<div class="reclam-card stat-box"><div class="stat-label">Qualité (PNC)</div><div class="stat-val severity-high">{pnc}</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="reclam-card stat-box"><div class="stat-label">🛡️ Qualité (PNC)</div><div class="stat-val severity-high">{pnc}</div></div>', unsafe_allow_html=True)
 
         col_g1, col_g2 = st.columns([1, 1])
         
         with col_g1:
+            st.markdown('<div class="reclam-card">', unsafe_allow_html=True)
             st.markdown("#### 🍩 Hiérarchie des Motifs")
             
-            # Anti-Crash Plotly: Si un motif a exactement le même nom que sa catégorie, Plotly crashe (A -> A).
-            # On ajoute un espace invisible à la fin pour rendre le noeud unique sans perturber l'affichage.
             df_p_plot = df_p.copy()
             df_p_plot['motif_plot'] = df_p_plot['motif'].astype(str) + " "
             
             fig_sun = px.sunburst(df_p_plot, path=['categorie_motif', 'motif_plot'], 
-                                 color_discrete_sequence=px.colors.qualitative.Pastel,
-                                 template="plotly_dark")
+                                 color_discrete_sequence=px.colors.qualitative.Pastel)
+            fig_sun.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=450, margin=dict(t=0, l=0, r=0, b=0))
             st.plotly_chart(fig_sun, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
             
         with col_g2:
+            st.markdown('<div class="reclam-card">', unsafe_allow_html=True)
             st.markdown("#### 🏆 Top Responsables")
             comm_stats = df_p['commercial'].value_counts().reset_index()
             comm_stats.columns = ['Commercial', 'Nb']
             fig_bar = px.bar(comm_stats.head(8), x='Nb', y='Commercial', orientation='h',
-                            color='Nb', color_continuous_scale='Reds', template="plotly_dark")
+                            color='Nb', color_continuous_scale='Purples')
+            fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=450, margin=dict(t=0, l=0, r=0, b=0))
             st.plotly_chart(fig_bar, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
-        st.divider()
+        st.markdown('<div class="reclam-card">', unsafe_allow_html=True)
         st.markdown("#### 🕵️ Matrice des Responsabilités (Commercial vs Catégorie)")
         if 'commercial' in df_p.columns and 'categorie_motif' in df_p.columns:
             pivot = df_p.groupby(['commercial', 'categorie_motif']).size().unstack(fill_value=0)
-            # Heatmap pour plus de "WOW"
-            fig_heat = px.imshow(pivot, text_auto=True, color_continuous_scale='YlOrRd', template="plotly_dark")
+            fig_heat = px.imshow(pivot, text_auto=True, color_continuous_scale='YlOrRd')
+            fig_heat.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=500, margin=dict(t=30, l=0, r=0, b=0))
             st.plotly_chart(fig_heat, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
         st.divider()
         col_alerte, col_detail = st.columns([1, 2])
