@@ -1046,7 +1046,7 @@ if not isinstance(user_pages, list):
 is_admin = user.get('role') == 'Admin'
 
 if is_admin:
-    for extra_page in ["Cortex IA", "Automatisation", "Liste des Lots", "Répartition Zones", "Analyse Réclamations", "Performance Ventes", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Réception Fournisseurs", "Assistant IA", "Base IA", "Transferts", "Coordination", "Qualité IA", "Mon Coin", "Briefing IA", "Maintenance", "Académie", "Prévisions", "Mode Meeting", "Page de Garde"]:
+    for extra_page in ["Cortex IA", "Automatisation", "Liste des Lots", "Répartition Zones", "Analyse Réclamations", "Performance Ventes", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Réception Fournisseurs", "Litiges Fournisseurs", "Assistant IA", "Base IA", "Transferts", "Coordination", "Qualité IA", "Mon Coin", "Briefing IA", "Maintenance", "Académie", "Prévisions", "Mode Meeting", "Page de Garde"]:
         if extra_page not in user_pages:
             user_pages.append(extra_page)
 
@@ -1109,7 +1109,8 @@ CATEGORIES = {
     "👤 MON PROFIL": ["Profil", "Mon Coin"],
     "📊 SUPERVISION": ["Master Global", "Dashboard", "Analyse Rotation", "Prévisions", "Mode Meeting", "Analyse Réclamations", "Performance Ventes", "Suivi", "Dashboard Premium"],
     "📦 GESTION DES STOCKS": ["Inventaire", "Inventaire Détail", "Inventaire Triple", "Péremptions", "Liste des Lots", "Catalogue Produits", "Répartition Zones"],
-    "📝 POINTAGES & FLUX": ["Pointage", "Pointage Expéditeur", "Pointage Marchandise", "Réception Fournisseurs", "Page de Garde", "Recouvrement", "Logistique", "Scanneur QR", "Scan Mobile", "Transferts", "Clients"],
+    "🏭 FOURNISSEURS": ["Réception Fournisseurs", "Pointage Marchandise", "Litiges Fournisseurs"],
+    "📝 POINTAGES & FLUX": ["Pointage", "Pointage Expéditeur", "Page de Garde", "Recouvrement", "Logistique", "Scanneur QR", "Scan Mobile", "Transferts", "Clients"],
     "🤖 DARPHARM IA": ["Cortex IA", "Assistant IA", "Base IA", "Qualité IA", "Briefing IA", "Automatisation", "Coordination", "Académie"],
     "🏥 ADMINISTRATION": ["Admin Centrale", "RH", "RH Planning", "Maintenance"]
 }
