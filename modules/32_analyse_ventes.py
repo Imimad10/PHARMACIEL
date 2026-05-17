@@ -43,54 +43,7 @@ st.markdown("""
 
 # --- 3. LOGIQUE TECHNIQUE ---
 
-def clean_sales_cols(df):
-    mapping = {
-        'designation': ['designation', 'produit', 'article', 'libelle', 'désignation'],
-        'quantite': ['quantite', 'qte', 'volume', 'nombre', 'quantité'],
-        'prix_vente': ['h.t', 'ht', 'prix vente', 'prix_v', 'ca', 'montant', 'total ht', 't.t.c', 'ttc'],
-        'marge': ['marge', 'profit', 'rentabilite', 'benefice', 'gain'],
-        'date': ['date', 'jour', 'facturé le'],
-        'heure': ['heure', 'time', 'moment'],
-        'colis': ['colis', 'nb colis', 'colissage', 'paquets'],
-        'client': ['client'],
-        'reference': ['référence', 'reference', 'ref'],
-        'remise': ['remise'],
-        'tva': ['t.v.a', 'tva'],
-        'timbre': ['timbre'],
-        'montant_regle': ['montant réglé', 'montant regle'],
-        'reste_a_payer': ['reste à payer', 'reste a payer'],
-        'cagnotte': ['cagnotte'],
-        'commercial': ['commercial attaché', 'commercial', 'créer par', 'creer par'],
-        'date_creation': ['date création', 'date creation'],
-        'echeance': ['echéance', 'echeance'],
-        'bl': ['b.l', 'bl'],
-        'region': ['région', 'region'],
-        'reclam': ['réclam.', 'reclam'],
-        'categorie': ['catégorie', 'categorie'],
-        'remarque': ['remarque'],
-        'num_client': ['n°client', 'n client'],
-        'preparateur': ['préparateur', 'preparateur'],
-        'verificateur': ['vérificateur', 'verificateur'],
-        'verificateur_2': ['vérificateur 2', 'verificateur 2'],
-        'id_priorite': ['id_priorite'],
-        'blocage_client': ['blocage client'],
-        'tx_rm': ['tx rm'],
-        'depot': ['dépôt', 'depot'],
-        'type_client': ['type client'],
-        'statut': ['statut'],
-        'verification': ['vérification', 'verification'],
-        'code_client': ['code client'],
-        'prepare': ['préparé', 'prepare'],
-        'frig_psy': ['frig/psy.', 'frig/psy'],
-        'nbr_impres': ['nbr impres.', 'nbr impres'],
-        'ville': ['ville'],
-        'remise_ligne': ['remise ligne'],
-        'nbr_ligne': ['nbr ligne'],
-        'wilaya': ['wilaya'],
-        'brouillant': ['brouillant'],
-        'categorie_prod': ['catégorie prod.', 'categorie prod'],
-        'cloture': ['clôture', 'cloture'],
-# Fonction de nettoyage déplacée dans Admin Centrale
+# (Fonction de nettoyage déplacée dans Admin Centrale)
 
 def process_time_features(df):
     if 'date' in df.columns:
