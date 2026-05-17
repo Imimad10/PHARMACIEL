@@ -240,15 +240,29 @@ def save_gs_data(df, worksheet_name, fallback_path, force_cloud=False, override_
                 # Unique headers
                 new_cols, c_count = [], {}
                 for c in df_gs.columns:
-                    if c in c_count:
-                        c_count[c] += 1
-                        new_cols.append(f"{c}_{c_count[c]}")
+                    c_str = str(c)
+                    if c_str in c_count:
+                        c_count[c_str] += 1
+                        new_cols.append(f"{c_str}_{c_count[c_str]}")
                     else:
-                        c_count[c] = 1
-                        new_cols.append(c)
+                        c_count[c_str] = 1
+                        new_cols.append(c_str)
                 df_gs.columns = new_cols
 
-                worksheet.update([df_gs.columns.values.tolist()] + df_gs.values.tolist())
+                raw_data = [df_gs.columns.values.tolist()] + df_gs.values.tolist()
+                
+                import math
+                def sanitize_for_json(val):
+                    if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
+                        return ""
+                    try:
+                        if pd.isna(val): return ""
+                    except: pass
+                    return val
+                
+                safe_data = [[sanitize_for_json(cell) for cell in row] for row in raw_data]
+
+                worksheet.update(safe_data)
                 st.cache_data.clear()
                 if force_cloud: st.success(f"✅ Synchronisation Cloud réussie ({worksheet_name})")
             except Exception as e:
