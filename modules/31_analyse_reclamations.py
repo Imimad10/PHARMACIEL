@@ -49,38 +49,6 @@ st.markdown("""
 # --- 2. LOGIQUE TECHNIQUE ---
 # ... (Gardons les fonctions clean_reclam_cols et categorize_motif identiques) ...
 
-def clean_reclam_cols(df):
-    mapping = {
-        'client': ['client', 'pharmacie', 'destinataire'],
-        'reference': ['référence', 'reference', 'ref', 'bon', 'commande', 'document'],
-        'type': ['type'],
-        'date': ['date'],
-        'code_client': ['code client'],
-        'region': ['région', 'region'],
-        'produit': ['produit', 'designation', 'article'],
-        'statut_bon': ['statut bon'],
-        'num_lot': ['n°lot', 'lot', 'num lot'],
-        'motif': ['motif', 'cause', 'raison'],
-        'prix_vente': ['prix vente', 'prix'],
-        'ppa': ['ppa'],
-        'date_exp': ['date exp.', 'date exp'],
-        'quantite': ['quantité', 'quantite', 'qte'],
-        'tx_vente': ['tx vente'],
-        'valeur_vente': ['valeur vente'],
-        'statut': ['statut'],
-        'remarque_ligne': ['remarque ligne', 'remarque'],
-        'commercial': ['crée par', 'cree par', 'créé par', 'commercial', 'vendeur', 'user'],
-        'date_creation': ['date création', 'date creation', 'cree le', 'date_crea'],
-        'psycho': ['psycho.', 'psycho'],
-        'frigo': ['frigo.', 'frigo'],
-        'chere': ['chère', 'chere'],
-        'date_cloture': ['date clôture', 'date cloture'],
-        'cloturer_par': ['clôturer par', 'cloturer par'],
-        'cout_revient': ['cout de revient', 'coût de revient'],
-        'ref_facture': ['réf. facture', 'ref. facture', 'ref facture'],
-        'date_facture': ['date facture', 'date de facture', 'date_fac'],
-        'categorie': ['catégorie', 'categorie'],
-
 # (Fonction de nettoyage déplacée dans Admin Centrale)
 
 def categorize_motif(motif_str):
