@@ -960,8 +960,35 @@ with tabs[5]:
         # Double validation par checkbox pour éviter les erreurs
         confirm = st.checkbox("Je confirme vouloir tout effacer")
         if st.button("🔴 Réinitialiser le système de recouvrement", disabled=not confirm):
-            save_data(pd.DataFrame(columns=COLS_RECOUV), DATA_RECOUV)
-            st.success("Toutes les données de recouvrement ont été supprimées.")
-            st.rerun()
+            with st.spinner("Réinitialisation complète..."):
+                # 1. Vider le fichier local (CSV) avec les en-têtes corrects
+                try:
+                    df_empty = pd.DataFrame(columns=COLS_RECOUV)
+                    df_empty.to_csv(DATA_RECOUV, index=False, sep=',', encoding='utf-8-sig')
+                except Exception as e_local:
+                    st.error(f"❌ Erreur lors du nettoyage local : {e_local}")
+                
+                # 2. Vider le Cloud (Google Sheets) de manière forcée
+                try:
+                    client = get_gs_client()
+                    url = get_gs_url("Recouvrement")
+                    if client and url:
+                        sh = client.open_by_url(url)
+                        try:
+                            worksheet = sh.worksheet("Recouvrement")
+                            worksheet.clear()
+                            # Écrire uniquement la ligne d'en-tête
+                            worksheet.update([COLS_RECOUV])
+                        except Exception as e_sheet:
+                            st.warning(f"⚠️ Impossible de vider la feuille Google Sheets 'Recouvrement' (mais le fichier local a été vidé) : {e_sheet}")
+                except Exception as e_cloud:
+                    st.warning(f"⚠️ Service Cloud Google Sheets indisponible : {e_cloud}")
+                
+                # 3. Vider le cache de Streamlit et le session_state
+                st.session_state.pop("pending_rec", None)
+                st.cache_data.clear()
+                
+                st.success("🎉 Le système de recouvrement et la feuille de programme ont été réinitialisés avec succès !")
+                st.rerun()
     else:
         st.info("Les fonctions de nettoyage sont réservées à l'administrateur système.")
