@@ -533,35 +533,52 @@ with tabs[1]:
         mask = df_main["Livreur"].astype(str).str.upper() == sel_liv
         df_display = df_main[mask].drop_duplicates(subset=["Client", "Reste à payer"], keep='first').copy()
         
-        col_btns = st.columns([1, 1, 2])
-        with col_btns[0]:
-            st.download_button("📥 Télécharger PDF", generate_pdf(df_display, sel_liv), f"Route_{sel_liv}.pdf")
-        
-        with col_btns[1]:
-            st.write("") 
-
-        # Édition avec menu déroulant pour le livreur (pour permettre le changement manuel)
+        # Insérer une colonne de sélection pour le PDF
+        if "Inclure dans PDF" not in df_display.columns:
+            df_display.insert(0, "Inclure dans PDF", True)
+            
+        # Liste des livreurs pour l'édition
         liv_options = sorted(df_livreurs_db["Nom"].astype(str).str.upper().unique().tolist()) if not df_livreurs_db.empty else []
         if "NON ASSIGNÉ" not in liv_options: liv_options.append("NON ASSIGNÉ")
 
+        # Éditeur interactif
         edited = st.data_editor(
             df_display, 
             use_container_width=True, 
             hide_index=True,
             column_config={
+                "Inclure dans PDF": st.column_config.CheckboxColumn("Inclure", help="Cochez pour inclure dans la feuille de route PDF", default=True),
                 "Livreur": st.column_config.SelectboxColumn("Livreur (Modifier)", options=liv_options, required=True),
+                "Mode Paiement": st.column_config.SelectboxColumn("Mode Paiement", options=["CASH", "CHÈQUE", "VERSEMENT", "VIREMENT", "TRAITE"]),
+                "Reste à payer": st.column_config.NumberColumn("Reste à payer", min_value=0.0, format="%.2f"),
                 "Statut": st.column_config.SelectboxColumn("Statut", options=STATUS_OPTIONS)
             }
         )
         
-        if st.button("💾 Sauvegarder Statuts, Montants & Affectations"):
-            # Recalcul automatique du reste à payer avant sauvegarde
-            edited["Reste à payer"] = (pd.to_numeric(edited["Montant Initial"], errors='coerce') - pd.to_numeric(edited["Montant Réglé"], errors='coerce')).clip(lower=0)
+        # Bouton de téléchargement dynamique (uniquement les clients sélectionnés/cochés)
+        df_pdf = edited[edited["Inclure dans PDF"] == True].copy()
+        df_pdf_clean = df_pdf.drop(columns=["Inclure dans PDF"], errors="ignore")
+        
+        col_btns = st.columns([1, 1, 2])
+        with col_btns[0]:
+            st.download_button(
+                "📥 Télécharger PDF", 
+                generate_pdf(df_pdf_clean, sel_liv), 
+                f"Route_{sel_liv}.pdf",
+                use_container_width=True
+            )
+        
+        with col_btns[1]:
+            st.write("") 
+
+        if st.button("💾 Sauvegarder Statuts, Montants & Affectations", use_container_width=True):
+            # Supprimer la colonne temporaire 'Inclure dans PDF' avant la sauvegarde définitive
+            df_to_save = edited.drop(columns=["Inclure dans PDF"], errors="ignore")
             
-            # On remplace les anciennes lignes par les éditées
-            df_final = pd.concat([df_main[~df_main.index.isin(df_display.index)], edited], ignore_index=True)
+            # On remplace les anciennes lignes par les éditées dans la base globale
+            df_final = pd.concat([df_main[~df_main.index.isin(df_display.index)], df_to_save], ignore_index=True)
             save_data(df_final, DATA_RECOUV)
-            st.success("Données mises à jour avec succès !")
+            st.success("🎉 Données de recouvrement mises à jour avec succès !")
             st.rerun()
     else:
         st.info("Aucune donnée disponible.")
