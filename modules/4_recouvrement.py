@@ -50,6 +50,35 @@ def save_data(df, path):
     save_gs_data(df, worksheet_name, path)
     return df
 
+def clean_recouvrement_logipharm_cols(df):
+    """Mappe les colonnes Logipharm vers le format attendu par 4_recouvrement.py."""
+    mapping = {
+        'Client':          ['client'],
+        'Facture':         ['référence', 'reference', 'ref', 'b.l', 'n° ordre', 'n°ordre'],
+        'Date':            ['date', 'date création', 'date creation'],
+        'Montant Initial': ['h.t', 'ht', 't.t.c', 'ttc', 'montant initial'],
+        'Montant Réglé':   ['montant réglé', 'montant regle'],
+        'Reste à payer':   ['reste à payer', 'reste a payer'],
+        'Mode Paiement':   ['mode paiement', 'cash'],
+        'Région':          ['région', 'region', 'wilaya', 'zone', 'ville'],
+        'Statut':          ['statut', 'clôture', 'cloture'],
+        'Commentaires':    ['remarque', 'observation', 'échéance', 'echeance'],
+    }
+    new_cols = {}
+    mapped_targets = set()
+    for col in df.columns:
+        col_str = str(col).lower().strip()
+        matched = False
+        for target_col, alts in mapping.items():
+            if col_str in alts and target_col not in mapped_targets:
+                new_cols[col] = target_col
+                mapped_targets.add(target_col)
+                matched = True
+                break
+        if not matched:
+            new_cols[col] = col
+    return df.rename(columns=new_cols)
+
 def get_livreur(region_val):
     reg = str(region_val).strip().upper() if pd.notna(region_val) else ""
     if not reg: return "NON ASSIGNÉ"
@@ -359,23 +388,55 @@ with tabs[0]:
         f_rec = st.file_uploader("Déposer rec.xlsx", type=["xlsx"])
         if f_rec:
             df_ex = pd.read_excel(f_rec)
+            df_ex = clean_recouvrement_logipharm_cols(df_ex)
+            
+            # Afficher un aperçu des colonnes détectées pour rassurer l'utilisateur
+            detected_cols = [c for c in COLS_RECOUV if c in df_ex.columns]
+            st.success(f"🔍 Colonnes détectées automatiquement : {', '.join(detected_cols)}")
+            
             if st.button("🚀 Valider l'importation"):
-                # Nettoyage et complétion des colonnes pour le nouveau format
-                if "Région" not in df_ex.columns: df_ex["Région"] = "INCONNU"
-                if "Montant Initial" not in df_ex.columns and "Reste à payer" in df_ex.columns:
-                    df_ex["Montant Initial"] = df_ex["Reste à payer"]
-                if "Montant Réglé" not in df_ex.columns:
-                    df_ex["Montant Réglé"] = 0.0
-                
-                df_ex["Livreur"] = df_ex["Région"].apply(get_livreur)
-                df_ex["Date"] = str(datetime.now().date())
-                df_ex["Statut"] = "En attente"
-                df_ex["Reste à payer"] = df_ex["Montant Initial"] - df_ex["Montant Réglé"]
-                
-                db_old = load_data(DATA_RECOUV, COLS_RECOUV)
-                save_data(pd.concat([db_old, df_ex], ignore_index=True), DATA_RECOUV)
-                st.success("Import terminé !")
-                st.rerun()
+                if "Client" not in df_ex.columns:
+                    st.error("❌ La colonne 'Client' n'a pas pu être détectée. Assurez-vous que le fichier contient une colonne nommée 'Client' ou 'Raison Sociale'.")
+                else:
+                    # Nettoyage et complétion des colonnes pour le format standard
+                    if "Région" not in df_ex.columns: 
+                        df_ex["Région"] = "INCONNU"
+                    if "Montant Initial" not in df_ex.columns and "Reste à payer" in df_ex.columns:
+                        df_ex["Montant Initial"] = df_ex["Reste à payer"]
+                    if "Montant Initial" not in df_ex.columns:
+                        df_ex["Montant Initial"] = 0.0
+                    if "Montant Réglé" not in df_ex.columns:
+                        df_ex["Montant Réglé"] = 0.0
+                    
+                    # Convertir en types numériques
+                    df_ex["Montant Initial"] = pd.to_numeric(df_ex["Montant Initial"], errors='coerce').fillna(0.0)
+                    df_ex["Montant Réglé"] = pd.to_numeric(df_ex["Montant Réglé"], errors='coerce').fillna(0.0)
+                    
+                    if "Reste à payer" not in df_ex.columns:
+                        df_ex["Reste à payer"] = df_ex["Montant Initial"] - df_ex["Montant Réglé"]
+                    else:
+                        df_ex["Reste à payer"] = pd.to_numeric(df_ex["Reste à payer"], errors='coerce').fillna(0.0)
+                        
+                    if "Facture" not in df_ex.columns:
+                        df_ex["Facture"] = [f"LOGI_{datetime.now().strftime('%d%m')}_{i}" for i in range(len(df_ex))]
+                    if "Date" not in df_ex.columns:
+                        df_ex["Date"] = str(datetime.now().date())
+                    if "Statut" not in df_ex.columns:
+                        df_ex["Statut"] = "En attente"
+                    if "Livreur" not in df_ex.columns:
+                        df_ex["Livreur"] = df_ex["Région"].apply(get_livreur)
+                    if "Mode Paiement" not in df_ex.columns:
+                        df_ex["Mode Paiement"] = "CASH"
+                    if "Commentaires" not in df_ex.columns:
+                        df_ex["Commentaires"] = ""
+                    
+                    # Filtrer pour ne garder que le schéma standard
+                    df_to_save = df_ex[COLS_RECOUV].copy()
+                    
+                    db_old = load_data(DATA_RECOUV, COLS_RECOUV)
+                    save_data(pd.concat([db_old, df_to_save], ignore_index=True), DATA_RECOUV)
+                    st.success("🎉 Importation et nettoyage terminés avec succès !")
+                    st.rerun()
 
 # ONGLET 2 : FEUILLES DE ROUTE (AVEC SUPPRESSION DOUBLONS ET RÉINITIALISATION)
 with tabs[1]:

@@ -343,6 +343,65 @@ def clean_reclam_cols(df):
             new_cols[col] = col
     return df.rename(columns=new_cols)
 
+def clean_recouvrement_logipharm_cols(df):
+    """Mappe les colonnes Logipharm vers le format attendu par 4_recouvrement.py."""
+    mapping = {
+        'Client':          ['client'],
+        'Facture':         ['référence', 'reference', 'ref', 'b.l', 'n° ordre', 'n°ordre'],
+        'Date':            ['date', 'date création', 'date creation'],
+        'Montant Initial': ['h.t', 'ht', 't.t.c', 'ttc', 'montant initial'],
+        'Montant Réglé':   ['montant réglé', 'montant regle'],
+        'Reste à payer':   ['reste à payer', 'reste a payer'],
+        'Mode Paiement':   ['mode paiement', 'cash'],
+        'Région':          ['région', 'region', 'wilaya', 'zone', 'ville'],
+        'Statut':          ['statut', 'clôture', 'cloture'],
+        'Commentaires':    ['remarque', 'observation', 'échéance', 'echeance'],
+    }
+    new_cols = {}
+    mapped_targets = set()
+    for col in df.columns:
+        col_str = str(col).lower().strip()
+        matched = False
+        for target_col, alts in mapping.items():
+            if col_str in alts and target_col not in mapped_targets:
+                new_cols[col] = target_col
+                mapped_targets.add(target_col)
+                matched = True
+                break
+        if not matched:
+            new_cols[col] = f"_logi_{col}"
+    return df.rename(columns=new_cols)
+
+def clean_expedition_logipharm_cols(df):
+    """Mappe les colonnes Logipharm vers le format expédition/pointage."""
+    mapping = {
+        'client':         ['client'],
+        'reference':      ['référence', 'reference', 'ref', 'b.l', 'n° ordre'],
+        'date':           ['date', 'date création'],
+        'region':         ['région', 'region', 'wilaya', 'zone'],
+        'statut':         ['statut', 'préparé', 'prepare'],
+        'preparateur':    ['préparateur', 'preparateur'],
+        'verificateur':   ['vérificateur', 'verificateur'],
+        'superviseur':    ['superviseur'],
+        'colis':          ['colis', 'nbr colis'],
+        'annuler':        ['annuler'],
+        'depot':          ['dépôt', 'depot'],
+    }
+    new_cols = {}
+    mapped_targets = set()
+    for col in df.columns:
+        col_str = str(col).lower().strip()
+        matched = False
+        for target_col, alts in mapping.items():
+            if col_str in alts and target_col not in mapped_targets:
+                new_cols[col] = target_col
+                mapped_targets.add(target_col)
+                matched = True
+                break
+        if not matched:
+            new_cols[col] = col
+    return df.rename(columns=new_cols)
+
 # Sécurité
 if "current_user" not in st.session_state or st.session_state.current_user is None:
     st.warning("Veuillez vous connecter.")
@@ -401,7 +460,7 @@ tabs = st.tabs(["📤 Importateur Universel", "👥 Base Clients", "🚚 Livreur
 # ONGLET 0 : IMPORTATEUR UNIVERSEL (DRAG & DROP)
 with tabs[0]:
     st.subheader("🚀 Importation Centralisée")
-    st.info("Déposez un fichier Excel contenant vos données. Le système détectera automatiquement s'il s'agit de clients, de livreurs ou de secteurs.")
+    st.info("Déposez un fichier Excel Logipharm. Le système détecte automatiquement le type : **Recouvrement**, **Ventes**, **Réclamations**, **Inventaire**, **Expédition**, **Clients**, etc.")
     
     f_up = st.file_uploader("Fichier Master Data (Excel ou PDF Fournisseurs)", type=["xlsx", "pdf"])
     if f_up:
@@ -439,23 +498,33 @@ with tabs[0]:
         cols_lower = [c.lower() for c in cols]
         
         if not target:
-            if "prenom" in cols_lower or "prénom" in cols_lower:
-                target = "Livreurs"
-                mapping = {c: "Prénom" for c in cols if c.lower() in ["prenom","prénom"]}
-                mapping.update({c: "Nom" for c in cols if c.lower() == "nom"})
-                mapping.update({c: "Secteur" for c in cols if c.lower() == "secteur"})
-                mapping.update({c: "Téléphone" for c in cols if c.lower() in ["téléphone","telephone","tel"]})
-            elif "ville" in cols_lower:
-                target = "Secteurs"
-                mapping = {c: "Client" for c in cols if c.lower() in ["client","raison sociale","raison sociale","nom client"]}
-                mapping.update({c: "Ville" for c in cols if c.lower() == "ville"})
-                mapping.update({c: "Secteur" for c in cols if c.lower() == "secteur"})
-                mapping.update({c: "Tel" for c in cols if c.lower() in ["tel","téléphone","telephone"]})
-            elif any(c.lower() in ["raison sociale","nom client","nom", "client", "pharmacie"] for c in cols):
-                target = "Base_Clients"
-                df_up = clean_client_cols(df_up)
-                if 'Nom_Pharmacie' not in df_up.columns:
-                    df_up['Nom_Pharmacie'] = df_up['ID'].astype(str) if 'ID' in df_up.columns else "Client_Inconnu"
+            # ── PRIORITÉ 1 : RECOUVREMENT (champs financiers client) ──
+            _rec_keys = ["reste à payer", "reste a payer", "montant réglé", "montant regle"]
+            if any(x in cols_lower for x in _rec_keys) and "client" in cols_lower:
+                target = "Recouvrement_Logipharm"
+                df_up = clean_recouvrement_logipharm_cols(df_up)
+
+            # ── PRIORITÉ 2 : RÉCLAMATIONS ──
+            elif any(x in cols_lower for x in ["réclam.", "reclam.", "imprime réclam", "qte réclam.", "qte reclam."]):
+                target = "Analyse_Reclamations"
+                df_up = clean_reclam_cols(df_up)
+
+            # ── PRIORITÉ 3 : ANALYSE VENTES (h.t/marge sans reste à payer) ──
+            elif any(x in cols_lower for x in ["h.t", "prix_vente", "total ht", "marge ph.", "tx qt%", "offre lab."]):
+                target = "Analyse_Ventes_Perf"
+                df_up = clean_sales_cols(df_up)
+
+            # ── PRIORITÉ 4 : INVENTAIRE (dépôt/lots) ──
+            elif any(x in cols_lower for x in ["dépôt", "depot", "quantité dépôt", "quantité depot", "qte.globale", "n°lot", "zone produit"]):
+                target = "Master_Inventaire_Zone"
+                df_up = clean_inventory_cols(df_up)
+
+            # ── PRIORITÉ 5 : EXPÉDITION / POINTAGE ──
+            elif any(x in cols_lower for x in ["préparateur", "preparateur", "vérificateur", "verificateur"]) and "client" in cols_lower:
+                target = "Expedition_Logipharm"
+                df_up = clean_expedition_logipharm_cols(df_up)
+
+            # ── PRIORITÉ 6 : UTILISATEURS ──
             elif "username" in cols_lower:
                 target = "Utilisateurs"
                 mapping = {c: "username" for c in cols if c.lower() == "username"}
@@ -465,15 +534,29 @@ with tabs[0]:
                 mapping.update({c: "role" for c in cols if c.lower() in ["role", "rôle"]})
                 mapping.update({c: "zone" for c in cols if c.lower() == "zone"})
                 mapping.update({c: "pages" for c in cols if c.lower() == "pages"})
-            elif any(x in cols_lower for x in ["motif", "statut", "réclamation", "reclamations", "qte réclam."]):
-                target = "Analyse_Reclamations"
-                df_up = clean_reclam_cols(df_up)
-            elif any(x in cols_lower for x in ["h.t", "prix_vente", "ca", "montant réglé", "total ht", "marge ph."]) and target is None:
-                target = "Analyse_Ventes_Perf"
-                df_up = clean_sales_cols(df_up)
-            elif any(x in cols_lower for x in ["dépôt", "depot", "quantité dépôt", "quantité depot", "qte.globale", "n°lot", "zone produit"]):
-                target = "Master_Inventaire_Zone"
-                df_up = clean_inventory_cols(df_up)
+
+            # ── PRIORITÉ 7 : LIVREURS ──
+            elif "prenom" in cols_lower or "prénom" in cols_lower:
+                target = "Livreurs"
+                mapping = {c: "Prénom" for c in cols if c.lower() in ["prenom","prénom"]}
+                mapping.update({c: "Nom" for c in cols if c.lower() == "nom"})
+                mapping.update({c: "Secteur" for c in cols if c.lower() == "secteur"})
+                mapping.update({c: "Téléphone" for c in cols if c.lower() in ["téléphone","telephone","tel"]})
+
+            # ── PRIORITÉ 8 : SECTEURS ──
+            elif "ville" in cols_lower:
+                target = "Secteurs"
+                mapping = {c: "Client" for c in cols if c.lower() in ["client","raison sociale","nom client"]}
+                mapping.update({c: "Ville" for c in cols if c.lower() == "ville"})
+                mapping.update({c: "Secteur" for c in cols if c.lower() == "secteur"})
+                mapping.update({c: "Tel" for c in cols if c.lower() in ["tel","téléphone","telephone"]})
+
+            # ── PRIORITÉ 9 : BASE CLIENTS ──
+            elif any(c.lower() in ["raison sociale","nom client","nom", "client", "pharmacie"] for c in cols):
+                target = "Base_Clients"
+                df_up = clean_client_cols(df_up)
+                if 'Nom_Pharmacie' not in df_up.columns:
+                    df_up['Nom_Pharmacie'] = df_up['ID'].astype(str) if 'ID' in df_up.columns else "Client_Inconnu"
         
         elif not target:
             # Si le fichier était un Excel mais sans colonnes reconnues
@@ -507,6 +590,11 @@ with tabs[0]:
                 db_path, db_cols, key = "data/db_ventes_performance.csv", df_up.columns.tolist(), "reference"
             elif target == "Analyse_Reclamations":
                 db_path, db_cols, key = "data/db_reclamations_analyse.csv", df_up.columns.tolist(), "reference"
+            elif target == "Recouvrement_Logipharm":
+                COLS_REC = ["Client", "Facture", "Date", "Montant Initial", "Montant Réglé", "Reste à payer", "Mode Paiement", "Livreur", "Région", "Statut", "Commentaires"]
+                db_path, db_cols, key = "data_recouvrement.csv", COLS_REC, "Facture"
+            elif target == "Expedition_Logipharm":
+                db_path, db_cols, key = "data/db_expedition_logipharm.csv", df_up.columns.tolist(), "reference"
             elif target == "Fournisseurs":
                 db_path, db_cols, key = "data/db_fournisseurs.csv", ["Etablissement", "Wilaya", "Activité", "Logo"], "Etablissement"
             else:
@@ -538,16 +626,31 @@ with tabs[0]:
                 
                 df_up.columns = new_cols
                 
-                if target == "Base_Clients":
+                if target == "Recouvrement_Logipharm":
+                    # Compléter les colonnes manquantes
+                    if "Facture" not in df_up.columns:
+                        df_up["Facture"] = [f"LOGI_{i}" for i in range(len(df_up))]
+                    if "Statut" not in df_up.columns:
+                        df_up["Statut"] = "En attente"
+                    if "Livreur" not in df_up.columns:
+                        df_up["Livreur"] = "NON ASSIGNÉ"
+                    if "Montant Réglé" not in df_up.columns:
+                        df_up["Montant Réglé"] = 0.0
+                    if "Reste à payer" not in df_up.columns and "Montant Initial" in df_up.columns:
+                        df_up["Reste à payer"] = pd.to_numeric(df_up["Montant Initial"], errors='coerce').fillna(0) - pd.to_numeric(df_up.get("Montant Réglé", 0), errors='coerce').fillna(0)
+                    if "Date" not in df_up.columns:
+                        df_up["Date"] = str(datetime.now().date())
                     df_merged = pd.concat([df_old, df_up], ignore_index=True).drop_duplicates(subset=[key], keep='last')
-                    
-                    # Also keep backwards compatibility fields for other modules
+                    st.session_state.pop("pending_rec", None)
+
+                elif target == "Base_Clients":
+                    df_merged = pd.concat([df_old, df_up], ignore_index=True).drop_duplicates(subset=[key], keep='last')
                     if 'Nom Client' not in df_merged.columns: df_merged['Nom Client'] = df_merged['Nom_Pharmacie']
                     if 'Région' not in df_merged.columns: df_merged['Région'] = df_merged['Region'].combine_first(df_merged['Wilaya'])
                     if 'Secteur' not in df_merged.columns: df_merged['Secteur'] = df_merged['Region']
                     if 'Téléphone' not in df_merged.columns: df_merged['Téléphone'] = df_merged['Telephone']
-                elif target in ["Master_Inventaire_Zone", "Analyse_Ventes_Perf", "Analyse_Reclamations"]:
-                    # Remplacement COMPLET pour les bases master avec TOUTES les colonnes
+
+                elif target in ["Master_Inventaire_Zone", "Analyse_Ventes_Perf", "Analyse_Reclamations", "Expedition_Logipharm"]:
                     df_merged = df_up
                     if target == "Master_Inventaire_Zone" and 'inv_work_df' in st.session_state:
                         del st.session_state.inv_work_df
@@ -559,7 +662,7 @@ with tabs[0]:
                     cols_to_keep = [c for c in db_cols if c in df_up.columns]
                     df_merged = pd.concat([df_old, df_up[cols_to_keep]], ignore_index=True).drop_duplicates(subset=[key])
                 
-                save_gs_data(df_merged, target, db_path)
+                save_gs_data(df_merged, target if target not in ["Recouvrement_Logipharm", "Expedition_Logipharm"] else target.replace("_Logipharm", ""), db_path)
                 st.success(f"✅ Migration réussie vers **{target}** — {len(df_up)} lignes traitées.")
                 log_action(st.session_state.current_user['username'], f"Import Master Data : {target}", "Admin Centrale")
                 st.cache_data.clear()
