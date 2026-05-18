@@ -28,14 +28,21 @@ RECOUV_MAPPING_WORKSHEET = "Recouv_Mapping"
 st.set_page_config(page_title="Recouvrement Pharmaciel", layout="wide")
 show_sync_ui("Recouvrement", DATA_RECOUV, COLS_RECOUV)
 
+def parse_numeric_series(series):
+    """Nettoie et convertit une série en valeurs numériques en éliminant les espaces insécables (alt+0160), espaces normaux et virgules."""
+    if series.empty:
+        return series
+    cleaned = series.astype(str).str.replace(r'[\s\xa0\u202f\u205f\u2007]', '', regex=True).str.replace(',', '.')
+    return pd.to_numeric(cleaned, errors='coerce').fillna(0.0)
+
 # --- FONCTIONS DE GESTION DES DONNÉES (WRAPPERS) ---
 def load_data(path, columns):
     worksheet_name = "Recouvrement" if path == DATA_RECOUV else "Base_Clients"
     df = load_gs_data(worksheet_name, path, columns)
-    # Nettoyage spécifique aux montants
+    # Nettoyage spécifique aux montants avec notre parseur robuste
     for col in ["Montant Initial", "Montant Réglé", "Reste à payer"]:
         if col in df.columns:
-            df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', '.'), errors='coerce').fillna(0.0)
+            df[col] = parse_numeric_series(df[col])
     
     # Assurer que les colonnes de texte sont bien de type string (pour éviter les erreurs st.data_editor avec des NaNs)
     text_cols = ["Statut", "Commentaires", "Client", "Facture", "Date", "Mode Paiement", "Livreur", "Région", "Nom Client", "Téléphone", "Secteur"]
@@ -408,14 +415,14 @@ with tabs[0]:
                     if "Montant Réglé" not in df_ex.columns:
                         df_ex["Montant Réglé"] = 0.0
                     
-                    # Convertir en types numériques
-                    df_ex["Montant Initial"] = pd.to_numeric(df_ex["Montant Initial"], errors='coerce').fillna(0.0)
-                    df_ex["Montant Réglé"] = pd.to_numeric(df_ex["Montant Réglé"], errors='coerce').fillna(0.0)
+                    # Convertir en types numériques avec parseur robuste
+                    df_ex["Montant Initial"] = parse_numeric_series(df_ex["Montant Initial"])
+                    df_ex["Montant Réglé"] = parse_numeric_series(df_ex["Montant Réglé"])
                     
                     if "Reste à payer" not in df_ex.columns:
                         df_ex["Reste à payer"] = df_ex["Montant Initial"] - df_ex["Montant Réglé"]
                     else:
-                        df_ex["Reste à payer"] = pd.to_numeric(df_ex["Reste à payer"], errors='coerce').fillna(0.0)
+                        df_ex["Reste à payer"] = parse_numeric_series(df_ex["Reste à payer"])
                         
                     if "Facture" not in df_ex.columns:
                         df_ex["Facture"] = [f"LOGI_{datetime.now().strftime('%d%m')}_{i}" for i in range(len(df_ex))]

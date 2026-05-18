@@ -402,6 +402,13 @@ def clean_expedition_logipharm_cols(df):
             new_cols[col] = col
     return df.rename(columns=new_cols)
 
+def parse_numeric_series(series):
+    """Nettoie et convertit une série en valeurs numériques en éliminant les espaces insécables (alt+0160), espaces normaux et virgules."""
+    if series.empty:
+        return series
+    cleaned = series.astype(str).str.replace(r'[\s\xa0\u202f\u205f\u2007]', '', regex=True).str.replace(',', '.')
+    return pd.to_numeric(cleaned, errors='coerce').fillna(0.0)
+
 # Sécurité
 if "current_user" not in st.session_state or st.session_state.current_user is None:
     st.warning("Veuillez vous connecter.")
@@ -634,10 +641,20 @@ with tabs[0]:
                         df_up["Statut"] = "En attente"
                     if "Livreur" not in df_up.columns:
                         df_up["Livreur"] = "NON ASSIGNÉ"
+                    if "Montant Initial" in df_up.columns:
+                        df_up["Montant Initial"] = parse_numeric_series(df_up["Montant Initial"])
+                    else:
+                        df_up["Montant Initial"] = 0.0
+                        
                     if "Montant Réglé" not in df_up.columns:
                         df_up["Montant Réglé"] = 0.0
-                    if "Reste à payer" not in df_up.columns and "Montant Initial" in df_up.columns:
-                        df_up["Reste à payer"] = pd.to_numeric(df_up["Montant Initial"], errors='coerce').fillna(0) - pd.to_numeric(df_up.get("Montant Réglé", 0), errors='coerce').fillna(0)
+                    else:
+                        df_up["Montant Réglé"] = parse_numeric_series(df_up["Montant Réglé"])
+                        
+                    if "Reste à payer" not in df_up.columns:
+                        df_up["Reste à payer"] = df_up["Montant Initial"] - df_up["Montant Réglé"]
+                    else:
+                        df_up["Reste à payer"] = parse_numeric_series(df_up["Reste à payer"])
                     if "Date" not in df_up.columns:
                         df_up["Date"] = str(datetime.now().date())
                     df_merged = pd.concat([df_old, df_up], ignore_index=True).drop_duplicates(subset=[key], keep='last')
