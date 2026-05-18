@@ -406,7 +406,18 @@ def parse_numeric_series(series):
     """Nettoie et convertit une série en valeurs numériques en éliminant les espaces insécables (alt+0160), espaces normaux et virgules."""
     if series.empty:
         return series
-    cleaned = series.astype(str).str.replace(r'[\s\xa0\u202f\u205f\u2007]', '', regex=True).str.replace(',', '.')
+    
+    def clean_val(val):
+        if pd.isna(val):
+            return "0.0"
+        s = str(val).strip()
+        # Supprimer séquentiellement tous les types d'espaces problématiques
+        for space_char in [" ", "\xa0", "\u202f", "\u205f", "\u2007", "\t", "\n", "\r"]:
+            s = s.replace(space_char, "")
+        s = s.replace(",", ".")
+        return s
+        
+    cleaned = series.apply(clean_val)
     return pd.to_numeric(cleaned, errors='coerce').fillna(0.0)
 
 # Sécurité

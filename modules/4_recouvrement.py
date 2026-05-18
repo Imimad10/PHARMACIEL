@@ -20,7 +20,7 @@ from utils_gsheets import (
 DATA_RECOUV = "data_recouvrement.csv"
 DATA_CLIENTS = "base_clients.csv"
 COLS_RECOUV = ["Client", "Facture", "Date", "Montant Initial", "Montant Réglé", "Reste à payer", "Mode Paiement", "Livreur", "Région", "Statut", "Commentaires"]
-COLS_CLIENTS = ["Nom Client", "Secteur"]
+COLS_CLIENTS = ["Nom Client", "Région", "Secteur"]
 STATUS_OPTIONS = ["En attente", "Partiel", "Réglé", "Clôturé", "Annulé", "Litige"]
 RECOUV_MAPPING_PATH = "data_recouvrement_mapping.csv"
 RECOUV_MAPPING_WORKSHEET = "Recouv_Mapping"
@@ -32,7 +32,18 @@ def parse_numeric_series(series):
     """Nettoie et convertit une série en valeurs numériques en éliminant les espaces insécables (alt+0160), espaces normaux et virgules."""
     if series.empty:
         return series
-    cleaned = series.astype(str).str.replace(r'[\s\xa0\u202f\u205f\u2007]', '', regex=True).str.replace(',', '.')
+    
+    def clean_val(val):
+        if pd.isna(val):
+            return "0.0"
+        s = str(val).strip()
+        # Supprimer séquentiellement tous les types d'espaces problématiques
+        for space_char in [" ", "\xa0", "\u202f", "\u205f", "\u2007", "\t", "\n", "\r"]:
+            s = s.replace(space_char, "")
+        s = s.replace(",", ".")
+        return s
+        
+    cleaned = series.apply(clean_val)
     return pd.to_numeric(cleaned, errors='coerce').fillna(0.0)
 
 # --- FONCTIONS DE GESTION DES DONNÉES (WRAPPERS) ---
@@ -235,8 +246,16 @@ with tabs[0]:
                 
                 if nom_sel:
                     # Recherche du secteur
-                    match = df_clients[df_clients["Nom Client"] == nom_sel]["Secteur"]
-                    reg_auto = match.values[0] if not match.empty else ""
+                    match_rows = df_clients[df_clients["Nom Client"] == nom_sel]
+                    if not match_rows.empty:
+                        reg_auto = match_rows["Secteur"].values[0]
+                        # Fallback sur Région si Secteur est vide
+                        if not reg_auto or str(reg_auto).strip().lower() in ('nan', ''):
+                            reg_auto = match_rows["Région"].values[0] if "Région" in match_rows.columns else ""
+                    else:
+                        reg_auto = ""
+                    
+                    reg_auto = str(reg_auto).strip().upper()
                 else:
                     reg_auto = ""
             else:
@@ -457,7 +476,19 @@ with tabs[1]:
     if not df_main.empty:
         # 2. Mise à jour dynamique des Régions et Livreurs selon la base centrale
         if not df_clients_db.empty:
-            client_to_region = dict(zip(df_clients_db["Nom Client"].astype(str).str.strip().str.upper(), df_clients_db["Secteur"].astype(str).str.strip().str.upper()))
+            # Construction intelligente du mapping Client -> Région (avec fallback Secteur -> Région)
+            client_to_region = {}
+            for _, crow in df_clients_db.iterrows():
+                c_name = str(crow.get("Nom Client", "")).strip().upper()
+                c_sec = str(crow.get("Secteur", "")).strip().upper()
+                c_reg = str(crow.get("Région", "")).strip().upper()
+                
+                final_reg = c_sec
+                if not final_reg or final_reg in ('NAN', ''):
+                    final_reg = c_reg
+                if final_reg and final_reg not in ('NAN', ''):
+                    client_to_region[c_name] = final_reg
+            
             for idx, row in df_main.iterrows():
                 c_name = str(row["Client"]).strip().upper()
                 if c_name in client_to_region and pd.notna(client_to_region[c_name]) and client_to_region[c_name] != "":
@@ -776,13 +807,26 @@ with tabs[5]:
     # --- NOUVELLE ZONE D'AFFECTATION ---
     st.subheader("🎯 Affectation Régionale des Livreurs (Recouvrement)")
     
-    # Chargement des bases
+    # Chargement des bases centrales et locales
     df_map = load_gs_data(RECOUV_MAPPING_WORKSHEET, RECOUV_MAPPING_PATH, ["Région", "Livreur"])
-    df_clients_db = load_data(DATA_CLIENTS, COLS_CLIENTS)
+    df_clients_db = load_gs_data("Base_Clients", DATA_CLIENTS, ["Nom Client", "Région", "Secteur"])
     df_liv_db = load_gs_data("Livreurs", "data_expedition/livreurs.csv", ["Nom", "Secteur"])
+    df_secteurs_db = load_gs_data("Secteurs", "data_expedition/secteurs.csv", ["Secteur"])
     
-    regions_list = sorted(df_clients_db["Secteur"].dropna().unique().tolist()) if not df_clients_db.empty else []
-    livreurs_list = sorted(df_liv_db["Nom"].dropna().unique().tolist()) if not df_liv_db.empty else []
+    # Construction de la liste globale des secteurs/régions uniques
+    regions_set = set()
+    if not df_secteurs_db.empty:
+        regions_set.update(df_secteurs_db["Secteur"].dropna().astype(str).str.strip().str.upper().tolist())
+    if not df_clients_db.empty:
+        if "Région" in df_clients_db.columns:
+            regions_set.update(df_clients_db["Région"].dropna().astype(str).str.strip().str.upper().tolist())
+        if "Secteur" in df_clients_db.columns:
+            regions_set.update(df_clients_db["Secteur"].dropna().astype(str).str.strip().str.upper().tolist())
+    if not df_liv_db.empty and "Secteur" in df_liv_db.columns:
+        regions_set.update(df_liv_db["Secteur"].dropna().astype(str).str.strip().str.upper().tolist())
+        
+    regions_list = sorted([r for r in regions_set if r and r.lower() not in ("nan", "inconnu", "libre", "")])
+    livreurs_list = sorted(df_liv_db["Nom"].dropna().astype(str).str.strip().str.upper().unique().tolist()) if not df_liv_db.empty else []
     
     col_aff1, col_aff2 = st.columns(2)
     with col_aff1:
