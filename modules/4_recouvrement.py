@@ -260,6 +260,101 @@ with tabs[0]:
             st.dataframe(pd.DataFrame(st.session_state.pending_rec)[["Client", "Montant Initial", "Statut"]], hide_index=True)
 
     with col2:
+        # ── BLOC : IMPORT DEPUIS L'ADMIN CENTRALE ──────────────────────────────
+        with st.container(border=True):
+            st.markdown("### 🏛️ Synchronisation — Base Clients Admin Centrale")
+            st.info(
+                "Importe automatiquement la liste de tous les clients "
+                "enregistrés dans l'**Administration Centrale** vers ce module. "
+                "Aucun doublon ne sera créé."
+            )
+
+            # Chemin de la base master (partagée avec l'admin centrale)
+            ADMIN_CLIENTS_PATH = "base_clients.csv"
+            ADMIN_CLIENTS_COLS_MASTER = [
+                "Nom_Pharmacie", "Region", "Wilaya", "Ville",
+                "Telephone", "Secteur", "Nom Client", "Région", "Téléphone"
+            ]
+
+            col_imp1, col_imp2 = st.columns([2, 1])
+
+            # Aperçu du nombre de clients disponibles dans la base master
+            try:
+                df_master_preview = load_gs_data("Base_Clients", ADMIN_CLIENTS_PATH, [])
+                nb_master = len(df_master_preview) if not df_master_preview.empty else 0
+                col_imp2.metric("Clients dans l'Admin Centrale", nb_master)
+            except Exception:
+                nb_master = 0
+                col_imp2.metric("Clients dans l'Admin Centrale", "—")
+
+            if col_imp1.button(
+                "🔄 Importer / Synchroniser la base clients",
+                use_container_width=True,
+                type="primary",
+                key="btn_import_admin_centrale"
+            ):
+                with st.spinner("Synchronisation en cours depuis l'Admin Centrale…"):
+                    try:
+                        # 1. Charger la base master complète
+                        df_master = load_gs_data("Base_Clients", ADMIN_CLIENTS_PATH, [])
+
+                        if df_master.empty:
+                            st.warning("⚠️ La base clients de l'Admin Centrale est vide.")
+                        else:
+                            # 2. Normalisation — créer les colonnes standard du recouvrement
+                            rows_import = []
+                            for _, r in df_master.iterrows():
+                                # Nom client : priorité Nom_Pharmacie, sinon "Nom Client"
+                                nom = str(r.get("Nom_Pharmacie", r.get("Nom Client", ""))).strip()
+                                if not nom or nom.lower() in ("nan", ""):
+                                    continue
+
+                                # Secteur / Région
+                                secteur = str(
+                                    r.get("Secteur", r.get("Region", r.get("Région", r.get("Wilaya", ""))))
+                                ).strip()
+
+                                # Téléphone
+                                tel = str(
+                                    r.get("Telephone", r.get("Téléphone", r.get("Mobile", "")))
+                                ).strip()
+                                if tel.lower() == "nan":
+                                    tel = ""
+
+                                rows_import.append({
+                                    "Nom Client": nom,
+                                    "Région": secteur,
+                                    "Téléphone": tel,
+                                    "Secteur": secteur,
+                                })
+
+                            df_import = pd.DataFrame(rows_import)
+
+                            # 3. Fusionner avec la base locale (sans doublons sur Nom Client)
+                            df_local = load_data(DATA_CLIENTS, COLS_CLIENTS)
+                            df_merged = pd.concat([df_local, df_import], ignore_index=True)
+                            df_merged = df_merged.drop_duplicates(
+                                subset=["Nom Client"], keep="last"
+                            )
+
+                            # 4. Sauvegarder
+                            save_data(df_merged, DATA_CLIENTS)
+                            st.cache_data.clear()
+
+                            nb_new = len(df_import)
+                            nb_total = len(df_merged)
+                            st.success(
+                                f"✅ Synchronisation réussie ! "
+                                f"**{nb_new}** clients traités · "
+                                f"**{nb_total}** clients disponibles dans le recouvrement."
+                            )
+                            st.rerun()
+
+                    except Exception as e:
+                        st.error(f"❌ Erreur lors de l'import : {e}")
+
+        st.divider()
+
         st.subheader("Import Excel")
         f_rec = st.file_uploader("Déposer rec.xlsx", type=["xlsx"])
         if f_rec:
