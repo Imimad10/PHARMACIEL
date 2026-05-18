@@ -28,6 +28,19 @@ RECOUV_MAPPING_WORKSHEET = "Recouv_Mapping"
 st.set_page_config(page_title="Recouvrement Pharmaciel", layout="wide")
 show_sync_ui("Recouvrement", DATA_RECOUV, COLS_RECOUV)
 
+def is_sums_authorized():
+    """Vérifie si l'utilisateur connecté est autorisé à voir les sommes d'argent."""
+    if "current_user" not in st.session_state or st.session_state.current_user is None:
+        return False
+    user_info = st.session_state.current_user
+    username = str(user_info.get("username", "")).strip().lower()
+    role = str(user_info.get("role", "")).strip()
+    
+    # Autorisé pour Karim (chef de parc), les Administrateurs, les Superviseurs et les Livreurs
+    if username == "karim" or role in ["Admin", "Superviseur", "Livreur"]:
+        return True
+    return False
+
 def parse_numeric_series(series):
     """Nettoie et convertit une série en valeurs numériques en éliminant les espaces insécables (alt+0160), espaces normaux et virgules."""
     if series.empty:
@@ -312,7 +325,10 @@ with tabs[0]:
                 st.session_state.pending_rec = []
                 st.rerun()
             
-            st.dataframe(pd.DataFrame(st.session_state.pending_rec)[["Client", "Montant Initial", "Statut"]], hide_index=True)
+            pending_df = pd.DataFrame(st.session_state.pending_rec)
+            cols_to_show = ["Client", "Montant Initial", "Statut"] if is_sums_authorized() else ["Client", "Statut"]
+            cols_to_show = [c for c in cols_to_show if c in pending_df.columns]
+            st.dataframe(pending_df[cols_to_show], hide_index=True)
 
     with col2:
         # ── BLOC : IMPORT DEPUIS L'ADMIN CENTRALE ──────────────────────────────
@@ -541,18 +557,26 @@ with tabs[1]:
         liv_options = sorted(df_livreurs_db["Nom"].astype(str).str.upper().unique().tolist()) if not df_livreurs_db.empty else []
         if "NON ASSIGNÉ" not in liv_options: liv_options.append("NON ASSIGNÉ")
 
+        # Configuration des colonnes
+        col_config_display = {
+            "Inclure dans PDF": st.column_config.CheckboxColumn("Inclure", help="Cochez pour inclure dans la feuille de route PDF", default=True),
+            "Livreur": st.column_config.SelectboxColumn("Livreur (Modifier)", options=liv_options, required=True),
+            "Mode Paiement": st.column_config.SelectboxColumn("Mode Paiement", options=["CASH", "CHÈQUE", "VERSEMENT", "VIREMENT", "TRAITE"]),
+            "Reste à payer": st.column_config.NumberColumn("Reste à payer", min_value=0.0, format="%.2f"),
+            "Statut": st.column_config.SelectboxColumn("Statut", options=STATUS_OPTIONS)
+        }
+        # Masquage de sécurité des montants d'argent
+        if not is_sums_authorized():
+            col_config_display["Montant Initial"] = st.column_config.Column(visible=False)
+            col_config_display["Montant Réglé"] = st.column_config.Column(visible=False)
+            col_config_display["Reste à payer"] = st.column_config.Column(visible=False)
+
         # Éditeur interactif
         edited = st.data_editor(
             df_display, 
             use_container_width=True, 
             hide_index=True,
-            column_config={
-                "Inclure dans PDF": st.column_config.CheckboxColumn("Inclure", help="Cochez pour inclure dans la feuille de route PDF", default=True),
-                "Livreur": st.column_config.SelectboxColumn("Livreur (Modifier)", options=liv_options, required=True),
-                "Mode Paiement": st.column_config.SelectboxColumn("Mode Paiement", options=["CASH", "CHÈQUE", "VERSEMENT", "VIREMENT", "TRAITE"]),
-                "Reste à payer": st.column_config.NumberColumn("Reste à payer", min_value=0.0, format="%.2f"),
-                "Statut": st.column_config.SelectboxColumn("Statut", options=STATUS_OPTIONS)
-            }
+            column_config=col_config_display
         )
         
         # Bouton de téléchargement dynamique (uniquement les clients sélectionnés/cochés)
@@ -603,7 +627,10 @@ with tabs[2]:
             df_view = df_global
 
         c1, c2, c3 = st.columns(3)
-        c1.metric("Total Actif à recouvrer", f"{df_view['Reste à payer'].sum():,.2f} DA")
+        if is_sums_authorized():
+            c1.metric("Total Actif à recouvrer", f"{df_view['Reste à payer'].sum():,.2f} DA")
+        else:
+            c1.metric("Total Actif à recouvrer", "🔒 Accès restreint")
         c2.metric("Dossiers en vue", len(df_view))
         c3.metric("En attente critique", len(df_view[df_view["Statut"] == "En attente"]))
         
@@ -611,26 +638,27 @@ with tabs[2]:
         if "En attente" in df_view["Statut"].values:
             st.info("💡 **Conseil :** Vous avez des dossiers 'En attente'. Pensez à générer une relance ou à envoyer un message WhatsApp ci-dessous.")
 
-        # Tableau éditable avec liste déroulante Statut
+        # Configuration des colonnes
+        col_config_global = {
+            "Statut": st.column_config.SelectboxColumn("Statut", options=STATUS_OPTIONS, required=True, width="medium"),
+            "Commentaires": st.column_config.TextColumn("Commentaires", width="large")
+        }
+        # Masquage de sécurité des montants d'argent
+        if not is_sums_authorized():
+            col_config_global["Montant Initial"] = st.column_config.Column(visible=False)
+            col_config_global["Montant Réglé"] = st.column_config.Column(visible=False)
+            col_config_global["Reste à payer"] = st.column_config.Column(visible=False)
+
+        # Tableau éditable
         edited_global = st.data_editor(
             df_view.sort_values("Date", ascending=False),
             use_container_width=True,
             hide_index=True,
-            column_config={
-                "Statut": st.column_config.SelectboxColumn(
-                    "Statut",
-                    options=STATUS_OPTIONS,
-                    required=True,
-                    width="medium"
-                ),
-                "Commentaires": st.column_config.TextColumn("Commentaires", width="large")
-            },
+            column_config=col_config_global,
             key="editor_suivi_global"
         )
 
         if st.button("💾 Sauvegarder & Archiver les clôturés", type="primary", use_container_width=True):
-            # Recalcul du Reste à payer
-            edited_global["Reste à payer"] = (edited_global["Montant Initial"] - edited_global["Montant Réglé"]).clip(lower=0)
 
             # Séparation : à archiver vs à garder actifs
             to_archive = edited_global[edited_global["Statut"].isin(status_archived)].copy()
@@ -750,72 +778,89 @@ with tabs[3]:
     
     if not df_arch.empty:
         st.write(f"Il y a **{len(df_arch)}** dossiers archivés.")
-        st.dataframe(df_arch.sort_values("Date", ascending=False), use_container_width=True, hide_index=True)
         
-        if st.button("📥 Exporter les archives en Excel"):
-            import io
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                df_arch.to_excel(writer, index=False, sheet_name='Archives')
-            st.download_button(
-                label="📁 Télécharger le fichier Excel",
-                data=output.getvalue(),
-                file_name=f"Archives_Recouvrement_{datetime.now().strftime('%Y%m%d')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+        # Masquage de sécurité des montants d'argent
+        col_config_arch = {}
+        if not is_sums_authorized():
+            col_config_arch["Montant Initial"] = st.column_config.Column(visible=False)
+            col_config_arch["Montant Réglé"] = st.column_config.Column(visible=False)
+            col_config_arch["Reste à payer"] = st.column_config.Column(visible=False)
+            
+        st.dataframe(
+            df_arch.sort_values("Date", ascending=False), 
+            use_container_width=True, 
+            hide_index=True,
+            column_config=col_config_arch
+        )
+        
+        if is_sums_authorized():
+            if st.button("📥 Exporter les archives en Excel"):
+                import io
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                    df_arch.to_excel(writer, index=False, sheet_name='Archives')
+                st.download_button(
+                    label="📁 Télécharger le fichier Excel",
+                    data=output.getvalue(),
+                    file_name=f"Archives_Recouvrement_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
     else:
         st.info("Aucune archive pour le moment.")
 
 # ONGLET 5 : ANALYSE FINANCIÈRE (BALANCE ÂGÉE)
 with tabs[4]:
     st.header("📈 Dashboard Financier & Balance Âgée")
-    df_global = load_data(DATA_RECOUV, COLS_RECOUV)
-    
-    if not df_global.empty:
-        # Analyse de l'âge de la balance
-        df_global['Date_dt'] = pd.to_datetime(df_global['Date'], errors='coerce')
-        now = pd.Timestamp(datetime.now().date())
-        
-        df_global['Ancienneté'] = (now - df_global['Date_dt']).dt.days.fillna(0)
-        
-        # S'assurer que le reste à payer est numérique
-        df_global['Reste à payer'] = pd.to_numeric(df_global['Reste à payer'], errors='coerce').fillna(0)
-        
-        def age_bucket(days):
-            if days <= 15: return "0-15 Jours"
-            if days <= 30: return "16-30 Jours"
-            if days <= 60: return "31-60 Jours"
-            return "+60 Jours"
-        
-        df_global['Tranche'] = df_global['Ancienneté'].apply(age_bucket)
-        
-        # Graphiques
-        col_g1, col_g2 = st.columns(2)
-        
-        with col_g1:
-            st.subheader("📁 Balance Âgée")
-            df_age = df_global.groupby('Tranche')['Reste à payer'].sum().reindex(["0-15 Jours", "16-30 Jours", "31-60 Jours", "+60 Jours"]).reset_index()
-            fig_age = px.bar(df_age, x='Tranche', y='Reste à payer', color='Tranche', 
-                             color_discrete_sequence=px.colors.sequential.Reds_r, template="plotly_dark")
-            st.plotly_chart(fig_age, use_container_width=True)
-            
-        with col_g2:
-            st.subheader("🚚 Dette par Livreur")
-            df_liv_debt = df_global.groupby('Livreur')['Reste à payer'].sum().reset_index()
-            fig_pie = px.pie(df_liv_debt, values='Reste à payer', names='Livreur', hole=0.4, template="plotly_dark")
-            st.plotly_chart(fig_pie, use_container_width=True)
-            
-        st.divider()
-        st.subheader("🚨 Risques Clients (+60 Jours)")
-        df_risques = df_global[df_global['Tranche'] == "+60 Jours"].sort_values('Ancienneté', ascending=False)
-        if not df_risques.empty:
-            st.warning(f"Il y a {len(df_risques)} factures impayées depuis plus de 60 jours !")
-            st.dataframe(df_risques, use_container_width=True)
-        else:
-            st.success("Aucun client n'a de dettes de plus de 60 jours.")
-            
+    if not is_sums_authorized():
+        st.warning("🔒 Accès restreint. Seuls les Administrateurs, Livreurs et le Chef de Parc (Karim) sont autorisés à visualiser les analyses financières.")
     else:
-        st.info("Aucune donnée pour l'analyse financière.")
+        df_global = load_data(DATA_RECOUV, COLS_RECOUV)
+        
+        if not df_global.empty:
+            # Analyse de l'âge de la balance
+            df_global['Date_dt'] = pd.to_datetime(df_global['Date'], errors='coerce')
+            now = pd.Timestamp(datetime.now().date())
+            
+            df_global['Ancienneté'] = (now - df_global['Date_dt']).dt.days.fillna(0)
+            
+            # S'assurer que le reste à payer est numérique
+            df_global['Reste à payer'] = pd.to_numeric(df_global['Reste à payer'], errors='coerce').fillna(0)
+            
+            def age_bucket(days):
+                if days <= 15: return "0-15 Jours"
+                if days <= 30: return "16-30 Jours"
+                if days <= 60: return "31-60 Jours"
+                return "+60 Jours"
+            
+            df_global['Tranche'] = df_global['Ancienneté'].apply(age_bucket)
+            
+            # Graphiques
+            col_g1, col_g2 = st.columns(2)
+            
+            with col_g1:
+                st.subheader("📁 Balance Âgée")
+                df_age = df_global.groupby('Tranche')['Reste à payer'].sum().reindex(["0-15 Jours", "16-30 Jours", "31-60 Jours", "+60 Jours"]).reset_index()
+                fig_age = px.bar(df_age, x='Tranche', y='Reste à payer', color='Tranche', 
+                                 color_discrete_sequence=px.colors.sequential.Reds_r, template="plotly_dark")
+                st.plotly_chart(fig_age, use_container_width=True)
+                
+            with col_g2:
+                st.subheader("🚚 Dette par Livreur")
+                df_liv_debt = df_global.groupby('Livreur')['Reste à payer'].sum().reset_index()
+                fig_pie = px.pie(df_liv_debt, values='Reste à payer', names='Livreur', hole=0.4, template="plotly_dark")
+                st.plotly_chart(fig_pie, use_container_width=True)
+                
+            st.divider()
+            st.subheader("🚨 Risques Clients (+60 Jours)")
+            df_risques = df_global[df_global['Tranche'] == "+60 Jours"].sort_values('Ancienneté', ascending=False)
+            if not df_risques.empty:
+                st.warning(f"Il y a {len(df_risques)} factures impayées depuis plus de 60 jours !")
+                st.dataframe(df_risques, use_container_width=True)
+            else:
+                st.success("Aucun client n'a de dettes de plus de 60 jours.")
+                
+        else:
+            st.info("Aucune donnée pour l'analyse financière.")
 
 # ONGLET 6 : ADMINISTRATION
 with tabs[5]:
