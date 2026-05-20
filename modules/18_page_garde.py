@@ -139,6 +139,23 @@ with st.container(border=True):
         else:
             fourn = choix_fourn
             
+        # Bouton de synchronisation de secours
+        with st.expander("🔄 Synchronisation de Secours"):
+            if st.button("🔄 Synchroniser les Fournisseurs depuis le Cloud", use_container_width=True):
+                with st.spinner("Téléchargement de la base fournisseurs..."):
+                    try:
+                        st.cache_data.clear()
+                        df_sync = load_gs_data("DB_Fournisseurs", "data/db_fournisseurs.csv", ["Etablissement", "Wilaya", "Activité", "Logo"], force_cloud=True)
+                        if not df_sync.empty:
+                            os.makedirs("data", exist_ok=True)
+                            df_sync.to_csv("data/db_fournisseurs.csv", index=False, sep=',', encoding='utf-8-sig')
+                            st.success(f"✅ {len(df_sync)} fournisseurs synchronisés avec succès !")
+                            st.rerun()
+                        else:
+                            st.error("Aucun fournisseur trouvé sur le Cloud.")
+                    except Exception as e_sync:
+                        st.error(f"Erreur de synchronisation : {e_sync}")
+            
         date_rec = st.date_input("📅 Date de Réception", value=datetime.now())
         
     with col2:
