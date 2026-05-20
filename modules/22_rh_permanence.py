@@ -127,8 +127,15 @@ with tabs[2]:
                 st.info(res)
                 
     with c_btn2:
+        model_pdf = st.selectbox(
+            "Modèle de Planning :",
+            ["Modèle Classique (Avec Mme Samra)", "Modèle Équipe RDC (Sans Mme Samra)"],
+            key="planning_model_choice"
+        )
+        model_param = "Classique" if "Classique" in model_pdf else "RDC"
+        
         from utils_pdf import generate_rh_planning_pdf
-        pdf_bytes = generate_rh_planning_pdf(df_view)
+        pdf_bytes = generate_rh_planning_pdf(df_view, model=model_param)
         st.download_button(
             "📥 Télécharger le Planning (PDF)",
             pdf_bytes,

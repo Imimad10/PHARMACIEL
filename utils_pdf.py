@@ -358,7 +358,7 @@ def generate_rotation_report_pdf(df, module_name, ia_analysis=""):
         return bytes(raw)
     return raw.encode('latin-1', 'replace')
 
-def generate_rh_planning_pdf(df, title="PLANNING & PERMANENCES"):
+def generate_rh_planning_pdf(df, title="PLANNING & PERMANENCES", model="Classique"):
     pdf = InventoryPDF()
     pdf.title_text = title.upper()
     pdf.alias_nb_pages()
@@ -425,17 +425,27 @@ def generate_rh_planning_pdf(df, title="PLANNING & PERMANENCES"):
             pdf.ln()
 
     # Dessiner les deux tableaux
-    draw_team_table(df_rdc, "ÉQUIPE RDC & FILIALE (Direction, Stock, Logistique)")
+    title_rdc = "ÉQUIPE RDC & FILIALE (Direction, Stock, Logistique)"
+    if model != "Classique":
+        title_rdc = "ÉQUIPE RDC (Stock, Preparation)"
+        
+    draw_team_table(df_rdc, title_rdc)
     draw_team_table(df_etage, "ÉQUIPE 1ER ÉTAGE (Supervision & Préparation)")
     
-    # Pied de page administratif avec validation DRH
+    # Pied de page administratif
     pdf.ln(15)
     pdf.set_font('Arial', 'B', 10)
-    pdf.cell(95, 10, "Mme Samra (DRH / DG)", 0, 0, 'C')
-    pdf.cell(95, 10, "VALIDATION SUPERVISEUR", 0, 1, 'C')
-    pdf.ln(10)
-    pdf.cell(95, 0, "__________________", 0, 0, 'C')
-    pdf.cell(95, 0, "__________________", 0, 1, 'C')
+    
+    if model == "Classique":
+        pdf.cell(95, 10, "Mme Samra (DRH / DG)", 0, 0, 'C')
+        pdf.cell(95, 10, "VALIDATION SUPERVISEUR", 0, 1, 'C')
+        pdf.ln(10)
+        pdf.cell(95, 0, "__________________", 0, 0, 'C')
+        pdf.cell(95, 0, "__________________", 0, 1, 'C')
+    else:
+        pdf.cell(190, 10, "VALIDATION SUPERVISEUR", 0, 1, 'C')
+        pdf.ln(10)
+        pdf.cell(190, 0, "__________________", 0, 1, 'C')
 
     raw = pdf.output(dest='S')
     if isinstance(raw, (bytes, bytearray)):
