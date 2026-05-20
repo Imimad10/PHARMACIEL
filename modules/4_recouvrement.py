@@ -41,6 +41,17 @@ def is_sums_authorized():
         return True
     return False
 
+def is_admin_or_karim():
+    """Vérifie si l'utilisateur connecté est Karim (chef de parc) ou un Administrateur."""
+    if "current_user" not in st.session_state or st.session_state.current_user is None:
+        return False
+    user_info = st.session_state.current_user
+    username = str(user_info.get("username", "")).strip().lower()
+    role = str(user_info.get("role", "")).strip()
+    if username == "karim" or role == "Admin":
+        return True
+    return False
+
 def parse_numeric_series(series):
     """Nettoie et convertit une série en valeurs numériques en éliminant les espaces insécables (alt+0160), espaces normaux et virgules."""
     if series.empty:
@@ -625,7 +636,23 @@ with tabs[1]:
             )
         
         with col_btns[1]:
-            st.write("") 
+            if is_admin_or_karim():
+                with st.popover("🗑️ Vider ce tableau", use_container_width=True):
+                    st.warning(f"⚠️ Supprimer définitivement tous les dossiers affichés pour {sel_liv} - {sel_soc} ?")
+                    confirm_clear = st.checkbox("Confirmer la suppression définitive", key="confirm_clear_tab2")
+                    if st.button("🔴 Confirmer", disabled=not confirm_clear, use_container_width=True, key="btn_clear_tab2"):
+                        df_all_rec = load_data(DATA_RECOUV, COLS_RECOUV)
+                        delete_mask = df_all_rec["Livreur"].astype(str).str.upper() == sel_liv
+                        if sel_soc != "TOUTES":
+                            if sel_soc == "DARPHARM":
+                                delete_mask = delete_mask & ((df_all_rec["Société"].astype(str).str.upper() == "DARPHARM") | (df_all_rec["Société"].astype(str).str.strip() == ""))
+                            else:
+                                delete_mask = delete_mask & (df_all_rec["Société"].astype(str).str.upper() == sel_soc.upper())
+                        
+                        df_remaining = df_all_rec[~delete_mask]
+                        save_data(df_remaining, DATA_RECOUV)
+                        st.success("✅ Tableau vidé avec succès !")
+                        st.rerun() 
 
         if st.button("💾 Sauvegarder Statuts, Montants & Affectations", use_container_width=True):
             # Supprimer la colonne temporaire 'Inclure dans PDF' avant la sauvegarde définitive
@@ -691,20 +718,39 @@ with tabs[2]:
             key="editor_suivi_global"
         )
 
-        if st.button("💾 Sauvegarder & Archiver les clôturés", type="primary", use_container_width=True):
+        col_glob_btns = st.columns([2, 1])
+        with col_glob_btns[0]:
+            if st.button("💾 Sauvegarder & Archiver les clôturés", type="primary", use_container_width=True):
+                # Séparation : à archiver vs à garder actifs
+                to_archive = edited_global[edited_global["Statut"].isin(status_archived)].copy()
+                to_keep    = edited_global[~edited_global["Statut"].isin(status_archived)].copy()
 
-            # Séparation : à archiver vs à garder actifs
-            to_archive = edited_global[edited_global["Statut"].isin(status_archived)].copy()
-            to_keep    = edited_global[~edited_global["Statut"].isin(status_archived)].copy()
+                if not to_archive.empty:
+                    st.success(f"✅ {len(to_archive)} dossier(s) archivé(s) avec succès dans la base de données principale !")
 
-            if not to_archive.empty:
-                st.success(f"✅ {len(to_archive)} dossier(s) archivé(s) avec succès dans la base de données principale !")
+                # Reconstruire la base complète (actifs non touchés + édités actifs + les dossiers nouvellement archivés)
+                df_untouched = df_all[df_all["Statut"].isin(status_archived)]  # archives déjà existantes
+                df_final = pd.concat([df_untouched, df_global[~df_global.index.isin(df_view.index)], to_keep, to_archive], ignore_index=True)
+                save_data(df_final, DATA_RECOUV)
+                st.rerun()
 
-            # Reconstruire la base complète (actifs non touchés + édités actifs + les dossiers nouvellement archivés)
-            df_untouched = df_all[df_all["Statut"].isin(status_archived)]  # archives déjà existantes
-            df_final = pd.concat([df_untouched, df_global[~df_global.index.isin(df_view.index)], to_keep, to_archive], ignore_index=True)
-            save_data(df_final, DATA_RECOUV)
-            st.rerun()
+        with col_glob_btns[1]:
+            if is_admin_or_karim():
+                with st.popover("🗑️ Vider ce tableau", use_container_width=True):
+                    st.warning(f"⚠️ Supprimer définitivement tous les dossiers affichés pour le filtre actuel : {filter_status} ?")
+                    confirm_clear_glob = st.checkbox("Confirmer la suppression définitive", key="confirm_clear_tab3")
+                    if st.button("🔴 Confirmer", disabled=not confirm_clear_glob, use_container_width=True, key="btn_clear_tab3"):
+                        df_all_rec = load_data(DATA_RECOUV, COLS_RECOUV)
+                        status_archived = ["Clôturé", "Annulé", "Réglé"]
+                        if filter_status != "Tous les actifs":
+                            delete_mask = (~df_all_rec["Statut"].isin(status_archived)) & (df_all_rec["Statut"] == filter_status)
+                        else:
+                            delete_mask = ~df_all_rec["Statut"].isin(status_archived)
+                        
+                        df_remaining = df_all_rec[~delete_mask]
+                        save_data(df_remaining, DATA_RECOUV)
+                        st.success("✅ Tableau vidé avec succès !")
+                        st.rerun()
         
         st.divider()
         st.subheader("✉️ Génération de Lettres de Relance")
