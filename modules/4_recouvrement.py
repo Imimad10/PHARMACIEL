@@ -1015,6 +1015,69 @@ with tabs[5]:
             st.warning("Accès Admin Centrale restreint.")
 
     st.divider()
+    # ── SAUVEGARDE & RESTAURATION DE LA BASE ESSENTIELLE ──────────────────
+    st.subheader("📥 Sauvegarde & Restauration de la Base Essentielle")
+    st.info("Cette section permet de sauvegarder et de restaurer la configuration de base essentielle de votre système de recouvrement (les affectations actuelles des livreurs, les régions et les noms des clients). Aucune donnée de montant ou historique de paiement en cours n'est sauvegardé ici.")
+    
+    try:
+        df_clients_backup = load_data(DATA_CLIENTS, COLS_CLIENTS)
+        df_map_backup = load_gs_data(RECOUV_MAPPING_WORKSHEET, RECOUV_MAPPING_PATH, ["Région", "Livreur"])
+        
+        # Préparation du fichier excel en mémoire
+        excel_buffer = io.BytesIO()
+        with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+            df_clients_backup.to_excel(writer, sheet_name='Base_Clients', index=False)
+            df_map_backup.to_excel(writer, sheet_name='Affectations_Livreurs', index=False)
+            
+        backup_bytes = excel_buffer.getvalue()
+        
+        col_b1, col_b2 = st.columns(2)
+        with col_b1:
+            st.download_button(
+                label="📥 Télécharger Backup Essentiel (Excel)",
+                data=backup_bytes,
+                file_name=f"Backup_Essentiel_Recouvrement_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+            
+            if st.button("💾 Enregistrer une copie locale de sécurité", use_container_width=True):
+                os.makedirs("backups_recouvrement", exist_ok=True)
+                local_file_path = f"backups_recouvrement/Backup_Essentiel_Recouvrement_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                with open(local_file_path, "wb") as f:
+                    f.write(backup_bytes)
+                st.success(f"🎉 Sauvegarde locale enregistrée avec succès dans le dossier `backups_recouvrement` !")
+                
+        with col_b2:
+            uploaded_backup = st.file_uploader("Restaurer la Base Essentielle (.xlsx)", type=["xlsx"])
+            if uploaded_backup:
+                if st.button("⚠️ Confirmer la Restauration (Écrase les clients et affectations actuels)", type="primary", use_container_width=True):
+                    try:
+                        xl = pd.ExcelFile(uploaded_backup)
+                        restored_any = False
+                        
+                        if "Base_Clients" in xl.sheet_names:
+                            df_restored_clients = xl.parse("Base_Clients")
+                            save_data(df_restored_clients, DATA_CLIENTS)
+                            restored_any = True
+                            
+                        if "Affectations_Livreurs" in xl.sheet_names:
+                            df_restored_map = xl.parse("Affectations_Livreurs")
+                            save_gs_data(df_restored_map, RECOUV_MAPPING_WORKSHEET, RECOUV_MAPPING_PATH)
+                            restored_any = True
+                            
+                        if restored_any:
+                            st.success("🎉 Base essentielle restaurée avec succès ! Clients, Régions et Affectations remis à jour.")
+                            st.cache_data.clear()
+                            st.rerun()
+                        else:
+                            st.error("❌ Format de fichier invalide (feuilles 'Base_Clients' ou 'Affectations_Livreurs' introuvables).")
+                    except Exception as e_restore:
+                        st.error(f"❌ Erreur lors de la restauration : {e_restore}")
+    except Exception as e_backup:
+        st.warning(f"⚠️ Impossible de préparer l'outil de sauvegarde : {e_backup}")
+
+    st.divider()
     if st.session_state.current_user.get('role') == 'Admin':
         st.subheader("🗑️ Nettoyage des Données (Admin uniquement)")
         st.error("⚠️ Attention : Cette action supprimera définitivement toutes les données de recouvrement enregistrées.")
