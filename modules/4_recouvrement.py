@@ -19,7 +19,7 @@ from utils_gsheets import (
 # --- CONFIGURATION ET CHEMINS ---
 DATA_RECOUV = "data_recouvrement.csv"
 DATA_CLIENTS = "base_clients.csv"
-COLS_RECOUV = ["Client", "Facture", "Date", "Montant Initial", "Montant Réglé", "Reste à payer", "Mode Paiement", "Livreur", "Région", "Statut", "Commentaires"]
+COLS_RECOUV = ["Client", "Facture", "Date", "Montant Initial", "Montant Réglé", "Reste à payer", "Mode Paiement", "Livreur", "Région", "Statut", "Commentaires", "Société"]
 COLS_CLIENTS = ["Nom Client", "Région", "Secteur"]
 STATUS_OPTIONS = ["En attente", "Partiel", "Réglé", "Clôturé", "Annulé", "Litige"]
 RECOUV_MAPPING_PATH = "data_recouvrement_mapping.csv"
@@ -69,7 +69,7 @@ def load_data(path, columns):
             df[col] = parse_numeric_series(df[col])
     
     # Assurer que les colonnes de texte sont bien de type string (pour éviter les erreurs st.data_editor avec des NaNs)
-    text_cols = ["Statut", "Commentaires", "Client", "Facture", "Date", "Mode Paiement", "Livreur", "Région", "Nom Client", "Téléphone", "Secteur"]
+    text_cols = ["Statut", "Commentaires", "Client", "Facture", "Date", "Mode Paiement", "Livreur", "Région", "Nom Client", "Téléphone", "Secteur", "Société"]
     for col in text_cols:
         if col in df.columns:
             df[col] = df[col].fillna("").astype(str)
@@ -94,6 +94,7 @@ def clean_recouvrement_logipharm_cols(df):
         'Région':          ['région', 'region', 'wilaya', 'zone', 'ville'],
         'Statut':          ['statut', 'clôture', 'cloture'],
         'Commentaires':    ['remarque', 'observation', 'échéance', 'echeance'],
+        'Société':         ['societe', 'société', 'entreprise', 'company', 'filiale'],
     }
     new_cols = {}
     mapped_targets = set()
@@ -138,12 +139,12 @@ def get_livreur(region_val):
     
     return "NON ASSIGNÉ"
 
-def generate_pdf(df, livreur_name):
+def generate_pdf(df, livreur_name, societe_name=""):
     mission_id = f"REC-{int(datetime.now().timestamp())}"
     total_du = df["Reste à payer"].sum() if "Reste à payer" in df.columns else 0
     
     # Génération du QR Code
-    qr_data = f"ID:{mission_id}|Livreur:{livreur_name}|Date:{datetime.now().strftime('%d/%m/%Y')}|Clients:{len(df)}|Total:{total_du:.2f} DA"
+    qr_data = f"ID:{mission_id}|Livreur:{livreur_name}|Societe:{societe_name}|Date:{datetime.now().strftime('%d/%m/%Y')}|Clients:{len(df)}|Total:{total_du:.2f} DA"
     qr_img = qrcode.make(qr_data)
     qr_path = f"temp_qr_recouv_{mission_id}.png"
     qr_img.save(qr_path)
@@ -153,7 +154,10 @@ def generate_pdf(df, livreur_name):
     
     # En-tête avec QR Code à droite
     pdf.set_font("Arial", "B", 16)
-    pdf.cell(150, 10, f"FEUILLE DE ROUTE RECOUVREMENT", ln=False, align='L')
+    title = "FEUILLE DE RECOUVREMENT"
+    if societe_name and societe_name != "TOUTES":
+        title += f" - {societe_name}"
+    pdf.cell(150, 10, title, ln=False, align='L')
     pdf.image(qr_path, x=165, y=8, w=35)  # QR en haut à droite
     pdf.ln(12)
     pdf.set_font("Arial", "B", 13)
@@ -243,7 +247,7 @@ def generate_relance_pdf(client_name, df_client, total_du):
 # --- INTERFACE UTILISATEUR ---
 st.title("💰 Système de Recouvrement")
 
-tabs = st.tabs(["🆕 Créer / Importer", "📄 Feuilles de Route", "📊 Suivi Global", "🗄️ Archives", "📈 Analyse Financière", "⚙️ Administration"])
+tabs = st.tabs(["🆕 Créer / Importer", "📄 Feuilles de Recouvrement", "📊 Suivi Global", "🗄️ Archives", "📈 Analyse Financière", "⚙️ Administration"])
 
 # ONGLET 1 : SAISIE ET IMPORT
 with tabs[0]:
@@ -279,7 +283,9 @@ with tabs[0]:
             montant_ini = col_m1.number_input("Montant Initial", min_value=0.0)
             montant_reg = col_m2.number_input("Montant Réglé", min_value=0.0)
             
-            mode = st.selectbox("Mode de Paiement", ["CASH", "CHÈQUE", "VERSEMENT", "TRAITE"])
+            col_f3, col_f4 = st.columns(2)
+            mode = col_f3.selectbox("Mode de Paiement", ["CASH", "CHÈQUE", "VERSEMENT", "TRAITE"])
+            societe = col_f4.selectbox("Société", ["DARPHARM", "PHARMACIEL"])
             statut = st.selectbox("Statut Initial", STATUS_OPTIONS)
             comm = st.text_area("Commentaires / Notes", placeholder="Ex: Promesse de paiement pour lundi...")
             
@@ -299,7 +305,8 @@ with tabs[0]:
                         "Livreur": get_livreur(reg_auto), 
                         "Région": reg_auto, 
                         "Statut": statut,
-                        "Commentaires": comm
+                        "Commentaires": comm,
+                        "Société": societe
                     }
                     
                     # --- OPTIMISATION : AJOUT INSTANTANÉ EN SESSION ---
@@ -436,6 +443,11 @@ with tabs[0]:
             detected_cols = [c for c in COLS_RECOUV if c in df_ex.columns]
             st.success(f"🔍 Colonnes détectées automatiquement : {', '.join(detected_cols)}")
             
+            # Si Société n'est pas détectée, on propose une sélection par défaut
+            default_soc = "DARPHARM"
+            if "Société" not in df_ex.columns:
+                default_soc = st.selectbox("Société par défaut pour les lignes importées", ["DARPHARM", "PHARMACIEL"])
+            
             if st.button("🚀 Valider l'importation"):
                 if "Client" not in df_ex.columns:
                     st.error("❌ La colonne 'Client' n'a pas pu être détectée. Assurez-vous que le fichier contient une colonne nommée 'Client' ou 'Raison Sociale'.")
@@ -471,6 +483,12 @@ with tabs[0]:
                         df_ex["Mode Paiement"] = "CASH"
                     if "Commentaires" not in df_ex.columns:
                         df_ex["Commentaires"] = ""
+                    if "Société" not in df_ex.columns:
+                        df_ex["Société"] = default_soc
+                    else:
+                        df_ex["Société"] = df_ex["Société"].fillna(default_soc).astype(str).str.strip().str.upper()
+                        # Normaliser les valeurs "DARPHARM" ou "PHARMACIEL"
+                        df_ex["Société"] = df_ex["Société"].apply(lambda x: "PHARMACIEL" if "PHARM" in str(x).upper() else "DARPHARM")
                     
                     # Filtrer pour ne garder que le schéma standard
                     df_to_save = df_ex[COLS_RECOUV].copy()
@@ -531,11 +549,15 @@ with tabs[1]:
                             break
                     df_main.at[idx, "Livreur"] = assigned
 
-        # 3. Liste déroulante : Uniquement les livreurs ayant des clients
+        # 3. Listes déroulantes de filtrage
         livs_actifs = sorted([str(l).upper() for l in df_main["Livreur"].unique() if str(l).strip() != "" and str(l).upper() != "NAN"])
         if "NON ASSIGNÉ" not in livs_actifs: livs_actifs.append("NON ASSIGNÉ")
             
-        sel_liv = st.selectbox("Sélectionner Livreur", livs_actifs)
+        col_fil1, col_fil2 = st.columns(2)
+        with col_fil1:
+            sel_liv = st.selectbox("Sélectionner Livreur", livs_actifs)
+        with col_fil2:
+            sel_soc = st.selectbox("Sélectionner Société", ["DARPHARM", "PHARMACIEL", "TOUTES"])
         
         # 4. Identifier le secteur du livreur sélectionné
         sel_secteur = ""
@@ -547,7 +569,15 @@ with tabs[1]:
             
         # 5. Filtrage automatique
         mask = df_main["Livreur"].astype(str).str.upper() == sel_liv
-        df_display = df_main[mask].drop_duplicates(subset=["Client", "Reste à payer"], keep='first').copy()
+        
+        if sel_soc != "TOUTES":
+            if sel_soc == "DARPHARM":
+                # Pour DARPHARM, on inclut aussi les enregistrements sans société pour la rétrocompatibilité
+                mask = mask & ((df_main["Société"].astype(str).str.upper() == "DARPHARM") | (df_main["Société"].astype(str).str.strip() == ""))
+            else:
+                mask = mask & (df_main["Société"].astype(str).str.upper() == sel_soc.upper())
+                
+        df_display = df_main[mask].drop_duplicates(subset=["Client", "Reste à payer", "Société"], keep='first').copy()
         
         # Insérer une colonne de sélection pour le PDF
         if "Inclure dans PDF" not in df_display.columns:
@@ -559,11 +589,12 @@ with tabs[1]:
 
         # Configuration des colonnes
         col_config_display = {
-            "Inclure dans PDF": st.column_config.CheckboxColumn("Inclure", help="Cochez pour inclure dans la feuille de route PDF", default=True),
+            "Inclure dans PDF": st.column_config.CheckboxColumn("Inclure", help="Cochez pour inclure dans la feuille de recouvrement PDF", default=True),
             "Livreur": st.column_config.SelectboxColumn("Livreur (Modifier)", options=liv_options, required=True),
             "Mode Paiement": st.column_config.SelectboxColumn("Mode Paiement", options=["CASH", "CHÈQUE", "VERSEMENT", "VIREMENT", "TRAITE"]),
             "Reste à payer": st.column_config.NumberColumn("Reste à payer", min_value=0.0, format="%.2f"),
-            "Statut": st.column_config.SelectboxColumn("Statut", options=STATUS_OPTIONS)
+            "Statut": st.column_config.SelectboxColumn("Statut", options=STATUS_OPTIONS),
+            "Société": st.column_config.SelectboxColumn("Société", options=["DARPHARM", "PHARMACIEL"], required=True)
         }
         # Masquage de sécurité des montants d'argent
         if not is_sums_authorized():
@@ -585,10 +616,11 @@ with tabs[1]:
         
         col_btns = st.columns([1, 1, 2])
         with col_btns[0]:
+            pdf_filename = f"Recouvrement_{sel_liv}_{sel_soc}.pdf"
             st.download_button(
-                "📥 Télécharger PDF", 
-                generate_pdf(df_pdf_clean, sel_liv), 
-                f"Route_{sel_liv}.pdf",
+                "📥 Télécharger la Feuille de Recouvrement PDF", 
+                generate_pdf(df_pdf_clean, sel_liv, sel_soc), 
+                pdf_filename,
                 use_container_width=True
             )
         
@@ -641,7 +673,8 @@ with tabs[2]:
         # Configuration des colonnes
         col_config_global = {
             "Statut": st.column_config.SelectboxColumn("Statut", options=STATUS_OPTIONS, required=True, width="medium"),
-            "Commentaires": st.column_config.TextColumn("Commentaires", width="large")
+            "Commentaires": st.column_config.TextColumn("Commentaires", width="large"),
+            "Société": st.column_config.SelectboxColumn("Société", options=["DARPHARM", "PHARMACIEL"], required=True)
         }
         # Masquage de sécurité des montants d'argent
         if not is_sums_authorized():
