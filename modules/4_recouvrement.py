@@ -344,9 +344,32 @@ with tabs[0]:
                 st.rerun()
             
             pending_df = pd.DataFrame(st.session_state.pending_rec)
-            cols_to_show = ["Client", "Montant Initial", "Statut"] if is_sums_authorized() else ["Client", "Statut"]
-            cols_to_show = [c for c in cols_to_show if c in pending_df.columns]
-            st.dataframe(pending_df[cols_to_show], hide_index=True)
+            cols_all = ["Client", "Région", "Montant Initial", "Montant Réglé", "Mode Paiement", "Société", "Statut", "Commentaires"] if is_sums_authorized() else ["Client", "Région", "Mode Paiement", "Société", "Statut", "Commentaires"]
+            cols_all = [c for c in cols_all if c in pending_df.columns]
+            
+            edited_df = st.data_editor(
+                pending_df,
+                column_order=cols_all,
+                num_rows="dynamic",
+                use_container_width=True,
+                key="pending_rec_editor"
+            )
+            
+            if not edited_df.equals(pending_df):
+                new_pending = []
+                for _, r in edited_df.iterrows():
+                    item = r.to_dict()
+                    # Recalculer les champs automatiques en toute sécurité
+                    try:
+                        item["Montant Initial"] = float(item.get("Montant Initial", 0.0))
+                        item["Montant Réglé"] = float(item.get("Montant Réglé", 0.0))
+                        item["Reste à payer"] = max(0.0, item["Montant Initial"] - item["Montant Réglé"])
+                        item["Livreur"] = get_livreur(item.get("Région", ""))
+                    except:
+                        pass
+                    new_pending.append(item)
+                st.session_state.pending_rec = new_pending
+                st.rerun()
 
     with col2:
         # ── BLOC : IMPORT DEPUIS L'ADMIN CENTRALE ──────────────────────────────
