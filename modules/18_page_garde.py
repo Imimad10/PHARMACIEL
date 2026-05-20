@@ -139,8 +139,9 @@ with st.container(border=True):
         else:
             fourn = choix_fourn
             
-        # Bouton de synchronisation de secours
-        with st.expander("🔄 Synchronisation de Secours"):
+        # Section de Synchronisation & Importation de Secours
+        with st.expander("🔄 Options de Synchronisation & Import"):
+            st.markdown("### ☁️ Synchronisation Cloud")
             if st.button("🔄 Synchroniser les Fournisseurs depuis le Cloud", use_container_width=True):
                 with st.spinner("Téléchargement de la base fournisseurs..."):
                     try:
@@ -155,6 +156,76 @@ with st.container(border=True):
                             st.error("Aucun fournisseur trouvé sur le Cloud.")
                     except Exception as e_sync:
                         st.error(f"Erreur de synchronisation : {e_sync}")
+            
+            st.markdown("---")
+            st.markdown("### 📦 Extraction depuis la Base des Lots")
+            if st.button("⚙️ Extraire les Fournisseurs depuis la Base des Lots", use_container_width=True):
+                with st.spinner("Extraction en cours..."):
+                    try:
+                        # Charger la base des lots
+                        df_lots = load_gs_data("Master_Inventaire_Zone", "data_inventaire_detail/master_detail.csv", [])
+                        if not df_lots.empty:
+                            # Trouver la colonne fournisseur (indépendamment de la casse)
+                            fourn_col = None
+                            for c in df_lots.columns:
+                                if str(c).lower().strip() in ["fournisseur", "fourn", "laboratoire", "labo"]:
+                                    fourn_col = c
+                                    break
+                            
+                            if fourn_col:
+                                extracted = df_lots[fourn_col].dropna().unique().tolist()
+                                extracted = [str(f).strip().upper() for f in extracted if str(f).strip() != ""]
+                                
+                                if extracted:
+                                    # Construire les nouvelles lignes
+                                    df_new = pd.DataFrame([{"Etablissement": f, "Wilaya": "", "Activité": "", "Logo": ""} for f in extracted])
+                                    df_merged = pd.concat([df_fournisseurs, df_new]).drop_duplicates(subset=["Etablissement"], keep='first')
+                                    save_gs_data(df_merged, "DB_Fournisseurs", "data/db_fournisseurs.csv")
+                                    st.success(f"✅ {len(df_merged) - len(df_fournisseurs)} nouveaux fournisseurs ajoutés à partir de la base des lots (total : {len(df_merged)}) !")
+                                    st.rerun()
+                                else:
+                                    st.warning("Aucun nom de fournisseur non-vide trouvé dans la colonne.")
+                            else:
+                                st.error("Impossible de trouver une colonne 'Fournisseur' ou 'Laboratoire' dans le fichier des lots.")
+                        else:
+                            st.error("La base des lots est actuellement vide ou introuvable.")
+                    except Exception as e_lots:
+                        st.error(f"Erreur lors de l'extraction des lots : {e_lots}")
+            
+            st.markdown("---")
+            st.markdown("### 📤 Importation depuis un Fichier Excel")
+            excel_file = st.file_uploader("Déposer un fichier Excel (Lots, Réceptions, etc.)", type=["xlsx", "xls"], key="excel_fourn_uploader")
+            if excel_file:
+                try:
+                    df_excel = pd.read_excel(excel_file)
+                    possible_cols = ["fournisseur", "fourn", "laboratoire", "labo", "établissement", "etablissement", "fabricant", "nom"]
+                    found_col = None
+                    for col in df_excel.columns:
+                        if str(col).lower().strip() in possible_cols:
+                            found_col = col
+                            break
+                    if not found_col:
+                        # fuzzy check
+                        for col in df_excel.columns:
+                            if any(p in str(col).lower() for p in ["fourn", "labo", "etab"]):
+                                found_col = col
+                                break
+                    
+                    if found_col:
+                        extracted = df_excel[found_col].dropna().unique().tolist()
+                        extracted = [str(f).strip().upper() for f in extracted if str(f).strip() != ""]
+                        if extracted:
+                            df_new = pd.DataFrame([{"Etablissement": f, "Wilaya": "", "Activité": "", "Logo": ""} for f in extracted])
+                            df_merged = pd.concat([df_fournisseurs, df_new]).drop_duplicates(subset=["Etablissement"], keep='first')
+                            save_gs_data(df_merged, "DB_Fournisseurs", "data/db_fournisseurs.csv")
+                            st.success(f"✅ {len(df_merged) - len(df_fournisseurs)} nouveaux fournisseurs ajoutés à partir du fichier Excel (total : {len(df_merged)}) !")
+                            st.rerun()
+                        else:
+                            st.warning("Aucun fournisseur valide trouvé dans la colonne.")
+                    else:
+                        st.error("Aucune colonne de fournisseur reconnue (ex: 'fournisseur', 'labo') dans le fichier.")
+                except Exception as e_ex:
+                    st.error(f"Erreur lors de la lecture du fichier Excel : {e_ex}")
             
         date_rec = st.date_input("📅 Date de Réception", value=datetime.now())
         
