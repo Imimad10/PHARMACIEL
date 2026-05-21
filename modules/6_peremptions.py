@@ -249,29 +249,88 @@ with tab2:
     if file_up:
         try:
             df_ext = pd.read_excel(file_up)
-            # Normalisation colonnes
             # Normalisation robuste des colonnes
             import unicodedata
             def norm_c(c):
                 c = str(c).strip().lower()
                 return ''.join(ch for ch in unicodedata.normalize('NFD', c) if unicodedata.category(ch) != 'Mn')
             
-            df_ext.columns = [norm_c(c) for c in df_ext.columns]
+            # 1. Dépollution et dé-duplication initiale des colonnes
+            cols_clean = []
+            count = {}
+            for col in df_ext.columns:
+                col_norm = norm_c(col)
+                if col_norm in count:
+                    count[col_norm] += 1
+                    cols_clean.append(f"{col_norm}_{count[col_norm]}")
+                else:
+                    count[col_norm] = 0
+                    cols_clean.append(col_norm)
+            df_ext.columns = cols_clean
             
-            # Mappage flexible (évite les doublons)
-            rename_map = {}
-            found_targets = set()
-            for c in df_ext.columns:
-                target = None
-                if ('produit' in c or 'designation' in c) and 'produit' not in found_targets: target = 'produit'
-                elif ('depot' in c or 'magasin' in c) and 'depot' not in found_targets: target = 'depot'
-                elif ('ddp' in c or 'peremption' in c or 'exp' in c) and 'ddp' not in found_targets: target = 'ddp'
-                elif ('quantite' in c or 'stock' in c or 'qte' in c) and 'quantite' not in found_targets: target = 'quantite'
+            # 2. Recherche robuste du meilleur matching unique pour chaque cible
+            target_cols = {}
+            used_cols = set()
+            
+            def find_best_col(patterns_exact, patterns_contain):
+                # 1er passage : correspondance exacte
+                for c in df_ext.columns:
+                    if c in used_cols:
+                        continue
+                    if c in patterns_exact:
+                        return c
+                # 2ème passage : sous-chaine
+                for c in df_ext.columns:
+                    if c in used_cols:
+                        continue
+                    if any(p in c for p in patterns_contain):
+                        return c
+                return None
+            
+            # Recherche par ordre d'importance Supply Chain
+            ddp_col = find_best_col(
+                ['ddp', 'peremption', 'exp', 'expiration', 'perime'], 
+                ['ddp', 'peremp', 'expir', 'perim', 'exp']
+            )
+            if ddp_col:
+                target_cols['ddp'] = ddp_col
+                used_cols.add(ddp_col)
                 
-                if target:
-                    rename_map[c] = target
-                    found_targets.add(target)
-            
+            prod_col = find_best_col(
+                ['produit', 'designation', 'article', 'nom'], 
+                ['produit', 'designation', 'article', 'nom', 'desc', 'description']
+            )
+            if prod_col:
+                target_cols['produit'] = prod_col
+                used_cols.add(prod_col)
+                
+            depot_col = find_best_col(
+                ['depot', 'magasin', 'zone', 'emplacement'], 
+                ['depot', 'magasin', 'zone', 'emplacement', 'site']
+            )
+            if depot_col:
+                target_cols['depot'] = depot_col
+                used_cols.add(depot_col)
+                
+            qte_col_found = find_best_col(
+                ['quantite', 'qte', 'stock'], 
+                ['quantite', 'qte', 'stock', 'physique', 'theorique', 'dispo']
+            )
+            if qte_col_found:
+                target_cols['quantite'] = qte_col_found
+                used_cols.add(qte_col_found)
+                
+            # Application du renommage
+            rename_map = {}
+            for target, original in target_cols.items():
+                rename_map[original] = target
+                
+            # Éviter les conflits avec d'autres colonnes non-mappées qui auraient les mêmes noms cibles
+            for c in df_ext.columns:
+                if c not in rename_map:
+                    if c in ['produit', 'depot', 'ddp', 'quantite']:
+                        rename_map[c] = f"{c}_orig"
+                        
             df_ext = df_ext.rename(columns=rename_map)
 
             if all(c in df_ext.columns for c in ['produit', 'depot', 'ddp']):
