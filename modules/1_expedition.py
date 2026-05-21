@@ -376,7 +376,7 @@ with tab_exp:
                                     lpdf.set_fill_color(255, 230, 230)
                                     lpdf.set_text_color(220, 0, 0)
                                     lpdf.set_font("Arial", 'B', 15)
-                                    lpdf.cell(0, 8, "ISTERJAA MOUSTAJEL - RAPPEL DE LOT", 0, 1, 'C', fill=True)
+                                    lpdf.cell(0, 8, "RAPPEL DE LOT", 0, 1, 'C', fill=True)
                                 else:
                                     lpdf.set_fill_color(180, 0, 0)
                                     lpdf.set_text_color(255, 255, 255)
@@ -465,7 +465,7 @@ with tab_exp:
                 pdf.set_font("Arial", 'B', 16)
                 if mode == "Réclamation en Urgence":
                     pdf.set_text_color(220, 0, 0) # Urgent red
-                    pdf.cell(0, 10, "RECLAMATION EN URGENCE (ISTERJAA MOUSTAJEL)", 0, 1, 'C')
+                    pdf.cell(0, 10, "RECLAMATION EN URGENCE", 0, 1, 'C')
                     pdf.set_text_color(0, 0, 0)
                     pdf.set_font("Arial", 'B', 13)
                     pdf.cell(0, 8, f"FEUILLE DE ROUTE - {livreur_choisi}", 0, 1, 'C')
