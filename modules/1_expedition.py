@@ -62,8 +62,8 @@ def add_or_merge_row(client, ville, ref, info, statut, signature, mode, secteur=
             return False 
 
     # Pour les réclamations, on enregistre en base persistante si pas déjà présent
-    if mode == "Réclamation":
-        df_sav = load_gs_data("Litiges_SAV", "data/db_sav.csv", COLS_SAV + ["qte_colis"])
+    if mode in ["Réclamation", "Réclamation en Urgence"]:
+        df_sav = load_gs_data("Litiges_SAV", "data/db_sav.csv", COLS_SAV + ["qte_colis", "secteur"])
         if df_sav.empty or ref not in df_sav['ref'].astype(str).values:
             new_sav = pd.DataFrame([{
                 "client": client,
@@ -75,7 +75,8 @@ def add_or_merge_row(client, ville, ref, info, statut, signature, mode, secteur=
                 "signature": signature,
                 "qte_colis": qte_colis,
                 "livreur": "",
-                "date_reglement": ""
+                "date_reglement": "",
+                "secteur": secteur
             }])
             df_sav = pd.concat([df_sav, new_sav], ignore_index=True)
             save_gs_data(df_sav, "Litiges_SAV", "data/db_sav.csv")
@@ -103,7 +104,7 @@ tab_exp, tab_suivi_sav, tab_admin = st.tabs([
 
 # 1. PROGRAMME D'EXPÉDITION
 with tab_exp:
-    mode = st.radio("Mode d'expédition", ["Commande", "Réclamation"], horizontal=True)
+    mode = st.radio("Mode d'expédition", ["Commande", "Réclamation", "Réclamation en Urgence"], horizontal=True)
     
     # Sécurisation des données clients pour le Selectbox
     df_clients = load_clients()
@@ -159,7 +160,7 @@ with tab_exp:
 
     st.divider()
     
-    if mode == "Réclamation":
+    if mode in ["Réclamation", "Réclamation en Urgence"]:
         with st.expander("📥 Importation groupée des Réclamations (Excel)", expanded=False):
             st.write(f"Importation pour le secteur : **{secteur_affichage.upper()}**")
             file_complaints = st.file_uploader("Glisser le fichier Excel ici", type=['xlsx', 'xls'], key="uploader_reclamations")
@@ -210,7 +211,8 @@ with tab_exp:
                                 telephone = str(row['tel']).strip() if 'tel' in row else tel_map.get(client_name, "")
                                 info_str = f"Tel: {telephone}" if telephone else ""
                                 
-                                add_or_merge_row(client_name, ville, ref_val, "RÉCLAMATION IMPORTÉE", "En cours", info_str, mode="Réclamation", secteur=client_secteur)
+                                info_val = "RAPPEL DE LOT" if mode == "Réclamation en Urgence" else "RÉCLAMATION IMPORTÉE"
+                                add_or_merge_row(client_name, ville, ref_val, info_val, "En cours", info_str, mode=mode, secteur=client_secteur)
                                 added_count += 1
                             
                             if added_count > 0:
@@ -237,6 +239,10 @@ with tab_exp:
         if mode == "Commande":
             val_info = st.text_input("Colissage")
             qte_colis_val = 0
+        elif mode == "Réclamation en Urgence":
+            st.text_input("Motif", value="RAPPEL DE LOT", disabled=True)
+            val_info = "RAPPEL DE LOT"
+            qte_colis_val = st.number_input("Nb Colis à récupérer", min_value=0, value=0)
         else:
             liste_motifs = load_motifs()
             val_motif = st.selectbox("Motif", liste_motifs)
@@ -254,7 +260,7 @@ with tab_exp:
     if btn_ajouter:
         if new_client and ref_bon:
             annee = datetime.now().strftime('%y')
-            prefixe = "RC" if mode == "Réclamation" else "BL"
+            prefixe = "RU" if mode == "Réclamation en Urgence" else ("RC" if mode == "Réclamation" else "BL")
             full_ref = f"{annee}/{prefixe}/{ref_bon}"
             client_data = df_clients[df_clients['Client'] == new_client]
             ville = client_data['Ville'].values[0] if not client_data.empty else ""
@@ -279,7 +285,7 @@ with tab_exp:
                         prompt = f"Tu es un expert en logistique en Algérie. Voici une liste de villes pour une tournée de livraison : {villes}. Donne l'ordre le plus logique pour minimiser les kilomètres. Réponds par une liste simple."
                         st.info(ask_ai(prompt))
             with c_ia2:
-                if mode == "Réclamation" and st.button("🧠 Analyser la gravité des litiges", use_container_width=True):
+                if mode in ["Réclamation", "Réclamation en Urgence"] and st.button("🧠 Analyser la gravité des litiges", use_container_width=True):
                     with st.spinner("Analyse IA en cours..."):
                         motifs = st.session_state.rows['Info'].tolist()
                         prompt = f"Voici des motifs de réclamations clients : {motifs}. Lesquels sont les plus critiques pour un grossiste pharma ? Donne une priorité."
@@ -295,9 +301,9 @@ with tab_exp:
     st.subheader(f"Détails des {mode}s ({secteur_affichage.upper()})")
     
     # Configuration dynamique de la colonne Info selon le mode
-    col_label = "Colissage" if mode == "Commande" else "Motif"
-    if mode == "Réclamation":
-        info_config = st.column_config.SelectboxColumn("Motif", options=load_motifs())
+    col_label = "Motif" if mode in ["Réclamation", "Réclamation en Urgence"] else "Colissage"
+    if mode in ["Réclamation", "Réclamation en Urgence"]:
+        info_config = st.column_config.SelectboxColumn("Motif", options=load_motifs() if mode == "Réclamation" else ["RAPPEL DE LOT"])
     else:
         info_config = st.column_config.TextColumn("Colissage")
 
@@ -338,17 +344,17 @@ with tab_exp:
                 c3.write(f"`{row['N° Doc']}`")
                 
                 # Info modifiable
-                if mode == "Réclamation":
-                    motifs_disp = load_motifs()
+                if mode in ["Réclamation", "Réclamation en Urgence"]:
+                    motifs_disp = load_motifs() if mode == "Réclamation" else ["RAPPEL DE LOT"]
                     try:
                         idx_m = motifs_disp.index(str(row['Info']))
                     except:
                         idx_m = 0
                     new_info = c4.selectbox("Info", motifs_disp, index=idx_m, key=f"info_{row['N° Doc']}", label_visibility="collapsed")
                     
-                    # Bouton Étiquette si DEPOSER ou ECHANGE
+                    # Bouton Étiquette si DEPOSER ou ECHANGE ou RECLAMATION EN URGENCE
                     motif_up = str(row['Info']).upper()
-                    if "DEPOSER" in motif_up or "ECHANGE" in motif_up:
+                    if "DEPOSER" in motif_up or "ECHANGE" in motif_up or mode == "Réclamation en Urgence":
                         if c4.button("🏷️ Étiquette", key=f"label_{row['N° Doc']}"):
                             try:
                                 # Format A6 paysage (148x105mm) pour une étiquette lisible
@@ -361,11 +367,21 @@ with tab_exp:
                                 qte = int(row.get('Qte Colis', 0))
                                 motif_label = str(row['Info']).upper().encode('latin-1', 'replace').decode('latin-1')
                                 
-                                # ===== BANDEAU ROUGE "RECLAMATION" =====
-                                lpdf.set_fill_color(180, 0, 0)
-                                lpdf.set_text_color(255, 255, 255)
-                                lpdf.set_font("Arial", 'B', 28)
-                                lpdf.cell(0, 20, "RECLAMATION", 0, 1, 'C', fill=True)
+                                # ===== BANDEAU D'URGENCE OU STANDARD =====
+                                if mode == "Réclamation en Urgence":
+                                    lpdf.set_fill_color(220, 0, 0) # High-contrast warning red
+                                    lpdf.set_text_color(255, 255, 255)
+                                    lpdf.set_font("Arial", 'B', 22)
+                                    lpdf.cell(0, 16, "RECLAMATION EN URGENCE", 0, 1, 'C', fill=True)
+                                    lpdf.set_fill_color(255, 230, 230)
+                                    lpdf.set_text_color(220, 0, 0)
+                                    lpdf.set_font("Arial", 'B', 15)
+                                    lpdf.cell(0, 8, "ISTERJAA MOUSTAJEL - RAPPEL DE LOT", 0, 1, 'C', fill=True)
+                                else:
+                                    lpdf.set_fill_color(180, 0, 0)
+                                    lpdf.set_text_color(255, 255, 255)
+                                    lpdf.set_font("Arial", 'B', 28)
+                                    lpdf.cell(0, 20, "RECLAMATION", 0, 1, 'C', fill=True)
                                 lpdf.ln(3)
                                 
                                 # ===== NOM DU CLIENT =====
@@ -447,7 +463,14 @@ with tab_exp:
                 pdf = FPDF()
                 pdf.add_page()
                 pdf.set_font("Arial", 'B', 16)
-                pdf.cell(0, 10, f"FEUILLE DE ROUTE - {livreur_choisi}", 0, 1, 'C')
+                if mode == "Réclamation en Urgence":
+                    pdf.set_text_color(220, 0, 0) # Urgent red
+                    pdf.cell(0, 10, "RECLAMATION EN URGENCE (ISTERJAA MOUSTAJEL)", 0, 1, 'C')
+                    pdf.set_text_color(0, 0, 0)
+                    pdf.set_font("Arial", 'B', 13)
+                    pdf.cell(0, 8, f"FEUILLE DE ROUTE - {livreur_choisi}", 0, 1, 'C')
+                else:
+                    pdf.cell(0, 10, f"FEUILLE DE ROUTE - {livreur_choisi}", 0, 1, 'C')
                 pdf.set_font("Arial", 'B', 12)
                 pdf.cell(0, 8, f"SECTEUR : {secteur_affichage.upper()}", 0, 1, 'C')
                 pdf.set_font("Arial", '', 11)
@@ -501,7 +524,7 @@ with tab_exp:
                 
                 st.success("✅ PDF prêt ! Une fois téléchargé, cliquez ci-dessous pour archiver et passer au livreur suivant.")
                 if st.button("🏁 Valider l'envoi & Vider le tableau", type="secondary"):
-                    if mode == "Réclamation":
+                    if mode in ["Réclamation", "Réclamation en Urgence"]:
                         # Affecter le livreur aux réclamations dans la base centrale
                         df_sav_all = load_gs_data("Litiges_SAV", "data/db_sav.csv", COLS_SAV)
                         refs_to_update = df_visible['N° Doc'].tolist()
