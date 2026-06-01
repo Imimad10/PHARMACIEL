@@ -248,6 +248,12 @@ with tabs[2]:
                 index=0 if get_now().year == 2026 else 1
             )
             
+        sel_chambre = st.selectbox(
+            "Unité / Chambre Froide",
+            options=["Chambre Froide 1", "Chambre Froide 2", "Toutes les unités (2 pages)"],
+            index=0
+        )
+        
         heures_saisie = st.text_input(
             "Heures de pointage (séparées par des virgules)",
             value="08:00, 17:00",
@@ -260,13 +266,22 @@ with tabs[2]:
         if not sel_hours:
             st.warning("Veuillez saisir au moins une heure de relevé.")
         else:
-            nom_fichier = f"Fiche_Temperature_{sel_year}_{sel_month:02d}.pdf"
+            chambres_to_gen = CHAMBRES
+            suffixe = "Toutes"
+            if "Chambre Froide 1" in sel_chambre:
+                chambres_to_gen = ["Chambre Froide 1"]
+                suffixe = "CF1"
+            elif "Chambre Froide 2" in sel_chambre:
+                chambres_to_gen = ["Chambre Froide 2"]
+                suffixe = "CF2"
+                
+            nom_fichier = f"Fiche_Temp_{suffixe}_{sel_year}_{sel_month:02d}.pdf"
             try:
                 pdf_bytes = generate_fiche_temperature_pdf(
                     year=sel_year,
                     month=sel_month,
                     hours=sel_hours,
-                    chambres=CHAMBRES
+                    chambres=chambres_to_gen
                 )
                 st.download_button(
                     label="📄 Télécharger Fiche Manuelle",
@@ -275,7 +290,7 @@ with tabs[2]:
                     mime="application/pdf",
                     use_container_width=True,
                 )
-                st.caption(f"ℹ️ Tableau pré-rempli pour **{sel_month_name} {sel_year}** à **{', '.join(sel_hours)}**. *Vendredis et samedis exclus.*")
+                st.caption(f"ℹ️ Fiche pré-remplie pour **{sel_chambre}** ({sel_month_name} {sel_year}) à **{', '.join(sel_hours)}**.")
             except Exception as e:
                 st.error(f"Erreur lors de la génération : {e}")
             
