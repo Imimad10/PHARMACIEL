@@ -302,9 +302,55 @@ with tabs[2]:
 
     st.divider()
     if st.session_state.current_user.get('role') == 'Admin':
-        st.write("### 📂 Édition de la Base de Données")
+        st.write("### 📂 Édition de la Base de Données (Admin uniquement)")
+        
+        # 1. Formulaire d'ajout rapide rétroactif
+        with st.expander("➕ Ajouter un relevé manuel rétroactif (Date et Heure passées)", expanded=False):
+            with st.form("retro_form", clear_on_submit=True):
+                col_r1, col_r2, col_r3 = st.columns(3)
+                with col_r1:
+                    retro_date = st.date_input("Date", value=get_now().date())
+                    retro_heure = st.text_input("Heure (ex: 17:00)", value="17:00")
+                with col_r2:
+                    retro_temp = st.number_input("Température (°C)", value=4.0, min_value=-20.0, max_value=40.0, step=0.1)
+                    retro_chambre = st.selectbox("Chambre / Unité", CHAMBRES)
+                with col_r3:
+                    retro_agent = st.text_input("Agent", value=st.session_state.current_user['username'])
+                    retro_type = st.selectbox("Type de relevé", ["Plage idéale :+2°C+8°C", "Arrivage", "Maintenance", "Nettoyage"])
+                
+                retro_comment = st.text_input("Commentaire (Optionnel)", value="Saisie rétroactive")
+                
+                if st.form_submit_button("💾 ENREGISTRER LE RELEVÉ RETROACTIF", use_container_width=True):
+                    now_str = retro_date.strftime("%d/%m/%Y")
+                    status_calc = "OK" if 2.0 <= retro_temp <= 8.0 else "ALERTE"
+                    
+                    new_entry = {
+                        "Date": now_str,
+                        "Heure": retro_heure,
+                        "Température": retro_temp,
+                        "Agent": retro_agent,
+                        "Statut": status_calc,
+                        "Commentaire": retro_comment,
+                        "Type": retro_type,
+                        "Chambre": retro_chambre
+                    }
+                    
+                    df_old = load_gs_data(WORKSHEET_SUIVI, FALLBACK_SUIVI, COLS_SUIVI)
+                    df_new = pd.concat([df_old, pd.DataFrame([new_entry])], ignore_index=True)
+                    save_gs_data(df_new, WORKSHEET_SUIVI, FALLBACK_SUIVI)
+                    
+                    st.toast("✅ Relevé rétroactif ajouté avec succès !", icon="💾")
+                    time.sleep(1)
+                    st.rerun()
+
+        # 2. Guide d'édition directe
+        st.info("💡 **Guide de modification / suppression :**\n"
+                "- **Modifier** : Double-cliquez sur n'importe quelle cellule du tableau pour corriger une valeur (Date, Heure, Température, Agent, etc.).\n"
+                "- **Supprimer** : Cochez la case tout à gauche d'une ou plusieurs lignes dans le tableau, puis appuyez sur la touche **Suppr** (Delete) de votre clavier.\n"
+                "- **Sauvegarder** : Cliquez sur le bouton bleu **💾 Sauvegarder les modifications** ci-dessous pour enregistrer le tout.")
+
         edited_df = st.data_editor(df_all, use_container_width=True, num_rows="dynamic")
-        if st.button("💾 Sauvegarder les modifications"):
+        if st.button("💾 Sauvegarder les modifications", use_container_width=True):
             save_gs_data(edited_df, WORKSHEET_SUIVI, FALLBACK_SUIVI)
             st.success("Données synchronisées !")
     else:
