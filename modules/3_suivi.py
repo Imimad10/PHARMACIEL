@@ -220,24 +220,55 @@ with tabs[2]:
     
     col_a1, col_a2 = st.columns(2)
     with col_a1:
-        st.info("Générez des fiches de relevés vierges pour le mois en cours.")
-        mois_label = get_now().strftime("%B %Y").capitalize()
-        nom_fichier = f"Fiche_Temperature_{get_now().strftime('%Y_%m')}.pdf"
-        try:
-            pdf_bytes = generate_fiche_temperature_pdf(
-                mois_label=mois_label,
-                chambres=CHAMBRES
+        st.info("Configurez et générez votre fiche de relevés vierge.")
+        
+        french_months_list = [
+            "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+            "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
+        ]
+        
+        c_sel1, c_sel2 = st.columns(2)
+        with c_sel1:
+            sel_month_name = st.selectbox(
+                "Mois de la fiche", 
+                options=french_months_list,
+                index=get_now().month - 1
             )
-            st.download_button(
-                label="📄 Télécharger Fiche Manuelle",
-                data=pdf_bytes,
-                file_name=nom_fichier,
-                mime="application/pdf",
-                use_container_width=True,
+            sel_month = french_months_list.index(sel_month_name) + 1
+        with c_sel2:
+            sel_year = st.selectbox(
+                "Année", 
+                options=[2026, 2027],
+                index=0 if get_now().year == 2026 else 1
             )
-            st.caption(f"📅 Fiche vierge — {mois_label} ({', '.join(CHAMBRES)})")
-        except Exception as e:
-            st.error(f"Erreur lors de la génération : {e}")
+            
+        sel_hours = st.multiselect(
+            "Heures de pointage quotidiennes",
+            options=["08:00", "09:00", "10:00", "12:00", "14:00", "15:00", "16:00", "18:00"],
+            default=["08:00", "16:00"]
+        )
+        
+        if not sel_hours:
+            st.warning("Veuillez sélectionner au moins une heure de relevé.")
+        else:
+            nom_fichier = f"Fiche_Temperature_{sel_year}_{sel_month:02d}.pdf"
+            try:
+                pdf_bytes = generate_fiche_temperature_pdf(
+                    year=sel_year,
+                    month=sel_month,
+                    hours=sel_hours,
+                    chambres=CHAMBRES
+                )
+                st.download_button(
+                    label="📄 Télécharger Fiche Manuelle",
+                    data=pdf_bytes,
+                    file_name=nom_fichier,
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
+                st.caption(f"ℹ️ Tableau pré-rempli pour **{sel_month_name} {sel_year}** à **{', '.join(sel_hours)}**. *Vendredis et samedis exclus.*")
+            except Exception as e:
+                st.error(f"Erreur lors de la génération : {e}")
             
     with col_a2:
         if is_ia_enabled():

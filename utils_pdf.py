@@ -452,22 +452,36 @@ def generate_rh_planning_pdf(df, title="PLANNING & PERMANENCES", model="Classiqu
         return bytes(raw)
     return raw.encode('latin-1', 'replace')
 
-def generate_fiche_temperature_pdf(mois_label=None, chambres=None):
+def generate_fiche_temperature_pdf(year, month, hours=None, chambres=None):
     """
-    Génère une fiche vierge de relevé de température pour une ou plusieurs chambres.
-    mois_label: str, ex: 'Juin 2026'
-    chambres: list de str, ex: ['Chambre Froide 1', 'Chambre Froide 2']
-    Retourne les bytes du PDF.
+    Génère une fiche de relevé de température vierge pour une ou plusieurs chambres
+    sur un mois donné (ex: Juin 2026), avec les dates et heures pré-remplies,
+    en excluant les vendredis et samedis.
     """
-    if not mois_label:
-        mois_label = datetime.now().strftime("%B %Y").capitalize()
+    import calendar
+    from datetime import datetime
+    
+    if not hours:
+        hours = ["08:00", "16:00"]
     if not chambres:
         chambres = ["Chambre Froide 1", "Chambre Froide 2"]
 
+    french_months = [
+        "", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+        "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
+    ]
+    mois_label = f"{french_months[month]} {year}"
+
     pdf = InventoryPDF()
     pdf.title_text = "FICHE DE POINTAGE DES TEMPERATURES"
-    pdf.subtitle_text = f"Mois : {mois_label}   |   Plage conforme : +2\u00b0C à +8\u00b0C"
+    pdf.subtitle_text = f"Mois : {mois_label}   |   Plage conforme : +2\u00b0C a +8\u00b0C"
     pdf.alias_nb_pages()
+
+    # Weekday mapping: 0=Lun, 1=Mar, 2=Mer, 3=Jeu, 4=Ven, 5=Sam, 6=Dim
+    french_days_short = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]
+    
+    # Days in the month
+    num_days = calendar.monthrange(year, month)[1]
 
     for chambre in chambres:
         pdf.add_page()
@@ -481,7 +495,7 @@ def generate_fiche_temperature_pdf(mois_label=None, chambres=None):
         # Info conformite
         pdf.set_font('Arial', 'I', 9)
         pdf.set_text_color(80, 80, 80)
-        pdf.cell(0, 7, "Plage ideale : +2 degres C a +8 degres C  |  Frequence : 2x/jour (matin et soir)  |  ALERTE si hors plage", 0, 1, 'C')
+        pdf.cell(0, 7, "Plage ideale : +2 degres C a +8 degres C  |  Frequence : 2x/jour (Matin et Soir)  |  ALERTE si hors plage", 0, 1, 'C')
         pdf.set_text_color(0, 0, 0)
         pdf.ln(3)
 
@@ -490,49 +504,64 @@ def generate_fiche_temperature_pdf(mois_label=None, chambres=None):
         pdf.set_fill_color(31, 41, 55)
         pdf.set_text_color(255, 255, 255)
         cols = [
-            ("N°", 10),
-            ("Date", 28),
-            ("Heure", 22),
-            ("T (degC)", 22),
-            ("Statut", 22),
-            ("Agent", 38),
-            ("Signature", 28),
-            ("Commentaire", 30),
+            ("Date", 40),
+            ("Heure", 20),
+            ("T\u00b0 (degC)", 25),
+            ("Agent", 35),
+            ("Signature", 25),
+            ("Commentaire / Action", 45),
         ]
         for label, w in cols:
-            pdf.cell(w, 9, label, 1, 0, 'C', 1)
+            pdf.cell(w, 9, label.encode('latin-1', 'replace').decode('latin-1'), 1, 0, 'C', 1)
         pdf.ln()
         pdf.set_text_color(0, 0, 0)
 
-        # Lignes vierges (62 lignes = 2 relevés/jour sur ~31 jours)
+        # Générer les lignes
         pdf.set_font('Arial', '', 8)
-        for i in range(1, 63):
-            if pdf.get_y() > 265:
-                pdf.add_page()
-                pdf.set_font('Arial', 'B', 9)
-                pdf.set_fill_color(31, 41, 55)
-                pdf.set_text_color(255, 255, 255)
-                for label, w in cols:
-                    pdf.cell(w, 9, label, 1, 0, 'C', 1)
-                pdf.ln()
-                pdf.set_text_color(0, 0, 0)
-                pdf.set_font('Arial', '', 8)
+        row_idx = 0
+        for day in range(1, num_days + 1):
+            dt = datetime(year, month, day)
+            weekday = dt.weekday()
+            
+            # Exclure vendredi (4) et samedi (5)
+            if weekday in [4, 5]:
+                continue
+                
+            day_str = f"{day:02d}/{month:02d} ({french_days_short[weekday]})"
+            
+            for hr in hours:
+                # Page break check
+                if pdf.get_y() > 265:
+                    pdf.add_page()
+                    pdf.set_font('Arial', 'B', 9)
+                    pdf.set_fill_color(31, 41, 55)
+                    pdf.set_text_color(255, 255, 255)
+                    for label, w in cols:
+                        pdf.cell(w, 9, label.encode('latin-1', 'replace').decode('latin-1'), 1, 0, 'C', 1)
+                    pdf.ln()
+                    pdf.set_text_color(0, 0, 0)
+                    pdf.set_font('Arial', '', 8)
 
-            # Couleur alternée
-            if i % 2 == 0:
-                pdf.set_fill_color(245, 248, 255)
-                fill = True
-            else:
-                pdf.set_fill_color(255, 255, 255)
-                fill = True
-
-            pdf.cell(10, 7, str(i), 1, 0, 'C', fill)
-            for _, w in cols[1:]:
-                pdf.cell(w, 7, "", 1, 0, 'C', fill)
-            pdf.ln()
+                # Couleur alternée
+                if row_idx % 2 == 0:
+                    pdf.set_fill_color(245, 248, 255)
+                else:
+                    pdf.set_fill_color(255, 255, 255)
+                
+                # Écrire la ligne
+                pdf.cell(40, 7, day_str.encode('latin-1', 'replace').decode('latin-1'), 1, 0, 'C', 1)
+                pdf.cell(20, 7, hr.encode('latin-1', 'replace').decode('latin-1'), 1, 0, 'C', 1)
+                pdf.cell(25, 7, "", 1, 0, 'C', 1) # T° (vide)
+                pdf.cell(35, 7, "", 1, 0, 'C', 1) # Agent (vide)
+                pdf.cell(25, 7, "", 1, 0, 'C', 1) # Signature (vide)
+                pdf.cell(45, 7, "", 1, 1, 'L', 1) # Commentaire (vide)
+                
+                row_idx += 1
 
         # Zone de validation
         pdf.ln(8)
+        if pdf.get_y() > 250:
+            pdf.add_page()
         pdf.set_font('Arial', 'B', 10)
         pdf.cell(95, 8, "Responsable / Superviseur :", 0, 0, 'L')
         pdf.cell(95, 8, "Visa Direction :", 0, 1, 'L')
