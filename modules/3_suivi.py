@@ -5,6 +5,7 @@ import os
 import plotly.express as px
 import plotly.graph_objects as go
 from fpdf import FPDF
+from utils_pdf import generate_fiche_temperature_pdf
 from utils import log_action
 from utils_ia import ask_ai, is_ia_enabled
 from utils_gsheets import load_gs_data, save_gs_data
@@ -220,8 +221,23 @@ with tabs[2]:
     col_a1, col_a2 = st.columns(2)
     with col_a1:
         st.info("Générez des fiches de relevés vierges pour le mois en cours.")
-        if st.button("📄 Générer Fiche Manuelle", use_container_width=True):
-            st.success("Fiche générée dans vos téléchargements.")
+        mois_label = get_now().strftime("%B %Y").capitalize()
+        nom_fichier = f"Fiche_Temperature_{get_now().strftime('%Y_%m')}.pdf"
+        try:
+            pdf_bytes = generate_fiche_temperature_pdf(
+                mois_label=mois_label,
+                chambres=CHAMBRES
+            )
+            st.download_button(
+                label="📄 Télécharger Fiche Manuelle",
+                data=pdf_bytes,
+                file_name=nom_fichier,
+                mime="application/pdf",
+                use_container_width=True,
+            )
+            st.caption(f"📅 Fiche vierge — {mois_label} ({', '.join(CHAMBRES)})")
+        except Exception as e:
+            st.error(f"Erreur lors de la génération : {e}")
             
     with col_a2:
         if is_ia_enabled():

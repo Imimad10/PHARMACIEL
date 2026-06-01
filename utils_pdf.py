@@ -452,6 +452,105 @@ def generate_rh_planning_pdf(df, title="PLANNING & PERMANENCES", model="Classiqu
         return bytes(raw)
     return raw.encode('latin-1', 'replace')
 
+def generate_fiche_temperature_pdf(mois_label=None, chambres=None):
+    """
+    Génère une fiche vierge de relevé de température pour une ou plusieurs chambres.
+    mois_label: str, ex: 'Juin 2026'
+    chambres: list de str, ex: ['Chambre Froide 1', 'Chambre Froide 2']
+    Retourne les bytes du PDF.
+    """
+    if not mois_label:
+        mois_label = datetime.now().strftime("%B %Y").capitalize()
+    if not chambres:
+        chambres = ["Chambre Froide 1", "Chambre Froide 2"]
+
+    pdf = InventoryPDF()
+    pdf.title_text = "FICHE DE POINTAGE DES TEMPERATURES"
+    pdf.subtitle_text = f"Mois : {mois_label}   |   Plage conforme : +2\u00b0C à +8\u00b0C"
+    pdf.alias_nb_pages()
+
+    for chambre in chambres:
+        pdf.add_page()
+
+        # Bloc d'information pharmacie
+        pdf.set_font('Arial', 'B', 11)
+        pdf.set_fill_color(230, 240, 255)
+        pdf.cell(0, 10, f"  Unite : {chambre}".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L', 1)
+        pdf.ln(3)
+
+        # Info conformite
+        pdf.set_font('Arial', 'I', 9)
+        pdf.set_text_color(80, 80, 80)
+        pdf.cell(0, 7, "Plage ideale : +2 degres C a +8 degres C  |  Frequence : 2x/jour (matin et soir)  |  ALERTE si hors plage", 0, 1, 'C')
+        pdf.set_text_color(0, 0, 0)
+        pdf.ln(3)
+
+        # En-tête tableau
+        pdf.set_font('Arial', 'B', 9)
+        pdf.set_fill_color(31, 41, 55)
+        pdf.set_text_color(255, 255, 255)
+        cols = [
+            ("N°", 10),
+            ("Date", 28),
+            ("Heure", 22),
+            ("T (degC)", 22),
+            ("Statut", 22),
+            ("Agent", 38),
+            ("Signature", 28),
+            ("Commentaire", 30),
+        ]
+        for label, w in cols:
+            pdf.cell(w, 9, label, 1, 0, 'C', 1)
+        pdf.ln()
+        pdf.set_text_color(0, 0, 0)
+
+        # Lignes vierges (62 lignes = 2 relevés/jour sur ~31 jours)
+        pdf.set_font('Arial', '', 8)
+        for i in range(1, 63):
+            if pdf.get_y() > 265:
+                pdf.add_page()
+                pdf.set_font('Arial', 'B', 9)
+                pdf.set_fill_color(31, 41, 55)
+                pdf.set_text_color(255, 255, 255)
+                for label, w in cols:
+                    pdf.cell(w, 9, label, 1, 0, 'C', 1)
+                pdf.ln()
+                pdf.set_text_color(0, 0, 0)
+                pdf.set_font('Arial', '', 8)
+
+            # Couleur alternée
+            if i % 2 == 0:
+                pdf.set_fill_color(245, 248, 255)
+                fill = True
+            else:
+                pdf.set_fill_color(255, 255, 255)
+                fill = True
+
+            pdf.cell(10, 7, str(i), 1, 0, 'C', fill)
+            for _, w in cols[1:]:
+                pdf.cell(w, 7, "", 1, 0, 'C', fill)
+            pdf.ln()
+
+        # Zone de validation
+        pdf.ln(8)
+        pdf.set_font('Arial', 'B', 10)
+        pdf.cell(95, 8, "Responsable / Superviseur :", 0, 0, 'L')
+        pdf.cell(95, 8, "Visa Direction :", 0, 1, 'L')
+        pdf.ln(14)
+        pdf.cell(95, 0, "__________________________", 0, 0, 'C')
+        pdf.cell(95, 0, "__________________________", 0, 1, 'C')
+        pdf.ln(5)
+        pdf.set_font('Arial', 'I', 8)
+        pdf.set_text_color(120, 120, 120)
+        pdf.cell(0, 6, "DarPharm Solution | Supervision Thermique | Document officiel de tracabilite", 0, 1, 'C')
+        pdf.set_text_color(0, 0, 0)
+
+    raw = pdf.output(dest='S')
+    if isinstance(raw, (bytes, bytearray)):
+        return bytes(raw)
+    return raw.encode('latin-1', 'replace')
+
+
 def generate_suivi_direct_pdf(df):
     pdf = InventoryPDF()
     pdf.title_text = "RAPPORT SUIVI EN DIRECT"
