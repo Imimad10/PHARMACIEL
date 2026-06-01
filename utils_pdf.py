@@ -452,15 +452,38 @@ def generate_rh_planning_pdf(df, title="PLANNING & PERMANENCES", model="Classiqu
         return bytes(raw)
     return raw.encode('latin-1', 'replace')
 
-def generate_fiche_temperature_pdf(year, month, hours=None, chambres=None):
+def generate_fiche_temperature_pdf(year=None, month=None, hours=None, chambres=None, mois_label=None):
     """
-    Génère une fiche de relevé de température vierge pour une ou plusieurs chambres
-    sur un mois donné (ex: Juin 2026), avec les dates et heures pré-remplies,
-    en excluant les vendredis et samedis.
+    Génère une fiche de relevé de température vierge pour une ou plusieurs chambres.
+    Supporte l'ancienne et la nouvelle signature pour éviter les conflits de rechargement Streamlit.
     """
     import calendar
     from datetime import datetime
     
+    # Résolution extrêmement robuste du mois et de l'année
+    if year is None or month is None:
+        # Essayer d'extraire de mois_label (ex: "Juin 2026")
+        if mois_label and isinstance(mois_label, str):
+            try:
+                parts = mois_label.strip().split()
+                if len(parts) == 2:
+                    french_months = [
+                        "janvier", "février", "mars", "avril", "mai", "juin",
+                        "juillet", "août", "septembre", "octobre", "novembre", "décembre"
+                    ]
+                    m_name = parts[0].lower()
+                    if m_name in french_months:
+                        month = french_months.index(m_name) + 1
+                    year = int(parts[1])
+            except:
+                pass
+        
+        # Fallback de secours si non résolu
+        if year is None or month is None:
+            now = datetime.now()
+            year = now.year
+            month = now.month
+            
     if not hours:
         hours = ["08:00", "16:00"]
     if not chambres:

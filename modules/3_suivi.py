@@ -5,7 +5,13 @@ import os
 import plotly.express as px
 import plotly.graph_objects as go
 from fpdf import FPDF
+
+# Forcer le rechargement de utils_pdf pour éviter le cache Streamlit lors du déploiement
+import importlib
+import utils_pdf
+importlib.reload(utils_pdf)
 from utils_pdf import generate_fiche_temperature_pdf
+
 from utils import log_action
 from utils_ia import ask_ai, is_ia_enabled
 from utils_gsheets import load_gs_data, save_gs_data
@@ -242,14 +248,17 @@ with tabs[2]:
                 index=0 if get_now().year == 2026 else 1
             )
             
-        sel_hours = st.multiselect(
-            "Heures de pointage quotidiennes",
-            options=["08:00", "09:00", "10:00", "12:00", "14:00", "15:00", "16:00", "18:00"],
-            default=["08:00", "16:00"]
+        heures_saisie = st.text_input(
+            "Heures de pointage (séparées par des virgules)",
+            value="08:00, 17:00",
+            help="Saisissez les heures séparées par des virgules, par exemple: 08:00, 17:00, 20:00"
         )
         
+        # Nettoyer et séparer
+        sel_hours = [h.strip() for h in heures_saisie.split(",") if h.strip()]
+        
         if not sel_hours:
-            st.warning("Veuillez sélectionner au moins une heure de relevé.")
+            st.warning("Veuillez saisir au moins une heure de relevé.")
         else:
             nom_fichier = f"Fiche_Temperature_{sel_year}_{sel_month:02d}.pdf"
             try:
