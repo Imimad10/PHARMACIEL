@@ -455,14 +455,13 @@ def generate_rh_planning_pdf(df, title="PLANNING & PERMANENCES", model="Classiqu
 def generate_fiche_temperature_pdf(year=None, month=None, hours=None, chambres=None, mois_label=None):
     """
     Génère une fiche de relevé de température vierge pour une ou plusieurs chambres.
-    Supporte l'ancienne et la nouvelle signature pour éviter les conflits de rechargement Streamlit.
+    Chaque chambre tient sur UNE SEULE page A4 grâce à un format compact en colonnes.
     """
     import calendar
     from datetime import datetime
     
-    # Résolution extrêmement robuste du mois et de l'année
+    # Résolution robuste du mois et de l'année
     if year is None or month is None:
-        # Essayer d'extraire de mois_label (ex: "Juin 2026")
         if mois_label and isinstance(mois_label, str):
             try:
                 parts = mois_label.strip().split()
@@ -478,14 +477,13 @@ def generate_fiche_temperature_pdf(year=None, month=None, hours=None, chambres=N
             except:
                 pass
         
-        # Fallback de secours si non résolu
         if year is None or month is None:
             now = datetime.now()
             year = now.year
             month = now.month
             
     if not hours:
-        hours = ["08:00", "16:00"]
+        hours = ["08:00", "17:00"]
     if not chambres:
         chambres = ["Chambre Froide 1", "Chambre Froide 2"]
 
@@ -500,47 +498,55 @@ def generate_fiche_temperature_pdf(year=None, month=None, hours=None, chambres=N
     pdf.subtitle_text = f"Mois : {mois_label}   |   Plage conforme : +2\u00b0C a +8\u00b0C"
     pdf.alias_nb_pages()
 
-    # Weekday mapping: 0=Lun, 1=Mar, 2=Mer, 3=Jeu, 4=Ven, 5=Sam, 6=Dim
+    # Mapping jours
     french_days_short = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]
-    
-    # Days in the month
     num_days = calendar.monthrange(year, month)[1]
+
+    # Calcul dynamique des largeurs de colonnes (Largeur totale imprimable = 190mm)
+    w_date = 30
+    w_comm = 50
+    w_remaining = 190 - w_date - w_comm # 110mm pour les relevés d'heures
+    
+    num_hours = len(hours)
+    w_pair = w_remaining / num_hours
+    w_temp = round(w_pair * 0.52)
+    w_visa = round(w_pair * 0.48)
+    
+    # Ajustement de w_comm pour tomber pile à 190mm
+    total_calculated_w = w_date + w_comm + (num_hours * (w_temp + w_visa))
+    w_comm += (190 - total_calculated_w)
 
     for chambre in chambres:
         pdf.add_page()
 
         # Bloc d'information pharmacie
-        pdf.set_font('Arial', 'B', 11)
+        pdf.set_font('Arial', 'B', 10)
         pdf.set_fill_color(230, 240, 255)
-        pdf.cell(0, 10, f"  Unite : {chambre}".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L', 1)
-        pdf.ln(3)
+        pdf.cell(0, 8, f"  Unite : {chambre}".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L', 1)
+        pdf.ln(2)
 
         # Info conformite
-        pdf.set_font('Arial', 'I', 9)
+        pdf.set_font('Arial', 'I', 8)
         pdf.set_text_color(80, 80, 80)
-        pdf.cell(0, 7, "Plage ideale : +2 degres C a +8 degres C  |  Frequence : 2x/jour (Matin et Soir)  |  ALERTE si hors plage", 0, 1, 'C')
+        pdf.cell(0, 6, "Plage ideale : +2 degres C a +8 degres C  |  Frequence : Saisie manuelle  |  ALERTE si hors plage", 0, 1, 'C')
         pdf.set_text_color(0, 0, 0)
-        pdf.ln(3)
+        pdf.ln(2)
 
-        # En-tête tableau
-        pdf.set_font('Arial', 'B', 9)
+        # En-tête du tableau
+        pdf.set_font('Arial', 'B', 8)
         pdf.set_fill_color(31, 41, 55)
         pdf.set_text_color(255, 255, 255)
-        cols = [
-            ("Date", 40),
-            ("Heure", 20),
-            ("T\u00b0 (degC)", 25),
-            ("Agent", 35),
-            ("Signature", 25),
-            ("Commentaire / Action", 45),
-        ]
-        for label, w in cols:
-            pdf.cell(w, 9, label.encode('latin-1', 'replace').decode('latin-1'), 1, 0, 'C', 1)
-        pdf.ln()
+        
+        pdf.cell(w_date, 8, "Date", 1, 0, 'C', 1)
+        for hr in hours:
+            pdf.cell(w_temp, 8, f"T\u00b0 ({hr})", 1, 0, 'C', 1)
+            pdf.cell(w_visa, 8, "Visa", 1, 0, 'C', 1)
+        pdf.cell(w_comm, 8, "Commentaire / Action corrective", 1, 1, 'C', 1)
+        
         pdf.set_text_color(0, 0, 0)
-
-        # Générer les lignes
         pdf.set_font('Arial', '', 8)
+
+        # Génération des lignes de jours (excluant vendredi & samedi)
         row_idx = 0
         for day in range(1, num_days + 1):
             dt = datetime(year, month, day)
@@ -552,49 +558,33 @@ def generate_fiche_temperature_pdf(year=None, month=None, hours=None, chambres=N
                 
             day_str = f"{day:02d}/{month:02d} ({french_days_short[weekday]})"
             
-            for hr in hours:
-                # Page break check
-                if pdf.get_y() > 265:
-                    pdf.add_page()
-                    pdf.set_font('Arial', 'B', 9)
-                    pdf.set_fill_color(31, 41, 55)
-                    pdf.set_text_color(255, 255, 255)
-                    for label, w in cols:
-                        pdf.cell(w, 9, label.encode('latin-1', 'replace').decode('latin-1'), 1, 0, 'C', 1)
-                    pdf.ln()
-                    pdf.set_text_color(0, 0, 0)
-                    pdf.set_font('Arial', '', 8)
+            # Couleur alternée
+            if row_idx % 2 == 0:
+                pdf.set_fill_color(245, 248, 255)
+            else:
+                pdf.set_fill_color(255, 255, 255)
+            
+            # Dessiner la ligne (hauteur réduite à 6mm pour tenir sur une seule page A4)
+            pdf.cell(w_date, 6, day_str.encode('latin-1', 'replace').decode('latin-1'), 1, 0, 'C', 1)
+            for _ in hours:
+                pdf.cell(w_temp, 6, "", 1, 0, 'C', 1)
+                pdf.cell(w_visa, 6, "", 1, 0, 'C', 1)
+            pdf.cell(w_comm, 6, "", 1, 1, 'L', 1)
+            
+            row_idx += 1
 
-                # Couleur alternée
-                if row_idx % 2 == 0:
-                    pdf.set_fill_color(245, 248, 255)
-                else:
-                    pdf.set_fill_color(255, 255, 255)
-                
-                # Écrire la ligne
-                pdf.cell(40, 7, day_str.encode('latin-1', 'replace').decode('latin-1'), 1, 0, 'C', 1)
-                pdf.cell(20, 7, hr.encode('latin-1', 'replace').decode('latin-1'), 1, 0, 'C', 1)
-                pdf.cell(25, 7, "", 1, 0, 'C', 1) # T° (vide)
-                pdf.cell(35, 7, "", 1, 0, 'C', 1) # Agent (vide)
-                pdf.cell(25, 7, "", 1, 0, 'C', 1) # Signature (vide)
-                pdf.cell(45, 7, "", 1, 1, 'L', 1) # Commentaire (vide)
-                
-                row_idx += 1
-
-        # Zone de validation
-        pdf.ln(8)
-        if pdf.get_y() > 250:
-            pdf.add_page()
-        pdf.set_font('Arial', 'B', 10)
-        pdf.cell(95, 8, "Responsable / Superviseur :", 0, 0, 'L')
-        pdf.cell(95, 8, "Visa Direction :", 0, 1, 'L')
-        pdf.ln(14)
+        # Zone de validation administrative en bas de page
+        pdf.ln(6)
+        pdf.set_font('Arial', 'B', 9)
+        pdf.cell(95, 6, "Responsable / Superviseur :", 0, 0, 'L')
+        pdf.cell(95, 6, "Visa Direction :", 0, 1, 'L')
+        pdf.ln(10)
         pdf.cell(95, 0, "__________________________", 0, 0, 'C')
         pdf.cell(95, 0, "__________________________", 0, 1, 'C')
         pdf.ln(5)
         pdf.set_font('Arial', 'I', 8)
         pdf.set_text_color(120, 120, 120)
-        pdf.cell(0, 6, "DarPharm Solution | Supervision Thermique | Document officiel de tracabilite", 0, 1, 'C')
+        pdf.cell(0, 5, "DarPharm Solution | Supervision Thermique | Document de Tracabilite Unique", 0, 1, 'C')
         pdf.set_text_color(0, 0, 0)
 
     raw = pdf.output(dest='S')
