@@ -494,6 +494,9 @@ def generate_fiche_temperature_pdf(year=None, month=None, hours=None, chambres=N
     mois_label = f"{french_months[month]} {year}"
 
     pdf = InventoryPDF()
+    # Supprimer les marges superflues du haut (5mm) et du bas (5mm de garde) pour maximiser l'espace A4
+    pdf.set_margins(10, 5, 10)
+    pdf.set_auto_page_break(True, margin=5)
     pdf.title_text = "FICHE DE POINTAGE DES TEMPERATURES"
     pdf.subtitle_text = f"Mois : {mois_label}   |   Plage conforme : +2\u00b0C a +8\u00b0C"
     pdf.alias_nb_pages()
@@ -522,26 +525,26 @@ def generate_fiche_temperature_pdf(year=None, month=None, hours=None, chambres=N
         # Bloc d'information pharmacie
         pdf.set_font('Arial', 'B', 10)
         pdf.set_fill_color(230, 240, 255)
-        pdf.cell(0, 8, f"  Unite : {chambre}".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L', 1)
-        pdf.ln(2)
+        pdf.cell(0, 7, f"  Unite : {chambre}".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L', 1)
+        pdf.ln(1)
 
         # Info conformite
         pdf.set_font('Arial', 'I', 8)
         pdf.set_text_color(80, 80, 80)
-        pdf.cell(0, 6, "Plage ideale : +2 degres C a +8 degres C  |  Frequence : Saisie manuelle  |  ALERTE si hors plage", 0, 1, 'C')
+        pdf.cell(0, 5, "Plage ideale : +2 degres C a +8 degres C  |  Frequence : Saisie manuelle  |  ALERTE si hors plage", 0, 1, 'C')
         pdf.set_text_color(0, 0, 0)
-        pdf.ln(2)
+        pdf.ln(1)
 
         # En-tête du tableau
         pdf.set_font('Arial', 'B', 8)
         pdf.set_fill_color(31, 41, 55)
         pdf.set_text_color(255, 255, 255)
         
-        pdf.cell(w_date, 8, "Date", 1, 0, 'C', 1)
+        pdf.cell(w_date, 7, "Date", 1, 0, 'C', 1)
         for hr in hours:
-            pdf.cell(w_temp, 8, f"T\u00b0 ({hr})", 1, 0, 'C', 1)
-            pdf.cell(w_visa, 8, "Visa", 1, 0, 'C', 1)
-        pdf.cell(w_comm, 8, "Commentaire / Action corrective", 1, 1, 'C', 1)
+            pdf.cell(w_temp, 7, f"T\u00b0 ({hr})", 1, 0, 'C', 1)
+            pdf.cell(w_visa, 7, "Visa", 1, 0, 'C', 1)
+        pdf.cell(w_comm, 7, "Commentaire / Action corrective", 1, 1, 'C', 1)
         
         pdf.set_text_color(0, 0, 0)
         pdf.set_font('Arial', '', 8)
@@ -564,27 +567,27 @@ def generate_fiche_temperature_pdf(year=None, month=None, hours=None, chambres=N
             else:
                 pdf.set_fill_color(255, 255, 255)
             
-            # Dessiner la ligne (hauteur réduite à 6mm pour tenir sur une seule page A4)
-            pdf.cell(w_date, 6, day_str.encode('latin-1', 'replace').decode('latin-1'), 1, 0, 'C', 1)
+            # Dessiner la ligne (hauteur à 5.5mm pour tenir à 100% sur une seule page A4)
+            pdf.cell(w_date, 5.5, day_str.encode('latin-1', 'replace').decode('latin-1'), 1, 0, 'C', 1)
             for _ in hours:
-                pdf.cell(w_temp, 6, "", 1, 0, 'C', 1)
-                pdf.cell(w_visa, 6, "", 1, 0, 'C', 1)
-            pdf.cell(w_comm, 6, "", 1, 1, 'L', 1)
+                pdf.cell(w_temp, 5.5, "", 1, 0, 'C', 1)
+                pdf.cell(w_visa, 5.5, "", 1, 0, 'C', 1)
+            pdf.cell(w_comm, 5.5, "", 1, 1, 'L', 1)
             
             row_idx += 1
 
-        # Zone de validation administrative en bas de page
-        pdf.ln(6)
+        # Zone de validation administrative en bas de page resserrée
+        pdf.ln(4)
         pdf.set_font('Arial', 'B', 9)
-        pdf.cell(95, 6, "Responsable / Superviseur :", 0, 0, 'L')
-        pdf.cell(95, 6, "Visa Direction :", 0, 1, 'L')
-        pdf.ln(10)
+        pdf.cell(95, 5, "Responsable / Superviseur :", 0, 0, 'L')
+        pdf.cell(95, 5, "Visa Direction :", 0, 1, 'L')
+        pdf.ln(8)
         pdf.cell(95, 0, "__________________________", 0, 0, 'C')
         pdf.cell(95, 0, "__________________________", 0, 1, 'C')
-        pdf.ln(5)
+        pdf.ln(4)
         pdf.set_font('Arial', 'I', 8)
         pdf.set_text_color(120, 120, 120)
-        pdf.cell(0, 5, "DarPharm Solution | Supervision Thermique | Document de Tracabilite Unique", 0, 1, 'C')
+        pdf.cell(0, 4, "DarPharm Solution | Supervision Thermique | Document de Tracabilite Unique", 0, 1, 'C')
         pdf.set_text_color(0, 0, 0)
 
     raw = pdf.output(dest='S')
