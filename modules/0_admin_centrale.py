@@ -588,7 +588,10 @@ with tabs[0]:
             df_up.columns = cols
             
             st.write("**Aperçu des données :**")
-            st.dataframe(df_up.head(5), use_container_width=True)
+            try:
+                st.dataframe(df_up.head(5).astype(str), use_container_width=True)
+            except Exception:
+                st.table(df_up.head(5).astype(str))
         
         if target:
             st.success(f"🎯 Type détecté : **{target}**")

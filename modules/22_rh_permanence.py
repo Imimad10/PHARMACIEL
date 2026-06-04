@@ -110,13 +110,49 @@ with tabs[2]:
     df_view = df_rh.copy()
     
     # Filtres simples
-    c_f1, c_f2 = st.columns(2)
+    c_f1, c_f2, c_f3 = st.columns(3)
     f_agent = c_f1.multiselect("Filtrer par agent", agents_list)
     f_type = c_f2.multiselect("Type d'événement", df_rh['Type'].unique() if not df_rh.empty else [])
+    
+    # Extraction et formatage des périodes (mois) disponibles
+    FRENCH_MONTHS = {
+        1: "Janvier", 2: "Février", 3: "Mars", 4: "Avril", 5: "Mai", 6: "Juin",
+        7: "Juillet", 8: "Août", 9: "Septembre", 10: "Octobre", 11: "Novembre", 12: "Décembre"
+    }
+    
+    month_options = ["Tous"]
+    month_map = {}
+    
+    if not df_rh.empty and 'Date_Debut' in df_rh.columns:
+        dates = pd.to_datetime(df_rh['Date_Debut'], errors='coerce')
+        valid_dates = df_rh[dates.notna()]
+        if not valid_dates.empty:
+            parsed_dates = pd.to_datetime(valid_dates['Date_Debut'])
+            yms = parsed_dates.apply(lambda d: (d.year, d.month)).unique()
+            sorted_yms = sorted(list(yms), reverse=True)
+            for y, m in sorted_yms:
+                label = f"{FRENCH_MONTHS[m]} {y}"
+                month_options.append(label)
+                month_map[label] = (y, m)
+                
+    f_month = c_f3.selectbox("Période (Mois)", month_options, index=0)
     
     if f_agent: df_view = df_view[df_view['Agent'].isin(f_agent)]
     if f_type: df_view = df_view[df_view['Type'].isin(f_type)]
     
+    # Filtrer par mois/année sélectionné (en gérant les chevauchements de dates)
+    if f_month != "Tous":
+        target_year, target_month = month_map[f_month]
+        import calendar
+        start_of_month = pd.Timestamp(datetime(target_year, target_month, 1))
+        end_of_month = pd.Timestamp(datetime(target_year, target_month, calendar.monthrange(target_year, target_month)[1]))
+        
+        parsed_start = pd.to_datetime(df_view['Date_Debut'], errors='coerce')
+        parsed_end = pd.to_datetime(df_view['Date_Fin'], errors='coerce').fillna(parsed_start)
+        
+        overlap_mask = (parsed_start <= end_of_month) & (parsed_end >= start_of_month)
+        df_view = df_view[overlap_mask]
+        
     st.dataframe(df_view.sort_values("Date_Debut", ascending=False), use_container_width=True, hide_index=True)
     
     c_btn1, c_btn2 = st.columns(2)
@@ -134,12 +170,19 @@ with tabs[2]:
         )
         model_param = "Classique" if "Classique" in model_pdf else "RDC"
         
+        pdf_title = "PLANNING & PERMANENCES"
+        if f_month != "Tous":
+            pdf_title = f"PLANNING & PERMANENCES - {f_month.upper()}"
+            pdf_filename = f"Planning_RH_{target_year}_{target_month:02d}.pdf"
+        else:
+            pdf_filename = f"Planning_RH_Global_{datetime.now().strftime('%Y%m%d')}.pdf"
+            
         from utils_pdf import generate_rh_planning_pdf
-        pdf_bytes = generate_rh_planning_pdf(df_view, model=model_param)
+        pdf_bytes = generate_rh_planning_pdf(df_view, title=pdf_title, model=model_param)
         st.download_button(
             "📥 Télécharger le Planning (PDF)",
             pdf_bytes,
-            f"Planning_RH_{datetime.now().strftime('%Y%m%d')}.pdf",
+            pdf_filename,
             "application/pdf",
             use_container_width=True
         )
