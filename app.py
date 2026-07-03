@@ -608,6 +608,36 @@ if "current_user" not in st.session_state:
 # Initialiser le contrôleur de cookies
 controller = CookieController(key="main_cookie_controller")
 
+# ── GUARD: Les cookies de streamlit_cookies_controller ne sont disponibles
+# qu'après le 2e cycle de rendu. On utilise un flag pour détecter le 1er
+# cycle et afficher un écran de chargement plutôt que d'afficher le login.
+if "_cookies_ready" not in st.session_state:
+    # Premier rendu après un refresh – on marque et on attend le 2e cycle.
+    st.session_state["_cookies_ready"] = False
+    if st.session_state.current_user is None:
+        # Afficher un écran de chargement élégant pendant le cycle d'init
+        st.markdown("""
+        <style>
+            [data-testid="stSidebar"], [data-testid="stSidebarNav"] {display:none!important;}
+            [data-testid="stHeader"] {display:none!important;}
+            .stApp { background: linear-gradient(135deg, #0a0a1a 0%, #0d1b2a 100%) !important; }
+            .main .block-container { max-width:100%; padding:0!important; }
+        </style>
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:20px;">
+            <div style="font-size:3rem;">💊</div>
+            <div style="color:rgba(255,255,255,0.7);font-size:1rem;font-family:Inter,sans-serif;">
+                Restauration de la session...
+            </div>
+            <div style="width:200px;height:3px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden;">
+                <div style="width:60%;height:100%;background:linear-gradient(90deg,#1877f2,#6B46C1);
+                            border-radius:4px;animation:none;"></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.rerun()
+else:
+    st.session_state["_cookies_ready"] = True
+
 # Récupérer tokens depuis cookies
 try:
     token_user = controller.get("user_token")

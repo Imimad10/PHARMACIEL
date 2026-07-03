@@ -39,6 +39,82 @@ etab_nom = "Pharmaciel" if st.session_state.get('etablissement') == 'pharmaciel'
 st.title(f"📦 {etab_nom.upper()} - Gestion des Litiges & Réclamations")
 st.write("Système synchronisé pour le suivi des anomalies de réception et litiges fournisseurs.")
 
+def render_litiges_accordion(df, mode="active"):
+    """
+    Affiche les litiges sous forme d'accordéon (expander).
+    mode: "active" → boutons Résoudre/Supprimer
+          "solved"  → lecture seule avec date de résolution
+    """
+    if df.empty:
+        st.info("Aucune réclamation à afficher.")
+        return
+
+    PRIORITY_COLORS = {"Critique": "🔴", "Important": "🟡", "Normal": "🟢"}
+
+    for idx, row in df.iterrows():
+        prio_icon = PRIORITY_COLORS.get(str(row.get("Priorite", "Normal")), "⚪")
+        label = (
+            f"{prio_icon} [{row.get('Date', '')}] "
+            f"{row.get('Fournisseur', '')} — "
+            f"{row.get('Produit', '')} "
+            f"(x{row.get('Quantite', '')}) — {row.get('Type', '')}"
+        )
+
+        with st.expander(label, expanded=False):
+            col_info, col_photo = st.columns([2, 1])
+
+            with col_info:
+                st.markdown(f"**N° Facture :** {row.get('Facture', '-')}")
+                st.markdown(f"**Agent :** {row.get('Agent', '-')}")
+                st.markdown(f"**Lot :** {row.get('Lot', '-')}")
+                st.markdown(f"**Priorité :** {row.get('Priorite', '-')}")
+                st.markdown(f"**Statut :** {row.get('Statut', '-')}")
+                if str(row.get("Date_Resolution", "")) not in ("", "None", "nan"):
+                    st.markdown(f"**Date Résolution :** {row.get('Date_Resolution', '')}")
+                commentaire = str(row.get("Commentaire", "")).strip()
+                if commentaire and commentaire != "nan":
+                    st.markdown(f"**Observations :** {commentaire}")
+                ia = str(row.get("IA_Analyse", "")).strip()
+                if ia and ia not in ("nan", "Analyse en attente..."):
+                    with st.expander("🤖 Analyse IA"):
+                        st.info(ia)
+
+            with col_photo:
+                photo_path = str(row.get("Photo_Path", "")).strip()
+                if photo_path and photo_path != "nan" and os.path.exists(photo_path):
+                    try:
+                        st.image(photo_path, caption="Photo de preuve", use_container_width=True)
+                    except Exception:
+                        st.caption("(Photo non lisible)")
+
+            # --- Actions ---
+            if mode == "active":
+                col_btn1, col_btn2 = st.columns(2)
+                if col_btn1.button("✅ Marquer comme Réglée", key=f"resolve_{mode}_{idx}"):
+                    df_litiges.loc[idx, "Statut"] = "Réglée"
+                    df_litiges.loc[idx, "Date_Resolution"] = datetime.now().strftime("%Y-%m-%d")
+                    save_gs_data(df_litiges, WORKSHEET_NAME, FALLBACK_PATH)
+                    log_action(
+                        st.session_state.current_user["username"],
+                        f"Résolution litige: {row.get('Produit', '')} — {row.get('Fournisseur', '')}",
+                        "Litiges"
+                    )
+                    st.success("Réclamation marquée comme réglée.")
+                    st.rerun()
+
+                if col_btn2.button("🗑️ Supprimer", key=f"delete_{mode}_{idx}"):
+                    df_litiges.drop(index=idx, inplace=True)
+                    df_litiges.reset_index(drop=True, inplace=True)
+                    save_gs_data(df_litiges, WORKSHEET_NAME, FALLBACK_PATH)
+                    log_action(
+                        st.session_state.current_user["username"],
+                        f"Suppression litige: {row.get('Produit', '')} — {row.get('Fournisseur', '')}",
+                        "Litiges"
+                    )
+                    st.warning("Réclamation supprimée.")
+                    st.rerun()
+
+
 tab_new, tab_list, tab_regl, tab_arch, tab_stats, tab_prods = st.tabs(["➕ Nouveau Rapport", "📋 Suivi Actif", "✅ Réclamations réglées", "🗄️ Archives", "📊 Dashboard Performance", "📦 Base Produits"])
 
 # --- CHARGEMENT DYNAMIQUE DES DONNÉES ---
