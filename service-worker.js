@@ -1,7 +1,8 @@
-const CACHE_NAME = 'pharmaciel-cache-v1';
+const CACHE_NAME = 'pharmaciel-cache-v2';
 const urlsToCache = [
   '/',
-  '/index.html'
+  '/index.html',
+  '/offline.html'
 ];
 
 self.addEventListener('install', event => {
@@ -12,14 +13,17 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        if (response) {
-          return response;
-        }
-        return fetch(event.request);
-      }
-    )
-  );
+  if (event.request.mode === 'navigate' || (event.request.method === 'GET' && event.request.headers.get('accept').includes('text/html'))) {
+    event.respondWith(
+      fetch(event.request).catch(error => {
+        return caches.match('/offline.html');
+      })
+    );
+  } else {
+    event.respondWith(
+      caches.match(event.request).then(response => {
+        return response || fetch(event.request);
+      })
+    );
+  }
 });
