@@ -598,33 +598,75 @@ with tab_suivi_sav:
         c_k2.metric("Urgents (<24h)", urgents, delta_color="inverse")
         c_k3.metric("En Retard 💀", retards, delta="-Hors SLA-", delta_color="inverse")
 
+        # --- ACTIONS EN MASSE ---
+        st.subheader("⚡ Actions Rapides")
+        nb_en_cours = df_sav[df_sav['statut'] == 'En cours'].shape[0]
+        col_act1, col_act2, col_act3 = st.columns([2, 2, 1])
+
+        with col_act1:
+            if nb_en_cours > 0:
+                if st.button(
+                    f"✅ Clôturer TOUTES les réclamations ({nb_en_cours} en cours)",
+                    type="primary", use_container_width=True,
+                    help="Marque toutes les réclamations 'En cours' comme Réglées d'un seul clic"
+                ):
+                    st.session_state["confirm_close_all"] = True
+            else:
+                st.success("✅ Toutes les réclamations sont déjà clôturées !")
+
+        if st.session_state.get("confirm_close_all"):
+            st.warning(f"⚠️ Vous allez clôturer **{nb_en_cours}** réclamations. Confirmez ?")
+            cc1, cc2 = st.columns(2)
+            if cc1.button("✅ OUI, Clôturer tout", type="primary", use_container_width=True):
+                df_sav_upd = load_gs_data("Litiges_SAV", "data/db_sav.csv", COLS_SAV + ["secteur"])
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+                mask_encours = df_sav_upd['statut'] == 'En cours'
+                df_sav_upd.loc[mask_encours, 'statut'] = 'Réglée'
+                df_sav_upd.loc[mask_encours & (df_sav_upd['date_reglement'].astype(str).str.strip() == ''), 'date_reglement'] = now_str
+                save_gs_data(df_sav_upd, "Litiges_SAV", "data/db_sav.csv")
+                log_action(st.session_state.current_user['username'], f"Clôture en masse : {nb_en_cours} réclamations", "Expédition")
+                st.session_state["confirm_close_all"] = False
+                st.success(f"✅ {nb_en_cours} réclamations clôturées avec succès !")
+                st.rerun()
+            if cc2.button("❌ Annuler", use_container_width=True):
+                st.session_state["confirm_close_all"] = False
+                st.rerun()
+
+        st.divider()
+
         # Filtres
         col_s1, col_s2 = st.columns(2)
         with col_s1:
-            filtre_statut = st.selectbox("Statut", ["Tous", "En cours", "Livré", "Annulé"])
+            filtre_statut = st.selectbox("Statut", ["Tous", "En cours", "Réglée", "Livré", "Annulé"])
         with col_s2:
-            filtre_sla = st.selectbox("SLA / Priorité", ["Tous", "Retard", "Urgent", "Dans les délais"])
+            filtre_sla = st.selectbox("SLA / Priorité", ["Tous", "Retard", "Urgent", "Dans les délais", "Réglé"])
         
         df_disp = df_sav.copy()
         if filtre_statut != "Tous":
             df_disp = df_disp[df_disp['statut'] == filtre_statut]
-        if filtre_sla != "Tous":
-            df_disp = df_disp[df_disp['SLA_Statut'].str.contains(filtre_sla.upper())]
+        if filtre_sla == "Réglé":
+            df_disp = df_disp[df_disp['statut'].isin(['Réglée', 'Livré'])]
+        elif filtre_sla != "Tous":
+            df_disp = df_disp[df_disp['SLA_Statut'].str.contains(filtre_sla.upper(), na=False)]
 
         # Table avec coloration
         st.subheader("📋 Liste des Litiges par Priorité")
         
         # Formattage pour l'affichage
         df_disp['Date'] = df_disp['date_crea'].dt.strftime("%d/%m %H:%M")
-        
+        df_disp_sorted = df_disp.sort_values(['SLA_Statut', 'date_crea'], ascending=[True, True]).reset_index(drop=True)
+
         edited_df = st.data_editor(
-            df_disp.sort_values(['SLA_Statut', 'date_crea'], ascending=[True, True]),
+            df_disp_sorted,
             use_container_width=True,
             hide_index=True,
             column_config={
                 "SLA_Statut": st.column_config.TextColumn("État SLA", disabled=True),
                 "SLA_Color": None, 
-                "statut": st.column_config.SelectboxColumn("Statut Opérationnel", options=["En cours", "Livré", "Annulé"]),
+                "statut": st.column_config.SelectboxColumn(
+                    "Statut Opérationnel",
+                    options=["En cours", "Réglée", "Livré", "Annulé", "Clôturée"]
+                ),
                 "Type_Region": st.column_config.TextColumn("Type Secteur", disabled=True),
                 "date_crea": None,
                 "secteur": st.column_config.TextColumn("Région", disabled=True),
@@ -632,22 +674,61 @@ with tab_suivi_sav:
                 "ville": st.column_config.TextColumn("Ville", disabled=True),
                 "ref": st.column_config.TextColumn("Ref", disabled=True),
                 "motif": st.column_config.TextColumn("Motif", disabled=True),
+                "signature": st.column_config.TextColumn("Signature", disabled=False),
+                "date_reglement": st.column_config.TextColumn("Date Règlement", disabled=True),
                 "Date": st.column_config.TextColumn("Date", disabled=True)
             }
         )
 
-        if st.button("💾 Enregistrer les changements de statut"):
-            # On récupère les colonnes originales
-            # Si le statut passe à "Livré", on met la date de règlement
-            edited_df.loc[(edited_df['statut'] == 'Livré') & (edited_df['date_reglement'] == ""), 'date_reglement'] = datetime.now().strftime("%Y-%m-%d %H:%M")
-            
-            df_to_save = edited_df[COLS_SAV + ["secteur"]]
-            # S'assurer que date_crea est bien formatée en string
-            df_to_save['date_crea'] = pd.to_datetime(edited_df['date_crea']).dt.strftime("%Y-%m-%d %H:%M")
-            
-            save_gs_data(df_to_save, "Litiges_SAV", "data/db_sav.csv")
-            st.success("Modifications enregistrées !")
-            st.rerun()
+        col_save, col_bulk = st.columns([2, 1])
+        with col_save:
+            if st.button("💾 Enregistrer les changements de statut", use_container_width=True, type="primary"):
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+                # Auto-date quand statut passe à Réglée/Livré/Clôturée
+                mask_resolved = edited_df['statut'].isin(['Réglée', 'Livré', 'Clôturée'])
+                mask_no_date = edited_df['date_reglement'].astype(str).str.strip().isin(['', 'nan', 'None'])
+                edited_df.loc[mask_resolved & mask_no_date, 'date_reglement'] = now_str
+                
+                df_to_save = edited_df[COLS_SAV + ["secteur"]].copy()
+                df_to_save['date_crea'] = pd.to_datetime(edited_df['date_crea']).dt.strftime("%Y-%m-%d %H:%M")
+                
+                save_gs_data(df_to_save, "Litiges_SAV", "data/db_sav.csv")
+                log_action(st.session_state.current_user['username'], "Mise à jour statuts litiges SAV", "Expédition")
+                st.success("✅ Modifications enregistrées !")
+                st.rerun()
+
+        # --- BOUTONS RAPIDES PAR RÉCLAMATION ---
+        st.divider()
+        st.subheader("🎯 Clôture Individuelle Rapide")
+        df_encours_only = df_sav[df_sav['statut'] == 'En cours'].copy()
+        if df_encours_only.empty:
+            st.success("✅ Aucune réclamation en cours — tout est clôturé !")
+        else:
+            st.info(f"**{len(df_encours_only)}** réclamations encore ouvertes — cliquez pour les clôturer :")
+            for idx, row in df_encours_only.iterrows():
+                col_r1, col_r2, col_r3 = st.columns([3, 1, 1])
+                col_r1.markdown(
+                    f"**{row['client']}** — `{row['ref']}` — *{row['motif']}* "
+                    f"({row.get('ville','')}) — {row['SLA_Statut']}"
+                )
+                if col_r2.button("✅ Régler", key=f"regler_{idx}", use_container_width=True):
+                    df_sav_upd = load_gs_data("Litiges_SAV", "data/db_sav.csv", COLS_SAV + ["secteur"])
+                    mask = df_sav_upd['ref'].astype(str) == str(row['ref'])
+                    df_sav_upd.loc[mask, 'statut'] = 'Réglée'
+                    df_sav_upd.loc[mask & (df_sav_upd['date_reglement'].astype(str).str.strip() == ''), 'date_reglement'] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                    save_gs_data(df_sav_upd, "Litiges_SAV", "data/db_sav.csv")
+                    log_action(st.session_state.current_user['username'], f"Règlement litige: {row['ref']}", "Expédition")
+                    st.success(f"✅ {row['client']} — {row['ref']} marqué comme Réglée")
+                    st.rerun()
+                if col_r3.button("🔒 Clôturer", key=f"cloture_{idx}", use_container_width=True):
+                    df_sav_upd = load_gs_data("Litiges_SAV", "data/db_sav.csv", COLS_SAV + ["secteur"])
+                    mask = df_sav_upd['ref'].astype(str) == str(row['ref'])
+                    df_sav_upd.loc[mask, 'statut'] = 'Clôturée'
+                    df_sav_upd.loc[mask & (df_sav_upd['date_reglement'].astype(str).str.strip() == ''), 'date_reglement'] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                    save_gs_data(df_sav_upd, "Litiges_SAV", "data/db_sav.csv")
+                    log_action(st.session_state.current_user['username'], f"Clôture litige: {row['ref']}", "Expédition")
+                    st.success(f"🔒 {row['client']} — {row['ref']} clôturé")
+                    st.rerun()
 
         # --- NOUVELLE SECTION : PERFORMANCE LIVREURS ---
         st.divider()
