@@ -21,6 +21,12 @@ COLS_LIVREURS = ["Nom", "Secteur"]
 COLS_SAV = ["client", "ville", "ref", "motif", "date_crea", "statut", "signature", "livreur", "date_reglement"]
 SAV_CONFIG_PATH = os.path.join(DATA_DIR, "sav_config.csv")
 
+def safe_set_date(df, mask, date_str):
+    """Assigne une date en sécurité même si la colonne est float/NaN."""
+    df['date_reglement'] = df['date_reglement'].astype(object)
+    df.loc[mask, 'date_reglement'] = date_str
+    return df
+
 # --- FONCTIONS DE CHARGEMENT ---
 def load_clients():
     df = load_gs_data("Secteurs", SECTEURS_PATH, COLS_CLIENTS)
@@ -622,7 +628,8 @@ with tab_suivi_sav:
                 now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
                 mask_encours = df_sav_upd['statut'] == 'En cours'
                 df_sav_upd.loc[mask_encours, 'statut'] = 'Réglée'
-                df_sav_upd.loc[mask_encours & (df_sav_upd['date_reglement'].astype(str).str.strip() == ''), 'date_reglement'] = now_str
+                empty_date_mask = mask_encours & (df_sav_upd['date_reglement'].astype(str).str.strip().isin(['', 'nan', 'None']))
+                df_sav_upd = safe_set_date(df_sav_upd, empty_date_mask, now_str)
                 save_gs_data(df_sav_upd, "Litiges_SAV", "data/db_sav.csv")
                 log_action(st.session_state.current_user['username'], f"Clôture en masse : {nb_en_cours} réclamations", "Expédition")
                 st.session_state["confirm_close_all"] = False
@@ -715,7 +722,8 @@ with tab_suivi_sav:
                     df_sav_upd = load_gs_data("Litiges_SAV", "data/db_sav.csv", COLS_SAV + ["secteur"])
                     mask = df_sav_upd['ref'].astype(str) == str(row['ref'])
                     df_sav_upd.loc[mask, 'statut'] = 'Réglée'
-                    df_sav_upd.loc[mask & (df_sav_upd['date_reglement'].astype(str).str.strip() == ''), 'date_reglement'] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                    empty_mask = mask & (df_sav_upd['date_reglement'].astype(str).str.strip().isin(['', 'nan', 'None']))
+                    df_sav_upd = safe_set_date(df_sav_upd, empty_mask, datetime.now().strftime("%Y-%m-%d %H:%M"))
                     save_gs_data(df_sav_upd, "Litiges_SAV", "data/db_sav.csv")
                     log_action(st.session_state.current_user['username'], f"Règlement litige: {row['ref']}", "Expédition")
                     st.success(f"✅ {row['client']} — {row['ref']} marqué comme Réglée")
@@ -724,7 +732,8 @@ with tab_suivi_sav:
                     df_sav_upd = load_gs_data("Litiges_SAV", "data/db_sav.csv", COLS_SAV + ["secteur"])
                     mask = df_sav_upd['ref'].astype(str) == str(row['ref'])
                     df_sav_upd.loc[mask, 'statut'] = 'Clôturée'
-                    df_sav_upd.loc[mask & (df_sav_upd['date_reglement'].astype(str).str.strip() == ''), 'date_reglement'] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                    empty_mask = mask & (df_sav_upd['date_reglement'].astype(str).str.strip().isin(['', 'nan', 'None']))
+                    df_sav_upd = safe_set_date(df_sav_upd, empty_mask, datetime.now().strftime("%Y-%m-%d %H:%M"))
                     save_gs_data(df_sav_upd, "Litiges_SAV", "data/db_sav.csv")
                     log_action(st.session_state.current_user['username'], f"Clôture litige: {row['ref']}", "Expédition")
                     st.success(f"🔒 {row['client']} — {row['ref']} clôturé")
