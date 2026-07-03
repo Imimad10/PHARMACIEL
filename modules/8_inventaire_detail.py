@@ -170,7 +170,10 @@ with tabs[1]:
                 st.warning(f"⚠️ **{qte_nc:,.0f} unités** en dépôt secondaire (non commercialisables)")
             
             cols_to_show = [c for c in ['produit', 'lot', 'qte_logi', 'depot', 'statut_stock', 'ddp', 'laboratoire'] if c in df_nc.columns]
-            st.dataframe(df_nc[cols_to_show].sort_values('statut_stock') if cols_to_show else df_nc, use_container_width=True, hide_index=True)
+            df_to_show = df_nc[cols_to_show] if cols_to_show else df_nc
+            if 'statut_stock' in df_to_show.columns:
+                df_to_show = df_to_show.sort_values('statut_stock')
+            st.dataframe(df_to_show, use_container_width=True, hide_index=True)
         else:
             st.success("✅ Aucun produit détecté dans le dépôt secondaire. Tous les stocks sont conformes.")
 
