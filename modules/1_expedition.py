@@ -104,8 +104,8 @@ def add_or_merge_row(client, ville, ref, info, statut, signature, mode, secteur=
 # --- INTERFACE ---
 st.title("🚛 Gestion des Expéditions")
 
-tab_exp, tab_suivi_sav, tab_admin = st.tabs([
-    "📋 Programme d'Expédition", "📊 Suivi des Litiges", "⚙️ Administration"
+tab_exp, tab_suivi_sav, tab_profilage, tab_admin = st.tabs([
+    "📋 Programme d'Expédition", "📊 Suivi des Litiges", "🧠 Profilage & Confiance", "⚙️ Administration"
 ])
 
 # 1. PROGRAMME D'EXPÉDITION
@@ -768,6 +768,123 @@ with tab_suivi_sav:
             st.info("Pas encore assez de données réglées pour afficher les performances.")
 
 # --- LES AUTRES ONGLETS SONT SUPPRIMÉS POUR CENTRALISATION ---
+
+# 3. PROFILAGE ET CONFIANCE CLIENT
+with tab_profilage:
+    st.header("🧠 Profilage & Confiance Client")
+    st.markdown("Détectez les clients à risque et identifiez les fraudes potentielles grâce à l'historique SAV.")
+    
+    if df_sav.empty:
+        st.info("Aucune donnée SAV disponible pour le profilage.")
+    else:
+        # Analyse des motifs pour attribuer un score de gravité
+        # Ex: MANQUE est très grave (fraude potentielle), ECHANGE est neutre.
+        def assign_gravity(motif):
+            m = str(motif).upper()
+            if "MANQUE" in m: return 3
+            if "CASSE" in m or "DETERIORE" in m: return 2
+            if "RETOUR" in m: return 1
+            return 0
+            
+        df_profil = df_sav.copy()
+        df_profil['gravite'] = df_profil['motif'].apply(assign_gravity)
+        
+        # Agrégation par client
+        client_stats = df_profil.groupby('client').agg(
+            total_reclamations=('ref', 'count'),
+            score_gravite=('gravite', 'sum'),
+            motifs_frequents=('motif', lambda x: ', '.join(x.value_counts().head(2).index.astype(str)))
+        ).reset_index()
+        
+        # Calcul de l'Indice de Confiance
+        # Plus l'indice est bas, moins le client est digne de confiance.
+        # Arbitrairement : 100 de base, -5 par réclamation normale, -15 par point de gravité.
+        client_stats['indice_confiance'] = 100 - (client_stats['total_reclamations'] * 5) - (client_stats['score_gravite'] * 15)
+        # On s'assure que l'indice reste entre 0 et 100
+        client_stats['indice_confiance'] = client_stats['indice_confiance'].clip(0, 100)
+        
+        def categoriser_client(score):
+            if score >= 80: return "🟢 Fiable"
+            if score >= 40: return "🟡 À Surveiller"
+            return "🔴 Risque Élevé"
+            
+        client_stats['Categorie'] = client_stats['indice_confiance'].apply(categoriser_client)
+        
+        # --- METRICS GLOBAUX ---
+        st.subheader("📊 Aperçu Global")
+        c1, c2, c3 = st.columns(3)
+        nb_clients_sav = len(client_stats)
+        clients_risque = len(client_stats[client_stats['Categorie'] == '🔴 Risque Élevé'])
+        pire_client = client_stats.sort_values('indice_confiance').iloc[0]['client'] if not client_stats.empty else "N/A"
+        
+        c1.metric("Clients avec au moins 1 Litige", nb_clients_sav)
+        c2.metric("Clients à Risque Élevé", clients_risque, delta="Attention requise", delta_color="inverse")
+        c3.metric("Client le plus problématique", pire_client)
+        
+        st.divider()
+        
+        # --- TOP PIRES CLIENTS ---
+        st.subheader("🚨 Top 10 Clients avec le plus de Réclamations")
+        top_10 = client_stats.sort_values('total_reclamations', ascending=False).head(10)
+        
+        fig = px.bar(top_10, x='client', y='total_reclamations', color='Categorie', 
+                     hover_data=['motifs_frequents', 'indice_confiance'],
+                     color_discrete_map={"🟢 Fiable": "#00CC96", "🟡 À Surveiller": "#FFA15A", "🔴 Risque Élevé": "#EF553B"},
+                     title="Volume de réclamations par client")
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # --- TABLEAU DE PROFILAGE ---
+        st.subheader("📋 Annuaire de Profilage")
+        
+        filtre_cat = st.selectbox("Filtrer par Catégorie", ["Toutes", "🟢 Fiable", "🟡 À Surveiller", "🔴 Risque Élevé"])
+        df_disp = client_stats.copy()
+        if filtre_cat != "Toutes":
+            df_disp = df_disp[df_disp['Categorie'] == filtre_cat]
+            
+        st.dataframe(
+            df_disp.sort_values('indice_confiance'),
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "client": "Nom du Client",
+                "total_reclamations": st.column_config.NumberColumn("Total Litiges"),
+                "score_gravite": st.column_config.NumberColumn("Score de Gravité (Cumulé)", help="MANQUE = 3, CASSE = 2, RETOUR = 1"),
+                "motifs_frequents": "Motifs Principaux",
+                "indice_confiance": st.column_config.ProgressColumn("Indice Confiance (/100)", min_value=0, max_value=100, format="%d"),
+                "Categorie": "Classification"
+            }
+        )
+        
+        # --- ANALYSE IA PAR CLIENT ---
+        st.divider()
+        st.subheader("🤖 Analyse Détaillée assistée par l'IA")
+        
+        client_to_analyze = st.selectbox("Sélectionnez un client pour générer un rapport :", client_stats.sort_values('total_reclamations', ascending=False)['client'].tolist())
+        
+        if st.button(f"Générer le rapport pour {client_to_analyze}", type="primary"):
+            if not is_ia_enabled():
+                st.error("L'IA n'est pas configurée. Vérifiez vos clés API dans le Centre de Notifications IA.")
+            else:
+                with st.spinner(f"Analyse du comportement de {client_to_analyze} en cours..."):
+                    client_history = df_profil[df_profil['client'] == client_to_analyze]
+                    
+                    prompt = f'''Tu es un expert en lutte contre la fraude et en relation client pour un grossiste répartiteur pharmaceutique (PHARMACIEL).
+On te demande d'analyser le client "{client_to_analyze}".
+
+Voici son historique de réclamations :
+{client_history[['date_crea', 'ref', 'motif', 'statut']].to_markdown(index=False)}
+
+Le système lui a attribué un indice de confiance de {client_stats[client_stats['client'] == client_to_analyze]['indice_confiance'].values[0]}/100.
+Les réclamations pour "MANQUE" sont particulièrement suspectes car elles peuvent cacher de la fraude si elles sont répétitives.
+
+Rédige un rapport très concis (3-4 points) pour le responsable SAV :
+1. Analyse rapide de la nature des réclamations de ce client.
+2. S'agit-il d'un comportement normal ou suspect ?
+3. Recommandation d'action (ex: exiger des preuves vidéo, refuser les échanges, ou relation de confiance à maintenir).
+'''
+                    reponse = ask_ai(prompt)
+                    st.success("Rapport généré avec succès.")
+                    st.markdown(reponse)
 
 # 4. ADMINISTRATION
 with tab_admin:
