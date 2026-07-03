@@ -694,7 +694,7 @@ with tab_suivi_sav:
                 # Auto-date quand statut passe à Réglée/Livré/Clôturée
                 mask_resolved = edited_df['statut'].isin(['Réglée', 'Livré', 'Clôturée'])
                 mask_no_date = edited_df['date_reglement'].astype(str).str.strip().isin(['', 'nan', 'None'])
-                edited_df.loc[mask_resolved & mask_no_date, 'date_reglement'] = now_str
+                edited_df = safe_set_date(edited_df, mask_resolved & mask_no_date, now_str)
                 
                 df_to_save = edited_df[COLS_SAV + ["secteur"]].copy()
                 df_to_save['date_crea'] = pd.to_datetime(edited_df['date_crea']).dt.strftime("%Y-%m-%d %H:%M")
