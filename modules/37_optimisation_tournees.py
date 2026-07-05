@@ -13,8 +13,8 @@ def get_mock_deliveries():
         "ID_Client": ["C001", "C002", "C003", "C004", "C005"],
         "Pharmacie": ["Pharmacie Centrale", "Pharmacie El Amel", "Pharmacie Errazi", "Pharmacie Echifa", "Pharmacie Pasteur"],
         "Secteur": ["Alger Centre", "Bab Ezzouar", "Kouba", "Hydra", "El Harrach"],
-        "Lat": [36.7525, 36.7196, 36.7323, 36.7450, 36.7214],
-        "Lon": [3.04197, 3.1819, 3.0850, 3.0333, 3.1369],
+        "latitude": [36.7525, 36.7196, 36.7323, 36.7450, 36.7214],
+        "longitude": [3.04197, 3.1819, 3.0850, 3.0333, 3.1369],
         "Statut": ["En attente"] * 5
     })
 
@@ -35,7 +35,7 @@ with col1:
 with col2:
     st.subheader("Cartographie")
     if st.session_state.get('show_route', False):
-        st.map(df_deliveries)
+        st.map(df_deliveries, latitude="latitude", longitude="longitude", zoom=12)
         st.info(f"**Itinéraire recommandé pour {vehicule}:** Dépôt -> Hydra -> Alger Centre -> Kouba -> El Harrach -> Bab Ezzouar")
     else:
         st.info("Cliquez sur 'Calculer la tournée optimale' pour afficher la carte.")
