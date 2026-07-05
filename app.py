@@ -472,7 +472,7 @@ GOLDEN_BACKUP_PATH = "data/golden_roles_backup.json"
 
 # Définition des pages par métier (synchronisée avec golden_roles_backup.json)
 PAGES_BY_METIER = {
-    "Admin": str(['Dashboard', 'Profil', 'Admin Centrale', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Pointage Marchandise', 'Réception Fournisseurs', 'Péremptions', 'Scanneur QR', 'Scan Mobile', 'Litiges Fournisseurs', 'Analyse Rotation', 'RH', 'RH Planning', 'Clients', 'Liste des Lots', 'Catalogue Produits', 'Page de Garde', 'Assistant IA', 'Transferts', 'Coordination', 'Qualité IA', 'Mon Coin', 'Briefing IA', 'Maintenance', 'Académie', 'Prévisions', 'Mode Meeting', 'Répartition Zones', 'Analyse Réclamations', 'Performance Ventes', 'Cortex IA', 'Automatisation', 'Portail B2B', 'Optimisation Tournées', 'Prédiction Rupture', 'Gestion Documentaire']),
+    "Admin": str(['Dashboard', 'Profil', 'Admin Centrale', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Pointage Marchandise', 'Réception Fournisseurs', 'Péremptions', 'Scanneur QR', 'Scan Mobile', 'Litiges Fournisseurs', 'Analyse Rotation', 'RH', 'RH Planning', 'Clients', 'Liste des Lots', 'Catalogue Produits', 'Page de Garde', 'Assistant IA', 'Transferts', 'Coordination', 'Qualité IA', 'Mon Coin', 'Briefing IA', 'Maintenance', 'Académie', 'Prévisions', 'Mode Meeting', 'Répartition Zones', 'Analyse Réclamations', 'Performance Ventes', 'Cortex IA', 'Automatisation', 'Portail B2B', 'Optimisation Tournées', 'Prédiction Rupture', 'Gestion Documentaire', 'Retours & Avoirs', 'Vigilance & Rappels', 'Campagnes & Remises']),
     "Agent de Stock": str(['Profil', 'Dashboard', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Péremptions', 'Liste des Lots', 'Catalogue Produits', 'Répartition Zones', 'Scanneur QR', 'Scan Mobile', 'Transferts']),
     "Chef Livreurs & Parc": str(['Profil', 'Dashboard', 'Logistique', 'Pointage Expéditeur', 'Recouvrement', 'Maintenance', 'Clients', 'Suivi', 'Analyse Rotation', 'Transferts', 'Page de Garde']),
     "Superviseur": str(['Profil', 'Dashboard', 'Analyse Rotation', 'Analyse Réclamations', 'Performance Ventes', 'Prévisions', 'Logistique', 'Inventaire', 'RH', 'Briefing IA', 'Mode Meeting']),
@@ -525,7 +525,7 @@ GOLDEN_USERS = [
 # CHARTE PHARMACIEL (Filiale) — Golden Backup
 # ═══════════════════════════════════════════════════════════════════
 PAGES_BY_METIER_PHARMACIEL = {
-    "Admin": str(['Dashboard', 'Profil', 'Admin Centrale', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Pointage Marchandise', 'Réception Fournisseurs', 'Péremptions', 'Scanneur QR', 'Scan Mobile', 'Litiges Fournisseurs', 'Analyse Rotation', 'RH', 'RH Planning', 'Liste des Lots', 'Catalogue Produits', 'Page de Garde', 'Assistant IA', 'Transferts', 'Coordination', 'Qualité IA', 'Mon Coin', 'Briefing IA', 'Académie', 'Prévisions', 'Répartition Zones', 'Analyse Réclamations', 'Performance Ventes', 'Cortex IA', 'Automatisation', 'Portail B2B', 'Optimisation Tournées', 'Prédiction Rupture', 'Gestion Documentaire']),
+    "Admin": str(['Dashboard', 'Profil', 'Admin Centrale', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Pointage Marchandise', 'Réception Fournisseurs', 'Péremptions', 'Scanneur QR', 'Scan Mobile', 'Litiges Fournisseurs', 'Analyse Rotation', 'RH', 'RH Planning', 'Liste des Lots', 'Catalogue Produits', 'Page de Garde', 'Assistant IA', 'Transferts', 'Coordination', 'Qualité IA', 'Mon Coin', 'Briefing IA', 'Académie', 'Prévisions', 'Répartition Zones', 'Analyse Réclamations', 'Performance Ventes', 'Cortex IA', 'Automatisation', 'Portail B2B', 'Optimisation Tournées', 'Prédiction Rupture', 'Gestion Documentaire', 'Retours & Avoirs', 'Vigilance & Rappels', 'Campagnes & Remises']),
     "Gestionnaire de Stock": str(['Profil', 'Dashboard', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Péremptions', 'Liste des Lots', 'Catalogue Produits', 'Répartition Zones', 'Scanneur QR', 'Scan Mobile', 'Transferts', 'Réception Fournisseurs', 'Coordination', 'Analyse Rotation']),
     "Préparateur": str(['Profil', 'Pointage Marchandise', 'Réception Fournisseurs', 'Inventaire Détail', 'Scanneur QR', 'Scan Mobile', 'Transferts', 'Coordination']),
 }
@@ -984,69 +984,150 @@ Bienvenue 👋
             st.session_state.theme = choix_theme
             st.rerun()
 
-        u = st.text_input("u", placeholder="👤  Nom d'utilisateur",
-                          label_visibility="collapsed", key="login_u")
-        p = st.text_input("p", type="password", placeholder="🔒  Mot de passe",
-                          label_visibility="collapsed", key="login_p")
-
-        c1b, c2b = st.columns([1, 1])
-        with c1b:
-            rester_connecte = st.checkbox("Rester connecté", value=True)
-        with c2b:
-            st.markdown("")
-
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-
-        if st.button(f"Se connecter  {_etab_icon}", type="primary", use_container_width=True):
-            res = df_users[(df_users['username'].astype(str).str.lower() == str(u).lower()) & (df_users['password'] == p)]
-            if not res.empty:
-                user_data = res.iloc[0].to_dict()
-                st.session_state.current_user = user_data
-                st.session_state.etablissement = _active_etab_login
-                if rester_connecte:
-                    st.session_state.remember_me = True
-                    try:
-                        controller.set("user_token", str(user_data['username']), max_age=86400 * 30)
-                        controller.set("etab_token", _active_etab_login, max_age=86400 * 30)
-                    except Exception as e:
-                        pass
+        if "show_forgot_password" not in st.session_state:
+            st.session_state.show_forgot_password = False
+            
+        if not st.session_state.show_forgot_password:
+            u = st.text_input("u", placeholder="👤  Nom d'utilisateur",
+                              label_visibility="collapsed", key="login_u")
+            p = st.text_input("p", type="password", placeholder="🔒  Mot de passe",
+                              label_visibility="collapsed", key="login_p")
+    
+            c1b, c2b = st.columns([1, 1])
+            with c1b:
+                rester_connecte = st.checkbox("Rester connecté", value=True)
+            with c2b:
+                st.markdown("")
+    
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    
+            if st.button(f"Se connecter  {_etab_icon}", type="primary", use_container_width=True):
+                res = df_users[(df_users['username'].astype(str).str.lower() == str(u).lower()) & (df_users['password'] == p)]
+                if not res.empty:
+                    user_data = res.iloc[0].to_dict()
+                    st.session_state.current_user = user_data
+                    st.session_state.etablissement = _active_etab_login
+                    if rester_connecte:
+                        st.session_state.remember_me = True
+                        try:
+                            controller.set("user_token", str(user_data['username']), max_age=86400 * 30)
+                            controller.set("etab_token", _active_etab_login, max_age=86400 * 30)
+                        except Exception as e:
+                            pass
+                    else:
+                        st.session_state.remember_me = False
+                        try:
+                            controller.remove("user_token")
+                            controller.remove("etab_token")
+                        except Exception:
+                            pass
+                    st.rerun()
                 else:
-                    st.session_state.remember_me = False
-                    try:
-                        controller.remove("user_token")
-                        controller.remove("etab_token")
-                    except Exception:
-                        pass
+                    st.markdown(f"""
+                    <div style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4);
+                                 border-radius:12px; padding:14px 18px; margin-top:12px;
+                                 color:#fca5a5; font-size:0.9rem; font-weight:500;">
+                        ❌ Identifiants incorrects — vérifiez vos informations
+                    </div>
+                    """, unsafe_allow_html=True)
+    
+            st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+            if st.button("❓ Mot de passe oublié ?", use_container_width=True, key="btn_forgot_pwd"):
+                st.session_state.show_forgot_password = True
+                st.session_state.reset_step = 1
                 st.rerun()
-            else:
-                st.markdown(f"""
-                <div style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4);
-                             border-radius:12px; padding:14px 18px; margin-top:12px;
-                             color:#fca5a5; font-size:0.9rem; font-weight:500;">
-                    ❌ Identifiants incorrects — vérifiez vos informations
+    
+            st.markdown("""
+                <div style="text-align:center; margin-top:24px;">
+                    <div style="width:100%; height:1px; background:rgba(255,255,255,0.08);
+                                 margin-bottom:20px;"></div>
                 </div>
-                """, unsafe_allow_html=True)
-
-        st.markdown("""
-            <div style="text-align:center; margin-top:24px;">
-                <div style="width:100%; height:1px; background:rgba(255,255,255,0.08);
-                             margin-bottom:20px;"></div>
-            </div>
-        """, unsafe_allow_html=True)
-
-        if st.button("⬅️  Changer d'établissement", key="btn_change_etab",
-                     use_container_width=True):
-            st.session_state.etablissement = None
-            st.session_state.current_user = None
-            st.cache_data.clear()
-            try:
-                controller.remove("etab_token")
-                controller.remove("user_token")
-            except Exception:
-                pass
-            st.rerun()
-
-        st.markdown("</div></div>", unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
+    
+            if st.button("⬅️  Changer d'établissement", key="btn_change_etab",
+                         use_container_width=True):
+                st.session_state.etablissement = None
+                st.session_state.current_user = None
+                st.cache_data.clear()
+                try:
+                    controller.remove("etab_token")
+                    controller.remove("user_token")
+                except Exception:
+                    pass
+                st.rerun()
+    
+            st.markdown("</div></div>", unsafe_allow_html=True)
+        else:
+            # === FORGOT PASSWORD UI ===
+            st.markdown("<h4 style='color:white; margin-bottom:20px;'>Réinitialisation du mot de passe</h4>", unsafe_allow_html=True)
+            
+            if "reset_step" not in st.session_state:
+                st.session_state.reset_step = 1
+                
+            if st.session_state.reset_step == 1:
+                reset_user = st.text_input("Nom d'utilisateur", key="reset_u", placeholder="👤  Votre nom d'utilisateur")
+                reset_email = st.text_input("Adresse e-mail", key="reset_e", placeholder="✉️  L'adresse e-mail associée")
+                
+                if st.button("Envoyer le code", type="primary", use_container_width=True):
+                    res = df_users[(df_users['username'].astype(str).str.lower() == str(reset_user).lower())]
+                    if not res.empty:
+                        user_email = str(res.iloc[0].get('email', '')).lower().strip()
+                        if user_email and user_email == str(reset_email).lower().strip() and user_email != "nan":
+                            import random
+                            code = str(random.randint(100000, 999999))
+                            st.session_state.reset_code = code
+                            st.session_state.reset_username = reset_user
+                            
+                            from utils_email import send_reset_code
+                            success, msg = send_reset_code(reset_email, code)
+                            if success:
+                                st.session_state.reset_step = 2
+                                st.rerun()
+                            else:
+                                st.error(msg)
+                        else:
+                            st.error("❌ E-mail incorrect ou non configuré pour cet utilisateur.")
+                    else:
+                        st.error("❌ Utilisateur introuvable.")
+                        
+                st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+                if st.button("⬅️  Retour à la connexion", use_container_width=True):
+                    st.session_state.show_forgot_password = False
+                    st.rerun()
+                    
+            elif st.session_state.reset_step == 2:
+                st.info("Un code à 6 chiffres a été envoyé à votre adresse e-mail.")
+                code_input = st.text_input("Code de sécurité", key="reset_code_input", placeholder="123456")
+                new_pwd = st.text_input("Nouveau mot de passe", type="password", key="reset_new_pwd")
+                
+                if st.button("Valider et réinitialiser", type="primary", use_container_width=True):
+                    if code_input == st.session_state.reset_code:
+                        if new_pwd and len(new_pwd) >= 4:
+                            uname = st.session_state.reset_username
+                            mask = df_users['username'].astype(str).str.lower() == str(uname).lower()
+                            df_users.loc[mask, 'password'] = new_pwd
+                            
+                            from utils_gsheets import save_gs_data, save_users_to_config
+                            save_gs_data(df_users, _users_ws, _users_fb, force_cloud=True)
+                            save_users_to_config(df_users)
+                            
+                            st.success("✅ Mot de passe réinitialisé avec succès ! Vous pouvez vous connecter.")
+                            import time
+                            time.sleep(2)
+                            st.session_state.show_forgot_password = False
+                            st.session_state.reset_step = 1
+                            st.rerun()
+                        else:
+                            st.error("⚠️ Le mot de passe doit contenir au moins 4 caractères.")
+                    else:
+                        st.error("❌ Code incorrect.")
+                        
+                st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+                if st.button("⬅️  Annuler", use_container_width=True):
+                    st.session_state.show_forgot_password = False
+                    st.rerun()
+            
+            st.markdown("</div></div>", unsafe_allow_html=True)
 
     st.stop()
 
@@ -1079,7 +1160,7 @@ if not isinstance(user_pages, list):
 is_admin = user.get('role') == 'Admin'
 
 if is_admin:
-    for extra_page in ["Cortex IA", "Automatisation", "Liste des Lots", "Répartition Zones", "Analyse Réclamations", "Performance Ventes", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Réception Fournisseurs", "Litiges Fournisseurs", "Assistant IA", "Base IA", "Transferts", "Coordination", "Qualité IA", "Mon Coin", "Briefing IA", "Maintenance", "Académie", "Prévisions", "Mode Meeting", "Page de Garde"]:
+    for extra_page in ["Cortex IA", "Automatisation", "Liste des Lots", "Répartition Zones", "Analyse Réclamations", "Performance Ventes", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Réception Fournisseurs", "Litiges Fournisseurs", "Assistant IA", "Base IA", "Transferts", "Coordination", "Qualité IA", "Mon Coin", "Briefing IA", "Maintenance", "Académie", "Prévisions", "Mode Meeting", "Page de Garde", "Portail B2B", "Optimisation Tournées", "Prédiction Rupture", "Gestion Documentaire", "Retours & Avoirs", "Vigilance & Rappels", "Campagnes & Remises"]:
         if extra_page not in user_pages:
             user_pages.append(extra_page)
 
@@ -1127,6 +1208,13 @@ ALL_PAGES = {
     "Performance Ventes": st.Page("modules/32_analyse_ventes.py", title="Performance Ventes", icon="💰"),
     "Cortex IA": st.Page("modules/33_cortex_ia.py", title="Cortex Stratégique IA", icon="🧠"),
     "Base IA": st.Page("modules/35_base_ia.py", title="Base d'Apprentissage IA", icon="🤖"),
+    "Portail B2B": st.Page("modules/36_portail_b2b.py", title="Portail B2B & Commandes", icon="🌐"),
+    "Optimisation Tournées": st.Page("modules/37_optimisation_tournees.py", title="Optimisation des Tournées", icon="🗺️"),
+    "Prédiction Rupture": st.Page("modules/38_prediction_rupture.py", title="Prédiction de Rupture", icon="🔮"),
+    "Gestion Documentaire": st.Page("modules/39_gestion_documentaire.py", title="Gestion Documentaire", icon="📜"),
+    "Retours & Avoirs": st.Page("modules/40_retours_avoirs.py", title="Retours & Avoirs Clients", icon="🔄"),
+    "Vigilance & Rappels": st.Page("modules/41_vigilance_rappels.py", title="Vigilance & Rappels de Lots", icon="🛡️"),
+    "Campagnes & Remises": st.Page("modules/42_campagnes_remises.py", title="Offres & Remises", icon="🏷️"),
     "Profil": st.Page("modules/17_profil.py", title="Mon Profil", icon="👤")
 }
 
@@ -1140,10 +1228,10 @@ assigned_keys = []
 # Définition des groupes et de leurs membres (clés de ALL_PAGES)
 CATEGORIES = {
     "👤 MON PROFIL": ["Profil", "Mon Coin"],
-    "📊 SUPERVISION": ["Master Global", "Dashboard", "Analyse Rotation", "Prévisions", "Mode Meeting", "Analyse Réclamations", "Performance Ventes", "Suivi", "Dashboard Premium"],
-    "📦 GESTION DES STOCKS": ["Inventaire", "Inventaire Détail", "Inventaire Triple", "Péremptions", "Liste des Lots", "Catalogue Produits", "Répartition Zones"],
+    "📊 SUPERVISION": ["Master Global", "Dashboard", "Analyse Rotation", "Prévisions", "Mode Meeting", "Analyse Réclamations", "Performance Ventes", "Suivi", "Dashboard Premium", "Optimisation Tournées"],
+    "📦 GESTION DES STOCKS": ["Inventaire", "Inventaire Détail", "Inventaire Triple", "Péremptions", "Liste des Lots", "Catalogue Produits", "Répartition Zones", "Prédiction Rupture", "Gestion Documentaire", "Vigilance & Rappels"],
     "🏭 FOURNISSEURS": ["Réception Fournisseurs", "Pointage Marchandise", "Litiges Fournisseurs"],
-    "📝 POINTAGES & FLUX": ["Pointage", "Pointage Expéditeur", "Page de Garde", "Recouvrement", "Logistique", "Scanneur QR", "Scan Mobile", "Transferts", "Clients"],
+    "📝 POINTAGES & FLUX": ["Pointage", "Pointage Expéditeur", "Page de Garde", "Recouvrement", "Logistique", "Scanneur QR", "Scan Mobile", "Transferts", "Clients", "Portail B2B", "Retours & Avoirs", "Campagnes & Remises"],
     "🤖 DARPHARM IA": ["Cortex IA", "Assistant IA", "Base IA", "Qualité IA", "Briefing IA", "Automatisation", "Coordination", "Académie"],
     "🏥 ADMINISTRATION": ["Admin Centrale", "RH", "RH Planning", "Maintenance"]
 }

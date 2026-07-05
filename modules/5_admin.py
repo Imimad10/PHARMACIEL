@@ -18,7 +18,7 @@ GOLDEN_METIERS = {
     "Préparateur":          {'icon':'⚙️','color':'#64748b','bg':'#f8fafc'},
 }
 PAGES_BY_METIER = {
-    "Admin": str(['Dashboard','Profil','Admin Centrale','Gestion des Accès','Logistique','Inventaire','Inventaire Détail','Inventaire Triple','Suivi','Recouvrement','Pointage','Pointage Expéditeur','Pointage Marchandise','Péremptions','Scanneur QR','Scan Mobile','Litiges Fournisseurs','Analyse Rotation','RH','RH Planning','Clients','Liste des Lots','Catalogue Produits','Page de Garde','Assistant IA','Transferts','Coordination','Qualité IA','Mon Coin','Briefing IA','Maintenance','Académie','Prévisions','Mode Meeting','Répartition Zones','Analyse Réclamations','Performance Ventes','Cortex IA','Automatisation']),
+    "Admin": str(['Dashboard','Profil','Admin Centrale','Gestion des Accès','Logistique','Inventaire','Inventaire Détail','Inventaire Triple','Suivi','Recouvrement','Pointage','Pointage Expéditeur','Pointage Marchandise','Péremptions','Scanneur QR','Scan Mobile','Litiges Fournisseurs','Analyse Rotation','RH','RH Planning','Clients','Liste des Lots','Catalogue Produits','Page de Garde','Assistant IA','Transferts','Coordination','Qualité IA','Mon Coin','Briefing IA','Maintenance','Académie','Prévisions','Mode Meeting','Répartition Zones','Analyse Réclamations','Performance Ventes','Cortex IA','Automatisation','Portail B2B','Optimisation Tournées','Prédiction Rupture','Gestion Documentaire','Retours & Avoirs','Vigilance & Rappels','Campagnes & Remises']),
     "Agent de Stock":       str(['Profil','Dashboard','Inventaire','Inventaire Détail','Inventaire Triple','Péremptions','Liste des Lots','Catalogue Produits','Répartition Zones','Scanneur QR','Scan Mobile','Transferts']),
     "Chef Livreurs & Parc": str(['Profil','Dashboard','Logistique','Pointage Expéditeur','Recouvrement','Maintenance','Clients','Coordination','Suivi','Analyse Rotation','Transferts','Page de Garde']),
     "Superviseur":          str(['Profil','Dashboard','Analyse Rotation','Analyse Réclamations','Performance Ventes','Prévisions','Logistique','Inventaire','RH','Coordination','Briefing IA','Mode Meeting']),
@@ -187,6 +187,24 @@ with tabs[0]:
         save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
         st.success(f"✅ Charte restaurée pour {restored} utilisateurs.")
         st.rerun()
+
+    st.markdown("---")
+
+    # ── Synchronisation Cloud ──────────────────────────────────────
+    col_s1, col_s2 = st.columns([4,1])
+    col_s1.markdown("**☁️ Synchronisation Google Sheets** — Forcez la mise à jour des accès, rôles et modules à partir de la base cloud.")
+    if col_s2.button("🔄 Synchroniser", type="primary", use_container_width=True):
+        st.cache_data.clear()
+        from utils_gsheets import load_gs_data, save_users_to_config
+        df_fresh = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, USER_COLUMNS, force_cloud=True)
+        if not df_fresh.empty:
+            save_users_to_config(df_fresh)
+            st.success("✅ Base utilisateurs synchronisée avec succès depuis le Cloud !")
+            import time
+            time.sleep(1)
+            st.rerun()
+        else:
+            st.error("❌ Échec de la récupération des données depuis Google Sheets.")
 
     st.markdown("---")
 
