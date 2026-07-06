@@ -516,34 +516,57 @@ with tabs[0]:
         cols_lower = [c.lower() for c in cols]
         
         if not target:
+            # ── PRIORITÉ 0 : RÉCLAMATIONS LOGIPHARM (préfixe RC dans la colonne Référence) ──
+            # Les fichiers de réclamations Logipharm ont une colonne 'Référence' dont les valeurs
+            # commencent par 'RC' (ex: 26/RC0000000144). Cette règle est prioritaire sur tout.
+            _ref_col = None
+            for c in df_up.columns:
+                if str(c).strip().lower() in ["référence", "reference", "réf.", "ref.", "ref"]:
+                    _ref_col = c
+                    break
+            if _ref_col is not None:
+                _ref_sample = df_up[_ref_col].dropna().astype(str).str.upper().str.strip()
+                _rc_count = _ref_sample.str.contains(r'/RC\d|^RC\d', regex=True, na=False).sum()
+                if _rc_count > 0:
+                    target = "Analyse_Reclamations"
+                    # Renommer les colonnes Unnamed en noms sémantiques selon la structure Logipharm
+                    logi_reclam_rename = {}
+                    unnamed_cols = [c for c in df_up.columns if str(c).startswith("Unnamed:")]
+                    semantic_names = ["Valide", "Imprime", "Expedie", "Cloture"]
+                    for i, uc in enumerate(unnamed_cols[:4]):
+                        logi_reclam_rename[uc] = semantic_names[i]
+                    if logi_reclam_rename:
+                        df_up = df_up.rename(columns=logi_reclam_rename)
+                    df_up = clean_reclam_cols(df_up)
+
             # ── PRIORITÉ 1 : RECOUVREMENT (champs financiers client) ──
             _rec_keys = ["reste à payer", "reste a payer", "montant réglé", "montant regle"]
-            if any(x in cols_lower for x in _rec_keys) and "client" in cols_lower:
+            if not target and any(x in cols_lower for x in _rec_keys) and "client" in cols_lower:
                 target = "Recouvrement_Logipharm"
                 df_up = clean_recouvrement_logipharm_cols(df_up)
 
-            # ── PRIORITÉ 2 : RÉCLAMATIONS ──
-            elif any(x in cols_lower for x in ["réclam.", "reclam.", "imprime réclam", "qte réclam.", "qte reclam."]):
+            # ── PRIORITÉ 2 : RÉCLAMATIONS (colonnes nominatives classiques) ──
+            elif not target and any(x in cols_lower for x in ["réclam.", "reclam.", "imprime réclam", "qte réclam.", "qte reclam."]):
                 target = "Analyse_Reclamations"
                 df_up = clean_reclam_cols(df_up)
 
             # ── PRIORITÉ 3 : ANALYSE VENTES (h.t/marge sans reste à payer) ──
-            elif any(x in cols_lower for x in ["h.t", "prix_vente", "total ht", "marge ph.", "tx qt%", "offre lab."]):
+            elif not target and any(x in cols_lower for x in ["h.t", "prix_vente", "total ht", "marge ph.", "tx qt%", "offre lab."]):
                 target = "Analyse_Ventes_Perf"
                 df_up = clean_sales_cols(df_up)
 
             # ── PRIORITÉ 4 : INVENTAIRE (dépôt/lots) ──
-            elif any(x in cols_lower for x in ["dépôt", "depot", "quantité dépôt", "quantité depot", "qte.globale", "n°lot", "zone produit"]):
+            elif not target and any(x in cols_lower for x in ["dépôt", "depot", "quantité dépôt", "quantité depot", "qte.globale", "n°lot", "zone produit"]):
                 target = "Master_Inventaire_Zone"
                 df_up = clean_inventory_cols(df_up)
 
             # ── PRIORITÉ 5 : EXPÉDITION / POINTAGE ──
-            elif any(x in cols_lower for x in ["préparateur", "preparateur", "vérificateur", "verificateur"]) and "client" in cols_lower:
+            elif not target and any(x in cols_lower for x in ["préparateur", "preparateur", "vérificateur", "verificateur"]) and "client" in cols_lower:
                 target = "Expedition_Logipharm"
                 df_up = clean_expedition_logipharm_cols(df_up)
 
             # ── PRIORITÉ 6 : UTILISATEURS ──
-            elif "username" in cols_lower:
+            elif not target and "username" in cols_lower:
                 target = "Utilisateurs"
                 mapping = {c: "username" for c in cols if c.lower() == "username"}
                 mapping.update({c: "password" for c in cols if c.lower() in ["password", "mot de passe", "pwd"]})
@@ -554,7 +577,7 @@ with tabs[0]:
                 mapping.update({c: "pages" for c in cols if c.lower() == "pages"})
 
             # ── PRIORITÉ 7 : LIVREURS ──
-            elif "prenom" in cols_lower or "prénom" in cols_lower:
+            elif not target and ("prenom" in cols_lower or "prénom" in cols_lower):
                 target = "Livreurs"
                 mapping = {c: "Prénom" for c in cols if c.lower() in ["prenom","prénom"]}
                 mapping.update({c: "Nom" for c in cols if c.lower() == "nom"})
@@ -562,7 +585,7 @@ with tabs[0]:
                 mapping.update({c: "Téléphone" for c in cols if c.lower() in ["téléphone","telephone","tel"]})
 
             # ── PRIORITÉ 8 : SECTEURS ──
-            elif "ville" in cols_lower:
+            elif not target and "ville" in cols_lower:
                 target = "Secteurs"
                 mapping = {c: "Client" for c in cols if c.lower() in ["client","raison sociale","nom client"]}
                 mapping.update({c: "Ville" for c in cols if c.lower() == "ville"})
@@ -570,7 +593,7 @@ with tabs[0]:
                 mapping.update({c: "Tel" for c in cols if c.lower() in ["tel","téléphone","telephone"]})
 
             # ── PRIORITÉ 9 : BASE CLIENTS ──
-            elif any(c.lower() in ["raison sociale","nom client","nom", "client", "pharmacie"] for c in cols):
+            elif not target and any(c.lower() in ["raison sociale","nom client","nom", "client", "pharmacie"] for c in cols):
                 target = "Base_Clients"
                 df_up = clean_client_cols(df_up)
                 if 'Nom_Pharmacie' not in df_up.columns:
