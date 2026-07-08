@@ -22,7 +22,17 @@ col1, col2 = st.columns([2, 1])
 with col1:
     st.subheader("Alertes Haut Risque")
     df_alert = df_pred[df_pred['Jours restants estimés'] <= 15].copy()
-    st.dataframe(df_alert.style.applymap(lambda x: "background-color: #ffcccc; color: red;" if isinstance(x, (int, float)) and x <= 7 else "", subset=['Jours restants estimés']), use_container_width=True, hide_index=True)
+    def highlight_critical(val):
+        if isinstance(val, (int, float)) and val <= 7:
+            return "background-color: #ffcccc; color: red;"
+        return ""
+
+    # Utiliser .map() au lieu de .applymap() (déprécié en Pandas 2.1+)
+    st.dataframe(
+        df_alert.style.map(highlight_critical, subset=['Jours restants estimés']),
+        use_container_width=True,
+        hide_index=True
+    )
 
 with col2:
     st.subheader("Actions Recommandées")
