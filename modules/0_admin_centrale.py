@@ -746,14 +746,11 @@ with tabs[0]:
                                     if pd.isna(motif_val):
                                         motif_val = ""
                                         
-                                updated_row = new_row.copy()
-                                updated_row["decision"] = dec_val
-                                updated_row["motif"] = motif_val
-                                df_old_indexed.loc[ref] = updated_row
+                                df_up_indexed.loc[ref, "decision"] = dec_val
+                                df_up_indexed.loc[ref, "motif"] = motif_val
                                 
-                            new_refs = df_up_indexed.index.difference(df_old_indexed.index)
-                            if len(new_refs) > 0:
-                                df_old_indexed = pd.concat([df_old_indexed, df_up_indexed.loc[new_refs]], ignore_index=False)
+                            df_old_indexed = df_old_indexed.drop(common_refs)
+                            df_old_indexed = pd.concat([df_old_indexed, df_up_indexed], ignore_index=False)
                                 
                             df_merged = df_old_indexed.reset_index(drop=True)
                         else:
