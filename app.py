@@ -1160,7 +1160,7 @@ if not isinstance(user_pages, list):
 is_admin = user.get('role') == 'Admin'
 
 if is_admin:
-    for extra_page in ["Cortex IA", "Automatisation", "Liste des Lots", "Répartition Zones", "Analyse Réclamations", "Performance Ventes", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Réception Fournisseurs", "Litiges Fournisseurs", "Assistant IA", "Base IA", "Transferts", "Coordination", "Qualité IA", "Mon Coin", "Briefing IA", "Maintenance", "Académie", "Prévisions", "Mode Meeting", "Page de Garde", "Portail B2B", "Optimisation Tournées", "Prédiction Rupture", "Gestion Documentaire", "Retours & Avoirs", "Vigilance & Rappels", "Campagnes & Remises"]:
+    for extra_page in ["Cortex IA", "Automatisation", "Liste des Lots", "Répartition Zones", "Analyse Réclamations", "Performance Ventes", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Réception Fournisseurs", "Litiges Fournisseurs", "Assistant IA", "Base IA", "Transferts", "Coordination", "Qualité IA", "Mon Coin", "Briefing IA", "Maintenance", "Académie", "Prévisions", "Mode Meeting", "Page de Garde", "Portail B2B", "Optimisation Tournées", "Prédiction Rupture", "Gestion Documentaire", "Retours & Avoirs", "Vigilance & Rappels", "Campagnes & Remises", "Fiche Client 360", "Pilotage Rotations"]:
         if extra_page not in user_pages:
             user_pages.append(extra_page)
 
@@ -1215,6 +1215,8 @@ ALL_PAGES = {
     "Retours & Avoirs": st.Page("modules/40_retours_avoirs.py", title="Retours & Avoirs Clients", icon="🔄"),
     "Vigilance & Rappels": st.Page("modules/41_vigilance_rappels.py", title="Vigilance & Rappels de Lots", icon="🛡️"),
     "Campagnes & Remises": st.Page("modules/42_campagnes_remises.py", title="Offres & Remises", icon="🏷️"),
+    "Fiche Client 360": st.Page("modules/43_fiche_client_360.py", title="Fiche Client 360°", icon="🏆"),
+    "Pilotage Rotations": st.Page("modules/44_pilotage_rotations.py", title="Pilotage Rotations & Charge", icon="⚡"),
     "Profil": st.Page("modules/17_profil.py", title="Mon Profil", icon="👤")
 }
 
@@ -1228,7 +1230,7 @@ assigned_keys = []
 # Définition des groupes et de leurs membres (clés de ALL_PAGES)
 CATEGORIES = {
     "👤 MON PROFIL": ["Profil", "Mon Coin"],
-    "📊 SUPERVISION": ["Master Global", "Dashboard", "Analyse Rotation", "Prévisions", "Mode Meeting", "Analyse Réclamations", "Performance Ventes", "Suivi", "Dashboard Premium", "Optimisation Tournées"],
+    "📊 SUPERVISION": ["Master Global", "Dashboard", "Analyse Rotation", "Prévisions", "Mode Meeting", "Analyse Réclamations", "Performance Ventes", "Suivi", "Dashboard Premium", "Optimisation Tournées", "Fiche Client 360", "Pilotage Rotations"],
     "📦 GESTION DES STOCKS": ["Inventaire", "Inventaire Détail", "Inventaire Triple", "Péremptions", "Liste des Lots", "Catalogue Produits", "Répartition Zones", "Prédiction Rupture", "Gestion Documentaire", "Vigilance & Rappels"],
     "🏭 FOURNISSEURS": ["Réception Fournisseurs", "Pointage Marchandise", "Litiges Fournisseurs"],
     "📝 POINTAGES & FLUX": ["Pointage", "Pointage Expéditeur", "Page de Garde", "Recouvrement", "Logistique", "Scanneur QR", "Scan Mobile", "Transferts", "Clients", "Portail B2B", "Retours & Avoirs", "Campagnes & Remises"],
