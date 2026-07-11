@@ -164,7 +164,8 @@ tabs = st.tabs([
     "🔁 Suivi Workflow",
     "📋 Base de Données",
     "💡 Suggestions & Alertes",
-    "🧠 Diagnostic IA"
+    "🧠 Diagnostic IA",
+    "🚚 Programme d'Expédition"
 ])
 
 # ════════════════════════════════════════════════
@@ -458,3 +459,158 @@ with tabs[4]:
                 st.balloons()
     else:
         st.info("Activez l'IA dans les paramètres pour accéder au diagnostic automatique.")
+
+# ════════════════════════════════════════════════
+# TAB 6 — PROGRAMME D'EXPÉDITION
+# ════════════════════════════════════════════════
+with tabs[5]:
+    st.subheader("🚚 Générateur de Programme d'Expédition")
+    st.markdown("Ce générateur regroupe les réclamations **en cours** (non clôturées) par région et permet d'associer un livreur pour générer un document d'expédition A4.")
+    
+    # Filtrage des réclamations actives (en cours / non clôturées)
+    df_active = df_raw.copy()
+    
+    # Assurer l'existence de decision et motif
+    if "decision" not in df_active.columns:
+        df_active["decision"] = ""
+    if "motif" not in df_active.columns:
+        df_active["motif"] = ""
+        
+    df_active["_est_cloture"] = df_active["Cloture"].apply(norm_bool)
+    
+    # Trouver la colonne statut pour exclure aussi celles notées clôturées
+    statut_col = next((c for c in df_active.columns if str(c).strip().lower() in ["statut", "etat"]), None)
+    if statut_col:
+        is_statut_cloture = df_active[statut_col].astype(str).str.strip().upper().str.contains("CLOTUR|CLÔTUR|CLOSED", na=False)
+    else:
+        is_statut_cloture = pd.Series([False] * len(df_active))
+        
+    df_active_filtered = df_active[~df_active["_est_cloture"] & ~is_statut_cloture].copy()
+    
+    if df_active_filtered.empty:
+        st.info("ℹ️ Aucune réclamation en cours (non clôturée) à traiter.")
+    else:
+        # Trouver la colonne région
+        reg_col = next((c for c in df_active_filtered.columns if str(c).strip().lower() in ["region", "région"]), None)
+        region_disp = reg_col if reg_col else "region"
+        if reg_col:
+            unique_regions = sorted(df_active_filtered[reg_col].dropna().astype(str).unique().tolist())
+        else:
+            unique_regions = ["Par défaut"]
+            df_active_filtered["region"] = "Par défaut"
+            
+        # Charger les livreurs
+        df_liv = load_gs_data("Livreurs", "data_expedition/livreurs.csv", ["Nom", "Prénom", "Secteur", "Téléphone"])
+        livreurs_list = ["Non Assigné"]
+        if not df_liv.empty:
+            for _, r_liv in df_liv.iterrows():
+                name = f"{r_liv.get('Nom', '')} {r_liv.get('Prénom', '')}".strip()
+                secteur = r_liv.get("Secteur", "")
+                display_name = f"{name} ({secteur})" if secteur else name
+                livreurs_list.append(display_name)
+                
+        st.markdown("### 👤 Attribution des Livreurs par Région")
+        col_grid = st.columns(min(3, len(unique_regions)) if unique_regions else 1)
+        selected_livreurs = {}
+        for idx, reg in enumerate(unique_regions):
+            col_target = col_grid[idx % 3]
+            # Tenter d'auto-sélectionner le livreur dont le secteur correspond à la région
+            default_idx = 0
+            if not df_liv.empty:
+                for l_idx, r_liv in enumerate(df_liv.iterrows()):
+                    secteur = str(r_liv[1].get("Secteur", "")).strip().upper()
+                    if secteur == reg.strip().upper() or reg.strip().upper() in secteur:
+                        default_idx = l_idx + 1
+                        break
+            selected_livreurs[reg] = col_target.selectbox(
+                f"Livreur : **{reg}**",
+                livreurs_list,
+                index=default_idx,
+                key=f"liv_sel_{reg}"
+            )
+            
+        st.divider()
+        st.markdown("### 📝 Edition des Motifs et Décisions")
+        st.caption("Double-cliquez sur les cases **Motif** ou **Décision** pour les modifier directement. Les autres colonnes sont verrouillées.")
+        
+        # Préparer le dataframe pour st.data_editor
+        client_disp = client_col if client_col else "client"
+        ref_disp = ref_col if ref_col else "reference"
+        
+        df_to_edit = df_active_filtered[[client_disp, ref_disp, region_disp, "motif", "decision"]].copy()
+        df_to_edit.columns = ["Client", "Référence", "Région", "Motif", "Décision"]
+        
+        # st.data_editor pour modifications en ligne
+        edited_df = st.data_editor(
+            df_to_edit,
+            use_container_width=True,
+            disabled=["Client", "Référence", "Région"],
+            num_rows="fixed",
+            key="reclam_expedition_editor"
+        )
+        
+        c_save, c_pdf = st.columns(2)
+        
+        # Sauvegarde
+        if c_save.button("💾 Enregistrer les motifs & décisions", key="save_reclam_edits_btn", use_container_width=True):
+            df_main = st.session_state.df_reclam_analysed.copy()
+            if "decision" not in df_main.columns:
+                df_main["decision"] = ""
+            if "motif" not in df_main.columns:
+                df_main["motif"] = ""
+                
+            for _, row in edited_df.iterrows():
+                r_ref = row["Référence"]
+                r_motif = row["Motif"]
+                r_dec = row["Décision"]
+                
+                idx_matches = df_main[df_main[ref_disp] == r_ref].index
+                if not idx_matches.empty:
+                    df_main.loc[idx_matches, "motif"] = r_motif
+                    df_main.loc[idx_matches, "decision"] = r_dec
+                    
+            st.session_state.df_reclam_analysed = df_main
+            save_gs_data(df_main, RECLAM_WORKSHEET, RECLAM_FALLBACK)
+            st.success("✅ Modifications enregistrées dans la base de données !")
+            st.rerun()
+            
+        # Génération du PDF
+        # On extrait les données courantes d'edited_df (pour capturer les modifications en cours)
+        claims_by_region = {}
+        for reg in unique_regions:
+            claims_by_region[reg] = []
+            
+        for _, row in edited_df.iterrows():
+            reg = row["Région"]
+            claims_by_region[reg].append({
+                "client": row["Client"],
+                "reference": row["Référence"],
+                "motif": row["Motif"],
+                "decision": row["Décision"]
+            })
+            
+        from generator_pdf import generate_programme_expedition_pdf
+        pdf_data = generate_programme_expedition_pdf(
+            claims_by_region=claims_by_region,
+            livreurs_by_region=selected_livreurs,
+            date_str=datetime.now().strftime("%d/%m/%Y")
+        )
+        
+        c_pdf.download_button(
+            label="📄 Télécharger le Programme d'Expédition PDF",
+            data=pdf_data,
+            file_name=f"programme_expedition_reclamations_{datetime.now().strftime('%Y%m%d')}.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+            type="primary"
+        )
+        
+        # Aperçu des tableaux par région pour donner un aspect premium
+        st.markdown("### 🔍 Aperçu du Programme d'Expédition")
+        for reg in unique_regions:
+            reg_claims = [c for c in claims_by_region[reg]]
+            if reg_claims:
+                with st.expander(f"📋 Région : {reg} — Livreur : {selected_livreurs[reg]}", expanded=True):
+                    df_prev = pd.DataFrame(reg_claims)
+                    df_prev.columns = ["Client / Pharmacie", "Référence RC", "Motif", "Décision"]
+                    st.dataframe(df_prev, use_container_width=True, hide_index=True)

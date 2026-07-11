@@ -657,6 +657,11 @@ with tabs[0]:
                     st.success(f"{len(df_final)} fournisseurs sauvegardés avec succès ! ✅")
                     
             elif st.button(f"📥 Fusionner avec la base {target}", type="primary", use_container_width=True):
+                # Correction: load df_old for the target worksheet
+                worksheet_name = target if target not in ["Recouvrement_Logipharm", "Expedition_Logipharm"] else target.replace("_Logipharm", "")
+                load_cols = None if target in ["Analyse_Reclamations", "Master_Inventaire_Zone", "Analyse_Ventes_Perf", "Expedition_Logipharm"] else db_cols
+                df_old = load_gs_data(worksheet_name, db_path, load_cols)
+                
                 # On renomme intelligemment pour éviter les colonnes en double
                 new_cols = []
                 mapped_targets = set()
@@ -705,7 +710,61 @@ with tabs[0]:
                     if 'Téléphone' not in df_merged.columns: df_merged['Téléphone'] = df_merged['Telephone']
 
                 elif target in ["Master_Inventaire_Zone", "Analyse_Ventes_Perf", "Analyse_Reclamations", "Expedition_Logipharm"]:
-                    df_merged = df_up
+                    if target == "Analyse_Reclamations":
+                        if not df_old.empty:
+                            df_old = df_old.drop_duplicates(subset=["reference"])
+                            df_up = df_up.drop_duplicates(subset=["reference"])
+                            
+                            # Assurer l'existence de motif et decision
+                            if 'decision' not in df_old.columns:
+                                df_old['decision'] = ""
+                            if 'decision' not in df_up.columns:
+                                df_up['decision'] = ""
+                            if 'motif' not in df_old.columns:
+                                df_old['motif'] = ""
+                            if 'motif' not in df_up.columns:
+                                df_up['motif'] = ""
+                            
+                            # Fusionner sur 'reference'
+                            df_old_indexed = df_old.set_index("reference", drop=False)
+                            df_up_indexed = df_up.set_index("reference", drop=False)
+                            
+                            common_refs = df_old_indexed.index.intersection(df_up_indexed.index)
+                            for ref in common_refs:
+                                old_row = df_old_indexed.loc[ref]
+                                new_row = df_up_indexed.loc[ref]
+                                
+                                # Conserver la décision existante
+                                dec_val = old_row.get("decision", "")
+                                if pd.isna(dec_val) or str(dec_val).strip() == "":
+                                    dec_val = new_row.get("decision", "")
+                                
+                                # Conserver le motif si le nouveau est vide
+                                motif_val = new_row.get("motif", "")
+                                if pd.isna(motif_val) or str(motif_val).strip() == "":
+                                    motif_val = old_row.get("motif", "")
+                                    if pd.isna(motif_val):
+                                        motif_val = ""
+                                        
+                                updated_row = new_row.copy()
+                                updated_row["decision"] = dec_val
+                                updated_row["motif"] = motif_val
+                                df_old_indexed.loc[ref] = updated_row
+                                
+                            new_refs = df_up_indexed.index.difference(df_old_indexed.index)
+                            if len(new_refs) > 0:
+                                df_old_indexed = pd.concat([df_old_indexed, df_up_indexed.loc[new_refs]], ignore_index=False)
+                                
+                            df_merged = df_old_indexed.reset_index(drop=True)
+                        else:
+                            df_merged = df_up
+                            if 'decision' not in df_merged.columns:
+                                df_merged['decision'] = ""
+                            if 'motif' not in df_merged.columns:
+                                df_merged['motif'] = ""
+                    else:
+                        df_merged = df_up
+                        
                     if target == "Master_Inventaire_Zone" and 'inv_work_df' in st.session_state:
                         del st.session_state.inv_work_df
                     if target == "Analyse_Ventes_Perf" and 'df_ventes_perf' in st.session_state:

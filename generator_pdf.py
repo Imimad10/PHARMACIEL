@@ -188,3 +188,92 @@ def generate_team_performance_pdf(stats_list):
     if isinstance(raw, (bytes, bytearray)):
         return bytes(raw)
     return raw.encode('latin-1', 'replace')
+
+def generate_programme_expedition_pdf(claims_by_region, livreurs_by_region, date_str):
+    """
+    claims_by_region: dict of region -> list of dicts/rows
+    livreurs_by_region: dict of region -> str (livreur name)
+    date_str: str (the date for the header)
+    """
+    pdf = FPDF(orientation='P', unit='mm', format='A4')
+    pdf.alias_nb_pages()
+    
+    for region, claims in claims_by_region.items():
+        if not claims:
+            continue
+        pdf.add_page()
+        
+        # Header logo if exists
+        if os.path.exists("logo.png"):
+            pdf.image("logo.png", 10, 8, 33)
+            
+        pdf.set_font("Arial", 'B', 16)
+        pdf.cell(80)
+        pdf.cell(30, 10, 'PROG DE RECLAMATIONS', 0, 1, 'C')
+        pdf.ln(15)
+        
+        # Info Block
+        pdf.set_font("Arial", 'B', 11)
+        pdf.cell(30, 8, "Date:", 0, 0)
+        pdf.set_font("Arial", '', 11)
+        pdf.cell(50, 8, date_str, 0, 1)
+        
+        pdf.set_font("Arial", 'B', 11)
+        pdf.cell(30, 8, "Region:", 0, 0)
+        pdf.set_font("Arial", '', 11)
+        pdf.cell(50, 8, region, 0, 1)
+        
+        pdf.set_font("Arial", 'B', 11)
+        pdf.cell(30, 8, "Livreur:", 0, 0)
+        pdf.set_font("Arial", '', 11)
+        pdf.cell(50, 8, str(livreurs_by_region.get(region, "Non Assigné")), 0, 1)
+        
+        pdf.ln(10)
+        
+        # Table Headers
+        pdf.set_font("Arial", 'B', 10)
+        pdf.set_fill_color(240, 240, 240)
+        
+        # Column widths: Client (65), Reference (35), Motif (45), Decision (45) -> Total = 190
+        pdf.cell(65, 8, "Client", 1, 0, 'C', fill=True)
+        pdf.cell(35, 8, "Reference", 1, 0, 'C', fill=True)
+        pdf.cell(45, 8, "Motif", 1, 0, 'C', fill=True)
+        pdf.cell(45, 8, "Decision", 1, 1, 'C', fill=True)
+        
+        # Table Body
+        pdf.set_font("Arial", '', 9)
+        for claim in claims:
+            if pdf.get_y() > 260:
+                pdf.add_page()
+                # Repeat header-like structure if flowing
+                pdf.set_font("Arial", 'I', 8)
+                pdf.cell(0, 8, f"Suite - Region: {region} | Livreur: {livreurs_by_region.get(region, 'Non Assigné')}", 0, 1, 'L')
+                pdf.set_font("Arial", 'B', 10)
+                pdf.set_fill_color(240, 240, 240)
+                pdf.cell(65, 8, "Client", 1, 0, 'C', fill=True)
+                pdf.cell(35, 8, "Reference", 1, 0, 'C', fill=True)
+                pdf.cell(45, 8, "Motif", 1, 0, 'C', fill=True)
+                pdf.cell(45, 8, "Decision", 1, 1, 'C', fill=True)
+                pdf.set_font("Arial", '', 9)
+            
+            client_name = str(claim.get("client", "N/A"))
+            ref = str(claim.get("reference", "N/A"))
+            motif = str(claim.get("motif", "N/A"))
+            decision = str(claim.get("decision", ""))
+            
+            def clean_str(s, max_len=30):
+                # Clean for latin-1 encoding used by standard FPDF core fonts
+                s_clean = str(s).encode('latin-1', 'replace').decode('latin-1')
+                if len(s_clean) > max_len:
+                    return s_clean[:max_len-3] + "..."
+                return s_clean
+                
+            pdf.cell(65, 8, clean_str(client_name, 35), 1, 0, 'L')
+            pdf.cell(35, 8, clean_str(ref, 20), 1, 0, 'C')
+            pdf.cell(45, 8, clean_str(motif, 25), 1, 0, 'L')
+            pdf.cell(45, 8, clean_str(decision, 25), 1, 1, 'L')
+            
+    raw = pdf.output()
+    if isinstance(raw, (bytes, bytearray)):
+        return bytes(raw)
+    return raw.encode('latin-1', 'replace')
