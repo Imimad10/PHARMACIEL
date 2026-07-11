@@ -365,14 +365,34 @@ def build_timeline_chart(df_day: pd.DataFrame) -> go.Figure:
     )
 
     # Ligne verticale cut-off 12:15
+    # (add_shape utilisé car add_vline est instable sur axe catégoriel Plotly)
     cutoff_str = "12:15"
-    fig.add_vline(
-        x=cutoff_str,
-        line_dash="dash", line_color="#F87171", line_width=2,
-        annotation_text="⏱ CUT-OFF 12h15",
-        annotation_position="top right",
-        annotation_font_color="#F87171",
-        annotation_font_size=11,
+    x_labels = df_group["Heure_str"].tolist()
+    if cutoff_str in x_labels:
+        cutoff_idx = x_labels.index(cutoff_str)
+    else:
+        # Trouver la tranche la plus proche >= 12:15
+        cutoff_idx = next(
+            (i for i, h in enumerate(x_labels) if h >= cutoff_str),
+            len(x_labels) - 1
+        )
+
+    fig.add_shape(
+        type="line",
+        x0=cutoff_idx - 0.5, x1=cutoff_idx - 0.5,
+        y0=0, y1=1,
+        xref="x", yref="paper",
+        line=dict(color="#F87171", width=2, dash="dash"),
+    )
+    fig.add_annotation(
+        x=cutoff_idx - 0.5, y=1,
+        xref="x", yref="paper",
+        text="⏱ CUT-OFF 12h15",
+        showarrow=False,
+        font=dict(color="#F87171", size=11),
+        xanchor="left", yanchor="bottom",
+        bgcolor="rgba(15,17,23,0.7)",
+        borderpad=4,
     )
 
     fig.update_traces(
