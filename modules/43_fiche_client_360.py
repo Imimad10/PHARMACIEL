@@ -220,13 +220,22 @@ st.markdown("""
 # TODO: Remplacer load_mock_data() par load_gs_data(...) pour la prod
 df_validation, df_livraisons, df_ventes = load_mock_data()
 
-# Préparation de la liste des clients
-liste_clients = sorted(df_ventes['Client'].unique().tolist())
+# Préparation de la liste des clients (nettoyée des espaces invisibles)
+liste_clients = sorted(df_ventes['Client'].dropna().astype(str).str.strip().str.upper().unique().tolist())
 
 # --- SIDEBAR: FILTRES ---
 with st.sidebar:
     st.markdown("### ⚙️ Paramètres 360°")
-    selected_client = st.selectbox("Sélectionner un Client", liste_clients)
+    # Placé tout en haut de la logique UI
+    if 'client_selectionne' not in st.session_state:
+        st.session_state.client_selectionne = liste_clients[0] if liste_clients else ""
+        
+    selected_client = st.selectbox(
+        "Sélectionner un Client", 
+        liste_clients,
+        index=liste_clients.index(st.session_state.client_selectionne) if st.session_state.client_selectionne in liste_clients else 0
+    )
+    st.session_state.client_selectionne = selected_client
     
     time_filter = st.radio("Période d'analyse", ["Historique Global", "Plage Personnalisée"])
     start_date, end_date = None, None
@@ -236,10 +245,13 @@ with st.sidebar:
         if len(dates) == 2:
             start_date, end_date = dates
 
-# --- FILTRAGE DES DONNÉES ---
-df_val_c = df_validation[df_validation['Client'] == selected_client].copy()
+# --- FILTRAGE DES DONNÉES (CORRECTION PANDAS) ---
+client_propre = st.session_state.client_selectionne.strip().upper()
+
+# Application du .str.strip().str.upper() pour éviter le bug des espaces invisibles
+df_val_c = df_validation[df_validation['Client'].astype(str).str.strip().str.upper() == client_propre].copy()
 df_liv_c = df_livraisons[df_livraisons['Réf.'].isin(df_val_c['Référence'])].copy()
-df_ven_c = df_ventes[df_ventes['Client'] == selected_client].copy()
+df_ven_c = df_ventes[df_ventes['Client'].astype(str).str.strip().str.upper() == client_propre].copy()
 
 # Application du filtre temporel
 if time_filter == "Plage Personnalisée" and start_date and end_date:
