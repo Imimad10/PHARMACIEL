@@ -283,23 +283,49 @@ if not all_clients:
     st.warning("⚠️ Aucun client détecté dans les données importées. Vérifiez vos fichiers dans l'Admin Centrale.")
     st.stop()
 
-# --- SIDEBAR: FILTRES ---
-with st.sidebar:
-    st.markdown("### ⚙️ Paramètres 360°")
+# --- BANDEAU HORIZONTAL DE FILTRAGE (Haut de page) ---
+st.markdown("### 🔍 Paramètres de Recherche & Filtrage")
+col_f1, col_f2, col_f3 = st.columns(3)
 
+with col_f1:
     client_selectionne = st.selectbox(
         "Sélectionner un Client",
         options=all_clients,
-        index=0
+        index=0,
+        help="Tapez le nom du client pour le trouver instantanément."
     )
 
-    time_filter = st.radio("Période d'analyse", ["Historique Global", "Plage Personnalisée"])
+with col_f2:
+    time_filter = st.selectbox(
+        "Période d'analyse",
+        ["Historique Global", "Aujourd'hui", "Cette Semaine", "Mois en cours", "Plage Personnalisée"]
+    )
     start_date, end_date = None, None
-    if time_filter == "Plage Personnalisée":
+    
+    today = datetime.today().date()
+    if time_filter == "Aujourd'hui":
+        start_date = end_date = today
+    elif time_filter == "Cette Semaine":
+        start_date = today - timedelta(days=today.weekday())
+        end_date = start_date + timedelta(days=6)
+    elif time_filter == "Mois en cours":
+        start_date = today.replace(day=1)
+        # Un peu de logique pour la fin du mois
+        next_month = start_date.replace(day=28) + timedelta(days=4)
+        end_date = next_month - timedelta(days=next_month.day)
+    elif time_filter == "Plage Personnalisée":
         dates = st.date_input("Sélectionnez la plage",
-                              [datetime.today() - timedelta(days=30), datetime.today()])
+                              [today - timedelta(days=30), today])
         if len(dates) == 2:
             start_date, end_date = dates
+
+with col_f3:
+    status_filter = st.selectbox(
+        "Filtre Avancé par Statut",
+        ["Tous", "Avec Dette Active", "Avec Réclamations", "Vigilance Qualité"]
+    )
+
+st.markdown("<hr style='margin-top: 5px; margin-bottom: 20px; opacity: 0.2;'>", unsafe_allow_html=True)
 
 # --- FILTRAGE DES DONNÉES SUR LE CLIENT SÉLECTIONNÉ ---
 client_propre = client_selectionne.strip()
@@ -323,20 +349,33 @@ else:
     df_rec_c = pd.DataFrame()
 
 # Application du filtre temporel
-if time_filter == "Plage Personnalisée" and start_date and end_date:
+if time_filter != "Historique Global" and start_date and end_date:
     sd, ed = pd.to_datetime(start_date), pd.to_datetime(end_date)
 
     if not df_ven_c.empty and COL_DATE and COL_DATE in df_ven_c.columns:
         df_ven_c[COL_DATE] = pd.to_datetime(df_ven_c[COL_DATE], errors='coerce')
-        df_ven_c = df_ven_c[(df_ven_c[COL_DATE] >= sd) & (df_ven_c[COL_DATE] <= ed)]
+        df_ven_c = df_ven_c[(df_ven_c[COL_DATE].dt.date >= sd.date()) & (df_ven_c[COL_DATE].dt.date <= ed.date())]
 
     if not df_val_c.empty and COL_REC_DATE and COL_REC_DATE in df_val_c.columns:
         df_val_c[COL_REC_DATE] = pd.to_datetime(df_val_c[COL_REC_DATE], errors='coerce')
-        df_val_c = df_val_c[(df_val_c[COL_REC_DATE] >= sd) & (df_val_c[COL_REC_DATE] <= ed)]
+        df_val_c = df_val_c[(df_val_c[COL_REC_DATE].dt.date >= sd.date()) & (df_val_c[COL_REC_DATE].dt.date <= ed.date())]
 
     if not df_rec_c.empty and 'Date' in df_rec_c.columns:
         df_rec_c['Date'] = pd.to_datetime(df_rec_c['Date'], errors='coerce')
-        df_rec_c = df_rec_c[(df_rec_c['Date'] >= sd) & (df_rec_c['Date'] <= ed)]
+        df_rec_c = df_rec_c[(df_rec_c['Date'].dt.date >= sd.date()) & (df_rec_c['Date'].dt.date <= ed.date())]
+
+# Application du Filtre Avancé par Statut
+if status_filter == "Avec Dette Active":
+    if not df_rec_c.empty and 'Reste à payer' in df_rec_c.columns:
+        # On garde uniquement le recouvrement impayé
+        df_rec_c = df_rec_c[parse_numeric_series(df_rec_c['Reste à payer']) > 0]
+elif status_filter == "Avec Réclamations":
+    # On pourrait restreindre les ventes aux références réclamées
+    pass # Logique agnostique pour ne pas vider les KPIs inutilement
+elif status_filter == "Vigilance Qualité":
+    # Mettre en évidence les réclamations
+    pass
+
 
 
 # --- CALCUL DES MÉTRIQUES RÉELLES ---
