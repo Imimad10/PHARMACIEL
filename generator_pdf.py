@@ -69,7 +69,7 @@ def generate_reclam_pdf(data, image_path=None):
     pdf.ln(10)
     
     # Image de preuve
-    if image_path and os.path.exists(image_path):
+    if isinstance(image_path, str) and image_path.strip() and image_path.lower() != 'nan' and os.path.exists(image_path):
         pdf.set_font("Arial", 'B', 11)
         pdf.cell(0, 10, "PREUVE VISUELLE (Photo):", 0, 1)
         # Redimensionnement auto pour tenir dans la page (max 180mm large)
@@ -127,7 +127,7 @@ def generate_multi_reclam_pdf(items_list):
         
         # Photo (colonne droite) - On fixe la HAUTEUR pour la cohérence
         photo_path = item.get('Photo_Path', '')
-        if photo_path and os.path.exists(photo_path):
+        if isinstance(photo_path, str) and photo_path.strip() and photo_path.lower() != 'nan' and os.path.exists(photo_path):
             try:
                 # On utilise h=35 pour que toutes les photos fassent la même hauteur
                 pdf.image(photo_path, x=145, y=y_start + 2, h=35)
@@ -277,3 +277,134 @@ def generate_programme_expedition_pdf(claims_by_region, livreurs_by_region, date
     if isinstance(raw, (bytes, bytearray)):
         return bytes(raw)
     return raw.encode('latin-1', 'replace')
+
+def generate_bon_retour_pdf(data):
+    """
+    Génère un Bon de Retour ultra-professionnel avec un talon détachable pour le livreur.
+    data doit contenir: date, fournisseur, agent, produit, lot, quantite, type, facture, commentaire
+    """
+    pdf = FPDF(orientation='P', unit='mm', format='A4')
+    pdf.alias_nb_pages()
+    pdf.add_page()
+    
+    # Génération d'une référence de traçabilité unique
+    import random
+    ref_traceability = f"RET-{datetime.now().strftime('%Y%m%d')}-{str(random.randint(1000,9999))}"
+    
+    def draw_half_page(is_talon=False):
+        # Header
+        if os.path.exists("logo.png"):
+            pdf.image("logo.png", 10, pdf.get_y(), 25)
+            
+        pdf.set_font("Arial", 'B', 14)
+        pdf.cell(30)
+        pdf.cell(100, 8, "BON DE RECLAMATION / RETOUR MARCHANDISE", 0, 0, 'C')
+        
+        # Etiquette Exemplaire
+        pdf.set_font("Arial", 'B', 9)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_fill_color(50, 50, 50)
+        if is_talon:
+            pdf.cell(0, 8, " EXEMPLAIRE PHARMACIE (TALON) ", 0, 1, 'R', fill=True)
+        else:
+            pdf.cell(0, 8, " EXEMPLAIRE FOURNISSEUR ", 0, 1, 'R', fill=True)
+            
+        pdf.set_text_color(0, 0, 0)
+        pdf.ln(2)
+        
+        # Reference and Date
+        pdf.set_font("Arial", 'B', 10)
+        pdf.cell(30)
+        pdf.cell(100, 5, f"REFERENCE: {ref_traceability}", 0, 0, 'C')
+        pdf.set_font("Arial", 'I', 9)
+        pdf.cell(0, 5, f"Imprime le: {datetime.now().strftime('%d/%m/%Y a %H:%M')}", 0, 1, 'R')
+        pdf.ln(8)
+        
+        # Supplier & Agent Info
+        pdf.set_fill_color(240, 240, 240)
+        pdf.set_font("Arial", 'B', 10)
+        pdf.cell(95, 7, "INFORMATIONS FOURNISSEUR", 1, 0, 'L', fill=True)
+        pdf.cell(5, 7, "", 0, 0) # Spacer
+        pdf.cell(90, 7, "INFORMATIONS INTERNES", 1, 1, 'L', fill=True)
+        
+        pdf.set_font("Arial", '', 10)
+        pdf.cell(95, 7, f" Fournisseur : {data.get('fournisseur', 'N/A')}", 1, 0, 'L')
+        pdf.cell(5, 7, "", 0, 0)
+        pdf.cell(90, 7, f" Agent Saisie : {data.get('agent', 'N/A')}", 1, 1, 'L')
+        
+        pdf.cell(95, 7, f" Facture / BL : {data.get('facture', 'N/A')}", 1, 0, 'L')
+        pdf.cell(5, 7, "", 0, 0)
+        pdf.cell(90, 7, f" Date Constat : {data.get('date', 'N/A')}", 1, 1, 'L')
+        
+        pdf.ln(5)
+        
+        # Product details table
+        pdf.set_font("Arial", 'B', 10)
+        pdf.set_fill_color(230, 230, 230)
+        pdf.cell(75, 8, "Produit", 1, 0, 'C', fill=True)
+        pdf.cell(30, 8, "Lot", 1, 0, 'C', fill=True)
+        pdf.cell(20, 8, "Qte", 1, 0, 'C', fill=True)
+        pdf.cell(65, 8, "Motif du Retour", 1, 1, 'C', fill=True)
+        
+        pdf.set_font("Arial", 'B', 9)
+        # Nettoyage des chaînes pour latin-1
+        prod = str(data.get('produit', '')).encode('latin-1', 'replace').decode('latin-1')
+        motif = str(data.get('type', '')).encode('latin-1', 'replace').decode('latin-1')
+        
+        pdf.cell(75, 10, prod[:40], 1, 0, 'C')
+        pdf.cell(30, 10, str(data.get('lot', '')), 1, 0, 'C')
+        pdf.cell(20, 10, str(data.get('quantite', '')), 1, 0, 'C')
+        pdf.cell(65, 10, motif[:35], 1, 1, 'C')
+        
+        pdf.ln(5)
+        
+        if not is_talon:
+            # Partie Fournisseur: Mentions et signature Pharmacie
+            pdf.set_font("Arial", 'I', 9)
+            pdf.multi_cell(0, 5, "La marchandise citee ci-dessus a ete retournee au fournisseur pour non-conformite. Ce document accompagne la marchandise dans l'attente d'un echange ou d'un avoir financier.")
+            pdf.ln(3)
+            pdf.set_font("Arial", 'B', 9)
+            pdf.cell(0, 20, "Cachet et Signature (Pharmacie / Grossiste) :", 1, 1, 'L')
+            
+        else:
+            # Partie Pharmacie (Talon): Signature Chauffeur (Preuve de traçabilité)
+            pdf.set_fill_color(255, 245, 245)
+            pdf.set_font("Arial", 'B', 10)
+            pdf.cell(0, 8, "CADRE RESERVE AU LIVREUR / CHAUFFEUR (PREUVE D'ENLEVEMENT)", 1, 1, 'C', fill=True)
+            pdf.set_font("Arial", '', 9)
+            
+            y_start = pdf.get_y()
+            pdf.cell(95, 10, " Nom du chauffeur : ...............................................", 'L,T', 0, 'L')
+            pdf.cell(95, 10, " Date et Heure d'enlevement : ...../...../20... a ...h...", 'R,T', 1, 'L')
+            
+            pdf.cell(95, 10, " Matricule Vehicule : ..............................................", 'L', 0, 'L')
+            pdf.cell(95, 10, " Visa et Cachet du fournisseur :", 'R', 1, 'L')
+            
+            pdf.cell(95, 15, "", 'L,B', 0, 'L')
+            pdf.cell(95, 15, "", 'R,B', 1, 'L')
+            
+            pdf.ln(2)
+            pdf.set_font("Arial", 'B', 8)
+            pdf.set_text_color(150, 0, 0)
+            pdf.cell(0, 5, "ATTENTION : Ce talon doit obligatoirement etre signe par le livreur pour valider la decharge.", 0, 1, 'C')
+            pdf.set_text_color(0, 0, 0)
+
+    # Dessiner la moitié haute (Exemplaire Fournisseur)
+    pdf.set_y(15)
+    draw_half_page(is_talon=False)
+    
+    # Ligne de coupe
+    pdf.set_y(140)
+    pdf.set_font("Arial", 'I', 10)
+    pdf.cell(0, 5, "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - LIGNE DE DECOUPE - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -", 0, 1, 'C')
+    pdf.line(10, 143, 200, 143)
+    
+    # Dessiner la moitié basse (Talon Pharmacie)
+    pdf.set_y(155)
+    draw_half_page(is_talon=True)
+
+    raw = pdf.output()
+    if isinstance(raw, (bytes, bytearray)):
+        return bytes(raw)
+    return raw.encode('latin-1', 'replace')
+

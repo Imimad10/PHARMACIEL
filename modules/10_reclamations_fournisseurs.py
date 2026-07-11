@@ -6,7 +6,7 @@ import io
 from PIL import Image
 from utils import log_action
 from utils_gsheets import load_gs_data, save_gs_data, show_sync_ui
-from generator_pdf import generate_reclam_pdf, generate_multi_reclam_pdf
+from generator_pdf import generate_reclam_pdf, generate_multi_reclam_pdf, generate_bon_retour_pdf
 from utils_ia import ask_ai, ask_ai_vision, is_ia_enabled
 import base64
 import plotly.express as px
@@ -89,8 +89,31 @@ def render_litiges_accordion(df, mode="active"):
 
             # --- Actions ---
             if mode == "active":
-                col_btn1, col_btn2 = st.columns(2)
-                if col_btn1.button("✅ Marquer comme Réglée", key=f"resolve_{mode}_{idx}"):
+                col_btn1, col_btn2, col_btn3 = st.columns(3)
+                
+                # Bouton de génération PDF
+                if col_btn1.button("🖨️ Bon de Retour", key=f"print_{mode}_{idx}", type="primary"):
+                    pdf_data = {
+                        "date": str(row.get('Date', '')),
+                        "fournisseur": str(row.get('Fournisseur', '')),
+                        "agent": str(row.get('Agent', '')),
+                        "produit": str(row.get('Produit', '')),
+                        "lot": str(row.get('Lot', '')),
+                        "quantite": str(row.get('Quantite', '')),
+                        "type": str(row.get('Type', '')),
+                        "facture": str(row.get('Facture', '')),
+                        "commentaire": str(row.get('Commentaire', ''))
+                    }
+                    pdf_bytes = generate_bon_retour_pdf(pdf_data)
+                    log_action(
+                        st.session_state.current_user["username"],
+                        f"Impression Bon Retour Fournisseur: {row.get('Produit', '')}",
+                        "Litiges"
+                    )
+                    st.session_state[f"pdf_dl_litige_{idx}"] = pdf_bytes
+                    st.rerun()
+                    
+                if col_btn2.button("✅ Réglée", key=f"resolve_{mode}_{idx}"):
                     df_litiges.loc[idx, "Statut"] = "Réglée"
                     df_litiges.loc[idx, "Date_Resolution"] = datetime.now().strftime("%Y-%m-%d")
                     save_gs_data(df_litiges, WORKSHEET_NAME, FALLBACK_PATH)
@@ -102,7 +125,7 @@ def render_litiges_accordion(df, mode="active"):
                     st.success("Réclamation marquée comme réglée.")
                     st.rerun()
 
-                if col_btn2.button("🗑️ Supprimer", key=f"delete_{mode}_{idx}"):
+                if col_btn3.button("🗑️ Supprimer", key=f"delete_{mode}_{idx}"):
                     df_litiges.drop(index=idx, inplace=True)
                     df_litiges.reset_index(drop=True, inplace=True)
                     save_gs_data(df_litiges, WORKSHEET_NAME, FALLBACK_PATH)
@@ -113,6 +136,16 @@ def render_litiges_accordion(df, mode="active"):
                     )
                     st.warning("Réclamation supprimée.")
                     st.rerun()
+
+                # Zone de téléchargement du PDF si généré
+                if st.session_state.get(f"pdf_dl_litige_{idx}"):
+                    st.download_button(
+                        label="📥 TÉLÉCHARGER LE BON DE RETOUR PDF",
+                        data=st.session_state[f"pdf_dl_litige_{idx}"],
+                        file_name=f"Bon_Retour_{row.get('Fournisseur', 'Fournisseur')}_{row.get('Lot', '00')}.pdf",
+                        mime="application/pdf",
+                        type="primary"
+                    )
 
 
 tab_new, tab_list, tab_regl, tab_arch, tab_stats, tab_prods = st.tabs(["➕ Nouveau Rapport", "📋 Suivi Actif", "✅ Réclamations réglées", "🗄️ Archives", "📊 Dashboard Performance", "📦 Base Produits"])
