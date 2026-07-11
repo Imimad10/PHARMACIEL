@@ -137,15 +137,14 @@ CSS_PREMIUM = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
 
-/* ── Global ── */
+/* ── Global : on hérite TOUT du thème Streamlit natif ── */
 html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
-.stApp { background: #0F1117; color: #E2E8F0; }
-[data-testid="stSidebar"] { background: #161B22 !important; }
+/* NE PAS surcharger .stApp ni [data-testid="stSidebar"] — on laisse le thème de la plateforme */
 
 /* ── Page Header ── */
 .page-header {
-    background: linear-gradient(135deg, #0066FF22, #00B4D822);
-    border: 1px solid #0066FF44;
+    background: linear-gradient(135deg, rgba(0, 102, 255, 0.1), rgba(0, 180, 216, 0.08));
+    border: 1px solid rgba(0, 102, 255, 0.3);
     border-radius: 20px;
     padding: 28px 36px;
     margin-bottom: 28px;
@@ -156,16 +155,16 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     content: "";
     position: absolute; top: -40px; right: -40px;
     width: 180px; height: 180px;
-    background: radial-gradient(circle, #0066FF33, transparent 70%);
+    background: radial-gradient(circle, rgba(0,102,255,0.15), transparent 70%);
     border-radius: 50%;
 }
 .page-header h1 {
     font-size: 2rem; font-weight: 900;
-    background: linear-gradient(90deg, #FFFFFF, #00B4D8);
+    background: linear-gradient(90deg, #00B4D8, #0066FF);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     margin: 0 0 6px;
 }
-.page-header p { color: #94A3B8; margin: 0; font-size: 0.95rem; }
+.page-header p { opacity: 0.75; margin: 0; font-size: 0.95rem; }
 
 /* ── Section Title ── */
 .section-title {
@@ -177,22 +176,22 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     text-transform: uppercase; padding: 4px 12px;
     border-radius: 30px; border: 1px solid;
 }
-.badge-r2 { color: #60A5FA; border-color: #60A5FA44; background: #60A5FA11; }
-.badge-r1 { color: #A78BFA; border-color: #A78BFA44; background: #A78BFA11; }
+.badge-r2 { color: #3B82F6; border-color: rgba(59,130,246,0.4); background: rgba(59,130,246,0.08); }
+.badge-r1 { color: #8B5CF6; border-color: rgba(139,92,246,0.4); background: rgba(139,92,246,0.08); }
 .section-title h2 { font-size: 1.25rem; font-weight: 800; margin: 0; }
 
-/* ── KPI Card ── */
+/* ── KPI Card : fond transparent hérité du thème ── */
 .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 12px; }
 .kpi-card {
-    background: #161B22;
-    border: 1px solid #21262D;
+    background: rgba(128, 128, 128, 0.08);
+    border: 1px solid rgba(128, 128, 128, 0.2);
     border-radius: 16px;
     padding: 20px 22px;
     position: relative;
     overflow: hidden;
     transition: border-color 0.3s, transform 0.3s;
 }
-.kpi-card:hover { border-color: #0066FF88; transform: translateY(-3px); }
+.kpi-card:hover { border-color: rgba(0, 102, 255, 0.5); transform: translateY(-3px); }
 .kpi-card::after {
     content: ""; position: absolute;
     bottom: 0; left: 0; right: 0; height: 3px;
@@ -200,43 +199,43 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 }
 .kpi-card.r2::after { background: linear-gradient(90deg, #0066FF, #00B4D8); }
 .kpi-card.r1::after { background: linear-gradient(90deg, #7C3AED, #A78BFA); }
-.kpi-card.neutral::after { background: linear-gradient(90deg, #374151, #4B5563); }
+.kpi-card.neutral::after { background: linear-gradient(90deg, rgba(100,116,139,0.5), rgba(71,85,105,0.5)); }
 .kpi-icon { font-size: 1.6rem; margin-bottom: 10px; }
 .kpi-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 1px;
-              text-transform: uppercase; color: #64748B; margin-bottom: 6px; }
-.kpi-value { font-size: 2rem; font-weight: 900; color: #F8FAFC; margin: 0; line-height: 1; }
-.kpi-sub   { font-size: 0.8rem; color: #475569; margin-top: 6px; }
+              text-transform: uppercase; opacity: 0.55; margin-bottom: 6px; }
+.kpi-value { font-size: 2rem; font-weight: 900; margin: 0; line-height: 1; }
+.kpi-sub   { font-size: 0.8rem; opacity: 0.45; margin-top: 6px; }
 
 /* ── Alert Banners ── */
 .alert-crit {
-    background: linear-gradient(90deg, #7F1D1D, #1E0000);
+    background: rgba(239, 68, 68, 0.12);
     border-left: 5px solid #EF4444;
     border-radius: 0 14px 14px 0;
     padding: 18px 22px; margin: 10px 0 16px;
     display: flex; align-items: flex-start; gap: 16px;
 }
 .alert-warn {
-    background: linear-gradient(90deg, #78350F, #1C0E00);
+    background: rgba(245, 158, 11, 0.12);
     border-left: 5px solid #F59E0B;
     border-radius: 0 14px 14px 0;
     padding: 18px 22px; margin: 10px 0 16px;
     display: flex; align-items: flex-start; gap: 16px;
 }
 .alert-ok {
-    background: linear-gradient(90deg, #064E3B, #011F15);
+    background: rgba(16, 185, 129, 0.12);
     border-left: 5px solid #10B981;
     border-radius: 0 14px 14px 0;
     padding: 14px 20px; margin: 10px 0 16px;
     display: flex; align-items: center; gap: 14px;
 }
 .alert-icon { font-size: 2rem; flex-shrink: 0; }
-.alert-title { font-size: 1rem; font-weight: 800; margin: 0 0 4px; color: white; }
-.alert-msg   { font-size: 0.85rem; margin: 0; color: rgba(255,255,255,0.75); }
+.alert-title { font-size: 1rem; font-weight: 800; margin: 0 0 4px; }
+.alert-msg   { font-size: 0.85rem; margin: 0; opacity: 0.8; }
 
 /* ── Cut-off Banner ── */
 .cutoff-banner {
-    background: linear-gradient(90deg, #1E1B4B, #0F172A);
-    border: 1px dashed #6366F144;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px dashed rgba(99, 102, 241, 0.35);
     border-radius: 12px;
     padding: 10px 18px; text-align: center;
     color: #818CF8; font-size: 0.82rem; font-weight: 700;
@@ -404,11 +403,11 @@ def build_timeline_chart(df_day: pd.DataFrame) -> go.Figure:
     fig.update_layout(
         title=dict(
             text="Distribution Temporelle des Validations (par tranches de 30 min)",
-            font=dict(size=15, color="#E2E8F0"), x=0
+            font=dict(size=15), x=0
         ),
-        paper_bgcolor="#161B22",
-        plot_bgcolor="#161B22",
-        font=dict(color="#94A3B8"),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color=None),
         xaxis=dict(
             title="Heure de Validation",
             showgrid=False,
@@ -451,9 +450,9 @@ def build_region_chart(df_rot: pd.DataFrame, color: str, title: str) -> go.Figur
         customdata=grp["Bons"],
     ))
     fig.update_layout(
-        title=dict(text=title, font=dict(size=13, color="#E2E8F0"), x=0),
-        paper_bgcolor="#161B22", plot_bgcolor="#161B22",
-        font=dict(color="#94A3B8"),
+        title=dict(text=title, font=dict(size=13), x=0),
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color=None),
         xaxis=dict(showgrid=True, gridcolor="#21262D"),
         yaxis=dict(showgrid=False),
         margin=dict(t=50, b=20, l=10, r=20),
