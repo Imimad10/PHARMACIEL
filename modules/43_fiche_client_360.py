@@ -68,6 +68,10 @@ def load_mock_data():
                 "Commercial Attaché": "Younes", "Statut": "Facturé", "Wilaya": "Alger"
             })
     df_ventes = pd.DataFrame(data_ventes)
+    # Conversion explicite des dates en datetime
+    df_validation['Date'] = pd.to_datetime(df_validation['Date'])
+    df_livraisons['Date'] = pd.to_datetime(df_livraisons['Date'])
+    df_ventes['Date Création'] = pd.to_datetime(df_ventes['Date Création'])
     
     return df_validation, df_livraisons, df_ventes
 
@@ -273,10 +277,16 @@ with c_head1:
     st.markdown('<p class="header-subtitle">MODULE INTELLIGENCE ARTIFICIELLE & DATA</p>', unsafe_allow_html=True)
     st.markdown(f'<h1 class="header-title">{selected_client}</h1>', unsafe_allow_html=True)
 with c_head2:
+    # Calcul sécurisé de la dernière activité
+    if not df_ven_c.empty:
+        last_date = pd.to_datetime(df_ven_c['Date Création']).max()
+        last_date_str = last_date.strftime('%d/%m/%Y') if pd.notna(last_date) else 'N/A'
+    else:
+        last_date_str = 'N/A'
     st.markdown(f"""
     <div style="text-align: right; margin-top: 20px;">
         <span style="color:#A0AEC0; font-size:12px;">Dernière Activité</span><br>
-        <strong style="color:white; font-size:16px;">{df_ven_c['Date Création'].max().strftime('%d/%m/%Y') if not df_ven_c.empty else 'N/A'}</strong>
+        <strong style="color:white; font-size:16px;">{last_date_str}</strong>
     </div>
     """, unsafe_allow_html=True)
 
