@@ -481,9 +481,9 @@ with tabs[5]:
     # Trouver la colonne statut pour exclure aussi celles notées clôturées
     statut_col = next((c for c in df_active.columns if str(c).strip().lower() in ["statut", "etat"]), None)
     if statut_col:
-        is_statut_cloture = df_active[statut_col].astype(str).str.strip().upper().str.contains("CLOTUR|CLÔTUR|CLOSED", na=False)
+        is_statut_cloture = df_active[statut_col].astype(str).str.strip().str.upper().str.contains("CLOTUR|CLÔTUR|CLOSED", na=False)
     else:
-        is_statut_cloture = pd.Series([False] * len(df_active))
+        is_statut_cloture = pd.Series([False] * len(df_active), index=df_active.index)
         
     df_active_filtered = df_active[~df_active["_est_cloture"] & ~is_statut_cloture].copy()
     
