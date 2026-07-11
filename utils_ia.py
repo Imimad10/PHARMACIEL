@@ -1,6 +1,3 @@
-import google.generativeai as genai
-import anthropic
-from openai import OpenAI
 import streamlit as st
 import os
 from utils_gsheets import load_gs_data
@@ -44,6 +41,7 @@ def ask_ai(prompt, fallback_msg="⚠️ L'IA n'est pas configurée. Allez dans A
         if provider == 'Gemini (Google)':
             api_key = get_setting('gemini_api_key') or st.secrets.get("GEMINI_API_KEY")
             if not api_key: return fallback_msg
+            import google.generativeai as genai
             genai.configure(api_key=api_key)
             
             # Détection dynamique du meilleur modèle disponible
@@ -72,6 +70,7 @@ def ask_ai(prompt, fallback_msg="⚠️ L'IA n'est pas configurée. Allez dans A
         elif provider == 'Claude (Anthropic)':
             api_key = get_setting('anthropic_api_key') or st.secrets.get("ANTHROPIC_API_KEY")
             if not api_key: return fallback_msg
+            import anthropic
             client = anthropic.Anthropic(api_key=api_key)
             message = client.messages.create(
                 model="claude-3-5-sonnet-20241022",
@@ -83,6 +82,7 @@ def ask_ai(prompt, fallback_msg="⚠️ L'IA n'est pas configurée. Allez dans A
         elif provider == 'ChatGPT (OpenAI)':
             api_key = get_setting('openai_api_key') or st.secrets.get("OPENAI_API_KEY")
             if not api_key: return fallback_msg
+            from openai import OpenAI
             client = OpenAI(api_key=api_key)
             response = client.chat.completions.create(
                 model="gpt-4o",
@@ -93,6 +93,7 @@ def ask_ai(prompt, fallback_msg="⚠️ L'IA n'est pas configurée. Allez dans A
         elif provider == 'Grok (xAI)':
             api_key = get_setting('grok_api_key') or st.secrets.get("GROK_API_KEY")
             if not api_key: return fallback_msg
+            from openai import OpenAI
             client = OpenAI(api_key=api_key, base_url="https://api.x.ai/v1")
             response = client.chat.completions.create(
                 model="grok-beta",
@@ -103,6 +104,7 @@ def ask_ai(prompt, fallback_msg="⚠️ L'IA n'est pas configurée. Allez dans A
         elif provider == 'OpenRouter':
             api_key = get_setting('openrouter_api_key') or st.secrets.get("OPENROUTER_API_KEY")
             if not api_key: return fallback_msg
+            from openai import OpenAI
             client = OpenAI(api_key=api_key, base_url="https://openrouter.ai/api/v1")
             response = client.chat.completions.create(
                 model="openai/gpt-4o-mini", # Modèle par défaut pour OpenRouter, très rapide et qualitatif
@@ -134,6 +136,7 @@ def ask_ai_vision(prompt, base64_image, fallback_msg="⚠️ L'IA Vision n'est p
                 
             if not api_key: return fallback_msg
             
+            from openai import OpenAI
             client = OpenAI(api_key=api_key, base_url=base_url)
             response = client.chat.completions.create(
                 model=model,
