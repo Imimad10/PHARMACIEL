@@ -442,9 +442,7 @@ def build_region_chart(df_rot: pd.DataFrame, color: str, title: str) -> go.Figur
         x=grp["Colis"], y=grp["Région"],
         orientation="h",
         marker=dict(
-            color=grp["Colis"],
-            colorscale=[[0, f"{color}44"], [1, color]],
-            showscale=False,
+            color=color,
             line_width=0,
         ),
         text=grp["Colis"],
