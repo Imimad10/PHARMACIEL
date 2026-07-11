@@ -516,28 +516,38 @@ with tabs[0]:
         cols_lower = [c.lower() for c in cols]
         
         if not target:
+            # ── PRIORITÉ STRICTE : EXPÉDITION QUOTIDIENNE ──
+            # Règle stricte : On ignore les 'Unnamed' et on vérifie la présence de colonnes clés
+            cols_lower_valid = [c for c in cols_lower if not c.startswith("unnamed:")]
+            if all(x in cols_lower_valid for x in ["n°bon", "livreur", "matricule", "total ttc"]):
+                target = "Expedition_Logipharm"
+                # Nettoyage automatique : suppression des colonnes non nommées faussant la structure
+                df_up = df_up.loc[:, ~df_up.columns.str.lower().str.startswith("unnamed:")]
+                df_up = clean_expedition_logipharm_cols(df_up)
+
             # ── PRIORITÉ 0 : RÉCLAMATIONS LOGIPHARM (préfixe RC dans la colonne Référence) ──
             # Les fichiers de réclamations Logipharm ont une colonne 'Référence' dont les valeurs
             # commencent par 'RC' (ex: 26/RC0000000144). Cette règle est prioritaire sur tout.
-            _ref_col = None
-            for c in df_up.columns:
-                if str(c).strip().lower() in ["référence", "reference", "réf.", "ref.", "ref"]:
-                    _ref_col = c
-                    break
-            if _ref_col is not None:
-                _ref_sample = df_up[_ref_col].dropna().astype(str).str.upper().str.strip()
-                _rc_count = _ref_sample.str.contains(r'/RC\d|^RC\d', regex=True, na=False).sum()
-                if _rc_count > 0:
-                    target = "Analyse_Reclamations"
-                    # Renommer les colonnes Unnamed en noms sémantiques selon la structure Logipharm
-                    logi_reclam_rename = {}
-                    unnamed_cols = [c for c in df_up.columns if str(c).startswith("Unnamed:")]
-                    semantic_names = ["Valide", "Imprime", "Expedie", "Cloture"]
-                    for i, uc in enumerate(unnamed_cols[:4]):
-                        logi_reclam_rename[uc] = semantic_names[i]
-                    if logi_reclam_rename:
-                        df_up = df_up.rename(columns=logi_reclam_rename)
-                    df_up = clean_reclam_cols(df_up)
+            if not target:
+                _ref_col = None
+                for c in df_up.columns:
+                    if str(c).strip().lower() in ["référence", "reference", "réf.", "ref.", "ref"]:
+                        _ref_col = c
+                        break
+                if _ref_col is not None:
+                    _ref_sample = df_up[_ref_col].dropna().astype(str).str.upper().str.strip()
+                    _rc_count = _ref_sample.str.contains(r'/RC\d|^RC\d', regex=True, na=False).sum()
+                    if _rc_count > 0:
+                        target = "Analyse_Reclamations"
+                        # Renommer les colonnes Unnamed en noms sémantiques selon la structure Logipharm
+                        logi_reclam_rename = {}
+                        unnamed_cols = [c for c in df_up.columns if str(c).startswith("Unnamed:")]
+                        semantic_names = ["Valide", "Imprime", "Expedie", "Cloture"]
+                        for i, uc in enumerate(unnamed_cols[:4]):
+                            logi_reclam_rename[uc] = semantic_names[i]
+                        if logi_reclam_rename:
+                            df_up = df_up.rename(columns=logi_reclam_rename)
+                        df_up = clean_reclam_cols(df_up)
 
             # ── PRIORITÉ 1 : RECOUVREMENT (champs financiers client) ──
             _rec_keys = ["reste à payer", "reste a payer", "montant réglé", "montant regle"]
