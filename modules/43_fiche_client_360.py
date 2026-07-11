@@ -327,8 +327,54 @@ if metrics['taux_reclamation'] >= 0.10:
     </div>
     """, unsafe_allow_html=True)
 
+# --- DIALOGS @st.dialog (Fenêtres Modales Interactives) ---
+@st.dialog("🚨 Historique Complet des Réclamations")
+def dialog_reclamations(df_litiges: pd.DataFrame):
+    """Popup affichant le détail des réclamations du client."""
+    if df_litiges.empty:
+        st.success("✅ Aucune réclamation trouvée pour ce client sur la période.")
+        return
+    st.markdown(f"**{len(df_litiges)} incident(s) détecté(s)**")
+    cols_reclam = [c for c in ['Date', 'Référence', 'Remarque', 'Statut', 'Valeur'] if c in df_litiges.columns]
+    df_show = df_litiges[cols_reclam].copy()
+    if 'Date' in df_show.columns:
+        df_show['Date'] = pd.to_datetime(df_show['Date']).dt.strftime('%d/%m/%Y')
+    if 'Valeur' in df_show.columns:
+        df_show['Valeur'] = df_show['Valeur'].apply(lambda x: f"{x:,.0f} DA")
+    st.dataframe(df_show.sort_values('Date', ascending=False) if 'Date' in df_show.columns else df_show,
+                 use_container_width=True, hide_index=True)
+
+
+@st.dialog("📄 Détails Factures & Colissage")
+def dialog_factures(df_cmds: pd.DataFrame):
+    """Popup affichant le listing complet des commandes/factures du client."""
+    if df_cmds.empty:
+        st.info("Aucune commande trouvée sur la période sélectionnée.")
+        return
+    st.markdown(f"**{len(df_cmds)} commande(s) / facture(s)**")
+    cols_factured = [c for c in ['B.L', 'Date Création', 'Référence', 'Nbr Ligne', 'Colis', 'T.T.C', 'Reste à payer', 'Statut'] if c in df_cmds.columns]
+    df_show = df_cmds[cols_factured].copy()
+    if 'Date Création' in df_show.columns:
+        df_show['Date Création'] = pd.to_datetime(df_show['Date Création']).dt.strftime('%d/%m/%Y')
+    for money_col in ['T.T.C', 'Reste à payer']:
+        if money_col in df_show.columns:
+            df_show[money_col] = df_show[money_col].apply(lambda x: f"{x:,.2f} DA")
+    st.dataframe(df_show, use_container_width=True, hide_index=True)
+    st.markdown(f"""
+    ---
+    📦 **Total Colis :** `{int(df_cmds['Colis'].sum()):,}` &nbsp;| 
+    📝 **Total Lignes :** `{int(df_cmds['Nbr Ligne'].sum()):,}` &nbsp;| 
+    💰 **CA Total :** `{df_cmds['T.T.C'].sum():,.0f} DA`
+    """)
+
+
 # --- TABS ---
-tab1, tab2, tab3 = st.tabs(["🥇 Vue d'ensemble & Score", "💰 Analyse Financière & Logistique", "⚠️ Suivi des Incidents"])
+tab1, tab2, tab3, tab4 = st.tabs([
+    "🥇 Vue d'ensemble & Score",
+    "💰 Analyse Financière & Logistique",
+    "⚠️ Suivi des Incidents",
+    "📋 Fiche Client Détaillée"
+])
 
 with tab1:
     st.markdown("### Synthèse des Performances")
@@ -455,3 +501,141 @@ with tab3:
         st.dataframe(litiges[['Date', 'Référence', 'Statut', 'Remarque', 'Valeur']].sort_values('Date', ascending=False), use_container_width=True)
     else:
         st.success("✅ Aucune réclamation ou anomalie détectée pour ce client sur la période sélectionnée. Excellence opérationnelle !")
+
+
+# =============================================================================
+# ONGLET 4 : FICHE CLIENT DÉTAILLÉE (Hub Central Interconnecté)
+# =============================================================================
+with tab4:
+
+    # ─── SECTION 1 : CARTE D’IDENTITÉ CLIENT ─────────────────────────────────
+    st.markdown("### 🏥 Identité & Coordonnées")
+
+    # Récupération des données d’identité depuis le premier enregistrement du client
+    id_row = df_ven_c.iloc[0] if not df_ven_c.empty else {}
+    id_info = {
+        "Nom Client"        : client_propre,
+        "Wilaya / Région"   : id_row.get("Wilaya", "N/A") if hasattr(id_row, "get") else "N/A",
+        "Adresse"           : id_row.get("Adresse", "Non renseignée") if hasattr(id_row, "get") else "Non renseignée",
+        "Téléphone"         : id_row.get("Téléphone", "Non renseigné") if hasattr(id_row, "get") else "Non renseigné",
+        "Commercial Attaché": id_row.get("Commercial Attaché", "N/A") if hasattr(id_row, "get") else "N/A",
+        "Livreur Habituel"  : "Ahmed",
+    }
+
+    with st.container(border=True):
+        c_id1, c_id2, c_id3 = st.columns(3)
+        with c_id1:
+            st.markdown(f"""
+            <div style='padding:4px 0'>
+                <span style='opacity:.55;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;'>Nom Client</span><br>
+                <strong style='font-size:1.1rem;'>{id_info['Nom Client']}</strong>
+            </div>
+            <div style='padding:8px 0'>
+                <span style='opacity:.55;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;'>Wilaya / Région</span><br>
+                <strong>📍 {id_info['Wilaya / Région']}</strong>
+            </div>
+            """, unsafe_allow_html=True)
+        with c_id2:
+            st.markdown(f"""
+            <div style='padding:4px 0'>
+                <span style='opacity:.55;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;'>Adresse</span><br>
+                <strong>{id_info['Adresse']}</strong>
+            </div>
+            <div style='padding:8px 0'>
+                <span style='opacity:.55;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;'>Téléphone</span><br>
+                <strong>📞 {id_info['Téléphone']}</strong>
+            </div>
+            """, unsafe_allow_html=True)
+        with c_id3:
+            st.markdown(f"""
+            <div style='padding:4px 0'>
+                <span style='opacity:.55;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;'>Commercial Attaché</span><br>
+                <strong>👤 {id_info['Commercial Attaché']}</strong>
+            </div>
+            <div style='padding:8px 0'>
+                <span style='opacity:.55;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;'>Livreur Habituel</span><br>
+                <strong>🚚 {id_info['Livreur Habituel']}</strong>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ─── SECTION 2 : GRILLE DE KPI INTERCONNECTÉS ─────────────────────────────
+    st.markdown("### 📊 Métriques Interconnectées (Vue Croisée)")
+    st.caption("Données agrégées depuis les modules Ventes, Recouvrement & Validation — filtrées sur la période choisie.")
+
+    k1, k2, k3, k4, k5 = st.columns(5)
+
+    with k1:
+        st.metric(
+            label="⚠️ Réclamations",
+            value=metrics['total_litiges'],
+            delta=f"{metrics['taux_reclamation']*100:.1f}% du CA",
+            delta_color="inverse"
+        )
+    with k2:
+        st.metric(
+            label="📝 Lignes Commandées",
+            value=f"{metrics['total_lignes']:,}"
+        )
+    with k3:
+        st.metric(
+            label="📄 Commandes Totales",
+            value=metrics['total_commandes']
+        )
+    with k4:
+        st.metric(
+            label="📦 Volume Colis Reçus",
+            value=f"{metrics['total_colis']:,}"
+        )
+    with k5:
+        st.metric(
+            label="💸 Encours / Dette",
+            value=f"{metrics['reste_a_payer']:,.0f} DA",
+            delta="Dette active" if metrics['reste_a_payer'] > 0 else "Solde OK",
+            delta_color="inverse" if metrics['reste_a_payer'] > 0 else "normal"
+        )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ─── SECTION 3 : ACTIONS INTERACTIVES (BOUTONS ➜ POPUPS) ──────────────────
+    st.markdown("### 🔍 Actions & Détails Interactifs")
+
+    btn_col1, btn_col2, btn_col3 = st.columns(3)
+
+    with btn_col1:
+        with st.container(border=True):
+            st.markdown(f"""
+            <div style='text-align:center; padding: 8px 0;'>
+                <div style='font-size:2rem;'>⚠️</div>
+                <div style='font-weight:800; font-size:1.1rem;'>{metrics['total_litiges']}</div>
+                <div style='opacity:.55; font-size:.8rem; margin-bottom:8px;'>Réclamations</div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("🔍 Plus de détails Réclamations", use_container_width=True, type="secondary", key="btn_dlg_reclam"):
+                dialog_reclamations(litiges)
+
+    with btn_col2:
+        with st.container(border=True):
+            st.markdown(f"""
+            <div style='text-align:center; padding: 8px 0;'>
+                <div style='font-size:2rem;'>📄</div>
+                <div style='font-weight:800; font-size:1.1rem;'>{metrics['total_commandes']}</div>
+                <div style='opacity:.55; font-size:.8rem; margin-bottom:8px;'>Factures / BL</div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("📄 Détails Factures & Colissage", use_container_width=True, type="secondary", key="btn_dlg_factures"):
+                dialog_factures(df_ven_c)
+
+    with btn_col3:
+        with st.container(border=True):
+            st.markdown(f"""
+            <div style='text-align:center; padding: 8px 0;'>
+                <div style='font-size:2rem;'>💰</div>
+                <div style='font-weight:800; font-size:1.1rem;'>{metrics['total_ttc']/1000:.0f} K</div>
+                <div style='opacity:.55; font-size:.8rem; margin-bottom:8px;'>CA Total (DA)</div>
+            </div>
+            """, unsafe_allow_html=True)
+            taux_regl = (1 - metrics['reste_a_payer'] / metrics['total_ttc']) * 100 if metrics['total_ttc'] > 0 else 100
+            st.progress(min(int(taux_regl), 100), text=f"Règlement : {taux_regl:.0f}%")
+
