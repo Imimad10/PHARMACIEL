@@ -525,6 +525,32 @@ with tabs[0]:
                 df_up = df_up.loc[:, ~df_up.columns.str.lower().str.startswith("unnamed:")]
                 df_up = clean_expedition_logipharm_cols(df_up)
 
+            # ── PRIORITÉ STRICTE 2 : COMMANDES ET VENTES GLOBALES ──
+            req_cmd = ["client", "nbr ligne", "colis", "date", "région"]
+            if not target and all(any(k in c for c in cols_lower_valid) for k in req_cmd) and any(x in cols_lower_valid for x in ["référence", "reference", "ref", "b.l"]):
+                target = "Commandes & Recouvrement"
+                # Nettoyage automatique
+                df_up = df_up.loc[:, ~df_up.columns.str.lower().str.startswith("unnamed:")]
+                
+                # Préparation aux autres modules
+                date_col = next((c for c in df_up.columns if str(c).strip().lower() == "date"), None)
+                if date_col:
+                    try:
+                        temp_dt = pd.to_datetime(df_up[date_col], errors='coerce')
+                        df_up['Heure_Rotation'] = temp_dt.dt.strftime('%H:%M:%S')
+                        df_up['Rotation'] = temp_dt.apply(lambda x: 1 if pd.notna(x) and x.time() > pd.to_datetime('12:15:00').time() else 2)
+                    except Exception:
+                        pass
+                
+                colis_col = next((c for c in df_up.columns if str(c).strip().lower() == "colis"), None)
+                ligne_col = next((c for c in df_up.columns if str(c).strip().lower() == "nbr ligne"), None)
+                if colis_col and ligne_col:
+                    df_up['Volume_Préparation'] = pd.to_numeric(df_up[colis_col], errors='coerce').fillna(0) + pd.to_numeric(df_up[ligne_col], errors='coerce').fillna(0)
+                
+                reg_col = next((c for c in df_up.columns if str(c).strip().lower() in ["région", "region", "wilaya"]), None)
+                if reg_col:
+                    df_up['Secteur'] = df_up[reg_col]
+
             # ── PRIORITÉ 0 : RÉCLAMATIONS LOGIPHARM (préfixe RC dans la colonne Référence) ──
             # Les fichiers de réclamations Logipharm ont une colonne 'Référence' dont les valeurs
             # commencent par 'RC' (ex: 26/RC0000000144). Cette règle est prioritaire sur tout.
@@ -640,6 +666,9 @@ with tabs[0]:
             elif target == "Master_Inventaire_Zone":
                 # db_cols est laissé vide pour accepter toutes les colonnes
                 db_path, db_cols, key = "data_inventaire_detail/master_detail.csv", df_up.columns.tolist(), "lot"
+            elif target == "Commandes & Recouvrement":
+                db_path, db_cols = "data/db_commandes_globales.csv", df_up.columns.tolist()
+                key = next((c for c in df_up.columns if str(c).strip().lower() in ["référence", "reference", "ref"]), df_up.columns[0])
             elif target == "Analyse_Ventes_Perf":
                 db_path, db_cols, key = "data/db_ventes_performance.csv", df_up.columns.tolist(), "reference"
             elif target == "Analyse_Reclamations":
@@ -668,8 +697,8 @@ with tabs[0]:
                     
             elif st.button(f"📥 Fusionner avec la base {target}", type="primary", use_container_width=True):
                 # Correction: load df_old for the target worksheet
-                worksheet_name = target if target not in ["Recouvrement_Logipharm", "Expedition_Logipharm"] else target.replace("_Logipharm", "")
-                load_cols = None if target in ["Analyse_Reclamations", "Master_Inventaire_Zone", "Analyse_Ventes_Perf", "Expedition_Logipharm"] else db_cols
+                worksheet_name = target if target not in ["Recouvrement_Logipharm", "Expedition_Logipharm", "Commandes & Recouvrement"] else target.replace("_Logipharm", "").replace(" & ", "_")
+                load_cols = None if target in ["Analyse_Reclamations", "Master_Inventaire_Zone", "Analyse_Ventes_Perf", "Expedition_Logipharm", "Commandes & Recouvrement"] else db_cols
                 df_old = load_gs_data(worksheet_name, db_path, load_cols)
                 
                 # On renomme intelligemment pour éviter les colonnes en double
@@ -782,8 +811,8 @@ with tabs[0]:
                     cols_to_keep = [c for c in db_cols if c in df_up.columns]
                     df_merged = pd.concat([df_old, df_up[cols_to_keep]], ignore_index=True).drop_duplicates(subset=[key])
                 
-                save_gs_data(df_merged, target if target not in ["Recouvrement_Logipharm", "Expedition_Logipharm"] else target.replace("_Logipharm", ""), db_path)
-                st.success(f"✅ Migration réussie vers **{target}** — {len(df_up)} lignes traitées.")
+                save_gs_data(df_merged, worksheet_name, db_path)
+                st.success(f"✅ Migration réussie vers **{worksheet_name}** — {len(df_up)} lignes traitées.")
                 log_action(st.session_state.current_user['username'], f"Import Master Data : {target}", "Admin Centrale")
                 st.cache_data.clear()
                 st.rerun()
