@@ -14,21 +14,16 @@ st.set_page_config(page_title="Performance de la Flotte", layout="wide", page_ic
 # ==========================================
 st.markdown("""
 <style>
-    /* Palette & Variables */
+    /* Palette & Variables (Thème Clair) */
     :root {
-        --bg-dark: #1E1E24;
-        --accent-blue: #0066FF;
+        --accent-blue: #0052FF;
         --accent-cyan: #00B4D8;
         --accent-purple: #7B2CBF;
-        --card-bg: rgba(255, 255, 255, 0.03);
-        --card-border: rgba(255, 255, 255, 0.08);
-        --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-    }
-    
-    /* Global App Background */
-    .stApp {
-        background-color: var(--bg-dark);
-        color: white;
+        --card-bg: #FFFFFF;
+        --card-border: #E2E8F0;
+        --text-main: #1E293B;
+        --text-muted: #64748B;
+        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
     }
     
     /* Custom KPI Cards */
@@ -44,8 +39,7 @@ st.markdown("""
         border-radius: 16px;
         padding: 24px;
         box-shadow: var(--shadow);
-        backdrop-filter: blur(10px);
-        transition: transform 0.3s ease, border-color 0.3s ease;
+        transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
         text-align: center;
         position: relative;
         overflow: hidden;
@@ -62,31 +56,32 @@ st.markdown("""
     .kpi-card:hover {
         transform: translateY(-5px);
         border-color: var(--accent-cyan);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
     }
     .kpi-title {
         font-size: 0.85rem;
-        color: #A0AEC0;
+        color: var(--text-muted);
         text-transform: uppercase;
-        letter-spacing: 1.5px;
+        letter-spacing: 1px;
         margin-bottom: 10px;
-        font-weight: 600;
+        font-weight: 700;
     }
     .kpi-value {
         font-size: 2.2rem;
         font-weight: 800;
-        color: white;
+        color: var(--text-main);
         margin: 0;
     }
     .kpi-value.gradient-text {
-        background: linear-gradient(90deg, #00B4D8, #7B2CBF);
+        background: linear-gradient(90deg, #0052FF, #7B2CBF);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
     }
     
     /* Table Styling & Anomalies Card */
     .anomaly-card {
-        background: rgba(220, 38, 38, 0.05);
-        border: 1px solid rgba(220, 38, 38, 0.2);
+        background: #FEF2F2;
+        border: 1px solid #FCA5A5;
         border-radius: 16px;
         padding: 20px;
         margin-top: 25px;
@@ -95,26 +90,24 @@ st.markdown("""
     .anomaly-title {
         font-size: 1.2rem;
         font-weight: 700;
-        color: #F87171;
-        margin-bottom: 15px;
+        color: #B91C1C;
+        margin-bottom: 0px;
         display: flex;
         align-items: center;
         gap: 10px;
     }
-
+    
     /* Header Styling */
     .header-title {
         font-weight: 900;
         font-size: 2.5rem;
         letter-spacing: -1px;
+        color: var(--text-main);
         margin-bottom: 5px;
-        background: linear-gradient(135deg, #FFF, #A0AEC0);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
     }
     .header-subtitle {
-        color: var(--accent-cyan);
-        font-weight: 600;
+        color: var(--accent-blue);
+        font-weight: 700;
         letter-spacing: 2px;
         text-transform: uppercase;
         font-size: 0.85rem;
@@ -298,8 +291,8 @@ with c_head1:
 with c_head2:
     st.markdown(f"""
     <div style="text-align: right; margin-top: 20px;">
-        <span style="color:#A0AEC0; font-size:12px;">Mise à jour</span><br>
-        <strong style="color:white; font-size:16px;">{pivot_date.strftime('%d/%m/%Y %H:%M')}</strong>
+        <span style="color:#64748B; font-size:12px; font-weight:600;">Mise à jour</span><br>
+        <strong style="color:#1E293B; font-size:16px;">{pivot_date.strftime('%d/%m/%Y %H:%M')}</strong>
     </div>
     """, unsafe_allow_html=True)
 
@@ -324,7 +317,7 @@ st.markdown(f"""
     <div class="kpi-card">
         <div class="kpi-title">📦 Volume Global Période</div>
         <p class="kpi-value gradient-text">{total_colis:,}</p>
-        <span style="color:#A0AEC0; font-size:13px; font-weight:600;">Colis expédiés de l'entrepôt</span>
+        <span style="color:#64748B; font-size:13px; font-weight:600;">Colis expédiés de l'entrepôt</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -353,8 +346,8 @@ with col_left:
     fig_leaderboard.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="white"),
-        xaxis=dict(showgrid=False, title="Nombre total de colis"),
+        font=dict(color="#1E293B"),
+        xaxis=dict(showgrid=True, gridcolor="#E2E8F0", title="Nombre total de colis"),
         yaxis=dict(showgrid=False, title=""),
         coloraxis_showscale=False,
         height=380,
@@ -381,7 +374,7 @@ with col_right:
         fig_donut.update_layout(
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="white"),
+            font=dict(color="#1E293B"),
             legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5),
             height=380,
             margin=dict(l=0, r=0, t=10, b=50)
@@ -426,9 +419,9 @@ with col_disp:
     fig_disp.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="white"),
+        font=dict(color="#1E293B"),
         xaxis=dict(showgrid=False, title=""),
-        yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", title="Wilayas moyennes / jour"),
+        yaxis=dict(showgrid=True, gridcolor="#E2E8F0", title="Wilayas moyennes / jour"),
         height=300,
         margin=dict(l=0, r=0, t=10, b=10)
     )
