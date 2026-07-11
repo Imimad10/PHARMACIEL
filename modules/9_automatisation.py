@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import google.generativeai as genai
 import json
 import os
 import tempfile
@@ -34,6 +33,7 @@ if not api_key:
     """)
     st.stop()
 
+import google.generativeai as genai
 genai.configure(api_key=api_key)
 
 # Interface de chargement
