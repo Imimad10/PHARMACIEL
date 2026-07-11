@@ -12,6 +12,51 @@ st.set_page_config(page_title="Darpharm Solution - Portail", layout="wide", page
 if "theme" not in st.session_state:
     st.session_state.theme = "Clair"
 
+# ==============================================================================
+# 1. INITIALISATION DU PIPELINE GLOBAL DE DONNÉES (DATA HUB CENTRAL)
+# ==============================================================================
+if "darpharm_data" not in st.session_state:
+    st.session_state.darpharm_data = {
+        "df_ventes": None,        # Source: Admin Centrale / Ventes
+        "df_expedition": None,    # Source: Admin Centrale / Expéditions
+        "df_reclamations": None,  # Source: Analyse Réclamations
+        "df_inventaire": None,    # Source: Inventaire Triple
+        "alerts_ia": []           # Source: Cortex IA Engine
+    }
+
+# ==============================================================================
+# 2. MOTEUR D'INTELLIGENCE CROISÉE (CORTEX IA)
+# ==============================================================================
+class DarpharmEngine:
+    @staticmethod
+    def analyser_interconnexions():
+        data = st.session_state.darpharm_data
+        alerts = []
+        
+        # Exemple de Logique Croisée : Rotation Logistique vs Réclamations Clients
+        if data.get("df_ventes") is not None and data.get("df_reclamations") is not None:
+            # Code interne de croisement via les clés communes client/référence
+            pass
+            
+        # Exemple de Logique Flotte vs Retards
+        if data.get("df_expedition") is not None:
+            # Analyse de la performance flotte et calcul des surcharges de colis
+            pass
+            
+        st.session_state.darpharm_data["alerts_ia"] = alerts
+
+# ==============================================================================
+# 3. INTERFACE DE NOTIFICATION ET D'ACTION (BRIEFING IA)
+# ==============================================================================
+def afficher_briefing_ia():
+    DarpharmEngine.analyser_interconnexions()
+    alerts = st.session_state.darpharm_data.get("alerts_ia", [])
+    if alerts:
+        with st.expander("🤖 Cortex IA & Briefing - Actions Suggérées", expanded=True):
+            for alert in alerts:
+                st.info(alert)
+
+
 # --- 1.1 INJECTION PWA & CONNECTIVITÉ ---
 st.markdown(
     """
@@ -1475,6 +1520,11 @@ if (!doc.getElementById('google_translate_script')) {
 }
 </script>
 """, height=0, width=0)
+
+# --- AFFICHAGE DU BANDEAU DE PILOTAGE INTELLIGENT GLOBAL ---
+# On ne l'affiche que si l'utilisateur est authentifié pour ne pas le montrer sur la page de login
+if st.session_state.get('current_user') is not None:
+    afficher_briefing_ia()
 
 # Exécuter la page
 pg.run()
