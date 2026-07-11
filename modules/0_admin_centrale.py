@@ -551,6 +551,49 @@ with tabs[0]:
                 if reg_col:
                     df_up['Secteur'] = df_up[reg_col]
 
+                # ── MOTEUR DE RECONNAISSANCE AUTOMATIQUE DES LIVREURS ──
+                try:
+                    df_exp = load_gs_data("Expedition_Logipharm", "data/db_expedition_logipharm.csv", None)
+                    if not df_exp.empty:
+                        col_liv = next((c for c in df_exp.columns if str(c).strip().lower() in ['livreur', 'preparateur']), None)
+                        col_ref_exp = next((c for c in df_exp.columns if str(c).strip().lower() in ['référence', 'reference', 'ref', 'b.l', "n°bon", "bon"]), None)
+                        col_reg_exp = next((c for c in df_exp.columns if str(c).strip().lower() in ['région', 'region', 'wilaya']), None)
+                        
+                        ref_col_cmd = next((c for c in df_up.columns if str(c).strip().lower() in ["référence", "reference", "ref", "b.l"]), None)
+                        
+                        if col_liv and col_ref_exp and ref_col_cmd:
+                            # 1. Extraction de la flotte (Mapping exact)
+                            df_exp['_join_ref'] = df_exp[col_ref_exp].astype(str).str.strip().str.upper()
+                            df_up['_join_ref'] = df_up[ref_col_cmd].astype(str).str.strip().str.upper()
+                            
+                            mapping_livreurs = df_exp.set_index('_join_ref')[col_liv].to_dict()
+                            
+                            # 2. Injection Automatique
+                            df_up['_logi_Livreur_Attribue'] = df_up['_join_ref'].map(mapping_livreurs)
+                            
+                            # 3. Logique Géographique (Régions vs Livreurs)
+                            if reg_col and col_reg_exp:
+                                df_exp['_join_reg'] = df_exp[col_reg_exp].astype(str).str.strip().str.upper()
+                                df_up['_join_reg'] = df_up[reg_col].astype(str).str.strip().str.upper()
+                                
+                                # Le livreur le plus fréquent par région
+                                freq_liv_by_reg = df_exp.groupby('_join_reg')[col_liv].agg(lambda x: x.mode()[0] if not x.mode().empty else None).to_dict()
+                                
+                                def suggest_driver(row):
+                                    val = row.get('_logi_Livreur_Attribue')
+                                    if pd.isna(val) or str(val).strip() == "":
+                                        r = row.get('_join_reg')
+                                        if r in freq_liv_by_reg and freq_liv_by_reg[r]:
+                                            return f"Livreur habituel détecté : {freq_liv_by_reg[r]}"
+                                    return val
+                                    
+                                df_up['_logi_Livreur_Attribue'] = df_up.apply(suggest_driver, axis=1)
+                                df_up = df_up.drop(columns=['_join_reg'])
+                                
+                            df_up = df_up.drop(columns=['_join_ref'])
+                except Exception as e:
+                    pass
+
             # ── PRIORITÉ 0 : RÉCLAMATIONS LOGIPHARM (préfixe RC dans la colonne Référence) ──
             # Les fichiers de réclamations Logipharm ont une colonne 'Référence' dont les valeurs
             # commencent par 'RC' (ex: 26/RC0000000144). Cette règle est prioritaire sur tout.
@@ -647,6 +690,29 @@ with tabs[0]:
             df_up.columns = cols
             
             st.write("**Aperçu des données :**")
+            
+            # 4. VISUEL DANS L'ADMIN CENTRALE
+            if target == "Commandes & Recouvrement" and '_logi_Livreur_Attribue' in df_up.columns:
+                st.success("🤖 **Moteur IA : Affectation automatique des livreurs réussie !**")
+                colis_c = next((c for c in df_up.columns if str(c).strip().lower() == "colis"), None)
+                reg_c = next((c for c in df_up.columns if str(c).strip().lower() in ["région", "region", "wilaya"]), None)
+                
+                df_up['_temp_colis'] = pd.to_numeric(df_up[colis_c], errors='coerce').fillna(0) if colis_c else 1
+                    
+                recap_df = df_up.groupby('_logi_Livreur_Attribue').agg(
+                    Colis_Total=('_temp_colis', 'sum'),
+                    Régions_Couvertes=(reg_c, 'nunique') if reg_c else ('_logi_Livreur_Attribue', 'count')
+                ).reset_index()
+                
+                recap_df.rename(columns={
+                    '_logi_Livreur_Attribue': 'Nom du Livreur', 
+                    'Colis_Total': 'Nombre de Colis Total'
+                }, inplace=True)
+                
+                st.dataframe(recap_df, use_container_width=True, hide_index=True)
+                df_up = df_up.drop(columns=['_temp_colis'], errors='ignore')
+                st.markdown("---")
+
             try:
                 st.dataframe(df_up.head(5).astype(str), use_container_width=True)
             except Exception:
