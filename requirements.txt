@@ -18,3 +18,4 @@ xlrd
 pdfplumber
 gspread
 google-auth
+xlsxwriter

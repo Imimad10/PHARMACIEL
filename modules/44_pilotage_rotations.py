@@ -101,6 +101,7 @@ def load_real_data() -> pd.DataFrame:
         else:
             renamed[col] = col
     df = df.rename(columns=renamed)
+    df = df.loc[:, ~df.columns.duplicated()].copy()
 
     # Parsing date — priorité à Date_Creation
     date_col = "Date_Creation"
@@ -183,6 +184,7 @@ def get_data() -> pd.DataFrame:
                     renamed[col] = target
                     already_used.add(target)
         df_raw = df_raw.rename(columns=renamed)
+        df_raw = df_raw.loc[:, ~df_raw.columns.duplicated()].copy()
 
         date_col = "Date_Creation"
         if date_col not in df_raw.columns:
