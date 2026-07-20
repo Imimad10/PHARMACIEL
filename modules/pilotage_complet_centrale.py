@@ -22,6 +22,8 @@ FIN_JOURNEE = time(19, 0, 0)
 
 DEFAULT_SEUIL_COLIS_ROUGE = 500
 DEFAULT_SEUIL_COLIS_ORANGE = 350
+DEFAULT_SEUIL_LIGNES_ROUGE = 1500
+DEFAULT_SEUIL_LIGNES_ORANGE = 1000
 
 # Mappage flexible des colonnes du fichier unique (Centrale)
 COLUMN_MAPPING = {
@@ -99,7 +101,7 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 .page-header p { opacity: 0.75; margin: 0; font-size: 0.95rem; }
 
 /* ── KPI Grid ── */
-.kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 12px; }
+.kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 12px; }
 .kpi-card {
     background: rgba(128, 128, 128, 0.06);
     border: 1px solid rgba(128, 128, 128, 0.15);
@@ -320,6 +322,12 @@ with st.sidebar:
     seuil_colis_orange = st.number_input(
         "🟠 Seuil Alerte R2 (Colis)", value=DEFAULT_SEUIL_COLIS_ORANGE, step=50
     )
+    seuil_lignes_rouge = st.number_input(
+        "🔴 Seuil Surcharge R2 (Lignes)", value=DEFAULT_SEUIL_LIGNES_ROUGE, step=100
+    )
+    seuil_lignes_orange = st.number_input(
+        "🟠 Seuil Alerte R2 (Lignes)", value=DEFAULT_SEUIL_LIGNES_ORANGE, step=100
+    )
     
     st.markdown("---")
     st.markdown("#### ⚙️ Paramètres Financiers")
@@ -463,11 +471,22 @@ if st.session_state["db_commandes"].empty:
 db = st.session_state["db_commandes"]
 
 # Sélecteur de date basé sur les dates de création
+mode_date = st.radio("Mode de filtrage (Date de Création)", ["Jour précis", "Plage de dates"], index=0, horizontal=True)
 dates_dispo = sorted(db["Jour_Creation"].unique(), reverse=True)
-selected_date = st.selectbox("📅 Sélectionner la Date de Création :", dates_dispo)
 
-# Filtrage sur le jour choisi
-df_filtered = db[db["Jour_Creation"] == selected_date].copy()
+if mode_date == "Jour précis":
+    selected_date = st.selectbox("📅 Sélectionner la Date de Création :", dates_dispo)
+    df_filtered = db[db["Jour_Creation"] == selected_date].copy()
+else:
+    date_range = st.date_input(
+        "📆 Plage de dates",
+        value=[dates_dispo[-1], dates_dispo[0]],
+        min_value=dates_dispo[-1], max_value=dates_dispo[0]
+    )
+    if len(date_range) == 2:
+        df_filtered = db[(db["Jour_Creation"] >= date_range[0]) & (db["Jour_Creation"] <= date_range[1])].copy()
+    else:
+        df_filtered = db.copy()
 
 df_r2, df_r1 = segmenter_rotations(df_filtered)
 
@@ -476,6 +495,7 @@ st.markdown("### 📊 Synthèse de la Journée Sélectionnée")
 
 total_bons = len(df_filtered)
 total_colis = int(df_filtered['Colis'].sum())
+total_lignes = int(df_filtered['Lignes'].sum())
 total_ttc = int(df_filtered['MontantTTC'].sum())
 total_encaisse = int(df_filtered['Montant_Regle'].sum())
 total_reste = int(df_filtered['Reste_A_Payer'].sum())
@@ -494,6 +514,12 @@ st.markdown(f"""
         <div class="kpi-label">Total Colis</div>
         <p class="kpi-value">{total_colis:,}</p>
         <div class="kpi-sub">Volume total préparé</div>
+    </div>
+    <div class="kpi-card blue">
+        <div class="kpi-icon">🔢</div>
+        <div class="kpi-label">Total Lignes</div>
+        <p class="kpi-value">{total_lignes:,}</p>
+        <div class="kpi-sub">Lignes à scanner</div>
     </div>
     <div class="kpi-card green">
         <div class="kpi-icon">💰 Chiffre d'Affaires</div>
@@ -525,6 +551,7 @@ st.markdown("### 🚨 Centre de Décision IA & Alertes Critiques")
 
 nb_non_imprimes_r2 = len(df_r2[df_r2["Statut_Impression"] == "Non Imprimé"]) if not df_r2.empty else 0
 colis_r2 = int(df_r2['Colis'].sum()) if not df_r2.empty else 0
+lignes_r2 = int(df_r2['Lignes'].sum()) if not df_r2.empty else 0
 
 # Impayés critiques (Reste à payer > seuil paramétrable)
 impayes_critiques = df_filtered[df_filtered["Reste_A_Payer"] >= seuil_impaye_client].copy()
@@ -540,27 +567,27 @@ with st.container():
         st.markdown("##### 📌 Diagnostic en Temps Réel")
         
         # 1. Alerte Surcharge Logistique R2
-        if colis_r2 >= seuil_colis_rouge:
+        if colis_r2 >= seuil_colis_rouge or lignes_r2 >= seuil_lignes_rouge:
             st.markdown(f"""
             <div class="alert-box danger">
                 <span>🚨</span>
                 <div>
                     <div class="alert-box-title">SURCHARGE LOGISTIQUE CRITIQUE — Rotation 2</div>
                     <div class="alert-box-desc">
-                        La charge pour la Rotation 2 atteint <strong>{colis_r2} colis</strong>, dépassant le seuil critique de <strong>{seuil_colis_rouge} colis</strong>.
+                        La charge pour la Rotation 2 atteint <strong>{colis_r2} colis / {lignes_r2} lignes</strong>, dépassant le seuil critique.
                         Risque élevé de rupture du cut-off de 12h15.
                     </div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
-        elif colis_r2 >= seuil_colis_orange:
+        elif colis_r2 >= seuil_colis_orange or lignes_r2 >= seuil_lignes_orange:
             st.markdown(f"""
             <div class="alert-box warning">
                 <span>⚠️</span>
                 <div>
                     <div class="alert-box-title">CHARGE LOGISTIQUE ÉLEVÉE — Rotation 2</div>
                     <div class="alert-box-desc">
-                        La charge est de <strong>{colis_r2} colis</strong>. Situation tendue (Seuil d'alerte : {seuil_colis_orange} colis). 
+                        La charge est de <strong>{colis_r2} colis / {lignes_r2} lignes</strong>. Situation tendue. 
                         Surveillez le rythme de préparation.
                     </div>
                 </div>
@@ -573,7 +600,7 @@ with st.container():
                 <div>
                     <div class="alert-box-title">FLUX DE PRÉPARATION NOMINAL — Rotation 2</div>
                     <div class="alert-box-desc">
-                        La charge en Rotation 2 est de <strong>{colis_r2} colis</strong>. Flux dans les limites opérationnelles.
+                        La charge en Rotation 2 est de <strong>{colis_r2} colis / {lignes_r2} lignes</strong>. Flux dans les limites opérationnelles.
                     </div>
                 </div>
             </div>
@@ -630,7 +657,7 @@ with st.container():
         st.markdown("##### 💡 Recommandations Opérationnelles")
         
         recs = []
-        if colis_r2 >= seuil_colis_rouge:
+        if colis_r2 >= seuil_colis_rouge or lignes_r2 >= seuil_lignes_rouge:
             recs.append("🏃 **Logistique** : Réaffecter immédiatement 2 préparateurs supplémentaires du secteur réception/stockage vers la préparation R2.")
         if nb_non_imprimes_r2 > 0:
             recs.append("🖨️ **Impression** : Lancer immédiatement l'édition physique des bons non imprimés en R2 pour éviter les goulets d'étranglement.")
