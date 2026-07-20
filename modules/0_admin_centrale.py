@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
-from datetime import datetime
+from datetime import datetime, time
 from utils_gsheets import load_gs_data, save_gs_data, get_gs_client, get_gs_url, USER_COLUMNS
 from utils import log_action
 from utils_themes import (
@@ -533,12 +533,12 @@ with tabs[0]:
                 df_up = df_up.loc[:, ~df_up.columns.str.lower().str.startswith("unnamed:")]
                 
                 # Préparation aux autres modules
-                date_col = next((c for c in df_up.columns if str(c).strip().lower() == "date"), None)
+                date_col = next((c for c in df_up.columns if str(c).strip().lower() in ["date", "date création", "date creation", "date_creation"]), None)
                 if date_col:
                     try:
                         temp_dt = pd.to_datetime(df_up[date_col], errors='coerce')
                         df_up['Heure_Rotation'] = temp_dt.dt.strftime('%H:%M:%S')
-                        df_up['Rotation'] = temp_dt.apply(lambda x: 1 if pd.notna(x) and x.time() > pd.to_datetime('12:15:00').time() else 2)
+                        df_up['Rotation'] = temp_dt.apply(lambda x: 1 if pd.notna(x) and x.time() >= time(12, 15, 0) else 2)
                     except Exception:
                         pass
                 
@@ -878,6 +878,9 @@ with tabs[0]:
                     df_merged = pd.concat([df_old, df_up[cols_to_keep]], ignore_index=True).drop_duplicates(subset=[key])
                 
                 save_gs_data(df_merged, worksheet_name, db_path)
+                # ── Injection immédiate dans la session (accessible aux autres modules) ──
+                if target == "Commandes & Recouvrement":
+                    st.session_state['db_commandes_recouvrement'] = df_merged.copy()
                 st.success(f"✅ Migration réussie vers **{worksheet_name}** — {len(df_up)} lignes traitées.")
                 log_action(st.session_state.current_user['username'], f"Import Master Data : {target}", "Admin Centrale")
                 st.cache_data.clear()
