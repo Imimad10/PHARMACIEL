@@ -200,6 +200,7 @@ def load_and_parse_centrale_file(uploaded_file) -> pd.DataFrame:
         
         # Mappage flexible
         df = df.rename(columns=COLUMN_MAPPING)
+        df = df.loc[:, ~df.columns.duplicated()].copy()
 
         # Vérification des colonnes minimales nécessaires (Date_Creation est obligatoire)
         required_cols = [
