@@ -59,6 +59,7 @@ COL_ALIASES = {
     "ttc": "MontantTTC",
     "valeur": "MontantTTC",
     "statut": "Statut",
+    "statut_impression": "Statut",
     "nbr impres.": "Statut",       # dans bons.xlsx : col "Nbr Impres." = imprimé quand > 0
     "nbr impres": "Statut",
     "nbr imprès.": "Statut",

@@ -365,6 +365,13 @@ if uploaded_file is not None:
             else:
                 combined = pd.concat([st.session_state["db_commandes"], df_new], ignore_index=True)
                 st.session_state["db_commandes"] = combined.drop_duplicates(subset=["Référence"], keep="last")
+            
+            # Synchronisation avec le module 44_pilotage_rotations
+            st.session_state["db_commandes_recouvrement"] = st.session_state["db_commandes"].copy()
+            # Sauvegarde persistante pour éviter la perte au redémarrage
+            os.makedirs("data", exist_ok=True)
+            st.session_state["db_commandes"].to_csv("data/db_commandes_globales.csv", index=False, encoding="utf-8-sig")
+
             st.success(f"✅ Base mise à jour ! Total enregistrements : {len(st.session_state['db_commandes'])}")
             st.rerun()
 
