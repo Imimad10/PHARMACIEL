@@ -117,83 +117,21 @@ st.markdown("""
 
 
 # ==========================================
-# 2. GENERATION DU JEU DE DONNÉES SIMULÉES (MOCK DATA)
+# 2. CHARGEMENT DU JEU DE DONNÉES RÉELLES
 # ==========================================
-@st.cache_data
-def load_mock_fleet_data():
+from utils_gsheets import load_gs_data
+
+@st.cache_data(ttl=300)
+def load_real_fleet_data():
     """
-    Simule les données d'expédition et de commandes pour la flotte de livraison.
-    A REMPLACER PAR load_gs_data(...) EN PRODUCTION.
+    Charge les données réelles des expéditions depuis la base centrale.
     """
-    np.random.seed(42)
-    random.seed(42)
-    
-    # Paramètres de simulation
-    n_commandes = 600
-    date_fin = datetime.now()
-    date_debut = date_fin - timedelta(days=60)
-    
-    # 1. Génération des Commandes Clients
-    regions = ["Alger", "Blida", "Tipaza", "Boumerdes", "Oran", "Constantine", "Sétif", "Tizi Ouzou", "Chlef", "Béjaïa"]
-    clients = [f"Pharmacie {chr(65+i)}{chr(65+j)}" for i in range(10) for j in range(5)]
-    
-    commandes_list = []
-    for i in range(n_commandes):
-        ref = f"CMD-{10000 + i}"
-        client = random.choice(clients)
-        region = random.choice(regions)
-        colis = random.randint(1, 18)
-        commandes_list.append({
-            "Référence": ref,
-            "Client": client,
-            "Région/Wilaya": region,
-            "Nombre de Colis": colis
-        })
-    df_commandes = pd.DataFrame(commandes_list)
-    
-    # 2. Génération des Expéditions de la Flotte
-    livreurs = ["Sofiane B.", "Amine K.", "Karim T.", "Reda L.", "Yassine M.", "Brahim H."]
-    vehicules = ["00123-118-16 (Partner)", "00542-120-16 (Master)", "00989-115-09 (Jumper)", "00412-122-16 (Kangoo)", "00781-121-31 (Berlingo)"]
-    status_options = ["Livré", "Livré", "Livré", "Livré", "Retour Partiel", "Non Livré", "En anomalie"]
-    itineraires = [f"IT-EST-{i:02d}" for i in range(1, 6)] + [f"IT-OUEST-{i:02d}" for i in range(1, 6)] + [f"IT-ALGER-{i:02d}" for i in range(1, 8)]
+    df_exp = load_gs_data("Expeditions", "data/db_expeditions.csv", None)
+    df_cmd = load_gs_data("Commandes", "data/db_commandes.csv", None)
+    return df_exp, df_cmd
 
-    expeditions_list = []
-    for i in range(n_commandes):
-        ref = f"CMD-{10000 + i}"
-        livreur = random.choice(livreurs)
-        # Association stable livreur -> véhicule pour le réalisme
-        liv_idx = livreurs.index(livreur)
-        vehicule = vehicules[liv_idx % len(vehicules)]
-        itineraire = random.choice(itineraires)
-        
-        # Statut de livraison (avec anomalie plus ou moins rare)
-        statut = random.choices(status_options, weights=[60, 20, 10, 5, 2.5, 1.5, 1.0], k=1)[0]
-        
-        # Attribution d'une date sur les 60 derniers jours
-        jours_offset = random.randint(0, 60)
-        date_exp = date_debut + timedelta(days=jours_offset, hours=random.randint(8, 18), minutes=random.randint(0, 59))
-        
-        expeditions_list.append({
-            "Référence du bon": ref,
-            "Livreur": livreur,
-            "Véhicule/Matricule": vehicule,
-            "Itinéraire": itineraire,
-            "Statut": statut,
-            "Date": date_exp
-        })
-    df_expeditions = pd.DataFrame(expeditions_list)
-    
-    return df_expeditions, df_commandes
+df_expeditions, df_commandes = load_real_fleet_data()
 
-
-# --- CHARGEMENT DU JEU DE DONNÉES ---
-# TODO: Pour intégrer la vraie BDD en production :
-# 1. Importer votre fonction Google Sheets : `from utils.data_loader import load_gs_data`
-# 2. Remplacer l'appel ci-dessous par :
-#    df_expeditions = load_gs_data(spreadsheet_id, "NomFeuilleExpeditions")
-#    df_commandes = load_gs_data(spreadsheet_id, "NomFeuilleCommandes")
-#    Puis assurez-vous que les types de dates et de jointure concordent.
-df_expeditions, df_commandes = load_mock_fleet_data()
 
 
 # ==========================================
@@ -208,42 +146,67 @@ with st.sidebar:
         ["Historique global", "Mois en cours", "Semaine en cours", "7 derniers jours"]
     )
     
-    # Date pivot fixe (pour que les filtres marchent avec le mock)
-    # Dans une vraie app, on utiliserait datetime.now()
-    pivot_date = df_expeditions["Date"].max()
-    
-    if periode == "Mois en cours":
-        start_date = pivot_date.replace(day=1, hour=0, minute=0, second=0)
-        df_exp_filtered = df_expeditions[df_expeditions["Date"] >= start_date].copy()
-    elif periode == "Semaine en cours":
-        start_date = pivot_date - timedelta(days=pivot_date.weekday())
-        start_date = start_date.replace(hour=0, minute=0, second=0)
-        df_exp_filtered = df_expeditions[df_expeditions["Date"] >= start_date].copy()
-    elif periode == "7 derniers jours":
-        start_date = pivot_date - timedelta(days=7)
-        df_exp_filtered = df_expeditions[df_expeditions["Date"] >= start_date].copy()
+    if df_expeditions.empty:
+        df_exp_filtered = pd.DataFrame()
+        pivot_date = datetime.now()
     else:
-        df_exp_filtered = df_expeditions.copy()
+        if "Date" in df_expeditions.columns:
+            df_expeditions["Date"] = pd.to_datetime(df_expeditions["Date"], errors='coerce')
         
+        pivot_date = datetime.now()
+        
+        if periode == "Mois en cours":
+            start_date = pivot_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            df_exp_filtered = df_expeditions[df_expeditions["Date"] >= start_date].copy()
+        elif periode == "Semaine en cours":
+            start_date = pivot_date - timedelta(days=pivot_date.weekday())
+            start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            df_exp_filtered = df_expeditions[df_expeditions["Date"] >= start_date].copy()
+        elif periode == "7 derniers jours":
+            start_date = pivot_date - timedelta(days=7)
+            df_exp_filtered = df_expeditions[df_expeditions["Date"] >= start_date].copy()
+        else:
+            df_exp_filtered = df_expeditions.copy()
+            
     # 2. Filtre par Livreur
-    liste_livreurs = ["Tous les livreurs"] + sorted(df_exp_filtered["Livreur"].unique().tolist())
+    if not df_exp_filtered.empty and "Livreur" in df_exp_filtered.columns:
+        livreurs_dispos = [str(x) for x in df_exp_filtered["Livreur"].dropna().unique().tolist()]
+        liste_livreurs = ["Tous les livreurs"] + sorted(livreurs_dispos)
+    else:
+        liste_livreurs = ["Tous les livreurs"]
+        
     selected_livreur = st.selectbox("Sélectionner un Livreur", liste_livreurs)
     
-    if selected_livreur != "Tous les livreurs":
+    if selected_livreur != "Tous les livreurs" and not df_exp_filtered.empty:
         df_exp_filtered = df_exp_filtered[df_exp_filtered["Livreur"] == selected_livreur]
 
 
 # ==========================================
 # 4. CALCULS ET CROISEMENTS DE DONNÉES
 # ==========================================
+if df_exp_filtered.empty:
+    st.info("Aucune donnée d'expédition réelle enregistrée pour la période sélectionnée.")
+    st.stop()
+
 # Croisement avec les commandes clients pour récupérer les Wilayas et les colis
-df_merged = pd.merge(
-    df_exp_filtered,
-    df_commandes,
-    left_on="Référence du bon",
-    right_on="Référence",
-    how="inner"
-)
+if not df_commandes.empty and "Référence du bon" in df_exp_filtered.columns and "Référence" in df_commandes.columns:
+    df_merged = pd.merge(
+        df_exp_filtered,
+        df_commandes,
+        left_on="Référence du bon",
+        right_on="Référence",
+        how="inner"
+    )
+else:
+    df_merged = df_exp_filtered.copy()
+    if "Nombre de Colis" not in df_merged.columns:
+        df_merged["Nombre de Colis"] = 1
+    if "Région/Wilaya" not in df_merged.columns:
+        df_merged["Région/Wilaya"] = "Inconnue"
+
+if df_merged.empty:
+    st.info("Aucune donnée d'expédition réelle enregistrée pour la période sélectionnée.")
+    st.stop()
 
 # A. Volume total de colis acheminés
 total_colis = df_merged["Nombre de Colis"].sum()
