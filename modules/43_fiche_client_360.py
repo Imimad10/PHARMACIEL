@@ -742,7 +742,7 @@ with tab4:
             match_client = df_clients_base[_df_base_norm == client_upper]
             if match_client.empty:
                 # Fallback : contains
-                match_client = df_clients_base[_df_base_norm.str.contains(_search_term, na=False, regex=True)]
+                match_client = df_clients_base[_df_base_norm.str.contains(re.escape(client_upper), na=False, regex=True)]
             if not match_client.empty:
                 row = match_client.iloc[0]
                 _wilaya = str(row.get("Wilaya", row.get("Region", row.get("Région", ""))) or "").strip()
@@ -776,7 +776,7 @@ with tab4:
                         _fb_norm = _df_fb[_col_fb].astype(str).str.strip().str.upper()
                         _fb_match = _df_fb[_fb_norm == client_upper]
                         if _fb_match.empty:
-                            _fb_match = _df_fb[_fb_norm.str.contains(_search_term, na=False, regex=True)]
+                            _fb_match = _df_fb[_fb_norm.str.contains(re.escape(client_upper), na=False, regex=True)]
                         if not _fb_match.empty:
                             _row_fb = _fb_match.iloc[0]
                             if id_info["Wilaya / Région"] in ("N/A", ""):
