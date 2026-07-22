@@ -372,6 +372,37 @@ with tab_activite:
 with tab_compte:
     st.write("#### ⚙️ Paramètres de Sécurité")
 
+    st.markdown("##### 🌐 Connexion Google")
+    current_google = st.session_state.current_user.get('google_email', '')
+    if pd.isna(current_google) or current_google == 'nan': current_google = ''
+    
+    if current_google:
+        st.success(f"✅ Compte lié : **{current_google}**")
+        if st.button("Délier mon compte Google"):
+            mask = df_users['username'] == username
+            df_users.loc[mask, 'google_email'] = ''
+            save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+            st.session_state.current_user['google_email'] = ''
+            st.rerun()
+    else:
+        st.info("Liez votre compte Google pour vous connecter en un clic à l'avenir.")
+        try:
+            from utils_google_auth import get_login_url
+            link_url = get_login_url(state="link")
+            if link_url:
+                st.markdown(f"""
+                <a href="{link_url}" target="_self" style="text-decoration: none; display: inline-flex; background-color: white; color: #444; border: 1px solid #ccc; border-radius: 10px; padding: 10px 20px; font-weight: 600; font-size: 14px; align-items: center; justify-content: center; gap: 10px; transition: all 0.2s;">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" style="width: 18px; height: 18px;">
+                    🔗 Lier mon compte Google
+                </a>
+                <br><br>
+                """, unsafe_allow_html=True)
+            else:
+                st.warning("⚠️ L'authentification Google n'est pas configurée dans les Secrets.")
+        except Exception: pass
+
+    st.divider()
+
     with st.form("form_pwd"):
         new_p = st.text_input("Nouveau mot de passe", type="password")
         conf_p= st.text_input("Confirmer le mot de passe", type="password")

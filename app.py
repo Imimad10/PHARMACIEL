@@ -714,6 +714,55 @@ if st.session_state.current_user:
     # Appliquer le thème personnalisé de l'utilisateur (depuis la base de thèmes)
     apply_user_theme(st.session_state.current_user.get('username', ''))
 
+# ==============================================================================
+# --- GOOGLE OAUTH CALLBACK HANDLING ---
+# ==============================================================================
+qp = st.query_params
+if "code" in qp:
+    code = qp["code"]
+    state = qp.get("state", "login")
+    st.query_params.clear()
+    
+    from utils_google_auth import get_user_info
+    with st.spinner("Authentification Google en cours..."):
+        user_info, err = get_user_info(code)
+        if err:
+            st.error(err)
+        elif user_info and "email" in user_info:
+            google_email = user_info["email"]
+            
+            if state == "link" and st.session_state.current_user:
+                mask = df_users['username'] == st.session_state.current_user['username']
+                other_mask = (df_users['google_email'].astype(str).str.lower() == google_email.lower()) & ~mask
+                if not df_users[other_mask].empty:
+                    st.error(f"❌ Cette adresse Google ({google_email}) est déjà liée à un autre compte.")
+                else:
+                    if 'google_email' not in df_users.columns: df_users['google_email'] = ''
+                    df_users.loc[mask, 'google_email'] = google_email
+                    save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+                    st.session_state.current_user['google_email'] = google_email
+                    st.success(f"✅ Compte Google lié avec succès ({google_email}) !")
+                    
+            elif state == "login":
+                if 'google_email' not in df_users.columns: df_users['google_email'] = ''
+                mask_g = df_users['google_email'].astype(str).str.lower() == google_email.lower()
+                mask_e = df_users['email'].astype(str).str.lower() == google_email.lower()
+                res = df_users[mask_g | mask_e]
+                
+                if not res.empty:
+                    user_data = res.iloc[0].to_dict()
+                    st.session_state.current_user = user_data
+                    if not st.session_state.etablissement:
+                        st.session_state.etablissement = "darpharm"
+                    st.session_state.remember_me = True
+                    try:
+                        controller.set("user_token", str(user_data['username']), max_age=86400 * 30)
+                        controller.set("etab_token", st.session_state.etablissement, max_age=86400 * 30)
+                    except Exception: pass
+                    st.rerun()
+                else:
+                    st.error(f"❌ Aucun compte associé à l'adresse Google : {google_email}.")
+
 # --- 4. ÉCRAN DE CONNEXION ---
 if st.session_state.current_user is None:
 
@@ -1076,6 +1125,22 @@ Bienvenue 👋
                     </div>
                     """, unsafe_allow_html=True)
     
+            from utils_google_auth import get_login_url
+            google_url = get_login_url(state="login")
+            if google_url:
+                st.markdown(f"""
+                <a href="{google_url}" target="_self" style="text-decoration: none; display: flex; width: 100%; margin-top: 16px; background-color: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 14px; padding: 14px; font-weight: 600; font-size: 15px; align-items: center; justify-content: center; gap: 10px; transition: all 0.2s;">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" style="width: 20px; height: 20px; background: white; border-radius: 50%; padding: 2px;">
+                    Continuer avec Google
+                </a>
+                <style>
+                    a[href^="https://accounts.google.com"]:hover {{
+                        background-color: rgba(255,255,255,0.15) !important;
+                        border-color: rgba(255,255,255,0.6) !important;
+                    }}
+                </style>
+                """, unsafe_allow_html=True)
+
             st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
             if st.button("❓ Mot de passe oublié ?", use_container_width=True, key="btn_forgot_pwd"):
                 st.session_state.show_forgot_password = True
