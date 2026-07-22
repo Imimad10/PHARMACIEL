@@ -41,17 +41,28 @@ def parse_numeric_series(series):
 def load_real_data():
     """
     Charge les vrais DataFrames depuis l'Admin Centrale :
-    - df_ventes      : Commandes & Ventes globales (colonnes _logi_*)
+    - df_ventes      : Commandes & Ventes globales — PRIORITÉ : data/db_cmd_rotation.csv
     - df_validation  : Suivi des Réclamations (colonnes nettoyées)
     - df_recouvrement: Recouvrement financier (colonnes standard)
     - df_clients_base: Base Clients (identité, coordonnées)
     """
-    # 1. VENTES / COMMANDES GLOBALES (avec colonnes _logi_*)
-    df_ventes = load_gs_data(
-        "Commandes_Recouvrement",
-        "data/db_commandes_globales.csv",
-        None  # Accepter toutes les colonnes
-    )
+    # 1. VENTES / COMMANDES GLOBALES
+    # Priorité 1 : fichier canonical Cmd_Rotation (issu du dernier import Admin Centrale)
+    import os
+    df_ventes = pd.DataFrame()
+    for _path in ["data/db_cmd_rotation.csv", "data/db_commandes_globales.csv", "data/db_ventes_performance.csv"]:
+        if os.path.exists(_path):
+            try:
+                df_ventes = pd.read_csv(_path, encoding="utf-8-sig", low_memory=False)
+                if not df_ventes.empty:
+                    break
+            except Exception:
+                continue
+    # Fallback GSheets si aucun CSV trouvé
+    if df_ventes.empty:
+        df_ventes = load_gs_data("Cmd_Rotation", "data/db_cmd_rotation.csv", None)
+    if df_ventes.empty:
+        df_ventes = load_gs_data("Commandes_Recouvrement", "data/db_commandes_globales.csv", None)
 
     # 2. RÉCLAMATIONS
     df_validation = load_gs_data(
@@ -71,16 +82,24 @@ def load_real_data():
         if col in df_recouvrement.columns:
             df_recouvrement[col] = parse_numeric_series(df_recouvrement[col])
 
-    # 4. BASE CLIENTS (identité & coordonnées)
-    df_clients_base = load_gs_data(
-        "Base_Clients",
-        "base_clients.csv",
-        None
-    )
+    # 4. BASE CLIENTS (identité & coordonnées) — fallback sur les deux chemins possibles
+    df_clients_base = pd.DataFrame()
+    for _cp in ["data/base_clients.csv", "base_clients.csv"]:
+        if os.path.exists(_cp):
+            try:
+                df_clients_base = pd.read_csv(_cp, encoding="utf-8-sig", low_memory=False)
+                if not df_clients_base.empty:
+                    break
+            except Exception:
+                continue
+    if df_clients_base.empty:
+        df_clients_base = load_gs_data("Base_Clients", "data/base_clients.csv", None)
 
     # --- Conversion des dates ---
     if 'Date' in df_ventes.columns:
         df_ventes['Date'] = pd.to_datetime(df_ventes['Date'], errors='coerce')
+    elif 'date' in df_ventes.columns:
+        df_ventes['date'] = pd.to_datetime(df_ventes['date'], errors='coerce')
     if 'date' in df_validation.columns:
         df_validation['date'] = pd.to_datetime(df_validation['date'], errors='coerce')
     if 'Date' in df_recouvrement.columns:
@@ -244,13 +263,14 @@ def _detect_col(df, candidates):
             return c
     return None
 
-COL_CLIENT   = _detect_col(df_ventes, ["_logi_Client", "Client", "client"])
-COL_COLIS    = _detect_col(df_ventes, ["_logi_Colis", "Colis", "colis"])
-COL_REF      = _detect_col(df_ventes, ["_logi_Référence", "Référence", "reference", "référence", "B.L"])
-COL_LIGNES   = _detect_col(df_ventes, ["_logi_Nbr Ligne", "Nbr Ligne", "nbr_ligne", "Lignes"])
+# Colonnes Cmds & Rotation (nettoyées par clean_cmd_rotation_cols)
+COL_CLIENT   = _detect_col(df_ventes, ["Client", "client", "_logi_Client"])
+COL_COLIS    = _detect_col(df_ventes, ["Colis", "colis", "_logi_Colis"])
+COL_REF      = _detect_col(df_ventes, ["Référence", "reference", "référence", "_logi_Référence", "B.L"])
+COL_LIGNES   = _detect_col(df_ventes, ["Nbr Ligne", "nbr_ligne", "Nbr_Ligne", "_logi_Nbr Ligne", "Lignes"])
 COL_DATE     = _detect_col(df_ventes, ["Date", "date", "_logi_Date"])
 COL_REGION   = _detect_col(df_ventes, ["Région", "_logi_Région", "region", "Secteur"])
-COL_TTC      = _detect_col(df_ventes, ["_logi_T.T.C", "T.T.C", "_logi_H.T", "H.T", "Montant Initial", "prix_vente"])
+COL_TTC      = _detect_col(df_ventes, ["T.T.C", "ttc", "_logi_T.T.C", "H.T", "ht", "_logi_H.T", "Montant Initial", "prix_vente"])
 COL_MARGE    = _detect_col(df_ventes, ["_logi_Marge", "Marge", "marge"])
 
 # Colonnes Réclamations (nettoyées par clean_reclam_cols)
@@ -282,6 +302,10 @@ all_clients = sorted(set(clients_from_ventes + clients_from_recouvrement))
 if not all_clients:
     st.warning("⚠️ Aucun client détecté dans les données importées. Vérifiez vos fichiers dans l'Admin Centrale.")
     st.stop()
+
+# Construction d'un index normalisé (UPPER) pour le matching
+# all_clients est déjà trié — on garde les noms d'origine pour l'affichage
+_clients_upper_map = {c.strip().upper(): c for c in all_clients}  # upper -> original
 
 # --- BANDEAU HORIZONTAL DE FILTRAGE (Haut de page) ---
 st.markdown("### 🔍 Paramètres de Recherche & Filtrage")
@@ -328,23 +352,40 @@ with col_f3:
 st.markdown("<hr style='margin-top: 5px; margin-bottom: 20px; opacity: 0.2;'>", unsafe_allow_html=True)
 
 # --- FILTRAGE DES DONNÉES SUR LE CLIENT SÉLECTIONNÉ ---
-client_propre = client_selectionne.strip()
+# Nettoyage rigoureux : UPPER + strip pour matching tolérant
+client_propre   = client_selectionne.strip()
+client_upper    = client_propre.upper()
+# Terme de recherche : on utilise le premier mot significatif si le nom est court,
+# sinon on cherche l'occurrence exacte dans la colonne
+_search_term    = re.escape(client_upper)  # protection des caractères spéciaux regex
 
-# 1. Filtrage des VENTES / COMMANDES
+import re
+_search_term = re.escape(client_upper)
+
+# 1. Filtrage des VENTES / COMMANDES (matching flou tolérant)
 if not df_ventes.empty and COL_CLIENT:
-    df_ven_c = df_ventes[df_ventes[COL_CLIENT].astype(str).str.strip() == client_propre].copy()
+    _col_norm = df_ventes[COL_CLIENT].astype(str).str.strip().str.upper()
+    # Exact match en priorité, puis contains si résultat vide
+    _mask_exact    = _col_norm == client_upper
+    _mask_contains = _col_norm.str.contains(_search_term, na=False, regex=True)
+    _mask_final    = _mask_exact if _mask_exact.any() else _mask_contains
+    df_ven_c = df_ventes[_mask_final].copy()
 else:
     df_ven_c = pd.DataFrame()
 
 # 2. Filtrage des RÉCLAMATIONS
 if not df_validation.empty and COL_REC_CLIENT:
-    df_val_c = df_validation[df_validation[COL_REC_CLIENT].astype(str).str.strip() == client_propre].copy()
+    _col_norm_r = df_validation[COL_REC_CLIENT].astype(str).str.strip().str.upper()
+    _mask_r     = (_col_norm_r == client_upper) | _col_norm_r.str.contains(_search_term, na=False, regex=True)
+    df_val_c = df_validation[_mask_r].copy()
 else:
     df_val_c = pd.DataFrame()
 
 # 3. Filtrage du RECOUVREMENT
 if not df_recouvrement.empty and 'Client' in df_recouvrement.columns:
-    df_rec_c = df_recouvrement[df_recouvrement['Client'].astype(str).str.strip() == client_propre].copy()
+    _col_norm_rec = df_recouvrement['Client'].astype(str).str.strip().str.upper()
+    _mask_rec     = (_col_norm_rec == client_upper) | _col_norm_rec.str.contains(_search_term, na=False, regex=True)
+    df_rec_c = df_recouvrement[_mask_rec].copy()
 else:
     df_rec_c = pd.DataFrame()
 
@@ -391,13 +432,22 @@ def safe_nunique(df, col):
         return 0
     return df[col].nunique()
 
-# KPIs depuis les Ventes/Commandes (_logi_*)
-total_commandes = len(df_ven_c)
-total_colis = int(safe_sum(df_ven_c, COL_COLIS))
-total_lignes = int(safe_sum(df_ven_c, COL_LIGNES))
+# KPIs depuis les Ventes/Commandes
+# Commandes Totales = nb de références uniques (ou nb de lignes si chaque ligne est une commande)
 total_refs = safe_nunique(df_ven_c, COL_REF)
-total_ttc = safe_sum(df_ven_c, COL_TTC)
-marge_brute = safe_sum(df_ven_c, COL_MARGE)
+total_commandes = total_refs if total_refs > 0 else len(df_ven_c)
+# Lignes Commandees = somme de la colonne Nbr Ligne
+total_lignes = int(safe_sum(df_ven_c, COL_LIGNES))
+if total_lignes == 0 and not df_ven_c.empty:
+    total_lignes = len(df_ven_c)  # chaque ligne = 1 ligne de commande
+# Volume Colis
+total_colis  = int(safe_sum(df_ven_c, COL_COLIS))
+# CA : priorité TTC, fallback HT
+_col_ca = COL_TTC
+if _col_ca is None:
+    _col_ca = _detect_col(df_ven_c, ["H.T", "ht", "HT"])
+total_ttc    = safe_sum(df_ven_c, _col_ca)
+marge_brute  = safe_sum(df_ven_c, COL_MARGE)
 
 # KPIs depuis le Recouvrement (dette réelle)
 reste_a_payer_recouvrement = 0
@@ -704,23 +754,63 @@ with tab4:
         # Recherche du client dans la base clients (multi-colonnes possibles)
         col_nom = _detect_col(df_clients_base, ["Nom_Pharmacie", "Nom Client", "Nom", "client"])
         if col_nom:
-            match_client = df_clients_base[df_clients_base[col_nom].astype(str).str.strip() == client_propre]
+            _df_base_norm = df_clients_base[col_nom].astype(str).str.strip().str.upper()
+            # Exact match UPPER
+            match_client = df_clients_base[_df_base_norm == client_upper]
             if match_client.empty:
-                # Tentative avec upper()
-                match_client = df_clients_base[df_clients_base[col_nom].astype(str).str.strip().str.upper() == client_propre.upper()]
+                # Fallback : contains
+                match_client = df_clients_base[_df_base_norm.str.contains(_search_term, na=False, regex=True)]
             if not match_client.empty:
                 row = match_client.iloc[0]
-                id_info["Wilaya / Région"] = str(row.get("Wilaya", row.get("Region", row.get("Région", "N/A")))).strip()
-                if id_info["Wilaya / Région"].lower() in ("nan", ""): id_info["Wilaya / Région"] = "N/A"
+                _wilaya = str(row.get("Wilaya", row.get("Region", row.get("Région", ""))) or "").strip()
+                if _wilaya and _wilaya.lower() not in ("nan", "", "n/a"):
+                    id_info["Wilaya / Région"] = _wilaya
 
-                id_info["Adresse"] = str(row.get("Adresse", "Non renseignée")).strip()
-                if id_info["Adresse"].lower() in ("nan", ""): id_info["Adresse"] = "Non renseignée"
+                _adresse = str(row.get("Adresse", "") or "").strip()
+                if _adresse and _adresse.lower() not in ("nan", "", "non renseignée", "non renseignee"):
+                    id_info["Adresse"] = _adresse
 
-                tel = str(row.get("Telephone", row.get("Téléphone", row.get("Mobile", "Non renseigné")))).strip()
-                id_info["Téléphone"] = tel if tel.lower() not in ("nan", "") else "Non renseigné"
+                tel = str(row.get("Telephone", row.get("Téléphone", row.get("Mobile", ""))) or "").strip()
+                if tel and tel.lower() not in ("nan", "", "non renseigné"):
+                    id_info["Téléphone"] = tel
 
-                com = str(row.get("Commercial_Reserve", row.get("Commercial", row.get("Delegue", "N/A")))).strip()
-                id_info["Commercial Attaché"] = com if com.lower() not in ("nan", "") else "N/A"
+                com = str(row.get("Commercial_Reserve", row.get("Commercial", row.get("Delegue", ""))) or "").strip()
+                if com and com.lower() not in ("nan", "", "n/a"):
+                    id_info["Commercial Attaché"] = com
+
+    # Fallback supplémentaire : chercher dans data/base_clients.csv si infos encore manquantes
+    _needs_fallback = any(v in ("N/A", "Non renseignée", "Non renseigné") for v in [
+        id_info["Wilaya / Région"], id_info["Adresse"], id_info["Commercial Attaché"]
+    ])
+    if _needs_fallback:
+        import os
+        for _fb_path in ["data/base_clients.csv", "base_clients.csv"]:
+            if os.path.exists(_fb_path):
+                try:
+                    _df_fb = pd.read_csv(_fb_path, encoding="utf-8-sig", low_memory=False)
+                    _col_fb = _detect_col(_df_fb, ["Nom_Pharmacie", "Nom Client", "Nom", "client"])
+                    if _col_fb:
+                        _fb_norm = _df_fb[_col_fb].astype(str).str.strip().str.upper()
+                        _fb_match = _df_fb[_fb_norm == client_upper]
+                        if _fb_match.empty:
+                            _fb_match = _df_fb[_fb_norm.str.contains(_search_term, na=False, regex=True)]
+                        if not _fb_match.empty:
+                            _row_fb = _fb_match.iloc[0]
+                            if id_info["Wilaya / Région"] in ("N/A", ""):
+                                _w = str(_row_fb.get("Wilaya", _row_fb.get("Region", "")) or "").strip()
+                                if _w and _w.lower() not in ("nan", ""):
+                                    id_info["Wilaya / Région"] = _w
+                            if id_info["Adresse"] in ("Non renseignée", ""):
+                                _a = str(_row_fb.get("Adresse", "") or "").strip()
+                                if _a and _a.lower() not in ("nan", ""):
+                                    id_info["Adresse"] = _a
+                            if id_info["Commercial Attaché"] in ("N/A", ""):
+                                _c = str(_row_fb.get("Commercial", _row_fb.get("Commercial_Reserve", "")) or "").strip()
+                                if _c and _c.lower() not in ("nan", ""):
+                                    id_info["Commercial Attaché"] = _c
+                    break
+                except Exception:
+                    pass
 
     # Livreur habituel depuis le Recouvrement
     if not df_rec_c.empty and 'Livreur' in df_rec_c.columns:
