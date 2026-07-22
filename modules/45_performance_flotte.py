@@ -204,6 +204,26 @@ else:
     if "Région/Wilaya" not in df_merged.columns:
         df_merged["Région/Wilaya"] = "Inconnue"
 
+# ── TRAÇABILITÉ : Utiliser secteur_fige (figé au moment de l'opération) ──
+# Si secteur_fige existe, il prime sur Région/Wilaya actuelle du livreur.
+# Cela garantit que les stats passées du livreur refletent les wilayas
+# qu'il a réellement desservies à cette époque.
+if "secteur_fige" in df_merged.columns:
+    df_merged["Secteur_Historique"] = df_merged["secteur_fige"].fillna(
+        df_merged.get("Région/Wilaya", "Inconnue")
+    )
+else:
+    df_merged["Secteur_Historique"] = df_merged.get("Région/Wilaya", "Inconnue")
+
+df_merged["Secteur_Historique"] = df_merged["Secteur_Historique"].fillna("Inconnue").astype(str)
+
+# 3. Filtre par Secteur Historique
+with st.sidebar:
+    secteurs_dispo = ["Tous les secteurs"] + sorted(df_merged["Secteur_Historique"].dropna().unique().tolist())
+    selected_secteur = st.selectbox("🗺️ Filtrer par Secteur (historique figé)", secteurs_dispo)
+    if selected_secteur != "Tous les secteurs":
+        df_merged = df_merged[df_merged["Secteur_Historique"].str.lower() == selected_secteur.lower()]
+
 if df_merged.empty:
     st.info("Aucune donnée d'expédition réelle enregistrée pour la période sélectionnée.")
     st.stop()

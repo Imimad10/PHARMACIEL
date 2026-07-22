@@ -8,6 +8,17 @@ import plotly.express as px
 from utils import log_action
 from utils_ia import ask_ai, is_ia_enabled
 from utils_gsheets import load_gs_data, save_gs_data
+import importlib.util as _iutil, sys as _sys
+def _import_affectation():
+    _spec = _iutil.spec_from_file_location("affectation_livreurs", os.path.join(os.path.dirname(__file__), "46_affectation_livreurs.py"))
+    _mod = _iutil.module_from_spec(_spec)
+    _sys.modules.setdefault("affectation_livreurs", _mod)
+    try: _spec.loader.exec_module(_mod)
+    except Exception: pass
+    return _mod
+_aff_mod = _import_affectation()
+get_secteur_actuel = getattr(_aff_mod, "get_secteur_actuel", lambda n, df: "")
+get_all_current_assignments = getattr(_aff_mod, "get_all_current_assignments", lambda df: {})
 
 # --- CONFIGURATION ---
 # st.set_page_config(page_title="Gestion des Expéditions", layout="wide")
@@ -121,6 +132,10 @@ with tab_exp:
     df_livreurs = load_livreurs()
     liste_livreurs = df_livreurs["Nom"].tolist() if not df_livreurs.empty else []
     
+    # Charger la table d'affectation (pour auto-fill du secteur)
+    df_affectations_exp = load_gs_data("Affectation_Livreurs", "data/db_affectations.csv", None)
+    current_assignments = get_all_current_assignments(df_affectations_exp)
+    
     # Liste de tous les secteurs pour le filtrage libre
     all_sectors = sorted([str(s).strip().lower() for s in df_clients['Secteur'].dropna().unique() if str(s).lower() != 'nan'])
 
@@ -128,10 +143,9 @@ with tab_exp:
         # Sélection libre du secteur (Région)
         secteur_affichage = st.selectbox("🌍 Région / Secteur à traiter", ["Tous"] + all_sectors, key="exp_sector_sel")
         
-        # --- FIX: TOUJOURS AFFICHER TOUS LES LIVREURS (PAS DE FILTRAGE PAR SECTEUR) ---
+        # Afficher tous les livreurs, trier par secteur pour commodité
         df_all_livreurs = load_livreurs()
         if not df_all_livreurs.empty:
-            # On trie pour que les livreurs du secteur soient en haut (optionnel mais utile)
             if secteur_affichage != "Tous":
                 mask_secteur = df_all_livreurs['Secteur'].astype(str).str.strip().str.lower() == secteur_affichage.lower()
                 livreurs_secteur = df_all_livreurs[mask_secteur]['Nom'].tolist()
@@ -147,7 +161,12 @@ with tab_exp:
                                       key="exp_livreur_sel",
                                       help="Tous les livreurs sont affichés ici, peu importe le secteur choisi.")
         
-        if secteur_affichage != "Tous":
+        # ── AUTO-FILL : Secteur actuel du livreur depuis la table d'affectation ──
+        secteur_auto_livreur = get_secteur_actuel(livreur_choisi, df_affectations_exp) if livreur_choisi and livreur_choisi != "--- AUTRES SECTEURS ---" else ""
+        
+        if secteur_auto_livreur:
+            st.success(f"📍 Secteur actif (affectation) : **{secteur_auto_livreur.upper()}**")
+        elif secteur_affichage != "Tous":
             st.success(f"📍 Secteur actif : **{secteur_affichage.upper()}**")
         else:
             st.info("🔓 Toutes les régions affichées")
@@ -542,15 +561,37 @@ with tab_exp:
                 
                 st.success("✅ PDF prêt ! Une fois téléchargé, cliquez ci-dessous pour archiver et passer au livreur suivant.")
                 if st.button("🏁 Valider l'envoi & Vider le tableau", type="secondary"):
+                    # ── TRAÇABILITÉ : Figer le triplet (date, livreur, secteur) sur chaque bon ──
+                    # Le secteur est copié AU MOMENT de la validation. Aucune opération future
+                    # ne pourra modifier ce secteur figé, même si le livreur change d'affectation.
+                    date_operation_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    secteur_fige = secteur_auto_livreur if secteur_auto_livreur else secteur_affichage
+                    
+                    # Archiver les expéditions validées avec le secteur figé
+                    df_exp_archive = load_gs_data("Expeditions", "data/db_expeditions.csv", None)
+                    rows_to_archive = df_visible.copy()
+                    rows_to_archive["Livreur"]        = livreur_choisi
+                    rows_to_archive["secteur_fige"]   = secteur_fige
+                    rows_to_archive["date_operation"] = date_operation_str
+                    rows_to_archive["Date"]           = date_exp
+                    rows_to_archive["Itinéraire"]     = f"{secteur_fige} — {date_exp}"
+                    rows_to_archive["Nombre de Colis"] = rows_to_archive.get("Qte Colis", pd.Series([1]*len(rows_to_archive)))
+                    rows_to_archive["Région/Wilaya"]  = secteur_fige
+                    rows_to_archive["Véhicule/Matricule"] = "—"
+                    df_exp_archive = pd.concat([df_exp_archive, rows_to_archive], ignore_index=True)
+                    save_gs_data(df_exp_archive, "Expeditions", "data/db_expeditions.csv")
+
                     if mode in ["Réclamation", "Réclamation en Urgence"]:
-                        # Affecter le livreur aux réclamations dans la base centrale
+                        # Affecter le livreur + secteur figé aux réclamations dans la base centrale
                         df_sav_all = load_gs_data("Litiges_SAV", "data/db_sav.csv", COLS_SAV)
                         refs_to_update = df_visible['N° Doc'].tolist()
                         df_sav_all.loc[df_sav_all['ref'].isin(refs_to_update), 'livreur'] = livreur_choisi
+                        df_sav_all.loc[df_sav_all['ref'].isin(refs_to_update), 'secteur_fige'] = secteur_fige
+                        df_sav_all.loc[df_sav_all['ref'].isin(refs_to_update), 'date_operation'] = date_operation_str
                         save_gs_data(df_sav_all, "Litiges_SAV", "data/db_sav.csv")
-                        st.success(f"Affectation de {livreur_choisi} enregistrée.")
+                        st.success(f"Affectation de {livreur_choisi} (secteur: {secteur_fige}) enregistrée.")
 
-                    log_action(st.session_state.current_user['username'], f"Validation finale tournée {livreur_choisi}", "Expédition")
+                    log_action(st.session_state.current_user['username'], f"Validation finale tournée {livreur_choisi} — Secteur figé: {secteur_fige}", "Expédition")
                     st.session_state.rows = pd.DataFrame(columns=["Client", "Ville", "Secteur", "N° Doc", "Info", "Statut", "Signature"])
                     st.rerun()
             except Exception as e:
