@@ -243,7 +243,7 @@ if "df_reclam_analysed" in st.session_state:
         ('statut', 'EN COURS'), ('date', ''), ('code_client', 'Inconnu'),
         ('date_exp', ''), ('prix_vente', 0.0), ('remarque_ligne', ''),
         ('cree_par', 'Inconnu'), ('date_creation', ''), ('ref_facture', ''),
-        ('date_facture', '')
+        ('date_facture', ''), ('reponse', ''), ('reference', 'Inconnu')
     ]:
         if col not in df_raw.columns:
             df_raw[col] = default_val
@@ -253,6 +253,8 @@ if "df_reclam_analysed" in st.session_state:
     df_raw['commercial'] = df_raw['commercial'].fillna("Inconnu").astype(str)
     df_raw['client'] = df_raw['client'].fillna("Inconnu").astype(str)
     df_raw['code_client'] = df_raw['code_client'].fillna("Inconnu").astype(str)
+    df_raw['reponse'] = df_raw['reponse'].fillna("").astype(str)
+    df_raw['reference'] = df_raw['reference'].fillna("Inconnu").astype(str)
     df_raw['date_exp'] = df_raw['date_exp'].fillna("").astype(str)
     df_raw['remarque_ligne'] = df_raw['remarque_ligne'].fillna("").astype(str)
     df_raw['cree_par'] = df_raw['cree_par'].fillna("Inconnu").astype(str)
