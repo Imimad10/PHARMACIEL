@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
-from datetime import datetime, time
+from datetime import datetime
 from utils_gsheets import load_gs_data, save_gs_data, get_gs_client, get_gs_url, USER_COLUMNS
 from utils import log_action
 from utils_themes import (
@@ -402,6 +402,46 @@ def clean_expedition_logipharm_cols(df):
             new_cols[col] = col
     return df.rename(columns=new_cols)
 
+def clean_cmd_rotation_cols(df):
+    """Mappe les colonnes de la feuille 'cmd et rotation' Logipharm."""
+    mapping = {
+        'nbr_impres':         ['nbr impres.', 'nbr impres', 'nb impres'],
+        'client':             ['client'],
+        'reference':          ['référence', 'reference', 'ref'],
+        'nbr_ligne':          ['nbr ligne', 'nb ligne', 'nbr lignes'],
+        'colis':              ['colis', 'nbr colis'],
+        'date_creation':      ['date création', 'date creation', 'date'],
+        'frigo':              ['frigo', 'frigo.'],
+        'region':             ['région', 'region'],
+        'type_cmd':           ['frig/psy.', 'frig/psy', 'type'],
+        'ville':              ['ville'],
+        'wilaya':             ['wilaya'],
+        'ht':                 ['h.t', 'ht', 'montant ht'],
+        'remise':             ['remise'],
+        'remise_ligne':       ['remise ligne'],
+        'tva':                ['t.v.a', 'tva'],
+        'timbre':             ['timbre'],
+        'ttc':                ['t.t.c', 'ttc'],
+        'montant_regle':      ['montant réglé', 'montant regle'],
+        'reste_a_payer':      ['reste à payer', 'reste a payer'],
+        'cree_par':           ['créer par', 'creer par', 'créé par'],
+        'commercial':         ['commercial attaché', 'commercial attache', 'commercial'],
+    }
+    new_cols = {}
+    mapped_targets = set()
+    for col in df.columns:
+        col_str = str(col).lower().strip()
+        matched = False
+        for target_col, alts in mapping.items():
+            if col_str in alts and target_col not in mapped_targets:
+                new_cols[col] = target_col
+                mapped_targets.add(target_col)
+                matched = True
+                break
+        if not matched:
+            new_cols[col] = col
+    return df.rename(columns=new_cols)
+
 def parse_numeric_series(series):
     """Nettoie et convertit une série en valeurs numériques en éliminant les espaces insécables (alt+0160), espaces normaux et virgules."""
     if series.empty:
@@ -475,19 +515,270 @@ st.markdown('''
 # --- TABS ---
 tabs = st.tabs(["📤 Importateur Universel", "👥 Base Clients", "🚚 Livreurs", "🗺️ Secteurs Logistique", "📦 Archivage Cloud", "🎨 Gestion des Thèmes", "⚙️ Maintenance & Hors-Ligne", "🧹 Remise à Zéro"])
 
-# ONGLET 0 : IMPORTATEUR UNIVERSEL (DRAG & DROP)
+# ═══════════════════════════════════════════════════════════════
+# FONCTIONS UTILITAIRES : DÉTECTION & IMPORT (utilisées par
+# l'Importateur Universel et le mode multi-feuilles)
+# ═══════════════════════════════════════════════════════════════
+
+_TARGET_LABELS = {
+    "Analyse_Reclamations":   ("🔴", "Réclamations",         "data/db_reclamations_analyse.csv"),
+    "Recouvrement_Logipharm": ("💰", "Recouvrement",         "data_recouvrement.csv"),
+    "Analyse_Ventes_Perf":    ("📈", "Analyse Ventes",       "data/db_ventes_performance.csv"),
+    "Master_Inventaire_Zone": ("📦", "Inventaire / Lots",    "data_inventaire_detail/master_detail.csv"),
+    "Expedition_Logipharm":   ("🚚", "Expédition",           "data/db_expedition_logipharm.csv"),
+    "Base_Clients":           ("👥", "Base Clients",          DATA_CLIENTS),
+    "Cmd_Rotation":           ("📋", "Cmds & Rotation",      "data/db_cmd_rotation.csv"),
+    "Fournisseurs":           ("🏭", "Fournisseurs",         "data/db_fournisseurs.csv"),
+    "Livreurs":               ("🛵", "Livreurs",             DATA_LIVREURS),
+    "Secteurs":               ("🗺️", "Secteurs",            DATA_SECTEURS),
+    "Utilisateurs":           ("🔐", "Utilisateurs",         ""),
+}
+
+def detect_sheet_target(df):
+    """Détecte le module cible pour un DataFrame donné et retourne (target, df_nettoyé)."""
+    if df is None or df.empty:
+        return None, df
+
+    cols = [str(c).strip() for c in df.columns.tolist()]
+    cols_lower = [c.lower() for c in cols]
+    target = None
+
+    # ── PRIORITÉ 0 : CMD & ROTATION (Référence /BL) — avant réclamations ──
+    _ref_col_bl = None
+    for c in df.columns:
+        if str(c).strip().lower() in ["référence", "reference", "réf.", "ref.", "ref"]:
+            _ref_col_bl = c
+            break
+    if _ref_col_bl is not None:
+        _ref_sample_bl = df[_ref_col_bl].dropna().astype(str).str.upper().str.strip()
+        _bl_count = _ref_sample_bl.str.contains(r'/BL\d|^BL\d', regex=True, na=False).sum()
+        if _bl_count > 0:
+            target = "Cmd_Rotation"
+            df = clean_cmd_rotation_cols(df)
+
+    # ── PRIORITÉ 1 : RÉCLAMATIONS LOGIPHARM (Référence /RC) ──
+    if not target:
+        _ref_col = None
+        for c in df.columns:
+            if str(c).strip().lower() in ["référence", "reference", "réf.", "ref.", "ref"]:
+                _ref_col = c
+                break
+        if _ref_col is not None:
+            _ref_sample = df[_ref_col].dropna().astype(str).str.upper().str.strip()
+            _rc_count = _ref_sample.str.contains(r'/RC\d|^RC\d', regex=True, na=False).sum()
+            if _rc_count > 0:
+                target = "Analyse_Reclamations"
+                logi_reclam_rename = {}
+                unnamed_cols = [c for c in df.columns if str(c).startswith("Unnamed:")]
+                semantic_names = ["Valide", "Imprime", "Expedie", "Cloture"]
+                for i, uc in enumerate(unnamed_cols[:4]):
+                    logi_reclam_rename[uc] = semantic_names[i]
+                if logi_reclam_rename:
+                    df = df.rename(columns=logi_reclam_rename)
+                df = clean_reclam_cols(df)
+
+    # ── PRIORITÉ 2 : RECOUVREMENT ──
+    _rec_keys = ["reste à payer", "reste a payer", "montant réglé", "montant regle"]
+    if not target and any(x in cols_lower for x in _rec_keys) and "client" in cols_lower:
+        target = "Recouvrement_Logipharm"
+        df = clean_recouvrement_logipharm_cols(df)
+
+    # ── PRIORITÉ 3 : RÉCLAMATIONS (colonnes classiques) ──
+    elif not target and any(x in cols_lower for x in ["réclam.", "reclam.", "imprime réclam", "qte réclam.", "qte reclam."]):
+        target = "Analyse_Reclamations"
+        df = clean_reclam_cols(df)
+
+    # ── PRIORITÉ 4 : ANALYSE VENTES ──
+    elif not target and any(x in cols_lower for x in ["h.t", "prix_vente", "total ht", "marge ph.", "tx qt%", "offre lab."]):
+        target = "Analyse_Ventes_Perf"
+        df = clean_sales_cols(df)
+
+    # ── PRIORITÉ 5 : INVENTAIRE (dépôt/lots) ──
+    elif not target and any(x in cols_lower for x in ["dépôt", "depot", "quantité dépôt", "quantité depot", "qte.globale", "n°lot", "zone produit"]):
+        target = "Master_Inventaire_Zone"
+        df = clean_inventory_cols(df)
+
+    # ── PRIORITÉ 6 : EXPÉDITION / POINTAGE ──
+    elif not target and any(x in cols_lower for x in ["préparateur", "preparateur", "vérificateur", "verificateur"]) and "client" in cols_lower:
+        target = "Expedition_Logipharm"
+        df = clean_expedition_logipharm_cols(df)
+
+    # ── PRIORITÉ 7 : UTILISATEURS ──
+    elif not target and "username" in cols_lower:
+        target = "Utilisateurs"
+
+    # ── PRIORITÉ 8 : LIVREURS ──
+    elif not target and ("prenom" in cols_lower or "prénom" in cols_lower):
+        target = "Livreurs"
+
+    # ── PRIORITÉ 9 : SECTEURS ──
+    elif not target and "ville" in cols_lower:
+        target = "Secteurs"
+
+    # ── PRIORITÉ 10 : BASE CLIENTS ──
+    elif not target and any(c.lower() in ["raison sociale", "nom client", "nom", "client", "pharmacie"] for c in cols):
+        target = "Base_Clients"
+        df = clean_client_cols(df)
+        if 'Nom_Pharmacie' not in df.columns:
+            df['Nom_Pharmacie'] = df['ID'].astype(str) if 'ID' in df.columns else "Client_Inconnu"
+
+    # Déduplique les colonnes
+    _cols_s = pd.Series(df.columns)
+    for _dup in _cols_s[_cols_s.duplicated()].unique():
+        _idxs = _cols_s[_cols_s == _dup].index.values.tolist()
+        _cols_s[_idxs] = [f"{_dup}_{i}" if i != 0 else _dup for i in range(len(_idxs))]
+    df.columns = _cols_s
+
+    return target, df
+
+
+def do_import_sheet(df_up, target):
+    """
+    Sauvegarde df_up dans la base correspondant à target.
+    Retourne (succès:bool, message:str, nb_lignes:int).
+    """
+    mapping = {}
+    db_path = _TARGET_LABELS.get(target, ("","",""))[2]
+    cols_up = df_up.columns.tolist()
+
+    try:
+        if target == "Base_Clients":
+            db_cols, key = COLS_CLIENTS, "Nom_Pharmacie"
+            df_old = load_gs_data("Base_Clients", db_path, db_cols)
+            df_merged = pd.concat([df_old, df_up], ignore_index=True).drop_duplicates(subset=[key], keep='last')
+            if 'Nom Client' not in df_merged.columns and 'Nom_Pharmacie' in df_merged.columns:
+                df_merged['Nom Client'] = df_merged['Nom_Pharmacie']
+            save_gs_data(df_merged, "Base_Clients", db_path)
+            return True, f"{len(df_merged)} clients en base", len(df_up)
+
+        elif target == "Livreurs":
+            db_cols, key = COLS_LIVREURS, "Nom"
+            df_old = load_gs_data("Livreurs", db_path, db_cols)
+            new_cols_mapped = []
+            mapped_t = set()
+            for c in df_up.columns:
+                nm = mapping.get(c, c)
+                if nm in db_cols and nm not in mapped_t:
+                    new_cols_mapped.append(nm); mapped_t.add(nm)
+                else:
+                    new_cols_mapped.append(f"old_{c}")
+            df_up.columns = new_cols_mapped
+            cols_to_keep = [c for c in db_cols if c in df_up.columns]
+            df_merged = pd.concat([df_old, df_up[cols_to_keep]], ignore_index=True).drop_duplicates(subset=[key])
+            save_gs_data(df_merged, "Livreurs", db_path)
+            return True, f"{len(df_merged)} livreurs en base", len(df_up)
+
+        elif target == "Utilisateurs":
+            from utils_gsheets import DB_USERS_FALLBACK
+            db_path = DB_USERS_FALLBACK
+            db_cols = ["username", "password", "role", "pages", "nom", "prenom", "zone"]
+            key = "username"
+            df_old = load_gs_data("Utilisateurs", db_path, db_cols)
+            df_merged = pd.concat([df_old, df_up], ignore_index=True).drop_duplicates(subset=[key], keep='last')
+            save_gs_data(df_merged, "Utilisateurs", db_path)
+            return True, f"{len(df_merged)} utilisateurs en base", len(df_up)
+
+        elif target == "Master_Inventaire_Zone":
+            key = "lot"
+            df_merged = df_up
+            if 'inv_work_df' in st.session_state:
+                del st.session_state.inv_work_df
+            save_gs_data(df_merged, "Master_Inventaire_Zone", db_path)
+            return True, f"{len(df_merged)} lignes sauvegardées", len(df_up)
+
+        elif target == "Analyse_Ventes_Perf":
+            df_merged = df_up
+            if 'df_ventes_perf' in st.session_state:
+                del st.session_state.df_ventes_perf
+            save_gs_data(df_merged, "Analyse_Ventes_Perf", db_path)
+            return True, f"{len(df_merged)} lignes sauvegardées", len(df_up)
+
+        elif target == "Analyse_Reclamations":
+            df_merged = df_up
+            if 'df_reclam_analysed' in st.session_state:
+                del st.session_state.df_reclam_analysed
+            save_gs_data(df_merged, "Analyse_Reclamations", db_path)
+            return True, f"{len(df_merged)} réclamations sauvegardées", len(df_up)
+
+        elif target == "Recouvrement_Logipharm":
+            COLS_REC = ["Client", "Facture", "Date", "Montant Initial", "Montant Réglé", "Reste à payer", "Mode Paiement", "Livreur", "Région", "Statut", "Commentaires"]
+            key = "Facture"
+            if "Facture" not in df_up.columns:
+                df_up["Facture"] = [f"LOGI_{i}" for i in range(len(df_up))]
+            if "Statut" not in df_up.columns:
+                df_up["Statut"] = "En attente"
+            if "Livreur" not in df_up.columns:
+                df_up["Livreur"] = "NON ASSIGNÉ"
+            for col_num in ["Montant Initial", "Montant Réglé", "Reste à payer"]:
+                if col_num in df_up.columns:
+                    df_up[col_num] = parse_numeric_series(df_up[col_num])
+                else:
+                    df_up[col_num] = 0.0
+            if "Date" not in df_up.columns:
+                df_up["Date"] = str(datetime.now().date())
+            df_old = load_gs_data("Recouvrement", db_path, COLS_REC)
+            df_merged = pd.concat([df_old, df_up], ignore_index=True).drop_duplicates(subset=[key], keep='last')
+            save_gs_data(df_merged, "Recouvrement", db_path)
+            st.session_state.pop("pending_rec", None)
+            return True, f"{len(df_merged)} factures en base", len(df_up)
+
+        elif target == "Expedition_Logipharm":
+            df_merged = df_up
+            save_gs_data(df_merged, "Expedition", db_path)
+            return True, f"{len(df_merged)} bons expédition sauvegardés", len(df_up)
+
+        elif target == "Cmd_Rotation":
+            df_old = load_gs_data("Cmd_Rotation", db_path, df_up.columns.tolist())
+            df_merged = pd.concat([df_old, df_up], ignore_index=True)
+            if 'reference' in df_merged.columns:
+                df_merged = df_merged.drop_duplicates(subset=['reference'], keep='last')
+            save_gs_data(df_merged, "Cmd_Rotation", db_path)
+            return True, f"{len(df_merged)} commandes en base", len(df_up)
+
+        elif target == "Fournisseurs":
+            key = "Etablissement"
+            df_old = load_gs_data("Fournisseurs", db_path, ["Etablissement", "Wilaya", "Activité", "Logo"])
+            df_up["Logo"] = ""
+            df_merged = pd.concat([df_old, df_up]).drop_duplicates(subset=[key], keep='last')
+            save_gs_data(df_merged, "DB_Fournisseurs", db_path)
+            return True, f"{len(df_merged)} fournisseurs en base", len(df_up)
+
+        elif target == "Secteurs":
+            key = "Client"
+            df_old = load_gs_data("Secteurs", db_path, COLS_SECTEURS)
+            df_merged = pd.concat([df_old, df_up], ignore_index=True).drop_duplicates(subset=[key])
+            save_gs_data(df_merged, "Secteurs", db_path)
+            return True, f"{len(df_merged)} secteurs en base", len(df_up)
+
+        else:
+            return False, f"Type '{target}' non géré", 0
+
+    except Exception as e:
+        return False, f"Erreur : {e}", 0
+
+
+# ═══════════════════════════════════════════════════════════════
+# ONGLET 0 : IMPORTATEUR UNIVERSEL (DRAG & DROP + MULTI-FEUILLES)
+# ═══════════════════════════════════════════════════════════════
 with tabs[0]:
     st.subheader("🚀 Importation Centralisée")
-    st.info("Déposez un fichier Excel Logipharm. Le système détecte automatiquement le type : **Recouvrement**, **Ventes**, **Réclamations**, **Inventaire**, **Expédition**, **Clients**, etc.")
-    
-    f_up = st.file_uploader("Fichier Master Data (Excel ou PDF Fournisseurs)", type=["xlsx", "pdf"])
+    st.info(
+        "Déposez un fichier Excel Logipharm — **mono-feuille ou multi-feuilles**. "
+        "Le système détecte automatiquement chaque archive et l'importe dans le bon module : "
+        "**Recouvrement**, **Ventes**, **Réclamations**, **Inventaire**, **Cmds & Rotation**, **Clients**, etc."
+    )
+
+    f_up = st.file_uploader(
+        "Fichier Master Data (Excel ou PDF Fournisseurs)",
+        type=["xlsx", "pdf"],
+        key="universal_uploader",
+    )
+
     if f_up:
-        target = None
-        mapping = {}
-        
+        # ── CAS PDF ──────────────────────────────────────────────────────
         if f_up.name.endswith(".pdf"):
             import pdfplumber
-            st.info("Traitement du PDF en cours... Extraction des données des établissements de fabrication.")
+            st.info("Traitement du PDF en cours... Extraction des établissements de fabrication.")
             try:
                 extracted_data = []
                 with pdfplumber.open(f_up) as pdf:
@@ -495,398 +786,182 @@ with tabs[0]:
                         table = page.extract_table()
                         if table:
                             for row in table:
-                                # On cherche les lignes qui ressemblent à la table officielle (N°, Etablissement, Wilaya, Activité)
                                 if row and len(row) >= 4 and str(row[0]).strip().isdigit():
                                     extracted_data.append({
                                         "Etablissement": str(row[1]).replace('\n', ' ').strip() if row[1] else "",
                                         "Wilaya": str(row[2]).replace('\n', ' ').strip() if row[2] else "",
                                         "Activité": str(row[3]).replace('\n', ' ').strip() if row[3] else ""
                                     })
-                df_up = pd.DataFrame(extracted_data)
-                target = "Fournisseurs"
-                mapping = {"Etablissement": "Etablissement", "Wilaya": "Wilaya", "Activité": "Activité"}
+                df_pdf = pd.DataFrame(extracted_data)
+                st.success(f"🎯 Type détecté : **Fournisseurs** — {len(df_pdf)} établissements")
+                st.dataframe(df_pdf.head(5), use_container_width=True)
+                if st.button("📥 Importer Fournisseurs", type="primary", use_container_width=True):
+                    ok, msg, n = do_import_sheet(df_pdf, "Fournisseurs")
+                    if ok:
+                        st.success(f"✅ {msg}")
+                        log_action(st.session_state.current_user['username'], "Import Fournisseurs PDF", "Admin Centrale")
+                        st.cache_data.clear()
+                        st.rerun()
+                    else:
+                        st.error(msg)
             except Exception as e:
                 st.error(f"Erreur lors de la lecture du PDF : {e}")
-                df_up = pd.DataFrame()
+
+        # ── CAS EXCEL ────────────────────────────────────────────────────
         else:
-            df_up = pd.read_excel(f_up)
-        
-        # Détection automatique du type de données (si non défini par le PDF)
-        cols = [str(c).strip() for c in df_up.columns.tolist()]
-        cols_lower = [c.lower() for c in cols]
-        
-        if not target:
-            # ── PRIORITÉ STRICTE : EXPÉDITION QUOTIDIENNE ──
-            # Règle stricte : On ignore les 'Unnamed' et on vérifie la présence de colonnes clés
-            cols_lower_valid = [c for c in cols_lower if not c.startswith("unnamed:")]
-            if all(x in cols_lower_valid for x in ["n°bon", "livreur", "matricule", "total ttc"]):
-                target = "Expedition_Logipharm"
-                # Nettoyage automatique : suppression des colonnes non nommées faussant la structure
-                df_up = df_up.loc[:, ~df_up.columns.str.lower().str.startswith("unnamed:")]
-                df_up = clean_expedition_logipharm_cols(df_up)
+            xl = pd.ExcelFile(f_up)
+            sheet_names = xl.sheet_names
 
-            # ── PRIORITÉ STRICTE 2 : COMMANDES ET VENTES GLOBALES ──
-            req_cmd = ["client", "nbr ligne", "colis", "date", "région"]
-            if not target and all(any(k in c for c in cols_lower_valid) for k in req_cmd) and any(x in cols_lower_valid for x in ["référence", "reference", "ref", "b.l"]):
-                target = "Commandes & Recouvrement"
-                # Nettoyage automatique
-                df_up = df_up.loc[:, ~df_up.columns.str.lower().str.startswith("unnamed:")]
-                
-                # Préparation aux autres modules
-                date_col = next((c for c in df_up.columns if str(c).strip().lower() in ["date", "date création", "date creation", "date_creation"]), None)
-                if date_col:
-                    try:
-                        temp_dt = pd.to_datetime(df_up[date_col], errors='coerce')
-                        df_up['Heure_Rotation'] = temp_dt.dt.strftime('%H:%M:%S')
-                        df_up['Rotation'] = temp_dt.apply(lambda x: 1 if pd.notna(x) and x.time() >= time(12, 15, 0) else 2)
-                    except Exception:
-                        pass
-                
-                colis_col = next((c for c in df_up.columns if str(c).strip().lower() == "colis"), None)
-                ligne_col = next((c for c in df_up.columns if str(c).strip().lower() == "nbr ligne"), None)
-                if colis_col and ligne_col:
-                    df_up['Volume_Préparation'] = pd.to_numeric(df_up[colis_col], errors='coerce').fillna(0) + pd.to_numeric(df_up[ligne_col], errors='coerce').fillna(0)
-                
-                reg_col = next((c for c in df_up.columns if str(c).strip().lower() in ["région", "region", "wilaya"]), None)
-                if reg_col:
-                    df_up['Secteur'] = df_up[reg_col]
+            # ── MODE MONO-FEUILLE ──
+            if len(sheet_names) == 1:
+                df_up = xl.parse(sheet_names[0])
+                target, df_up = detect_sheet_target(df_up)
 
-                # ── MOTEUR DE RECONNAISSANCE AUTOMATIQUE DES LIVREURS ──
+                st.write("**Aperçu des données :**")
                 try:
-                    df_exp = load_gs_data("Expedition_Logipharm", "data/db_expedition_logipharm.csv", None)
-                    if not df_exp.empty:
-                        col_liv = next((c for c in df_exp.columns if str(c).strip().lower() in ['livreur', 'preparateur']), None)
-                        col_ref_exp = next((c for c in df_exp.columns if str(c).strip().lower() in ['référence', 'reference', 'ref', 'b.l', "n°bon", "bon"]), None)
-                        col_reg_exp = next((c for c in df_exp.columns if str(c).strip().lower() in ['région', 'region', 'wilaya']), None)
-                        
-                        ref_col_cmd = next((c for c in df_up.columns if str(c).strip().lower() in ["référence", "reference", "ref", "b.l"]), None)
-                        
-                        if col_liv and col_ref_exp and ref_col_cmd:
-                            # 1. Extraction de la flotte (Mapping exact)
-                            df_exp['_join_ref'] = df_exp[col_ref_exp].astype(str).str.strip().str.upper()
-                            df_up['_join_ref'] = df_up[ref_col_cmd].astype(str).str.strip().str.upper()
-                            
-                            mapping_livreurs = df_exp.set_index('_join_ref')[col_liv].to_dict()
-                            
-                            # 2. Injection Automatique
-                            df_up['_logi_Livreur_Attribue'] = df_up['_join_ref'].map(mapping_livreurs)
-                            
-                            # 3. Logique Géographique (Régions vs Livreurs)
-                            if reg_col and col_reg_exp:
-                                df_exp['_join_reg'] = df_exp[col_reg_exp].astype(str).str.strip().str.upper()
-                                df_up['_join_reg'] = df_up[reg_col].astype(str).str.strip().str.upper()
-                                
-                                # Le livreur le plus fréquent par région
-                                freq_liv_by_reg = df_exp.groupby('_join_reg')[col_liv].agg(lambda x: x.mode()[0] if not x.mode().empty else None).to_dict()
-                                
-                                def suggest_driver(row):
-                                    val = row.get('_logi_Livreur_Attribue')
-                                    if pd.isna(val) or str(val).strip() == "":
-                                        r = row.get('_join_reg')
-                                        if r in freq_liv_by_reg and freq_liv_by_reg[r]:
-                                            return f"Livreur habituel détecté : {freq_liv_by_reg[r]}"
-                                    return val
-                                    
-                                df_up['_logi_Livreur_Attribue'] = df_up.apply(suggest_driver, axis=1)
-                                df_up = df_up.drop(columns=['_join_reg'])
-                                
-                            df_up = df_up.drop(columns=['_join_ref'])
-                except Exception as e:
-                    pass
+                    st.dataframe(df_up.head(5).astype(str), use_container_width=True)
+                except Exception:
+                    st.table(df_up.head(5).astype(str))
 
-            # ── PRIORITÉ 0 : RÉCLAMATIONS LOGIPHARM (préfixe RC dans la colonne Référence) ──
-            # Les fichiers de réclamations Logipharm ont une colonne 'Référence' dont les valeurs
-            # commencent par 'RC' (ex: 26/RC0000000144). Cette règle est prioritaire sur tout.
-            if not target:
-                _ref_col = None
-                for c in df_up.columns:
-                    if str(c).strip().lower() in ["référence", "reference", "réf.", "ref.", "ref"]:
-                        _ref_col = c
-                        break
-                if _ref_col is not None:
-                    _ref_sample = df_up[_ref_col].dropna().astype(str).str.upper().str.strip()
-                    _rc_count = _ref_sample.str.contains(r'/RC\d|^RC\d', regex=True, na=False).sum()
-                    if _rc_count > 0:
-                        target = "Analyse_Reclamations"
-                        # Renommer les colonnes Unnamed en noms sémantiques selon la structure Logipharm
-                        logi_reclam_rename = {}
-                        unnamed_cols = [c for c in df_up.columns if str(c).startswith("Unnamed:")]
-                        semantic_names = ["Valide", "Imprime", "Expedie", "Cloture"]
-                        for i, uc in enumerate(unnamed_cols[:4]):
-                            logi_reclam_rename[uc] = semantic_names[i]
-                        if logi_reclam_rename:
-                            df_up = df_up.rename(columns=logi_reclam_rename)
-                        df_up = clean_reclam_cols(df_up)
-
-            # ── PRIORITÉ 1 : RECOUVREMENT (champs financiers client) ──
-            _rec_keys = ["reste à payer", "reste a payer", "montant réglé", "montant regle"]
-            if not target and any(x in cols_lower for x in _rec_keys) and "client" in cols_lower:
-                target = "Recouvrement_Logipharm"
-                df_up = clean_recouvrement_logipharm_cols(df_up)
-
-            # ── PRIORITÉ 2 : RÉCLAMATIONS (colonnes nominatives classiques) ──
-            elif not target and any(x in cols_lower for x in ["réclam.", "reclam.", "imprime réclam", "qte réclam.", "qte reclam."]):
-                target = "Analyse_Reclamations"
-                df_up = clean_reclam_cols(df_up)
-
-            # ── PRIORITÉ 3 : ANALYSE VENTES (h.t/marge sans reste à payer) ──
-            elif not target and any(x in cols_lower for x in ["h.t", "prix_vente", "total ht", "marge ph.", "tx qt%", "offre lab."]):
-                target = "Analyse_Ventes_Perf"
-                df_up = clean_sales_cols(df_up)
-
-            # ── PRIORITÉ 4 : INVENTAIRE (dépôt/lots) ──
-            elif not target and any(x in cols_lower for x in ["dépôt", "depot", "quantité dépôt", "quantité depot", "qte.globale", "n°lot", "zone produit"]):
-                target = "Master_Inventaire_Zone"
-                df_up = clean_inventory_cols(df_up)
-
-            # ── PRIORITÉ 5 : EXPÉDITION / POINTAGE ──
-            elif not target and any(x in cols_lower for x in ["préparateur", "preparateur", "vérificateur", "verificateur"]) and "client" in cols_lower:
-                target = "Expedition_Logipharm"
-                df_up = clean_expedition_logipharm_cols(df_up)
-
-            # ── PRIORITÉ 6 : UTILISATEURS ──
-            elif not target and "username" in cols_lower:
-                target = "Utilisateurs"
-                mapping = {c: "username" for c in cols if c.lower() == "username"}
-                mapping.update({c: "password" for c in cols if c.lower() in ["password", "mot de passe", "pwd"]})
-                mapping.update({c: "nom" for c in cols if c.lower() == "nom"})
-                mapping.update({c: "prenom" for c in cols if c.lower() in ["prenom", "prénom"]})
-                mapping.update({c: "role" for c in cols if c.lower() in ["role", "rôle"]})
-                mapping.update({c: "zone" for c in cols if c.lower() == "zone"})
-                mapping.update({c: "pages" for c in cols if c.lower() == "pages"})
-
-            # ── PRIORITÉ 7 : LIVREURS ──
-            elif not target and ("prenom" in cols_lower or "prénom" in cols_lower):
-                target = "Livreurs"
-                mapping = {c: "Prénom" for c in cols if c.lower() in ["prenom","prénom"]}
-                mapping.update({c: "Nom" for c in cols if c.lower() == "nom"})
-                mapping.update({c: "Secteur" for c in cols if c.lower() == "secteur"})
-                mapping.update({c: "Téléphone" for c in cols if c.lower() in ["téléphone","telephone","tel"]})
-
-            # ── PRIORITÉ 8 : SECTEURS ──
-            elif not target and "ville" in cols_lower:
-                target = "Secteurs"
-                mapping = {c: "Client" for c in cols if c.lower() in ["client","raison sociale","nom client"]}
-                mapping.update({c: "Ville" for c in cols if c.lower() == "ville"})
-                mapping.update({c: "Secteur" for c in cols if c.lower() == "secteur"})
-                mapping.update({c: "Tel" for c in cols if c.lower() in ["tel","téléphone","telephone"]})
-
-            # ── PRIORITÉ 9 : BASE CLIENTS ──
-            elif not target and any(c.lower() in ["raison sociale","nom client","nom", "client", "pharmacie"] for c in cols):
-                target = "Base_Clients"
-                df_up = clean_client_cols(df_up)
-                if 'Nom_Pharmacie' not in df_up.columns:
-                    df_up['Nom_Pharmacie'] = df_up['ID'].astype(str) if 'ID' in df_up.columns else "Client_Inconnu"
-        
-        elif not target:
-            # Si le fichier était un Excel mais sans colonnes reconnues
-            pass
-        
-        if not df_up.empty:
-            # Sécurité contre les colonnes dupliquées (ex: 2 colonnes qui pointent vers "marge")
-            cols = pd.Series(df_up.columns)
-            for dup in cols[cols.duplicated()].unique():
-                cols[cols[cols == dup].index.values.tolist()] = [f"{dup}_{i}" if i != 0 else dup for i in range(sum(cols == dup))]
-            df_up.columns = cols
-            
-            st.write("**Aperçu des données :**")
-            
-            # 4. VISUEL DANS L'ADMIN CENTRALE
-            if target == "Commandes & Recouvrement" and '_logi_Livreur_Attribue' in df_up.columns:
-                st.success("🤖 **Moteur IA : Affectation automatique des livreurs réussie !**")
-                colis_c = next((c for c in df_up.columns if str(c).strip().lower() == "colis"), None)
-                reg_c = next((c for c in df_up.columns if str(c).strip().lower() in ["région", "region", "wilaya"]), None)
-                
-                df_up['_temp_colis'] = pd.to_numeric(df_up[colis_c], errors='coerce').fillna(0) if colis_c else 1
-                    
-                recap_df = df_up.groupby('_logi_Livreur_Attribue').agg(
-                    Colis_Total=('_temp_colis', 'sum'),
-                    Régions_Couvertes=(reg_c, 'nunique') if reg_c else ('_logi_Livreur_Attribue', 'count')
-                ).reset_index()
-                
-                recap_df.rename(columns={
-                    '_logi_Livreur_Attribue': 'Nom du Livreur', 
-                    'Colis_Total': 'Nombre de Colis Total'
-                }, inplace=True)
-                
-                st.dataframe(recap_df, use_container_width=True, hide_index=True)
-                df_up = df_up.drop(columns=['_temp_colis'], errors='ignore')
-                st.markdown("---")
-
-            try:
-                st.dataframe(df_up.head(5).astype(str), use_container_width=True)
-            except Exception:
-                st.table(df_up.head(5).astype(str))
-        
-        if target:
-            st.success(f"🎯 Type détecté : **{target}**")
-            
-            # Définition des paramètres de destination
-            if target == "Base_Clients":
-                db_path, db_cols, key = DATA_CLIENTS, COLS_CLIENTS, "Nom_Pharmacie"
-            elif target == "Livreurs":
-                db_path, db_cols, key = DATA_LIVREURS, COLS_LIVREURS, "Nom"
-            elif target == "Utilisateurs":
-                from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
-                db_path, db_cols, key = DB_USERS_FALLBACK, ["username", "password", "role", "pages", "nom", "prenom", "zone"], "username"
-            elif target == "Master_Inventaire_Zone":
-                # db_cols est laissé vide pour accepter toutes les colonnes
-                db_path, db_cols, key = "data_inventaire_detail/master_detail.csv", df_up.columns.tolist(), "lot"
-            elif target == "Commandes & Recouvrement":
-                db_path, db_cols = "data/db_commandes_globales.csv", df_up.columns.tolist()
-                key = next((c for c in df_up.columns if str(c).strip().lower() in ["référence", "reference", "ref"]), df_up.columns[0])
-            elif target == "Analyse_Ventes_Perf":
-                db_path, db_cols, key = "data/db_ventes_performance.csv", df_up.columns.tolist(), "reference"
-            elif target == "Analyse_Reclamations":
-                db_path, db_cols, key = "data/db_reclamations_analyse.csv", df_up.columns.tolist(), "reference"
-            elif target == "Recouvrement_Logipharm":
-                COLS_REC = ["Client", "Facture", "Date", "Montant Initial", "Montant Réglé", "Reste à payer", "Mode Paiement", "Livreur", "Région", "Statut", "Commentaires"]
-                db_path, db_cols, key = "data_recouvrement.csv", COLS_REC, "Facture"
-            elif target == "Expedition_Logipharm":
-                db_path, db_cols, key = "data/db_expedition_logipharm.csv", df_up.columns.tolist(), "reference"
-            elif target == "Fournisseurs":
-                db_path, db_cols, key = "data/db_fournisseurs.csv", ["Etablissement", "Wilaya", "Activité", "Logo"], "Etablissement"
-            else:
-                db_path, db_cols, key = DATA_SECTEURS, COLS_SECTEURS, "Client"
-
-            if target == "Fournisseurs":
-                if st.button(f"📥 Fusionner avec la base {target}", type="primary", use_container_width=True):
-                    df_old = load_gs_data(target, db_path, db_cols)
-                    
-                    df_merged = df_up.copy()
-                    df_merged["Logo"] = ""
-                    
-                    # On concatène en gardant les nouveaux s'il y a conflit
-                    df_final = pd.concat([df_old, df_merged]).drop_duplicates(subset=[key], keep='last')
-                    save_gs_data(df_final, "DB_Fournisseurs", db_path)
-                    st.success(f"{len(df_final)} fournisseurs sauvegardés avec succès ! ✅")
-                    
-            elif st.button(f"📥 Fusionner avec la base {target}", type="primary", use_container_width=True):
-                # Correction: load df_old for the target worksheet
-                worksheet_name = target if target not in ["Recouvrement_Logipharm", "Expedition_Logipharm", "Commandes & Recouvrement"] else target.replace("_Logipharm", "").replace(" & ", "_")
-                load_cols = None if target in ["Analyse_Reclamations", "Master_Inventaire_Zone", "Analyse_Ventes_Perf", "Expedition_Logipharm", "Commandes & Recouvrement"] else db_cols
-                df_old = load_gs_data(worksheet_name, db_path, load_cols)
-                
-                # On renomme intelligemment pour éviter les colonnes en double
-                new_cols = []
-                mapped_targets = set()
-                for c in df_up.columns:
-                    target_name = mapping.get(c, c)
-                    if target_name in db_cols and target_name not in mapped_targets:
-                        new_cols.append(target_name)
-                        mapped_targets.add(target_name)
-                    else:
-                        new_cols.append(f"old_{c}")
-                
-                df_up.columns = new_cols
-                
-                if target == "Recouvrement_Logipharm":
-                    # Compléter les colonnes manquantes
-                    if "Facture" not in df_up.columns:
-                        df_up["Facture"] = [f"LOGI_{i}" for i in range(len(df_up))]
-                    if "Statut" not in df_up.columns:
-                        df_up["Statut"] = "En attente"
-                    if "Livreur" not in df_up.columns:
-                        df_up["Livreur"] = "NON ASSIGNÉ"
-                    if "Montant Initial" in df_up.columns:
-                        df_up["Montant Initial"] = parse_numeric_series(df_up["Montant Initial"])
-                    else:
-                        df_up["Montant Initial"] = 0.0
-                        
-                    if "Montant Réglé" not in df_up.columns:
-                        df_up["Montant Réglé"] = 0.0
-                    else:
-                        df_up["Montant Réglé"] = parse_numeric_series(df_up["Montant Réglé"])
-                        
-                    if "Reste à payer" not in df_up.columns:
-                        df_up["Reste à payer"] = df_up["Montant Initial"] - df_up["Montant Réglé"]
-                    else:
-                        df_up["Reste à payer"] = parse_numeric_series(df_up["Reste à payer"])
-                    if "Date" not in df_up.columns:
-                        df_up["Date"] = str(datetime.now().date())
-                    df_merged = pd.concat([df_old, df_up], ignore_index=True).drop_duplicates(subset=[key], keep='last')
-                    st.session_state.pop("pending_rec", None)
-
-                elif target == "Base_Clients":
-                    df_merged = pd.concat([df_old, df_up], ignore_index=True).drop_duplicates(subset=[key], keep='last')
-                    if 'Nom Client' not in df_merged.columns: df_merged['Nom Client'] = df_merged['Nom_Pharmacie']
-                    if 'Région' not in df_merged.columns: df_merged['Région'] = df_merged['Region'].combine_first(df_merged['Wilaya'])
-                    if 'Secteur' not in df_merged.columns: df_merged['Secteur'] = df_merged['Region']
-                    if 'Téléphone' not in df_merged.columns: df_merged['Téléphone'] = df_merged['Telephone']
-
-                elif target in ["Master_Inventaire_Zone", "Analyse_Ventes_Perf", "Analyse_Reclamations", "Expedition_Logipharm"]:
-                    if target == "Analyse_Reclamations":
-                        if not df_old.empty:
-                            df_old = df_old.drop_duplicates(subset=["reference"])
-                            df_up = df_up.drop_duplicates(subset=["reference"])
-                            
-                            # Assurer l'existence de motif et decision
-                            if 'decision' not in df_old.columns:
-                                df_old['decision'] = ""
-                            if 'decision' not in df_up.columns:
-                                df_up['decision'] = ""
-                            if 'motif' not in df_old.columns:
-                                df_old['motif'] = ""
-                            if 'motif' not in df_up.columns:
-                                df_up['motif'] = ""
-                            
-                            # Fusionner sur 'reference'
-                            df_old_indexed = df_old.set_index("reference", drop=False)
-                            df_up_indexed = df_up.set_index("reference", drop=False)
-                            
-                            common_refs = df_old_indexed.index.intersection(df_up_indexed.index)
-                            for ref in common_refs:
-                                old_row = df_old_indexed.loc[ref]
-                                new_row = df_up_indexed.loc[ref]
-                                
-                                # Conserver la décision existante
-                                dec_val = old_row.get("decision", "")
-                                if pd.isna(dec_val) or str(dec_val).strip() == "":
-                                    dec_val = new_row.get("decision", "")
-                                
-                                # Conserver le motif si le nouveau est vide
-                                motif_val = new_row.get("motif", "")
-                                if pd.isna(motif_val) or str(motif_val).strip() == "":
-                                    motif_val = old_row.get("motif", "")
-                                    if pd.isna(motif_val):
-                                        motif_val = ""
-                                        
-                                df_up_indexed.loc[ref, "decision"] = dec_val
-                                df_up_indexed.loc[ref, "motif"] = motif_val
-                                
-                            df_old_indexed = df_old_indexed.drop(common_refs)
-                            df_old_indexed = pd.concat([df_old_indexed, df_up_indexed], ignore_index=False)
-                                
-                            df_merged = df_old_indexed.reset_index(drop=True)
+                if target:
+                    icon, label, _ = _TARGET_LABELS.get(target, ("📄", target, ""))
+                    st.success(f"{icon} Type détecté : **{label}**")
+                    if st.button(f"📥 Importer vers {label}", type="primary", use_container_width=True, key="btn_mono_import"):
+                        ok, msg, n = do_import_sheet(df_up, target)
+                        if ok:
+                            st.success(f"✅ {msg} ({n} lignes importées)")
+                            log_action(st.session_state.current_user['username'], f"Import {label}", "Admin Centrale")
+                            st.cache_data.clear()
+                            st.rerun()
                         else:
-                            df_merged = df_up
-                            if 'decision' not in df_merged.columns:
-                                df_merged['decision'] = ""
-                            if 'motif' not in df_merged.columns:
-                                df_merged['motif'] = ""
-                    else:
-                        df_merged = df_up
-                        
-                    if target == "Master_Inventaire_Zone" and 'inv_work_df' in st.session_state:
-                        del st.session_state.inv_work_df
-                    if target == "Analyse_Ventes_Perf" and 'df_ventes_perf' in st.session_state:
-                        del st.session_state.df_ventes_perf
-                    if target == "Analyse_Reclamations" and 'df_reclam_analysed' in st.session_state:
-                        del st.session_state.df_reclam_analysed
+                            st.error(msg)
                 else:
-                    cols_to_keep = [c for c in db_cols if c in df_up.columns]
-                    df_merged = pd.concat([df_old, df_up[cols_to_keep]], ignore_index=True).drop_duplicates(subset=[key])
-                
-                save_gs_data(df_merged, worksheet_name, db_path)
-                # ── Injection immédiate dans la session (accessible aux autres modules) ──
-                if target == "Commandes & Recouvrement":
-                    st.session_state['db_commandes_recouvrement'] = df_merged.copy()
-                st.success(f"✅ Migration réussie vers **{worksheet_name}** — {len(df_up)} lignes traitées.")
-                log_action(st.session_state.current_user['username'], f"Import Master Data : {target}", "Admin Centrale")
-                st.cache_data.clear()
-                st.rerun()
-        else:
-            st.warning("⚠️ Type non reconnu. Vérifiez que vos colonnes sont nommées : 'Raison sociale', 'Prénom', ou 'Ville'.")
+                    st.warning("⚠️ Type non reconnu. Vérifiez que vos colonnes sont nommées : 'Raison sociale', 'Référence', 'Dépôt', etc.")
+
+            # ── MODE MULTI-FEUILLES ──
+            else:
+                st.markdown(
+                    f"### 📚 Fichier multi-archives détecté : **{len(sheet_names)} feuilles** dans `{f_up.name}`"
+                )
+
+                # Analyser chaque feuille
+                sheets_info = []
+                for sheet in sheet_names:
+                    try:
+                        df_sheet = xl.parse(sheet)
+                        t, df_clean = detect_sheet_target(df_sheet)
+                        sheets_info.append({
+                            "sheet": sheet,
+                            "target": t,
+                            "df": df_clean,
+                            "n_rows": len(df_sheet),
+                        })
+                    except Exception as e_sheet:
+                        sheets_info.append({
+                            "sheet": sheet,
+                            "target": None,
+                            "df": pd.DataFrame(),
+                            "n_rows": 0,
+                            "error": str(e_sheet),
+                        })
+
+                # ── Récapitulatif visuel ──
+                st.markdown("#### 📋 Récapitulatif des archives détectées")
+                recap_cols = st.columns([3, 4, 2, 1])
+                recap_cols[0].markdown("**Feuille**")
+                recap_cols[1].markdown("**Module cible**")
+                recap_cols[2].markdown("**Lignes**")
+                recap_cols[3].markdown("**Sélectionner**")
+                st.divider()
+
+                selected_sheets = []
+                for i, info in enumerate(sheets_info):
+                    c0, c1, c2, c3 = st.columns([3, 4, 2, 1])
+                    sheet_name = info["sheet"]
+                    t = info["target"]
+                    n = info["n_rows"]
+
+                    c0.markdown(f"**{sheet_name}**")
+
+                    if t:
+                        icon, label, _ = _TARGET_LABELS.get(t, ("📄", t, ""))
+                        c1.success(f"{icon} {label}")
+                        default_checked = True
+                    else:
+                        c1.warning("⚠️ Non reconnu")
+                        default_checked = False
+
+                    c2.markdown(f"`{n:,}` lignes")
+
+                    is_selected = c3.checkbox(
+                        "✔",
+                        value=default_checked,
+                        key=f"chk_sheet_{i}",
+                        disabled=(t is None),
+                        label_visibility="collapsed",
+                    )
+                    if is_selected and t:
+                        selected_sheets.append(info)
+
+                st.divider()
+
+                # ── Aperçu de la feuille active ──
+                preview_options = [info["sheet"] for info in sheets_info]
+                if preview_options:
+                    preview_choice = st.selectbox(
+                        "👁️ Aperçu d'une feuille :",
+                        preview_options,
+                        key="preview_sheet_select",
+                    )
+                    for info in sheets_info:
+                        if info["sheet"] == preview_choice and not info["df"].empty:
+                            try:
+                                st.dataframe(info["df"].head(5).astype(str), use_container_width=True)
+                            except Exception:
+                                st.table(info["df"].head(5).astype(str))
+                            break
+
+                st.divider()
+
+                # ── Bouton d'import groupé ──
+                n_selected = len(selected_sheets)
+                btn_label = (
+                    f"📥 Importer les {n_selected} archive(s) sélectionnée(s)"
+                    if n_selected > 0
+                    else "Aucune archive sélectionnée"
+                )
+                if st.button(
+                    btn_label,
+                    type="primary",
+                    use_container_width=True,
+                    disabled=(n_selected == 0),
+                    key="btn_multi_import",
+                ):
+                    results_log = []
+                    for info in selected_sheets:
+                        ok, msg, n_rows = do_import_sheet(info["df"], info["target"])
+                        results_log.append((info["sheet"], info["target"], ok, msg, n_rows))
+
+                    # Rapport final
+                    st.markdown("#### 📊 Rapport d'import")
+                    all_ok = True
+                    for sheet_n, tgt, ok, msg, n_rows in results_log:
+                        icon_t, label_t, _ = _TARGET_LABELS.get(tgt, ("📄", tgt, ""))
+                        if ok:
+                            st.success(f"✅ **{sheet_n}** → {icon_t} {label_t} : {msg} ({n_rows} lignes importées)")
+                            log_action(
+                                st.session_state.current_user['username'],
+                                f"Import multi-feuilles : {sheet_n} → {label_t}",
+                                "Admin Centrale",
+                            )
+                        else:
+                            st.error(f"❌ **{sheet_n}** → {label_t} : {msg}")
+                            all_ok = False
+
+                    if all_ok:
+                        st.balloons()
+                    st.cache_data.clear()
+                    st.rerun()
 
 # ONGLET 1 : BASE CLIENTS
 with tabs[1]:
