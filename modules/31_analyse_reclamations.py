@@ -237,23 +237,40 @@ if "df_reclam_analysed" in st.session_state:
     df_raw = st.session_state.df_reclam_analysed.copy()
     
     # Prétraitement
+    for col, default_val in [
+        ('motif', 'Non Renseigné'), ('commercial', 'Inconnu'), ('client', 'Inconnu'),
+        ('produit', 'Inconnu'), ('region', 'Inconnu'), ('statut_bon', 'En Cours'), 
+        ('statut', 'EN COURS'), ('date', '')
+    ]:
+        if col not in df_raw.columns:
+            df_raw[col] = default_val
+            
     df_raw['motif'] = df_raw['motif'].fillna("Non Renseigné").astype(str)
     df_raw['categorie_motif'] = df_raw['motif'].apply(categorize_motif)
     df_raw['commercial'] = df_raw['commercial'].fillna("Inconnu").astype(str)
     df_raw['client'] = df_raw['client'].fillna("Inconnu").astype(str)
     df_raw['produit'] = df_raw['produit'].fillna("Inconnu").astype(str)
     df_raw['region'] = df_raw['region'].fillna("Inconnu").astype(str)
-    df_raw['preparateur'] = df_raw.get('preparateur', df_raw.get('preparateurs', 'Inconnu')).fillna("Inconnu").astype(str)
-    df_raw['lot'] = df_raw.get('lot', 'Inconnu').fillna("Inconnu").astype(str)
-    df_raw['frigo'] = df_raw.get('frigo', 'Non').fillna("Non").astype(str)
-    df_raw['psycho'] = df_raw.get('psycho', 'Non').fillna("Non").astype(str)
-    df_raw['chere'] = df_raw.get('chere', 'Non').fillna("Non").astype(str)
-    df_raw['zone_produit'] = df_raw.get('zone_produit', 'Inconnu').fillna("Inconnu").astype(str)
-    df_raw['quantite'] = pd.to_numeric(df_raw.get('quantite', df_raw.get('qte_reclam', 0)), errors='coerce').fillna(0).astype(int)
+    df_raw['preparateur'] = df_raw.get('preparateur', df_raw.get('preparateurs', pd.Series(['Inconnu']*len(df_raw)))).fillna("Inconnu").astype(str)
+    df_raw['lot'] = df_raw.get('lot', pd.Series(['Inconnu']*len(df_raw))).fillna("Inconnu").astype(str)
+    df_raw['frigo'] = df_raw.get('frigo', pd.Series(['Non']*len(df_raw))).fillna("Non").astype(str)
+    df_raw['psycho'] = df_raw.get('psycho', pd.Series(['Non']*len(df_raw))).fillna("Non").astype(str)
+    df_raw['chere'] = df_raw.get('chere', pd.Series(['Non']*len(df_raw))).fillna("Non").astype(str)
+    df_raw['zone_produit'] = df_raw.get('zone_produit', pd.Series(['Inconnu']*len(df_raw))).fillna("Inconnu").astype(str)
+    df_raw['quantite'] = pd.to_numeric(df_raw.get('quantite', df_raw.get('qte_reclam', pd.Series([0]*len(df_raw)))), errors='coerce').fillna(0).astype(int)
+    
+    if 'valeur_vente' not in df_raw.columns: df_raw['valeur_vente'] = 0.0
     df_raw['valeur_vente'] = pd.to_numeric(df_raw['valeur_vente'], errors='coerce').fillna(0.0)
+    
+    if 'cout_revient' not in df_raw.columns: df_raw['cout_revient'] = 0.0
     df_raw['cout_revient'] = pd.to_numeric(df_raw['cout_revient'], errors='coerce').fillna(0.0)
+    
+    if 'delai_reclam' not in df_raw.columns: df_raw['delai_reclam'] = 0
     df_raw['delai_reclam'] = pd.to_numeric(df_raw['delai_reclam'], errors='coerce')
+    
+    if 'nbr_jours' not in df_raw.columns: df_raw['nbr_jours'] = 0
     df_raw['nbr_jours'] = pd.to_numeric(df_raw['nbr_jours'], errors='coerce')
+    
     df_raw['statut_bon'] = df_raw['statut_bon'].fillna("En Cours").astype(str)
     df_raw['statut'] = df_raw['statut'].fillna("EN COURS").astype(str)
     df_raw['datetime_parsed'] = df_raw['date'].apply(parse_date_robust)
