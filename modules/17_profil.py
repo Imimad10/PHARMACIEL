@@ -372,13 +372,22 @@ with tab_activite:
 with tab_compte:
     st.write("#### ⚙️ Paramètres de Sécurité")
 
-    st.markdown("##### 🌐 Connexion Google")
-    current_google = st.session_state.current_user.get('google_email', '')
-    if pd.isna(current_google) or current_google == 'nan': current_google = ''
-    
+    st.markdown("##### 🌐 Connexion Google (Sign-In)")
+    current_google = str(st.session_state.current_user.get('google_email', '') or '').strip()
+    if current_google in ('', 'nan', 'None'):
+        current_google = ''
+
     if current_google:
-        st.success(f"✅ Compte lié : **{current_google}**")
-        if st.button("Délier mon compte Google"):
+        st.markdown(f"""
+        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:16px 20px; margin-bottom:12px; display:flex; align-items:center; gap:12px;">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" style="width:22px; height:22px;">
+            <div>
+                <div style="font-weight:700; color:#166534;">Compte Google lié ✅</div>
+                <div style="font-size:0.85rem; color:#15803d;">{current_google}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("🔗 Délier mon compte Google", key="btn_unlink_google"):
             mask = df_users['username'] == username
             df_users.loc[mask, 'google_email'] = ''
             save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)

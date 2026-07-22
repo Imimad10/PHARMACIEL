@@ -48,10 +48,10 @@ def load_real_data():
     - df_clients_base: Base Clients (identité, coordonnées)
     """
     # 1. VENTES / COMMANDES GLOBALES
-    # Priorité 1 : fichier canonical Cmd_Rotation (issu du dernier import Admin Centrale)
+    # Priorité 1 : fichier canonical db_cmd_rotation.csv (issu du dernier import Admin Centrale)
     import os
     df_ventes = pd.DataFrame()
-    for _path in ["data/db_cmd_rotation.csv", "data/db_commandes_globales.csv", "data/db_ventes_performance.csv"]:
+    for _path in ["data/db_cmd_rotation.csv", "db_cmd_rotation.csv", "data/db_commandes_globales.csv", "db_commandes_globales.csv", "data/db_ventes_performance.csv"]:
         if os.path.exists(_path):
             try:
                 df_ventes = pd.read_csv(_path, encoding="utf-8-sig", low_memory=False)
@@ -62,6 +62,8 @@ def load_real_data():
     # Fallback GSheets si aucun CSV trouvé
     if df_ventes.empty:
         df_ventes = load_gs_data("Cmd_Rotation", "data/db_cmd_rotation.csv", None)
+    if df_ventes.empty:
+        df_ventes = load_gs_data("cmd et rotation", "data/db_cmd_rotation.csv", None)
     if df_ventes.empty:
         df_ventes = load_gs_data("Commandes_Recouvrement", "data/db_commandes_globales.csv", None)
 
@@ -265,13 +267,14 @@ def _detect_col(df, candidates):
     return None
 
 # Colonnes Cmds & Rotation (nettoyées par clean_cmd_rotation_cols)
-COL_CLIENT   = _detect_col(df_ventes, ["Client", "client", "_logi_Client"])
-COL_COLIS    = _detect_col(df_ventes, ["Colis", "colis", "_logi_Colis"])
-COL_REF      = _detect_col(df_ventes, ["Référence", "reference", "référence", "_logi_Référence", "B.L"])
-COL_LIGNES   = _detect_col(df_ventes, ["Nbr Ligne", "nbr_ligne", "Nbr_Ligne", "_logi_Nbr Ligne", "Lignes"])
-COL_DATE     = _detect_col(df_ventes, ["Date", "date", "_logi_Date"])
-COL_REGION   = _detect_col(df_ventes, ["Région", "_logi_Région", "region", "Secteur"])
-COL_TTC      = _detect_col(df_ventes, ["T.T.C", "ttc", "_logi_T.T.C", "H.T", "ht", "_logi_H.T", "Montant Initial", "prix_vente"])
+COL_CLIENT   = _detect_col(df_ventes, ["Client", "client", "Nom_Pharmacie", "Nom Client", "CLIENT", "_logi_Client"])
+COL_COLIS    = _detect_col(df_ventes, ["Colis", "colis", "Nbr Colis", "Nbr_Colis", "Volume Colis", "COLIS", "_logi_Colis"])
+COL_REF      = _detect_col(df_ventes, ["Référence", "Reference", "référence", "reference", "Ref", "Réf", "N° Bon", "B.L", "BL", "Facture", "N° Facture", "_logi_Référence"])
+COL_LIGNES   = _detect_col(df_ventes, ["Nbr Ligne", "Nbr Lignes", "Nbr_Ligne", "Nbr_Lignes", "nbr_ligne", "nbr_lignes", "Lignes", "NBR LIGNE", "NBR LIGNES", "_logi_Nbr Ligne"])
+COL_DATE     = _detect_col(df_ventes, ["Date", "Date_Creation", "Date Création", "date", "DATE", "_logi_Date"])
+COL_REGION   = _detect_col(df_ventes, ["Région", "Region", "_logi_Région", "region", "Secteur", "Wilaya"])
+COL_HT       = _detect_col(df_ventes, ["H.T", "HT", "ht", "Montant HT", "Prix HT", "H.T.", "_logi_H.T"])
+COL_TTC      = _detect_col(df_ventes, ["T.T.C", "TTC", "ttc", "Montant TTC", "Prix TTC", "Montant Initial", "prix_vente", "T.T.C.", "_logi_T.T.C"])
 COL_MARGE    = _detect_col(df_ventes, ["_logi_Marge", "Marge", "marge"])
 
 # Colonnes Réclamations (nettoyées par clean_reclam_cols)
@@ -288,7 +291,6 @@ if df_ventes.empty and df_recouvrement.empty:
     st.stop()
 
 # --- Construction de la liste des vrais clients ---
-# On fusionne les clients des ventes et du recouvrement pour avoir une liste exhaustive
 clients_from_ventes = []
 clients_from_recouvrement = []
 
@@ -304,9 +306,7 @@ if not all_clients:
     st.warning("⚠️ Aucun client détecté dans les données importées. Vérifiez vos fichiers dans l'Admin Centrale.")
     st.stop()
 
-# Construction d'un index normalisé (UPPER) pour le matching
-# all_clients est déjà trié — on garde les noms d'origine pour l'affichage
-_clients_upper_map = {c.strip().upper(): c for c in all_clients}  # upper -> original
+_clients_upper_map = {c.strip().upper(): c for c in all_clients}
 
 # --- BANDEAU HORIZONTAL DE FILTRAGE (Haut de page) ---
 st.markdown("### 🔍 Paramètres de Recherche & Filtrage")
@@ -335,7 +335,6 @@ with col_f2:
         end_date = start_date + timedelta(days=6)
     elif time_filter == "Mois en cours":
         start_date = today.replace(day=1)
-        # Un peu de logique pour la fin du mois
         next_month = start_date.replace(day=28) + timedelta(days=4)
         end_date = next_month - timedelta(days=next_month.day)
     elif time_filter == "Plage Personnalisée":
@@ -352,38 +351,33 @@ with col_f3:
 
 st.markdown("<hr style='margin-top: 5px; margin-bottom: 20px; opacity: 0.2;'>", unsafe_allow_html=True)
 
-# --- FILTRAGE DES DONNÉES SUR LE CLIENT SÉLECTIONNÉ ---
-# Nettoyage rigoureux : UPPER + strip pour matching tolérant
+# --- FILTRAGE DES DONNÉES SUR LE CLIENT SÉLECTIONNÉ (MATCHING PARTIEL FLOU) ---
 client_propre = client_selectionne.strip()
 client_upper  = client_propre.upper()
-_search_term  = re.escape(client_upper)  # protection des caractères spéciaux regex
+first_word    = client_upper.split()[0] if client_upper.split() else client_upper
 
-# 1. Filtrage des VENTES / COMMANDES (matching flou tolérant)
-if not df_ventes.empty and COL_CLIENT:
-    _col_norm = df_ventes[COL_CLIENT].astype(str).str.strip().str.upper()
-    # Exact match en priorité, puis contains si résultat vide
-    _mask_exact    = _col_norm == client_upper
-    _mask_contains = _col_norm.str.contains(_search_term, na=False, regex=True)
-    _mask_final    = _mask_exact if _mask_exact.any() else _mask_contains
-    df_ven_c = df_ventes[_mask_final].copy()
-else:
-    df_ven_c = pd.DataFrame()
+def filter_df_by_client(df, col_name):
+    """Effectue un matching partiel tolérant (ex: AZEBOUCHE match avec AZEBOUCHE BLIDA)."""
+    if df.empty or not col_name or col_name not in df.columns:
+        return pd.DataFrame()
+    col_norm = df[col_name].astype(str).str.strip().str.upper()
+    
+    mask_exact = col_norm == client_upper
+    mask_contains = col_norm.str.contains(re.escape(client_upper), na=False, regex=True)
+    mask_reverse = col_norm.apply(lambda val: (val != "" and val in client_upper) if isinstance(val, str) else False)
+    mask_first = col_norm.str.contains(re.escape(first_word), na=False, regex=True) if len(first_word) >= 3 else False
+    
+    mask_final = mask_exact | mask_contains | mask_reverse | mask_first
+    return df[mask_final].copy()
 
-# 2. Filtrage des RÉCLAMATIONS
-if not df_validation.empty and COL_REC_CLIENT:
-    _col_norm_r = df_validation[COL_REC_CLIENT].astype(str).str.strip().str.upper()
-    _mask_r     = (_col_norm_r == client_upper) | _col_norm_r.str.contains(_search_term, na=False, regex=True)
-    df_val_c = df_validation[_mask_r].copy()
-else:
-    df_val_c = pd.DataFrame()
+# 1. Filtrage VENTES / COMMANDES
+df_ven_c = filter_df_by_client(df_ventes, COL_CLIENT)
 
-# 3. Filtrage du RECOUVREMENT
-if not df_recouvrement.empty and 'Client' in df_recouvrement.columns:
-    _col_norm_rec = df_recouvrement['Client'].astype(str).str.strip().str.upper()
-    _mask_rec     = (_col_norm_rec == client_upper) | _col_norm_rec.str.contains(_search_term, na=False, regex=True)
-    df_rec_c = df_recouvrement[_mask_rec].copy()
-else:
-    df_rec_c = pd.DataFrame()
+# 2. Filtrage RÉCLAMATIONS
+df_val_c = filter_df_by_client(df_validation, COL_REC_CLIENT)
+
+# 3. Filtrage RECOUVREMENT
+df_rec_c = filter_df_by_client(df_recouvrement, 'Client')
 
 # Application du filtre temporel
 if time_filter != "Historique Global" and start_date and end_date:
@@ -404,18 +398,10 @@ if time_filter != "Historique Global" and start_date and end_date:
 # Application du Filtre Avancé par Statut
 if status_filter == "Avec Dette Active":
     if not df_rec_c.empty and 'Reste à payer' in df_rec_c.columns:
-        # On garde uniquement le recouvrement impayé
         df_rec_c = df_rec_c[parse_numeric_series(df_rec_c['Reste à payer']) > 0]
-elif status_filter == "Avec Réclamations":
-    # On pourrait restreindre les ventes aux références réclamées
-    pass # Logique agnostique pour ne pas vider les KPIs inutilement
-elif status_filter == "Vigilance Qualité":
-    # Mettre en évidence les réclamations
-    pass
 
 
-
-# --- CALCUL DES MÉTRIQUES RÉELLES ---
+# --- CALCUL PRÉCIS DES MÉTRIQUES ---
 def safe_sum(df, col):
     """Somme sécurisée d'une colonne, avec conversion numérique."""
     if df.empty or col is None or col not in df.columns:
@@ -428,21 +414,22 @@ def safe_nunique(df, col):
         return 0
     return df[col].nunique()
 
-# KPIs depuis les Ventes/Commandes
-# Commandes Totales = nb de références uniques (ou nb de lignes si chaque ligne est une commande)
-total_refs = safe_nunique(df_ven_c, COL_REF)
-total_commandes = total_refs if total_refs > 0 else len(df_ven_c)
-# Lignes Commandees = somme de la colonne Nbr Ligne
+# 1. Lignes Commandées : Faire la somme .sum() de 'Nbr Ligne' (ou 'Nbr Lignes')
 total_lignes = int(safe_sum(df_ven_c, COL_LIGNES))
 if total_lignes == 0 and not df_ven_c.empty:
-    total_lignes = len(df_ven_c)  # chaque ligne = 1 ligne de commande
-# Volume Colis
-total_colis  = int(safe_sum(df_ven_c, COL_COLIS))
-# CA : priorité TTC, fallback HT
-_col_ca = COL_TTC
-if _col_ca is None:
-    _col_ca = _detect_col(df_ven_c, ["H.T", "ht", "HT"])
-total_ttc    = safe_sum(df_ven_c, _col_ca)
+    total_lignes = len(df_ven_c)
+
+# 2. Commandes Totales : Compter les références uniques .nunique() de la colonne 'Référence' (ex: 26/F-004150)
+total_refs = safe_nunique(df_ven_c, COL_REF)
+total_commandes = total_refs if total_refs > 0 else len(df_ven_c)
+
+# 3. Volume Colis Reçus : Faire la somme .sum() de la colonne 'Colis'
+total_colis = int(safe_sum(df_ven_c, COL_COLIS))
+
+# 4. CA Total (DA) : Faire la somme .sum() de la colonne 'H.T' ou 'T.T.C'
+ca_ht  = safe_sum(df_ven_c, COL_HT)
+ca_ttc = safe_sum(df_ven_c, COL_TTC)
+total_ttc = ca_ttc if ca_ttc > 0 else ca_ht
 marge_brute  = safe_sum(df_ven_c, COL_MARGE)
 
 # KPIs depuis le Recouvrement (dette réelle)
@@ -932,3 +919,15 @@ with tab4:
             """, unsafe_allow_html=True)
             taux_regl = (1 - metrics['reste_a_payer'] / metrics['total_ttc']) * 100 if metrics['total_ttc'] > 0 else 100
             st.progress(min(int(taux_regl), 100), text=f"Règlement : {taux_regl:.0f}%")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    with st.expander("📄 Détails Factures & Colissage (Tableau complet)", expanded=False):
+        if not df_ven_c.empty:
+            cols_disp = [c for c in [COL_DATE, COL_REF, COL_LIGNES, COL_COLIS, COL_HT, COL_TTC, COL_REGION] if c and c in df_ven_c.columns]
+            if cols_disp:
+                st.dataframe(df_ven_c[cols_disp], use_container_width=True, hide_index=True)
+            else:
+                st.dataframe(df_ven_c, use_container_width=True, hide_index=True)
+            st.markdown(f"**Total :** `{len(df_ven_c)}` ligne(s) | **Commandes (Réf) :** `{metrics['total_commandes']}` | **Lignes :** `{metrics['total_lignes']:,}` | **Colis :** `{metrics['total_colis']:,}` | **CA :** `{metrics['total_ttc']:,.2f} DA`")
+        else:
+            st.info("Aucune commande trouvée pour ce client.")

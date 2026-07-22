@@ -534,7 +534,7 @@ _TARGET_LABELS = {
     "Utilisateurs":           ("🔐", "Utilisateurs",         ""),
 }
 
-def detect_sheet_target(df):
+def detect_sheet_target(df, sheet_name=""):
     """Détecte le module cible pour un DataFrame donné et retourne (target, df_nettoyé)."""
     if df is None or df.empty:
         return None, df
@@ -542,14 +542,22 @@ def detect_sheet_target(df):
     cols = [str(c).strip() for c in df.columns.tolist()]
     cols_lower = [c.lower() for c in cols]
     target = None
+    sheet_lower = str(sheet_name).lower()
 
-    # ── PRIORITÉ 0 : CMD & ROTATION (Référence /BL) — avant réclamations ──
+    # ── PRIORITÉ 0 : CMD & ROTATION (Nom de feuille, colonnes ou Référence /BL) ──
     _ref_col_bl = None
     for c in df.columns:
         if str(c).strip().lower() in ["référence", "reference", "réf.", "ref.", "ref"]:
             _ref_col_bl = c
             break
-    if _ref_col_bl is not None:
+
+    is_cmd_sheet = "cmd" in sheet_lower or "rotation" in sheet_lower
+    has_cmd_cols = any(x in cols_lower for x in ["nbr_impres", "type_cmd", "colis", "ht", "ttc"])
+
+    if is_cmd_sheet or has_cmd_cols:
+        target = "Cmd_Rotation"
+        df = clean_cmd_rotation_cols(df)
+    elif _ref_col_bl is not None:
         _ref_sample_bl = df[_ref_col_bl].dropna().astype(str).str.upper().str.strip()
         _bl_count = _ref_sample_bl.str.contains(r'/BL\d|^BL\d', regex=True, na=False).sum()
         if _bl_count > 0:
@@ -850,7 +858,7 @@ with tabs[0]:
             # ── MODE MONO-FEUILLE ──
             if len(sheet_names) == 1:
                 df_up = xl.parse(sheet_names[0])
-                target, df_up = detect_sheet_target(df_up)
+                target, df_up = detect_sheet_target(df_up, sheet_name=sheet_names[0])
 
                 st.write("**Aperçu des données :**")
                 try:
@@ -884,7 +892,7 @@ with tabs[0]:
                 for sheet in sheet_names:
                     try:
                         df_sheet = xl.parse(sheet)
-                        t, df_clean = detect_sheet_target(df_sheet)
+                        t, df_clean = detect_sheet_target(df_sheet, sheet_name=sheet)
                         sheets_info.append({
                             "sheet": sheet,
                             "target": t,
