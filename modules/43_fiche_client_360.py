@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import re
 from datetime import datetime, timedelta
 
 from utils_gsheets import load_gs_data
@@ -353,14 +354,9 @@ st.markdown("<hr style='margin-top: 5px; margin-bottom: 20px; opacity: 0.2;'>", 
 
 # --- FILTRAGE DES DONNÉES SUR LE CLIENT SÉLECTIONNÉ ---
 # Nettoyage rigoureux : UPPER + strip pour matching tolérant
-client_propre   = client_selectionne.strip()
-client_upper    = client_propre.upper()
-# Terme de recherche : on utilise le premier mot significatif si le nom est court,
-# sinon on cherche l'occurrence exacte dans la colonne
-_search_term    = re.escape(client_upper)  # protection des caractères spéciaux regex
-
-import re
-_search_term = re.escape(client_upper)
+client_propre = client_selectionne.strip()
+client_upper  = client_propre.upper()
+_search_term  = re.escape(client_upper)  # protection des caractères spéciaux regex
 
 # 1. Filtrage des VENTES / COMMANDES (matching flou tolérant)
 if not df_ventes.empty and COL_CLIENT:
