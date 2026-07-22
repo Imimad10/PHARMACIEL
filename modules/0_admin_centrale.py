@@ -649,6 +649,11 @@ def do_import_sheet(df_up, target):
             if 'Nom Client' not in df_merged.columns and 'Nom_Pharmacie' in df_merged.columns:
                 df_merged['Nom Client'] = df_merged['Nom_Pharmacie']
             save_gs_data(df_merged, "Base_Clients", db_path)
+            
+            # --- REDISTRIBUTION AUTOMATIQUE CORTEX ---
+            # Alimente 43_fiche_client_360.py, 12_gestion_clients.py, 30_repartition_zones.py
+            df_merged.to_csv("base_clients.csv", index=False, encoding="utf-8-sig")
+            
             return True, f"{len(df_merged)} clients en base", len(df_up)
 
         elif target == "Livreurs":
@@ -684,6 +689,16 @@ def do_import_sheet(df_up, target):
             if 'inv_work_df' in st.session_state:
                 del st.session_state.inv_work_df
             save_gs_data(df_merged, "Master_Inventaire_Zone", db_path)
+            
+            # --- REDISTRIBUTION AUTOMATIQUE CORTEX ---
+            # Alimente 2_inventaire.py, 8_inventaire_detail.py, 16_inventaire_triple.py, 6_peremptions.py, 14_liste_des_lots.py
+            os.makedirs("data_inventaire_detail", exist_ok=True)
+            os.makedirs("data", exist_ok=True)
+            df_merged.to_csv("data_inventaire_detail/master_detail.csv", index=False, encoding="utf-8-sig")
+            df_merged.to_csv("data/master.csv", index=False, encoding="utf-8-sig")
+            df_merged.to_csv("data/m_zone.csv", index=False, encoding="utf-8-sig")
+            df_merged.to_csv("data/m_stock.csv", index=False, encoding="utf-8-sig")
+            
             return True, f"{len(df_merged)} lignes sauvegardées", len(df_up)
 
         elif target == "Analyse_Ventes_Perf":
@@ -698,6 +713,13 @@ def do_import_sheet(df_up, target):
             if 'df_reclam_analysed' in st.session_state:
                 del st.session_state.df_reclam_analysed
             save_gs_data(df_merged, "Analyse_Reclamations", db_path)
+            
+            # --- REDISTRIBUTION AUTOMATIQUE CORTEX ---
+            # Alimente 31_analyse_reclamations.py, 1_expedition.py, 43_fiche_client_360.py
+            os.makedirs("data", exist_ok=True)
+            df_merged.to_csv("data/db_reclamations_analyse.csv", index=False, encoding="utf-8-sig")
+            df_merged.to_csv("data/db_sav.csv", index=False, encoding="utf-8-sig")
+            
             return True, f"{len(df_merged)} réclamations sauvegardées", len(df_up)
 
         elif target == "Recouvrement_Logipharm":
@@ -733,6 +755,19 @@ def do_import_sheet(df_up, target):
             if 'reference' in df_merged.columns:
                 df_merged = df_merged.drop_duplicates(subset=['reference'], keep='last')
             save_gs_data(df_merged, "Cmd_Rotation", db_path)
+            
+            # --- REDISTRIBUTION AUTOMATIQUE CORTEX ---
+            # Alimente 11_analyse_rotation.py, 27_prevision_charge.py, 32_analyse_ventes.py, 44_pilotage_rotations.py, pilotage_complet_centrale.py
+            os.makedirs("data", exist_ok=True)
+            df_merged.to_csv("data/db_cmd_rotation.csv", index=False, encoding="utf-8-sig")
+            df_merged.to_csv("data/db_ventes_performance.csv", index=False, encoding="utf-8-sig")
+            df_merged.to_csv("data/db_commandes_globales.csv", index=False, encoding="utf-8-sig")
+            
+            # Injection immédiate dans la session state pour les autres modules
+            if 'db_commandes' in st.session_state:
+                st.session_state['db_commandes'] = df_merged.copy()
+            st.session_state['db_commandes_recouvrement'] = df_merged.copy()
+            
             return True, f"{len(df_merged)} commandes en base", len(df_up)
 
         elif target == "Fournisseurs":
