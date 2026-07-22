@@ -150,9 +150,21 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+
+# ─── CONTRÔLE D'ACCÈS (ADMIN & SUPERVISEUR) ──────────────────────────────────
+if 'current_user' not in st.session_state or not st.session_state.current_user:
+    st.warning("🔒 Connexion requise.")
+    st.stop()
+
+user_role = str(st.session_state.current_user.get('role', 'Saisie')).strip()
+if user_role not in ['Admin', 'Superviseur', 'Manager']:
+    st.error("⛔ Accès réservé aux Administrateurs et Superviseurs.")
+    st.stop()
+
 # ─── HEADER ───────────────────────────────────────────────────────────────────
 st.markdown('<h1 class="aff-title">🚚 Affectation & Flotte</h1>', unsafe_allow_html=True)
 st.markdown('<p class="aff-subtitle">Gérez les affectations secteur/région de chaque livreur. Toute modification est historisée sans écraser les opérations passées.</p>', unsafe_allow_html=True)
+
 
 # ─── CHARGEMENT DES DONNÉES ───────────────────────────────────────────────────
 def load_affectations() -> pd.DataFrame:

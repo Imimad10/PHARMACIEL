@@ -1295,7 +1295,7 @@ if not isinstance(user_pages, list):
 is_admin = user.get('role') == 'Admin'
 
 if is_admin:
-    for extra_page in ["Cortex IA", "Automatisation", "Liste des Lots", "Répartition Zones", "Analyse Réclamations", "Performance Ventes", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Réception Fournisseurs", "Litiges Fournisseurs", "Assistant IA", "Base IA", "Transferts", "Coordination", "Qualité IA", "Mon Coin", "Briefing IA", "Maintenance", "Académie", "Prévisions", "Mode Meeting", "Page de Garde", "Portail B2B", "Optimisation Tournées", "Prédiction Rupture", "Gestion Documentaire", "Retours & Avoirs", "Vigilance & Rappels", "Campagnes & Remises", "Fiche Client 360", "Pilotage Rotations", "Performance Flotte", "Pilotage Centrale"]:
+    for extra_page in ["Cortex IA", "Automatisation", "Liste des Lots", "Répartition Zones", "Analyse Réclamations", "Performance Ventes", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Réception Fournisseurs", "Litiges Fournisseurs", "Assistant IA", "Base IA", "Transferts", "Coordination", "Qualité IA", "Mon Coin", "Briefing IA", "Maintenance", "Académie", "Prévisions", "Mode Meeting", "Page de Garde", "Portail B2B", "Optimisation Tournées", "Prédiction Rupture", "Gestion Documentaire", "Retours & Avoirs", "Vigilance & Rappels", "Campagnes & Remises", "Fiche Client 360", "Pilotage Rotations", "Performance Flotte", "Pilotage Centrale", "Affectation Flotte"]:
         if extra_page not in user_pages:
             user_pages.append(extra_page)
 
@@ -1354,6 +1354,7 @@ ALL_PAGES = {
     "Pilotage Rotations": st.Page("modules/44_pilotage_rotations.py", title="Pilotage Rotations & Charge", icon="⚡"),
     "Pilotage Centrale": st.Page("modules/pilotage_complet_centrale.py", title="Pilotage Centrale & Recouvrement", icon="⚡"),
     "Performance Flotte": st.Page("modules/45_performance_flotte.py", title="Performance Flotte", icon="🚚"),
+    "Affectation Flotte": st.Page("modules/46_affectation_livreurs.py", title="Affectation & Flotte", icon="📍"),
     "Profil": st.Page("modules/17_profil.py", title="Mon Profil", icon="👤")
 }
 
@@ -1370,7 +1371,7 @@ CATEGORIES = {
     "📊 SUPERVISION": ["Master Global", "Dashboard", "Analyse Rotation", "Prévisions", "Mode Meeting", "Analyse Réclamations", "Performance Ventes", "Suivi", "Dashboard Premium", "Optimisation Tournées", "Fiche Client 360", "Pilotage Rotations", "Performance Flotte", "Pilotage Centrale"],
     "📦 GESTION DES STOCKS": ["Inventaire", "Inventaire Détail", "Inventaire Triple", "Péremptions", "Liste des Lots", "Catalogue Produits", "Répartition Zones", "Prédiction Rupture", "Gestion Documentaire", "Vigilance & Rappels"],
     "🏭 FOURNISSEURS": ["Réception Fournisseurs", "Pointage Marchandise", "Litiges Fournisseurs"],
-    "📝 POINTAGES & FLUX": ["Pointage", "Pointage Expéditeur", "Page de Garde", "Recouvrement", "Logistique", "Scanneur QR", "Scan Mobile", "Transferts", "Clients", "Portail B2B", "Retours & Avoirs", "Campagnes & Remises"],
+    "📝 POINTAGES & FLUX": ["Pointage", "Pointage Expéditeur", "Page de Garde", "Recouvrement", "Logistique", "Scanneur QR", "Scan Mobile", "Transferts", "Clients", "Portail B2B", "Retours & Avoirs", "Campagnes & Remises", "Affectation Flotte"],
     "🤖 DARPHARM IA": ["Cortex IA", "Assistant IA", "Base IA", "Qualité IA", "Briefing IA", "Automatisation", "Coordination", "Académie"],
     "🏥 ADMINISTRATION": ["Admin Centrale", "RH", "RH Planning", "Maintenance"]
 }
