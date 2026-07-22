@@ -167,22 +167,25 @@ with tab_exp:
     st.divider()
     
     if mode in ["Réclamation", "Réclamation en Urgence"]:
-        with st.expander("📥 Importation groupée des Réclamations (Excel)", expanded=False):
-            st.write(f"Importation pour le secteur : **{secteur_affichage.upper()}**")
-            file_complaints = st.file_uploader("Glisser le fichier Excel ici", type=['xlsx', 'xls'], key="uploader_reclamations")
-            
-            if file_complaints:
-                try:
-                    df_reclam = pd.read_excel(file_complaints)
-                    
-                    import unicodedata
-                    def clean_col(c):
-                        c = str(c).strip().lower()
-                        return ''.join(ch for ch in unicodedata.normalize('NFD', c) if unicodedata.category(ch) != 'Mn')
-                    
+        st.write(f"🔄 **Synchronisation des réclamations** pour le secteur : **{secteur_affichage.upper()}**")
+        if st.button("📥 Charger les réclamations actives depuis la Centrale", use_container_width=True, type="primary"):
+            try:
+                # 1. Charger les réclamations depuis la base centrale
+                df_reclam = load_gs_data("Analyse_Reclamations", "data/db_reclamations_analyse.csv", None)
+                
+                if df_reclam.empty:
+                    df_reclam = load_gs_data("reclamation", "data/db_reclamations.csv", None)
+
+                import unicodedata
+                def clean_col(c):
+                    c = str(c).strip().lower()
+                    return ''.join(ch for ch in unicodedata.normalize('NFD', c) if unicodedata.category(ch) != 'Mn')
+                
+                if not df_reclam.empty:
                     df_reclam.columns = [clean_col(c) for c in df_reclam.columns]
                     
                     if 'client' in df_reclam.columns:
+                        # 2. Filtrer uniquement les réclamations "en cours"
                         if 'statut' in df_reclam.columns:
                             df_reclam['statut_clean'] = df_reclam['statut'].astype(str).str.strip().str.lower()
                             df_to_add = df_reclam[df_reclam['statut_clean'].str.contains("en cours", na=False)].copy()
@@ -200,7 +203,7 @@ with tab_exp:
                             for _, row in df_to_add.iterrows():
                                 client_name = str(row['client']).strip()
                                 
-                                # Détermination du secteur : Priorité au fichier Excel, puis à la base locale
+                                # Détermination du secteur
                                 file_secteur = ""
                                 if 'region' in row: file_secteur = str(row['region']).strip().lower()
                                 elif 'secteur' in row: file_secteur = str(row['secteur']).strip().lower()
@@ -208,7 +211,7 @@ with tab_exp:
                                 client_secteur = file_secteur if file_secteur else sect_map.get(client_name, "")
                                 
                                 # Filtrage selon le secteur d'affichage (si pas "Tous")
-                                if secteur_affichage != "Tous" and client_secteur != secteur_affichage:
+                                if secteur_affichage != "Tous" and client_secteur != secteur_affichage.lower():
                                     skipped_count += 1
                                     continue
                                 
@@ -217,23 +220,32 @@ with tab_exp:
                                 telephone = str(row['tel']).strip() if 'tel' in row else tel_map.get(client_name, "")
                                 info_str = f"Tel: {telephone}" if telephone else ""
                                 
-                                info_val = "RAPPEL DE LOT" if mode == "Réclamation en Urgence" else "RÉCLAMATION IMPORTÉE"
+                                # Motif depuis la DB ou par défaut
+                                motif_db = str(row['motif']).strip() if 'motif' in df_reclam.columns and pd.notna(row['motif']) else (str(row['reponse']).strip() if 'reponse' in df_reclam.columns and pd.notna(row['reponse']) else "")
+                                if mode == "Réclamation en Urgence":
+                                    info_val = "RAPPEL DE LOT"
+                                else:
+                                    info_val = motif_db if motif_db else "RÉCLAMATION IMPORTÉE"
+                                
                                 add_or_merge_row(client_name, ville, ref_val, info_val, "En cours", info_str, mode=mode, secteur=client_secteur)
                                 added_count += 1
                             
                             if added_count > 0:
-                                st.success(f"✅ {added_count} réclamations ajoutées !")
+                                st.success(f"✅ {added_count} réclamations actives synchronisées !")
                                 if skipped_count > 0:
-                                    st.info(f"ℹ️ {skipped_count} lignes ignorées (hors secteur {secteur_affichage.upper()}).")
-                                log_action(st.session_state.current_user['username'], f"Importation réclamations ({secteur_affichage})", "Expédition")
+                                    st.info(f"ℹ️ {skipped_count} réclamations ignorées (hors secteur {secteur_affichage.upper()}).")
+                                log_action(st.session_state.current_user['username'], f"Synchro Centrale réclamations ({secteur_affichage})", "Expédition")
+                                st.rerun() # Rafraîchissement immédiat
                             else:
-                                st.error(f"❌ Aucune donnée correspondant au secteur **{secteur_affichage.upper()}**.")
+                                st.warning(f"❌ Aucune réclamation en cours trouvée pour le secteur **{secteur_affichage.upper()}**.")
                         else:
-                            st.info("Aucune réclamation valide trouvée.")
+                            st.info("✅ Aucune réclamation 'en cours' trouvée dans la base centrale.")
                     else:
-                        st.error(f"Colonne 'client' manquante. Trouvé: {list(df_reclam.columns)}")
-                except Exception as e:
-                    st.error(f"Erreur : {e}")
+                        st.error(f"Colonne 'client' manquante dans la base centrale. Colonnes : {list(df_reclam.columns)}")
+                else:
+                    st.info("La base centrale de réclamations est vide ou introuvable.")
+            except Exception as e:
+                st.error(f"Erreur lors de la synchronisation : {e}")
 
     # Formulaire d'ajout manuel
     c1, c2, c3, c4, c5 = st.columns([2, 1.5, 1.5, 1, 1])
