@@ -524,9 +524,9 @@ _TARGET_LABELS = {
     "Analyse_Reclamations":   ("🔴", "Réclamations",         "data/db_reclamations_analyse.csv"),
     "Recouvrement_Logipharm": ("💰", "Recouvrement",         "data_recouvrement.csv"),
     "Analyse_Ventes_Perf":    ("📈", "Analyse Ventes",       "data/db_ventes_performance.csv"),
-    "Master_Inventaire_Zone": ("📦", "Inventaire / Lots",    "data_inventaire_detail/master_detail.csv"),
+    "Master_Inventaire_Zone": ("📦", "Stock & Inventaire",   "data_inventaire_detail/master_detail.csv"),
     "Expedition_Logipharm":   ("🚚", "Expédition",           "data/db_expedition_logipharm.csv"),
-    "Base_Clients":           ("👥", "Base Clients",          DATA_CLIENTS),
+    "Base_Clients":           ("👥", "Secteurs / Clients",   DATA_CLIENTS),
     "Cmd_Rotation":           ("📋", "Cmds & Rotation",      "data/db_cmd_rotation.csv"),
     "Fournisseurs":           ("🏭", "Fournisseurs",         "data/db_fournisseurs.csv"),
     "Livreurs":               ("🛵", "Livreurs",             DATA_LIVREURS),
@@ -534,37 +534,145 @@ _TARGET_LABELS = {
     "Utilisateurs":           ("🔐", "Utilisateurs",         ""),
 }
 
+# ── MAPPING STRICT NOM DE FEUILLE → MODULE CIBLE ────────────────────────────
+# Chaque alias (normalisé en minuscules, sans accents ni ponctuation superflue)
+# pointe vers UN SEUL module cible. Ce mapping est prioritaire sur toute
+# heuristique de colonnes — il garantit qu'aucune feuille ne peut écraser
+# un module qui ne lui correspond pas.
+_SHEET_NAME_MAPPING = {
+    # ── Stock & Inventaire ───────────────────────────────────────────────────
+    "lot et inventaire":      "Master_Inventaire_Zone",
+    "lots et inventaire":     "Master_Inventaire_Zone",
+    "lot inventaire":         "Master_Inventaire_Zone",
+    "lots inventaire":        "Master_Inventaire_Zone",
+    "inventaire":             "Master_Inventaire_Zone",
+    "stock inventaire":       "Master_Inventaire_Zone",
+    "stock et inventaire":    "Master_Inventaire_Zone",
+    "stocks":                 "Master_Inventaire_Zone",
+    "lots":                   "Master_Inventaire_Zone",
+    # ── Cmds & Rotation ─────────────────────────────────────────────────────
+    "cmd et rotation":        "Cmd_Rotation",
+    "cmds et rotation":       "Cmd_Rotation",
+    "cmd rotation":           "Cmd_Rotation",
+    "commandes et rotation":  "Cmd_Rotation",
+    "rotation":               "Cmd_Rotation",
+    # ── Réclamations ────────────────────────────────────────────────────────
+    "reclamation":            "Analyse_Reclamations",
+    "reclamations":           "Analyse_Reclamations",
+    "réclamation":            "Analyse_Reclamations",
+    "réclamations":           "Analyse_Reclamations",
+    "sav":                    "Analyse_Reclamations",
+    # ── Secteurs / Clients ───────────────────────────────────────────────────
+    "clients":                "Base_Clients",
+    "client":                 "Base_Clients",
+    "base clients":           "Base_Clients",
+    "secteurs clients":       "Base_Clients",
+    "secteurs":               "Secteurs",
+    "secteur":                "Secteurs",
+    # ── Recouvrement ────────────────────────────────────────────────────────
+    "recouvrement":           "Recouvrement_Logipharm",
+    "recouvrement logipharm": "Recouvrement_Logipharm",
+    # ── Expédition ───────────────────────────────────────────────────────────
+    "expedition":             "Expedition_Logipharm",
+    "expédition":             "Expedition_Logipharm",
+    "pointage":               "Expedition_Logipharm",
+    # ── Ventes ───────────────────────────────────────────────────────────────
+    "ventes":                 "Analyse_Ventes_Perf",
+    "analyse ventes":         "Analyse_Ventes_Perf",
+    "performances":           "Analyse_Ventes_Perf",
+}
+
+
+def _normalize_sheet_name(name: str) -> str:
+    """Normalise un nom de feuille : minuscules, strip, suppression accents courants."""
+    import unicodedata
+    name = str(name).strip().lower()
+    # Normalisation unicode NFC → suppression des diacritiques
+    try:
+        nfkd = unicodedata.normalize('NFD', name)
+        name = ''.join(c for c in nfkd if unicodedata.category(c) != 'Mn')
+    except Exception:
+        pass
+    return name
+
 def detect_sheet_target(df, sheet_name=""):
-    """Détecte le module cible pour un DataFrame donné et retourne (target, df_nettoyé)."""
+    """
+    Détecte le module cible pour un DataFrame donné et retourne (target, df_nettoyé).
+
+    Stratégie de résolution (ordre strict) :
+      1. Nom de feuille → _SHEET_NAME_MAPPING (PRIORITAIRE, infaillible)
+      2. Heuristiques de colonnes (fallback uniquement si aucun alias trouvé)
+    """
     if df is None or df.empty:
         return None, df
 
     cols = [str(c).strip() for c in df.columns.tolist()]
     cols_lower = [c.lower() for c in cols]
     target = None
-    sheet_lower = str(sheet_name).lower()
 
-    # ── PRIORITÉ 0 : CMD & ROTATION (Nom de feuille, colonnes ou Référence /BL) ──
-    _ref_col_bl = None
-    for c in df.columns:
-        if str(c).strip().lower() in ["référence", "reference", "réf.", "ref.", "ref"]:
-            _ref_col_bl = c
-            break
+    # ══════════════════════════════════════════════════════════════════════
+    # ÉTAPE 0 — CORRESPONDANCE STRICTE PAR NOM DE FEUILLE
+    # Chaque nom de feuille mappe vers UN SEUL module, sans ambiguïté.
+    # Cela empêche « lot et inventaire » d'atterrir dans Cmd_Rotation,
+    # et garantit que seule « cmd et rotation » alimente Cmds & Rotation.
+    # ══════════════════════════════════════════════════════════════════════
+    sheet_norm = _normalize_sheet_name(sheet_name)
+    if sheet_norm in _SHEET_NAME_MAPPING:
+        target = _SHEET_NAME_MAPPING[sheet_norm]
+        # Nettoyage des colonnes adapté au module détecté par nom
+        if target == "Cmd_Rotation":
+            df = clean_cmd_rotation_cols(df)
+        elif target == "Master_Inventaire_Zone":
+            df = clean_inventory_cols(df)
+        elif target == "Analyse_Reclamations":
+            unnamed_cols = [c for c in df.columns if str(c).startswith("Unnamed:")]
+            semantic_names = ["Valide", "Imprime", "Expedie", "Cloture"]
+            logi_reclam_rename = {uc: semantic_names[i] for i, uc in enumerate(unnamed_cols[:4])}
+            if logi_reclam_rename:
+                df = df.rename(columns=logi_reclam_rename)
+            df = clean_reclam_cols(df)
+        elif target == "Base_Clients":
+            df = clean_client_cols(df)
+            if 'Nom_Pharmacie' not in df.columns:
+                df['Nom_Pharmacie'] = df['ID'].astype(str) if 'ID' in df.columns else "Client_Inconnu"
+        elif target == "Recouvrement_Logipharm":
+            df = clean_recouvrement_logipharm_cols(df)
+        elif target == "Expedition_Logipharm":
+            df = clean_expedition_logipharm_cols(df)
+        elif target == "Analyse_Ventes_Perf":
+            df = clean_sales_cols(df)
+        # Pas de nettoyage spécifique pour Livreurs, Secteurs, Utilisateurs
 
-    is_cmd_sheet = "cmd" in sheet_lower or "rotation" in sheet_lower
-    has_cmd_cols = any(x in cols_lower for x in ["nbr_impres", "type_cmd", "colis", "ht", "ttc"])
+    # ══════════════════════════════════════════════════════════════════════
+    # ÉTAPE 1 — FALLBACK HEURISTIQUES (uniquement si nom de feuille non reconnu)
+    # ══════════════════════════════════════════════════════════════════════
+    if not target:
+        # ── 1a : CMD & ROTATION via colonnes spécifiques ──
+        # N.B. : la colonne 'colis' seule ne suffit PAS — elle est présente
+        # dans inventaire. On exige des colonnes EXCLUSIVES à cmd/rotation.
+        _ref_col_bl = None
+        for c in df.columns:
+            if str(c).strip().lower() in ["référence", "reference", "réf.", "ref.", "ref"]:
+                _ref_col_bl = c
+                break
 
-    if is_cmd_sheet or has_cmd_cols:
-        target = "Cmd_Rotation"
-        df = clean_cmd_rotation_cols(df)
-    elif _ref_col_bl is not None:
-        _ref_sample_bl = df[_ref_col_bl].dropna().astype(str).str.upper().str.strip()
-        _bl_count = _ref_sample_bl.str.contains(r'/BL\d|^BL\d', regex=True, na=False).sum()
-        if _bl_count > 0:
+        has_cmd_exclusive = any(x in cols_lower for x in [
+            "nbr_impres", "nbr impres.", "nbr impres",
+            "type_cmd", "frig/psy.", "frig/psy",
+            "nbr ligne", "nbr lignes",
+        ])
+
+        if has_cmd_exclusive:
             target = "Cmd_Rotation"
             df = clean_cmd_rotation_cols(df)
+        elif _ref_col_bl is not None:
+            _ref_sample_bl = df[_ref_col_bl].dropna().astype(str).str.upper().str.strip()
+            _bl_count = _ref_sample_bl.str.contains(r'/BL\d|^BL\d', regex=True, na=False).sum()
+            if _bl_count > 0:
+                target = "Cmd_Rotation"
+                df = clean_cmd_rotation_cols(df)
 
-    # ── PRIORITÉ 1 : RÉCLAMATIONS LOGIPHARM (Référence /RC) ──
+    # ── 1b : RÉCLAMATIONS LOGIPHARM (Référence /RC) ──
     if not target:
         _ref_col = None
         for c in df.columns:
@@ -576,61 +684,71 @@ def detect_sheet_target(df, sheet_name=""):
             _rc_count = _ref_sample.str.contains(r'/RC\d|^RC\d', regex=True, na=False).sum()
             if _rc_count > 0:
                 target = "Analyse_Reclamations"
-                logi_reclam_rename = {}
                 unnamed_cols = [c for c in df.columns if str(c).startswith("Unnamed:")]
                 semantic_names = ["Valide", "Imprime", "Expedie", "Cloture"]
-                for i, uc in enumerate(unnamed_cols[:4]):
-                    logi_reclam_rename[uc] = semantic_names[i]
+                logi_reclam_rename = {uc: semantic_names[i] for i, uc in enumerate(unnamed_cols[:4])}
                 if logi_reclam_rename:
                     df = df.rename(columns=logi_reclam_rename)
                 df = clean_reclam_cols(df)
 
-    # ── PRIORITÉ 2 : RECOUVREMENT ──
-    _rec_keys = ["reste à payer", "reste a payer", "montant réglé", "montant regle"]
-    if not target and any(x in cols_lower for x in _rec_keys) and "client" in cols_lower:
-        target = "Recouvrement_Logipharm"
-        df = clean_recouvrement_logipharm_cols(df)
+    # ── 1c : RECOUVREMENT ──
+    if not target:
+        _rec_keys = ["reste à payer", "reste a payer", "montant réglé", "montant regle"]
+        if any(x in cols_lower for x in _rec_keys) and "client" in cols_lower:
+            target = "Recouvrement_Logipharm"
+            df = clean_recouvrement_logipharm_cols(df)
 
-    # ── PRIORITÉ 3 : RÉCLAMATIONS (colonnes classiques) ──
-    elif not target and any(x in cols_lower for x in ["réclam.", "reclam.", "imprime réclam", "qte réclam.", "qte reclam."]):
+    # ── 1d : RÉCLAMATIONS colonnes classiques ──
+    if not target and any(x in cols_lower for x in [
+        "réclam.", "reclam.", "imprime réclam", "qte réclam.", "qte reclam."
+    ]):
         target = "Analyse_Reclamations"
         df = clean_reclam_cols(df)
 
-    # ── PRIORITÉ 4 : ANALYSE VENTES ──
-    elif not target and any(x in cols_lower for x in ["h.t", "prix_vente", "total ht", "marge ph.", "tx qt%", "offre lab."]):
+    # ── 1e : ANALYSE VENTES ──
+    if not target and any(x in cols_lower for x in [
+        "h.t", "prix_vente", "total ht", "marge ph.", "tx qt%", "offre lab."
+    ]):
         target = "Analyse_Ventes_Perf"
         df = clean_sales_cols(df)
 
-    # ── PRIORITÉ 5 : INVENTAIRE (dépôt/lots) ──
-    elif not target and any(x in cols_lower for x in ["dépôt", "depot", "quantité dépôt", "quantité depot", "qte.globale", "n°lot", "zone produit"]):
+    # ── 1f : INVENTAIRE (dépôt/lots) — colonnes exclusives ──
+    if not target and any(x in cols_lower for x in [
+        "dépôt", "depot", "quantité dépôt", "quantité depot",
+        "qte.globale", "n°lot", "zone produit"
+    ]):
         target = "Master_Inventaire_Zone"
         df = clean_inventory_cols(df)
 
-    # ── PRIORITÉ 6 : EXPÉDITION / POINTAGE ──
-    elif not target and any(x in cols_lower for x in ["préparateur", "preparateur", "vérificateur", "verificateur"]) and "client" in cols_lower:
+    # ── 1g : EXPÉDITION / POINTAGE ──
+    if not target and any(x in cols_lower for x in [
+        "préparateur", "preparateur", "vérificateur", "verificateur"
+    ]) and "client" in cols_lower:
         target = "Expedition_Logipharm"
         df = clean_expedition_logipharm_cols(df)
 
-    # ── PRIORITÉ 7 : UTILISATEURS ──
-    elif not target and "username" in cols_lower:
+    # ── 1h : UTILISATEURS ──
+    if not target and "username" in cols_lower:
         target = "Utilisateurs"
 
-    # ── PRIORITÉ 8 : LIVREURS ──
-    elif not target and ("prenom" in cols_lower or "prénom" in cols_lower):
+    # ── 1i : LIVREURS ──
+    if not target and ("prenom" in cols_lower or "prénom" in cols_lower):
         target = "Livreurs"
 
-    # ── PRIORITÉ 9 : SECTEURS ──
-    elif not target and "ville" in cols_lower:
+    # ── 1j : SECTEURS ──
+    if not target and "ville" in cols_lower and "secteur" in cols_lower:
         target = "Secteurs"
 
-    # ── PRIORITÉ 10 : BASE CLIENTS ──
-    elif not target and any(c.lower() in ["raison sociale", "nom client", "nom", "client", "pharmacie"] for c in cols):
+    # ── 1k : BASE CLIENTS ──
+    if not target and any(c.lower() in [
+        "raison sociale", "nom client", "nom", "client", "pharmacie"
+    ] for c in cols):
         target = "Base_Clients"
         df = clean_client_cols(df)
         if 'Nom_Pharmacie' not in df.columns:
             df['Nom_Pharmacie'] = df['ID'].astype(str) if 'ID' in df.columns else "Client_Inconnu"
 
-    # Déduplique les colonnes
+    # ── Déduplication des colonnes ──────────────────────────────────────
     _cols_s = pd.Series(df.columns)
     for _dup in _cols_s[_cols_s.duplicated()].unique():
         _idxs = _cols_s[_cols_s == _dup].index.values.tolist()
