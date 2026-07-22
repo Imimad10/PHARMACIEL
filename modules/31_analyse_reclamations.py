@@ -7,8 +7,8 @@ from utils_gsheets import load_gs_data, save_gs_data
 from utils_ia import ask_ai, is_ia_enabled
 
 # --- 1. CONFIGURATION ---
-RECLAM_WORKSHEET = "Analyse_Reclamations"
-RECLAM_FALLBACK = "data/db_reclamations_analyse.csv"
+RECLAM_WORKSHEET = "reclamation"
+RECLAM_FALLBACK = "data/db_reclamations.csv"
 
 # --- 2. CSS & STYLES ---
 st.markdown("""
@@ -228,13 +228,31 @@ st.markdown('<h1 class="reclam-title">🎯 Centre de Contrôle & Résolution des
 st.markdown('<p class="reclam-subtitle">Auditez la performance, réduisez les litiges clients et pilotez les résolutions opérationnelles.</p>', unsafe_allow_html=True)
 
 # Chargement permanent
-if "df_reclam_analysed" not in st.session_state:
-    df_db = load_gs_data(RECLAM_WORKSHEET, RECLAM_FALLBACK)
-    if not df_db.empty:
-        st.session_state.df_reclam_analysed = df_db
+df_db = load_gs_data(RECLAM_WORKSHEET, RECLAM_FALLBACK, None)
+
+if df_db.empty:
+    st.info("Aucune réclamation active ou historique trouvé dans la Data Centrale.")
+    st.stop()
+
+import unicodedata
+def clean_col(c):
+    c = str(c).strip().lower()
+    return ''.join(ch for ch in unicodedata.normalize('NFD', c) if unicodedata.category(ch) != 'Mn')
+
+df_db.columns = [clean_col(c) for c in df_db.columns]
+st.session_state.df_reclam_analysed = df_db
 
 if "df_reclam_analysed" in st.session_state:
     df_raw = st.session_state.df_reclam_analysed.copy()
+    
+    # Mapping des colonnes réelles (Valeur / Montant, Code Client, etc.)
+    if 'code' in df_raw.columns and 'code_client' not in df_raw.columns: df_raw['code_client'] = df_raw['code']
+    if 'categorie' in df_raw.columns and 'motif' not in df_raw.columns: df_raw['motif'] = df_raw['categorie']
+    if 'categorie de reclamation' in df_raw.columns and 'motif' not in df_raw.columns: df_raw['motif'] = df_raw['categorie de reclamation']
+    
+    # Impact financier (Valeur / Montant)
+    if 'valeur' in df_raw.columns and 'valeur_vente' not in df_raw.columns: df_raw['valeur_vente'] = df_raw['valeur']
+    if 'montant' in df_raw.columns and 'valeur_vente' not in df_raw.columns: df_raw['valeur_vente'] = df_raw['montant']
     
     # Prétraitement
     for col, default_val in [
