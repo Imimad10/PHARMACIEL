@@ -7,8 +7,8 @@ from utils_gsheets import load_gs_data, save_gs_data
 from utils_ia import ask_ai, is_ia_enabled
 
 # --- 1. CONFIGURATION ---
-RECLAM_WORKSHEET = "reclamation"
-RECLAM_FALLBACK = "data/db_reclamations.csv"
+RECLAM_WORKSHEET = "Analyse_Reclamations"
+RECLAM_FALLBACK = "data/db_reclamations_analyse.csv"
 
 # --- 2. CSS & STYLES ---
 st.markdown("""
@@ -239,44 +239,98 @@ def clean_col(c):
     c = str(c).strip().lower()
     return ''.join(ch for ch in unicodedata.normalize('NFD', c) if unicodedata.category(ch) != 'Mn')
 
-df_db.columns = [clean_col(c) for c in df_db.columns]
-st.session_state.df_reclam_analysed = df_db
+# ─── MAPPING STRICT DES COLONNES GSHEET ────────────────────────────────────
+# Dictionnaire de renommage : clé = nom normalisé GSheet, valeur = nom interne
+GSHEET_COL_MAP = {
+    # Statut & Identifiants
+    'statut':                   'statut',
+    'reference':                'reference',
+    # Dates
+    'date':                     'date',
+    'date creation':            'date_creation',
+    'date creation':            'date_creation',
+    'cree le':                  'date_creation',
+    'date validation':          'date_validation',
+    'date cloture':             'date_cloture',
+    'date cloture':             'date_cloture',
+    'ferme le':                 'date_cloture',
+    # Acteurs
+    'client':                   'client',
+    'creer par':                'cree_par',           # Commercial créateur
+    'cree par':                 'cree_par',
+    'valider par':              'valider_par',
+    'cloturee par':             'cloturer_par',
+    'cloturer par':             'cloturer_par',
+    'fermeture utilisateur':    'fermeture_utilisateur',
+    # Facturation / Référence Commande
+    'ref facture':              'ref_facture',
+    'ref.facture':              'ref_facture',
+    'date facture':             'date_facture',
+    # Existants / compatibilité
+    'code':                     'code_client',
+    'code client':              'code_client',
+    'categorie':                'motif',
+    'categorie de reclamation': 'motif',
+    'valeur':                   'valeur_vente',
+    'montant':                  'valeur_vente',
+    'commercial':               'commercial',
+    'region':                   'region',
+    'produit':                  'produit',
+}
+
+df_db_raw = df_db.copy()
+df_db_raw.columns = [clean_col(c) for c in df_db_raw.columns]
+
+# Appliquer le renommage strict
+rename_map = {}
+for raw_norm, internal in GSHEET_COL_MAP.items():
+    if raw_norm in df_db_raw.columns and raw_norm != internal:
+        rename_map[raw_norm] = internal
+df_db_raw.rename(columns=rename_map, inplace=True)
+
+st.session_state.df_reclam_analysed = df_db_raw
 
 if "df_reclam_analysed" in st.session_state:
     df_raw = st.session_state.df_reclam_analysed.copy()
-    
-    # Mapping des colonnes réelles (Valeur / Montant, Code Client, etc.)
-    if 'code' in df_raw.columns and 'code_client' not in df_raw.columns: df_raw['code_client'] = df_raw['code']
-    if 'categorie' in df_raw.columns and 'motif' not in df_raw.columns: df_raw['motif'] = df_raw['categorie']
-    if 'categorie de reclamation' in df_raw.columns and 'motif' not in df_raw.columns: df_raw['motif'] = df_raw['categorie de reclamation']
-    
-    # Impact financier (Valeur / Montant)
-    if 'valeur' in df_raw.columns and 'valeur_vente' not in df_raw.columns: df_raw['valeur_vente'] = df_raw['valeur']
-    if 'montant' in df_raw.columns and 'valeur_vente' not in df_raw.columns: df_raw['valeur_vente'] = df_raw['montant']
-    
-    # Prétraitement
-    for col, default_val in [
-        ('motif', 'Non Renseigné'), ('commercial', 'Inconnu'), ('client', 'Inconnu'),
-        ('produit', 'Inconnu'), ('region', 'Inconnu'), ('statut_bon', 'En Cours'), 
-        ('statut', 'EN COURS'), ('date', ''), ('code_client', 'Inconnu'),
-        ('date_exp', ''), ('prix_vente', 0.0), ('remarque_ligne', ''),
-        ('cree_par', 'Inconnu'), ('date_creation', ''), ('ref_facture', ''),
-        ('date_facture', ''), ('reponse', ''), ('reference', 'Inconnu')
-    ]:
+
+    # ─── VALEURS PAR DÉFAUT pour toutes les colonnes attendues ────────────────
+    _defaults = {
+        'motif': 'Non Renseigné', 'commercial': 'Inconnu', 'client': 'Inconnu',
+        'produit': 'Inconnu', 'region': 'Inconnu', 'statut_bon': 'En Cours',
+        'statut': 'En cours', 'date': '', 'code_client': 'Inconnu',
+        'date_exp': '', 'prix_vente': 0.0, 'remarque_ligne': '',
+        'cree_par': 'Inconnu', 'date_creation': '', 'date_validation': '',
+        'date_cloture': '', 'valider_par': '', 'cloturer_par': '',
+        'fermeture_utilisateur': '', 'ref_facture': '', 'date_facture': '',
+        'reponse': '', 'reference': 'Inconnu', 'valeur_vente': 0.0,
+        'cout_revient': 0.0, 'delai_reclam': 0, 'nbr_jours': 0,
+    }
+    for col, default_val in _defaults.items():
         if col not in df_raw.columns:
             df_raw[col] = default_val
-            
+
+    # Fallback : si 'cree_par' vide mais 'commercial' renseigné, utiliser commercial
+    mask_empty_cree = df_raw['cree_par'].astype(str).str.strip().isin(['', 'nan', 'Inconnu'])
+    if mask_empty_cree.any() and 'commercial' in df_raw.columns:
+        df_raw.loc[mask_empty_cree, 'cree_par'] = df_raw.loc[mask_empty_cree, 'commercial']
+
+    # ─── NETTOYAGE TYPES ──────────────────────────────────────────────────────
     df_raw['motif'] = df_raw['motif'].fillna("Non Renseigné").astype(str)
     df_raw['categorie_motif'] = df_raw['motif'].apply(categorize_motif)
     df_raw['commercial'] = df_raw['commercial'].fillna("Inconnu").astype(str)
+    df_raw['cree_par'] = df_raw['cree_par'].fillna("Inconnu").astype(str).str.strip().str.upper()
+    df_raw['valider_par'] = df_raw['valider_par'].fillna("").astype(str)
+    df_raw['cloturer_par'] = df_raw['cloturer_par'].fillna("").astype(str)
+    df_raw['fermeture_utilisateur'] = df_raw['fermeture_utilisateur'].fillna("").astype(str)
     df_raw['client'] = df_raw['client'].fillna("Inconnu").astype(str)
     df_raw['code_client'] = df_raw['code_client'].fillna("Inconnu").astype(str)
     df_raw['reponse'] = df_raw['reponse'].fillna("").astype(str)
     df_raw['reference'] = df_raw['reference'].fillna("Inconnu").astype(str)
     df_raw['date_exp'] = df_raw['date_exp'].fillna("").astype(str)
     df_raw['remarque_ligne'] = df_raw['remarque_ligne'].fillna("").astype(str)
-    df_raw['cree_par'] = df_raw['cree_par'].fillna("Inconnu").astype(str)
     df_raw['date_creation'] = df_raw['date_creation'].fillna("").astype(str)
+    df_raw['date_validation'] = df_raw['date_validation'].fillna("").astype(str)
+    df_raw['date_cloture'] = df_raw['date_cloture'].fillna("").astype(str)
     df_raw['ref_facture'] = df_raw['ref_facture'].fillna("").astype(str)
     df_raw['date_facture'] = df_raw['date_facture'].fillna("").astype(str)
     df_raw['prix_vente'] = pd.to_numeric(df_raw['prix_vente'], errors='coerce').fillna(0.0)
@@ -289,49 +343,95 @@ if "df_reclam_analysed" in st.session_state:
     df_raw['chere'] = df_raw.get('chere', pd.Series(['Non']*len(df_raw))).fillna("Non").astype(str)
     df_raw['zone_produit'] = df_raw.get('zone_produit', pd.Series(['Inconnu']*len(df_raw))).fillna("Inconnu").astype(str)
     df_raw['quantite'] = pd.to_numeric(df_raw.get('quantite', df_raw.get('qte_reclam', pd.Series([0]*len(df_raw)))), errors='coerce').fillna(0).astype(int)
-    
+
     if 'valeur_vente' not in df_raw.columns: df_raw['valeur_vente'] = 0.0
     df_raw['valeur_vente'] = pd.to_numeric(df_raw['valeur_vente'], errors='coerce').fillna(0.0)
-    
+
     if 'cout_revient' not in df_raw.columns: df_raw['cout_revient'] = 0.0
     df_raw['cout_revient'] = pd.to_numeric(df_raw['cout_revient'], errors='coerce').fillna(0.0)
-    
+
     if 'delai_reclam' not in df_raw.columns: df_raw['delai_reclam'] = 0
     df_raw['delai_reclam'] = pd.to_numeric(df_raw['delai_reclam'], errors='coerce')
-    
+
     if 'nbr_jours' not in df_raw.columns: df_raw['nbr_jours'] = 0
     df_raw['nbr_jours'] = pd.to_numeric(df_raw['nbr_jours'], errors='coerce')
-    
+
     df_raw['statut_bon'] = df_raw['statut_bon'].fillna("En Cours").astype(str)
-    df_raw['statut'] = df_raw['statut'].fillna("EN COURS").astype(str)
+    # Normalisation du statut : ramène toutes les variantes vers 2 valeurs canoniques
+    def normalize_statut(s):
+        s = str(s).strip().lower()
+        if any(x in s for x in ['clot', 'ferm', 'terminé', 'close', 'closed']): return 'Clôturer'
+        return 'En cours'
+    df_raw['statut'] = df_raw['statut'].fillna('En cours').apply(normalize_statut)
     df_raw['datetime_parsed'] = df_raw['date'].apply(parse_date_robust)
+
+    # ─── DATES TYPÉES POUR CALCULS SLA ────────────────────────────────────────
+    df_raw['dt_creation']   = df_raw['date_creation'].apply(parse_date_robust)
+    df_raw['dt_cloture']    = df_raw['date_cloture'].apply(parse_date_robust)
+    df_raw['dt_validation'] = df_raw['date_validation'].apply(parse_date_robust)
+    df_raw['dt_facture']    = df_raw['date_facture'].apply(parse_date_robust)
+
+    # Délai de traitement interne : date_cloture - date_creation (en heures)
+    df_raw['delai_traitement_h'] = (
+        df_raw['dt_cloture'] - df_raw['dt_creation']
+    ).dt.total_seconds() / 3600
+    df_raw['delai_traitement_h'] = df_raw['delai_traitement_h'].where(
+        df_raw['delai_traitement_h'] >= 0, other=pd.NA
+    )
+    # Délai création après facturation (SLA 48h) : dt_creation - dt_facture
+    df_raw['delai_fact_creation_h'] = (
+        df_raw['dt_creation'] - df_raw['dt_facture']
+    ).dt.total_seconds() / 3600
+    df_raw['delai_fact_creation_h'] = df_raw['delai_fact_creation_h'].where(
+        df_raw['delai_fact_creation_h'] >= 0, other=pd.NA
+    )
+    df_raw['sla_breach'] = df_raw['delai_fact_creation_h'].apply(
+        lambda x: True if (pd.notna(x) and x > 48) else False
+    )
+    # Mois/Année pour le suivi quota mensuel
+    df_raw['mois_creation'] = df_raw['dt_creation'].dt.to_period('M').astype(str)
+    df_raw.loc[df_raw['dt_creation'].isna(), 'mois_creation'] = 'Inconnu'
 
     # --- FILTRES EN BARRE LATÉRALE ---
     st.sidebar.markdown("### 🎛️ Filtres Globaux")
-    
+
     # Filtres régionaux
-    regions = ["Toutes"] + sorted(df_raw['region'].unique().tolist())
+    regions = ["Toutes"] + sorted([r for r in df_raw['region'].unique() if r not in ['Inconnu', 'nan', '']])
     selected_region = st.sidebar.selectbox("Région :", regions)
-    
-    # Filtres commerciaux
-    commerciaux = ["Tous"] + sorted(df_raw['commercial'].unique().tolist())
-    selected_comm = st.sidebar.selectbox("Commercial :", commerciaux)
-    
+
+    # Filtre par commercial créateur ('Créer par') — PRIORITAIRE
+    cree_par_vals = sorted([v for v in df_raw['cree_par'].unique() if v not in ['INCONNU', 'Inconnu', 'nan', '']])
+    cree_par_opts = ["Tous"] + cree_par_vals
+    selected_cree_par = st.sidebar.selectbox("👤 Commercial (Créer par) :", cree_par_opts)
+
+    # Filtre par Statut
+    statuts_opts = ["Tous", "En cours", "Clôturer"]
+    selected_statut = st.sidebar.selectbox("📌 Statut :", statuts_opts)
+
+    # Filtre par Client
+    clients_vals = sorted([v for v in df_raw['client'].unique() if v not in ['Inconnu', 'nan', '']])
+    clients_opts = ["Tous"] + clients_vals
+    selected_client = st.sidebar.selectbox("🏥 Client :", clients_opts)
+
     # Filtres Motifs
     motifs = ["Tous"] + sorted(df_raw['categorie_motif'].unique().tolist())
     selected_motif = st.sidebar.selectbox("Catégorie Motif :", motifs)
-    
+
     # Filtres Produits Spécifiques
     frigo_filter = st.sidebar.checkbox("❄️ Produits Frigo uniquement", value=False)
     psycho_filter = st.sidebar.checkbox("💊 Psychotropes uniquement", value=False)
     chere_filter = st.sidebar.checkbox("💎 Produits Chers uniquement", value=False)
-    
+
     # Appliquer le filtrage
     df_filtered = df_raw.copy()
     if selected_region != "Toutes":
         df_filtered = df_filtered[df_filtered['region'] == selected_region]
-    if selected_comm != "Tous":
-        df_filtered = df_filtered[df_filtered['commercial'] == selected_comm]
+    if selected_cree_par != "Tous":
+        df_filtered = df_filtered[df_filtered['cree_par'] == selected_cree_par]
+    if selected_statut != "Tous":
+        df_filtered = df_filtered[df_filtered['statut'] == selected_statut]
+    if selected_client != "Tous":
+        df_filtered = df_filtered[df_filtered['client'] == selected_client]
     if selected_motif != "Tous":
         df_filtered = df_filtered[df_filtered['categorie_motif'] == selected_motif]
     if frigo_filter:
@@ -342,8 +442,16 @@ if "df_reclam_analysed" in st.session_state:
         df_filtered = df_filtered[df_filtered['chere'].astype(str).str.upper().str.contains("OUI|TRUE|1", na=False)]
 
     # --- TABS SYSTEM ---
+    # tabs[0] = Analyses & KPIs
+    # tabs[1] = Performance Commerciaux (NOUVEAU)
+    # tabs[2] = Audit & Alertes
+    # tabs[3] = Centre de Résolution
+    # tabs[4] = Gestion des Statuts
+    # tabs[5] = Profiling & Détails
+    # tabs[6] = Diagnostic IA Expert
     tabs = st.tabs([
         "📊 Analyses & KPIs",
+        "👥 Performance Commerciaux",
         "🚨 Audit & Alertes",
         "⚙️ Centre de Résolution",
         "🔄 Gestion des Statuts",
@@ -351,73 +459,102 @@ if "df_reclam_analysed" in st.session_state:
         "🧠 Diagnostic IA Expert"
     ])
 
-    # ----------------- TAB 1 : ANALYSES & KPIS -----------------
+    # ----------------- TAB 0 : ANALYSES & KPIS -----------------
     with tabs[0]:
-        # Calculs KPIs
-        total_claims = len(df_filtered)
+        # ── Calculs KPIs ──────────────────────────────────────────────────────
+        total_claims   = len(df_filtered)
+        nb_en_cours    = len(df_filtered[df_filtered['statut'] == 'En cours'])
+        nb_clotures    = len(df_filtered[df_filtered['statut'] == 'Clôturer'])
         valeur_vente_totale = df_filtered['valeur_vente'].sum()
-        cout_revient_total = df_filtered['cout_revient'].sum()
-        marge_perdue = valeur_vente_totale - cout_revient_total
-        
-        avg_delai_resol = df_filtered[df_filtered['delai_reclam'].notna()]['delai_reclam'].mean()
-        avg_nbr_jours = df_filtered[df_filtered['nbr_jours'].notna()]['nbr_jours'].mean()
-        
-        # Grid KPIs
-        kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
-        
+        cout_revient_total  = df_filtered['cout_revient'].sum()
+
+        # Commercial avec le plus haut volume
+        comm_counts = df_filtered[df_filtered['cree_par'] != 'INCONNU']['cree_par'].value_counts()
+        top_comm     = comm_counts.index[0] if not comm_counts.empty else 'N/A'
+        top_comm_nb  = int(comm_counts.iloc[0]) if not comm_counts.empty else 0
+
+        # Temps moyen de clôture (heures → jours)
+        delai_h_series = df_filtered['delai_traitement_h'].dropna()
+        avg_delai_h  = delai_h_series.mean() if not delai_h_series.empty else float('nan')
+        if not pd.isna(avg_delai_h):
+            avg_d = int(avg_delai_h // 24)
+            avg_hr = int(avg_delai_h % 24)
+            avg_closure_str = f"{avg_d}j {avg_hr}h"
+        else:
+            avg_closure_str = "N/A"
+
+        # Grid 3 KPIs principaux
+        kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
+
         with kpi_col1:
             st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-label">📋 Réclamations</div>
+                <div class="metric-label">📋 Total Réclamations</div>
                 <div class="metric-val">{total_claims}</div>
-                <div class="metric-desc">Total des dossiers filtrés</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with kpi_col2:
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">💸 Impact Financier</div>
-                <div class="metric-val-vibrant metric-val">{valeur_vente_totale:,.2f} DA</div>
-                <div class="metric-desc">Valeur de vente totale</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with kpi_col3:
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">📉 Coût Interne (Revient)</div>
-                <div class="metric-val" style="color: #ef4444;">{cout_revient_total:,.2f} DA</div>
-                <div class="metric-desc">Pertes brutes de production</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with kpi_col4:
-            res_val = f"{avg_delai_resol:.1f} j" if not pd.isna(avg_delai_resol) else "N/A"
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">⚡ Délai de Clôture</div>
-                <div class="metric-val" style="color: #10b981;">{res_val}</div>
-                <div class="metric-desc">Temps moyen de résolution</div>
+                <div class="metric-desc">
+                    🟠 En cours : <b>{nb_en_cours}</b> &nbsp;|&nbsp; ✅ Clôturées : <b>{nb_clotures}</b>
+                </div>
             </div>
             """, unsafe_allow_html=True)
 
+        with kpi_col2:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">👑 Top Commercial</div>
+                <div class="metric-val metric-val-vibrant">{top_comm}</div>
+                <div class="metric-desc">{top_comm_nb} réclamation(s) créée(s)</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with kpi_col3:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">⏱️ Temps moyen de Clôture</div>
+                <div class="metric-val" style="color:#10b981;">{avg_closure_str}</div>
+                <div class="metric-desc">Sur les dossiers clôturés filtrés</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("---")
+        st.markdown("### 📊 Répartition des Réclamations par Commercial et par Statut")
+        if not df_filtered.empty and df_filtered['cree_par'].nunique() > 0:
+            df_comm_statut = df_filtered.groupby(['cree_par', 'statut']).size().reset_index(name='Nb')
+            df_comm_statut = df_comm_statut[df_comm_statut['cree_par'] != 'INCONNU']
+            color_map = {'En cours': '#f97316', 'Clôturer': '#10b981'}
+            fig_comm_bar = px.bar(
+                df_comm_statut, x='cree_par', y='Nb', color='statut', barmode='group',
+                text='Nb',
+                color_discrete_map=color_map,
+                labels={'cree_par': 'Commercial (Créer par)', 'Nb': 'Nombre de Réclamations', 'statut': 'Statut'}
+            )
+            fig_comm_bar.update_traces(textposition='outside')
+            fig_comm_bar.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                height=420, margin=dict(t=30, l=10, r=10, b=10),
+                legend=dict(orientation='h', yanchor='bottom', y=1.02),
+                font=dict(family='Plus Jakarta Sans'),
+            )
+            st.plotly_chart(fig_comm_bar, use_container_width=True)
+        else:
+            st.info("Aucune donnée disponible pour le graphique.")
+
         st.markdown("### 🍩 Cartographie Opérationnelle")
         col_g1, col_g2 = st.columns([1, 1])
-        
+
         with col_g1:
             st.markdown("#### Hiérarchie et Origine des Litiges")
             if not df_filtered.empty:
                 df_p_plot = df_filtered.copy()
                 df_p_plot['motif_plot'] = df_p_plot['motif'].astype(str) + " "
-                fig_sun = px.sunburst(df_p_plot, path=['categorie_motif', 'motif_plot'], 
+                val_col = 'valeur_vente' if df_p_plot['valeur_vente'].sum() > 0 else None
+                fig_sun = px.sunburst(df_p_plot, path=['categorie_motif', 'motif_plot'],
                                      color_discrete_sequence=px.colors.qualitative.Bold,
-                                     values='valeur_vente')
+                                     values=val_col)
                 fig_sun.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=420, margin=dict(t=10, l=10, r=10, b=10))
                 st.plotly_chart(fig_sun, use_container_width=True)
             else:
                 st.info("Aucune donnée disponible pour tracer le graphique.")
-                
+
         with col_g2:
             st.markdown("#### Pertes par Catégorie de Motif")
             if not df_filtered.empty:
@@ -469,8 +606,164 @@ if "df_reclam_analysed" in st.session_state:
         else:
             st.info("Données insuffisantes pour la matrice.")
 
-    # ----------------- TAB 2 : AUDIT & ALERTES -----------------
+    # ----------------- TAB 1 : PERFORMANCE COMMERCIAUX -----------------
     with tabs[1]:
+        st.markdown("### 👥 Analyse Performance des Commerciaux")
+        st.write("Volume de réclamations créées par commercial, suivi des quotas mensuels et calcul des délais SLA.")
+
+        QUOTA_MAX = 5  # Seuil de réclamations max autorisé par mois et par commercial
+
+        # ── Tableau Volume global par commercial ─────────────────────────────
+        df_vol = df_raw[df_raw['cree_par'] != 'INCONNU'].copy()
+        if df_vol.empty:
+            st.info("Aucune donnée de commercial disponible (colonne 'Créer par' vide ou absente).")
+        else:
+            vol_stats = df_vol.groupby('cree_par').agg(
+                Nb_Reclamations=('reference', 'count'),
+                Nb_Cloturees=('statut', lambda x: (x == 'Clôturer').sum()),
+                Nb_En_Cours=('statut', lambda x: (x == 'En cours').sum()),
+                Delai_Moy_h=('delai_traitement_h', 'mean'),
+            ).reset_index()
+            vol_stats['% du Total'] = (vol_stats['Nb_Reclamations'] / vol_stats['Nb_Reclamations'].sum() * 100).round(1)
+            vol_stats['Délai Moy. (h)'] = vol_stats['Delai_Moy_h'].apply(lambda x: f"{x:.1f}h" if pd.notna(x) else "N/A")
+            vol_stats = vol_stats.sort_values('Nb_Reclamations', ascending=False)
+
+            st.markdown("#### 📋 Volume Global de Réclamations par Commercial")
+            display_vol = vol_stats[['cree_par', 'Nb_Reclamations', 'Nb_En_Cours', 'Nb_Cloturees', '% du Total', 'Délai Moy. (h)']].copy()
+            display_vol.columns = ['Commercial', 'Total', 'En Cours', 'Clôturées', '% du Total', 'Délai Moy.']
+            st.dataframe(display_vol, use_container_width=True, hide_index=True)
+
+            # ── QUOTA MENSUEL ────────────────────────────────────────────────
+            st.markdown("---")
+            st.markdown(f"#### 📅 Suivi du Quota Mensuel (Seuil : {QUOTA_MAX} réclamations/mois)")
+
+            mois_disponibles = sorted(
+                [m for m in df_vol['mois_creation'].unique() if m != 'Inconnu'], reverse=True
+            )
+            mois_disponibles = mois_disponibles if mois_disponibles else ['Inconnu']
+            col_mois, col_empty = st.columns([2, 4])
+            mois_sel = col_mois.selectbox("Sélectionner le mois :", mois_disponibles, key="quota_mois_sel")
+
+            df_mois = df_vol[df_vol['mois_creation'] == mois_sel]
+            quota_stats = df_mois.groupby('cree_par')['reference'].count().reset_index()
+            quota_stats.columns = ['Commercial', 'Nb']
+            quota_stats = quota_stats.sort_values('Nb', ascending=False)
+
+            if quota_stats.empty:
+                st.info(f"Aucune réclamation enregistrée pour {mois_sel}.")
+            else:
+                # Barres de progression + alertes
+                st.markdown(f"**Période : {mois_sel}**")
+                for _, qrow in quota_stats.iterrows():
+                    comm_name = qrow['Commercial']
+                    nb = int(qrow['Nb'])
+                    ratio = min(nb / QUOTA_MAX, 1.0)
+                    color = "#ef4444" if nb >= QUOTA_MAX else "#f97316" if nb >= QUOTA_MAX * 0.8 else "#10b981"
+                    pct = min(int(ratio * 100), 100)
+                    badge = f'<span style="background:{color};color:#fff;padding:2px 10px;border-radius:12px;font-size:0.75rem;font-weight:700;">{nb}/{QUOTA_MAX}</span>'
+                    alert_icon = "🔴" if nb >= QUOTA_MAX else "🟠" if nb >= QUOTA_MAX * 0.8 else "🟢"
+                    st.markdown(f"""
+                    <div style="margin-bottom:12px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                            <span style="font-weight:700;font-size:0.95rem;">{alert_icon} {comm_name}</span>
+                            {badge}
+                        </div>
+                        <div style="background:rgba(255,255,255,0.07);border-radius:8px;height:10px;overflow:hidden;">
+                            <div style="background:{color};width:{pct}%;height:10px;border-radius:8px;transition:width 0.4s;"></div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                # Graphique Plotly mensuel avec ligne de seuil
+                fig_quota = go.Figure()
+                fig_quota.add_trace(go.Bar(
+                    x=quota_stats['Commercial'], y=quota_stats['Nb'],
+                    marker_color=[('#ef4444' if n >= QUOTA_MAX else '#6366f1') for n in quota_stats['Nb']],
+                    text=quota_stats['Nb'], textposition='outside',
+                    name='Réclamations'
+                ))
+                fig_quota.add_shape(
+                    type='line', x0=-0.5, x1=len(quota_stats) - 0.5,
+                    y0=QUOTA_MAX, y1=QUOTA_MAX,
+                    line=dict(color='#ef4444', width=2, dash='dash')
+                )
+                fig_quota.add_annotation(
+                    x=len(quota_stats) - 1, y=QUOTA_MAX + 0.3,
+                    text=f"Quota Max ({QUOTA_MAX})", showarrow=False,
+                    font=dict(color='#ef4444', size=11)
+                )
+                fig_quota.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    height=380, margin=dict(t=30, l=10, r=10, b=10),
+                    xaxis_title='Commercial', yaxis_title='Nb Réclamations',
+                    showlegend=False, font=dict(family='Plus Jakarta Sans')
+                )
+                st.plotly_chart(fig_quota, use_container_width=True)
+
+            # ── SLA 48H ──────────────────────────────────────────────────────
+            st.markdown("---")
+            st.markdown("#### ⏱️ Analyse SLA 48h (Délai Facturation → Création Réclamation)")
+            st.caption("Le SLA de 48h mesure le délai entre la date de facturation et la date de création de la réclamation. Un dépassement indique une réaction tardive.")
+
+            df_sla = df_raw[df_raw['dt_facture'].notna() & df_raw['dt_creation'].notna()].copy()
+
+            if df_sla.empty:
+                st.markdown("""
+                <div class="info-card">
+                    ℹ️ <b>Colonne 'Date Facture' non renseignée</b> dans la base de réclamations.<br>
+                    Pour activer l'analyse SLA 48h, assurez-vous que cette colonne est exportée depuis Logipharm.
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                nb_total_sla = len(df_sla)
+                nb_breach = df_sla['sla_breach'].sum()
+                nb_ok = nb_total_sla - nb_breach
+                sla_rate = round((nb_ok / nb_total_sla) * 100, 1) if nb_total_sla > 0 else 0
+                avg_delay_h = df_sla['delai_fact_creation_h'].mean()
+                avg_d = int(avg_delay_h // 24) if pd.notna(avg_delay_h) else 0
+                avg_hr = int(avg_delay_h % 24) if pd.notna(avg_delay_h) else 0
+
+                sla_c1, sla_c2, sla_c3 = st.columns(3)
+                with sla_c1:
+                    color_sla = "#10b981" if sla_rate >= 80 else "#f97316" if sla_rate >= 50 else "#ef4444"
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-label">✅ Taux de Respect SLA</div>
+                        <div class="metric-val" style="color:{color_sla};">{sla_rate}%</div>
+                        <div class="metric-desc">{nb_ok} / {nb_total_sla} réclamations dans les délais</div>
+                    </div>""", unsafe_allow_html=True)
+                with sla_c2:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-label">🔴 Dépassements SLA</div>
+                        <div class="metric-val" style="color:#ef4444;">{int(nb_breach)}</div>
+                        <div class="metric-desc">Réclamations créées après 48h de facturation</div>
+                    </div>""", unsafe_allow_html=True)
+                with sla_c3:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-label">⏱ Délai Moy. Fact→Création</div>
+                        <div class="metric-val" style="color:#a855f7;">{avg_d}j {avg_hr}h</div>
+                        <div class="metric-desc">Délai moyen de déclaration post-facturation</div>
+                    </div>""", unsafe_allow_html=True)
+
+                st.markdown("##### Détail des réclamations avec dépassement SLA")
+                df_breached = df_sla[df_sla['sla_breach'] == True][
+                    ['reference', 'client', 'cree_par', 'date_facture', 'date_creation', 'delai_fact_creation_h', 'statut']
+                ].copy()
+                df_breached['Délai (h)'] = df_breached['delai_fact_creation_h'].apply(
+                    lambda x: f"🔴 {x:.1f}h" if pd.notna(x) else "N/A"
+                )
+                df_breached = df_breached.drop(columns=['delai_fact_creation_h'])
+                df_breached.columns = ['Référence', 'Client', 'Commercial', 'Date Facture', 'Date Création', 'Statut', 'Délai (h)']
+                if df_breached.empty:
+                    st.success("✅ Aucune réclamation ne dépasse le SLA de 48h.")
+                else:
+                    st.warning(f"⚠️ {len(df_breached)} réclamation(s) ont été déclarées plus de 48h après la facturation.")
+                    st.dataframe(df_breached, use_container_width=True, hide_index=True)
+
+    # ----------------- TAB 2 : AUDIT & ALERTES -----------------
+    with tabs[2]:
         st.markdown("### 🚨 Système d'Alerte et d'Audit Qualité")
         st.write("Ce panneau identifie les faiblesses logistiques récurrentes, les anomalies commerciales et les risques de chaîne du froid ou de réglementation.")
         
@@ -478,14 +771,14 @@ if "df_reclam_analysed" in st.session_state:
         
         with col_a1:
             st.markdown("#### 👤 Alerte Tolérance Commerciale (Max 5 Erreurs)")
-            err_by_comm = df_raw[df_raw['categorie_motif'] == "Erreur Commerciale"].groupby('commercial').size().reset_index(name='Nb_Erreurs')
+            err_by_comm = df_raw[df_raw['categorie_motif'] == "Erreur Commerciale"].groupby('cree_par').size().reset_index(name='Nb_Erreurs')
             over_limit = err_by_comm[err_by_comm['Nb_Erreurs'] > 5]
             
             if not over_limit.empty:
                 for _, row in over_limit.iterrows():
                     st.markdown(f"""
                     <div class="alert-card">
-                        ⚠️ <b>{row['commercial']}</b> a dépassé la limite de tolérance !<br>
+                        ⚠️ <b>{row['cree_par']}</b> a dépassé la limite de tolérance !<br>
                         <b>{row['Nb_Erreurs']} erreurs commerciales</b> enregistrées. Un recadrage ou une double vérification est requis lors de la saisie de ses commandes.
                     </div>
                     """, unsafe_allow_html=True)
@@ -497,19 +790,16 @@ if "df_reclam_analysed" in st.session_state:
                 """, unsafe_allow_html=True)
                 
             st.markdown("#### 📦 Audit Dépôt (Erreurs Préparateurs / Manques)")
-            # Auditer les préparateurs
             df_depot_errors = df_raw[df_raw['categorie_motif'] == "Erreur Dépôt"]
             if not df_depot_errors.empty:
                 prep_stats = df_depot_errors.groupby('preparateur').agg({'reference': 'count', 'valeur_vente': 'sum'}).reset_index()
                 prep_stats.columns = ['Préparateur', 'Nombre Erreurs', 'Valeur Perdue (DA)']
                 prep_stats = prep_stats.sort_values(by='Nombre Erreurs', ascending=False)
-                
                 st.write("Classement des erreurs de préparation par agent de dépôt :")
                 st.dataframe(prep_stats, use_container_width=True, hide_index=True)
-                
                 critical_prep = prep_stats[prep_stats['Nombre Erreurs'] >= 2]
                 if not critical_prep.empty:
-                    st.warning(f"⚠️ {len(critical_prep)} préparateur(s) ont commis au moins 2 erreurs de préparation. Une vérification au scan de leurs colis est recommandée.")
+                    st.warning(f"⚠️ {len(critical_prep)} préparateur(s) ont commis au moins 2 erreurs de préparation.")
             else:
                 st.success("✅ Aucune erreur de préparation détectée sur la période.")
 
@@ -537,7 +827,7 @@ if "df_reclam_analysed" in st.session_state:
                 st.markdown(f"""
                 <div class="alert-card" style="background: rgba(139, 92, 246, 0.05); border-left-color: #8b5cf6;">
                     ⚠️ <b>{len(df_psy)} litiges sur des produits psychotropes !</b><br>
-                    Ces produits sont soumis à des contrôles stricts du ministère de la santé. Chaque réclamation doit faire l'objet d'un rapport écrit du Pharmacien Directeur Technique (DT).
+                    Ces produits sont soumis à des contrôles stricts du ministère de la santé.
                 </div>
                 """, unsafe_allow_html=True)
                 st.dataframe(df_psy[['reference', 'date', 'client', 'produit', 'quantite', 'statut']], use_container_width=True, hide_index=True)
@@ -545,12 +835,10 @@ if "df_reclam_analysed" in st.session_state:
                 st.success("✅ Aucun litige sur les psychotropes.")
                 
             st.markdown("#### 🏷️ Alerte Anomalie Lot (Suspicion Rappel/Qualité)")
-            # Identifier si un lot a plus d'une réclamation de type PNC
             df_pnc = df_raw[df_raw['categorie_motif'] == "PNC (Non Conforme)"]
             if not df_pnc.empty:
                 lot_stats = df_pnc.groupby('lot').size().reset_index(name='Nb_PNC')
                 critical_lots = lot_stats[(lot_stats['lot'] != 'Inconnu') & (lot_stats['Nb_PNC'] >= 2)]
-                
                 if not critical_lots.empty:
                     for _, row in critical_lots.iterrows():
                         st.markdown(f"""
@@ -624,7 +912,7 @@ if "df_reclam_analysed" in st.session_state:
         return False
 
     # ----------------- TAB 3 : CENTRE DE RÉSOLUTION -----------------
-    with tabs[2]:
+    with tabs[3]:
         st.markdown("### ⚙️ Gestion des Résolutions & Clôtures")
         st.write("Sélectionnez une réclamation active pour statuer, rédiger la réponse officielle et clôturer le dossier.")
 
@@ -748,7 +1036,8 @@ if "df_reclam_analysed" in st.session_state:
                                 st.error("Ligne introuvable lors de l'enregistrement.")
 
     # ----------------- TAB 4 : GESTION DES STATUTS -----------------
-    with tabs[3]:
+    # ----------------- TAB 3 : CENTRE DE RÉSOLUTION -----------------
+    with tabs[4]:
         st.markdown("### 🔄 Tableau de Bord — Gestion des Statuts")
         st.write("Visualisez et mettez à jour le statut de traitement de chaque réclamation : **VALIDE → IMPRIME → EXPEDIE → CLOTURER**.")
 
@@ -877,7 +1166,8 @@ if "df_reclam_analysed" in st.session_state:
                 st.warning("Veuillez saisir au moins une référence.")
 
     # ----------------- TAB 5 : PROFILING CLIENT & PRODUIT -----------------
-    with tabs[4]:
+    # ----------------- TAB 4 : GESTION DES STATUTS -----------------
+    with tabs[5]:
         st.markdown("### 🔍 Profiling Approfondi des Anomalies")
         
         prof_opt = st.radio("Cible de l'audit :", ["Par Client (CRM)", "Par Produit / Lot"], horizontal=True)
@@ -931,7 +1221,8 @@ if "df_reclam_analysed" in st.session_state:
                 st.dataframe(df_prod[['date', 'lot', 'date_exp', 'quantite', 'valeur_vente', 'preparateur', 'motif', 'statut_bon']], use_container_width=True, hide_index=True)
 
     # ----------------- TAB 6 : DIAGNOSTIC IA EXPERT -----------------
-    with tabs[5]:
+    # ----------------- TAB 5 : PROFILING & DÉTAILS -----------------
+    with tabs[6]:
         st.subheader("🧠 Diagnostic Stratégique par Intelligence Artificielle (RCA)")
         st.write("L'IA va croiser en profondeur les variables (commerciaux, préparateurs, produits réfrigérés, motifs de retours) pour dégager des solutions logistiques concrètes.")
         

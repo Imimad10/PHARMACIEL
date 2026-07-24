@@ -307,6 +307,15 @@ def clean_reclam_cols(df):
         'reference': ['référence', 'reference', 'ref', 'bon', 'commande', 'document'],
         'type': ['type'],
         'date': ['date'],
+        'date_creation': ['date création', 'date creation', 'cree le', 'crée le', 'créé le'],
+        'date_validation': ['date validation', 'date validation'],
+        'date_cloture': ['date clôture', 'date cloture', 'ferme le', 'fermé le'],
+        'cree_par': ['créer par', 'creer par', 'créé par', 'cree par'],
+        'valider_par': ['valider par', 'valider par'],
+        'cloturer_par': ['clôturée par', 'cloturer_par', 'cloturee par', 'clôturé par', 'cloturer par'],
+        'fermeture_utilisateur': ['fermeture utilisateur', 'fermeture utilisateur'],
+        'ref_facture': ['ref facture', 'ref.facture', 'réf facture', 'réf.facture'],
+        'date_facture': ['date facture', 'date.facture'],
         'code_client': ['code client'],
         'region': ['région', 'region'],
         'produit': ['produit', 'designation', 'article'],
@@ -842,8 +851,10 @@ def do_import_sheet(df_up, target):
             
             # --- REDISTRIBUTION AUTOMATIQUE CORTEX ---
             # Alimente 31_analyse_reclamations.py, 1_expedition.py, 43_fiche_client_360.py
+            # Les deux chemins sont synchronisés pour compatibilité totale entre modules
             os.makedirs("data", exist_ok=True)
             df_merged.to_csv("data/db_reclamations_analyse.csv", index=False, encoding="utf-8-sig")
+            df_merged.to_csv("data/db_reclamations.csv", index=False, encoding="utf-8-sig")
             df_merged.to_csv("data/db_sav.csv", index=False, encoding="utf-8-sig")
             
             return True, f"{len(df_merged)} réclamations sauvegardées", len(df_up)
