@@ -95,12 +95,22 @@ with tab1:
             }
             # Nettoyage minimaliste
             new_cols = []
+            seen = set()
             for c in df_raw.columns:
                 norm = str(c).lower().strip()
                 target = None
                 for k, v in mapping.items():
                     if k in norm: target = v; break
-                new_cols.append(target if target else norm)
+                col_name = target if target else norm
+                if col_name in seen:
+                    counter = 1
+                    new_name = f"{col_name}_{counter}"
+                    while new_name in seen:
+                        counter += 1
+                        new_name = f"{col_name}_{counter}"
+                    col_name = new_name
+                seen.add(col_name)
+                new_cols.append(col_name)
             df_raw.columns = new_cols
             date_col = 'ddp'
             
