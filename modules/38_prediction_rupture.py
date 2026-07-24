@@ -258,9 +258,9 @@ with col_left:
     else:
         def color_row(row):
             s = row['Jours Restants']
-            if s == 0: return ['background-color:#7f1d1d44; color:#fca5a5'] * len(row)
-            if s <= SEUIL_CRITIQUE_JOURS: return ['background-color:#7c2d1244; color:#fdba74'] * len(row)
-            if s <= SEUIL_VIGILANCE_JOURS: return ['background-color:#71350044; color:#fde68a'] * len(row)
+            if s == 0: return ['background-color:rgba(127,29,29,0.45); color:#ffffff'] * len(row)
+            if s <= SEUIL_CRITIQUE_JOURS: return ['background-color:rgba(124,45,18,0.45); color:#ffffff'] * len(row)
+            if s <= SEUIL_VIGILANCE_JOURS: return ['background-color:rgba(113,53,0,0.45); color:#ffffff'] * len(row)
             return [''] * len(row)
         
         cols_display = ['Statut', 'Produit', 'Dépôt', 'Zone', 'Nb Lots', 'Stock Total', 'Rotation/Jour', 'Jours Restants', 'Date Rupture Estimée']
