@@ -1865,35 +1865,181 @@ with tabs[7]:
                         error_logs.append(f"❌ Erreur Backup **{mod_name}** : {e_backup}")
                 
                 # 2. REMISE A ZERO LOCALE
-                if do_delete and step_success:
-                    try:
-                        # Assurer le répertoire parent
-                        os.makedirs(os.path.dirname(path) if os.path.dirname(path) else ".", exist_ok=True)
-                        if db_type == "csv":
-                            df_empty = pd.DataFrame(columns=cols)
-                            df_empty.to_csv(path, index=False, sep=',', encoding='utf-8-sig')
-                        elif db_type == "json":
-                            import json
-                            # Sécurité lockout Utilisateurs
-                            if worksheet == "Utilisateurs":
-                                default_users = [{"username": "admin", "password": "admin", "role": "Admin", "pages": "All", "nom": "Admin", "prenom": "Systeme", "zone": "Toutes"}]
-                                with open(path, 'w', encoding='utf-8') as f:
-                                    json.dump(default_users, f, indent=4, ensure_ascii=False)
-                            else:
-                                with open(path, 'w', encoding='utf-8') as f:
-                                    json.dump([], f, indent=4, ensure_ascii=False)
-                        
-                        success_logs.append(f"🗑️ Remise à Zéro : **{mod_name}** réinitialisé à vide.")
-                    except Exception as e_del:
-                        error_logs.append(f"❌ Erreur Suppression **{mod_name}** : {e_del}")
+               def render_remise_a_zero_ui():
+    st.subheader("⚙️ Zone de remise à zéro des modules (RAZ)")
+    st.warning("⚠️ Attention : La réinitialisation remplacera le contenu des modules sélectionnés par une structure vide.")
+
+    # ══════════════════════════════════════════════════════════════════════
+    # 1. DICTIONNAIRE DES MODULES MÉTIER (SANS LES MODULES IA)
+    # Mapping : CLE_MODULE -> (LABEL_AFFICHAGE, ADRESSE_FICHIER, TYPE_DB, COLONNES_CSV)
+    # ══════════════════════════════════════════════════════════════════════
+    MODULES_CONFIG = {
+        "0_tableau_de_bord": ("00. Tableau de Bord Général", "data/tableau_de_bord.csv", "csv", ["Date", "Indicateur", "Valeur"]),
+        "0_admin_centrale": ("00. Admin Centrale", "data/admin_centrale.csv", "csv", ["ID", "Action", "Auteur", "Date"]),
+        "pilotage_complet_centrale": ("00. Pilotage Complet", "data/pilotage_centrale.csv", "csv", ["ID", "KPI", "Valeur"]),
+        
+        # --- Expédition & Logistique ---
+        "1_expedition": ("01. Expédition Logipharm", "data/expedition.csv", "csv", ["ID_BL", "Client", "Chauffeur", "Statut", "Date"]),
+        "15_pointage_expediteur": ("15. Pointage Expéditeur", "data/pointage_expedition.csv", "csv", ["ID", "Agent", "Heure", "Statut"]),
+        "46_affectation_livreurs": ("46. Affectation Livreurs", "data/affectation_livreurs.csv", "csv", ["Livreur", "Zone", "Véhicule"]),
+        "37_optimisation_tournees": ("37. Optimisation des Tournées", "data/tournees.csv", "csv", ["Code_Tournee", "Chauffeur", "Ordre"]),
+        
+        # --- Inventaire & Stock ---
+        "2_inventaire": ("02. Master Inventaire", "data/inventaire.csv", "csv", ["Num_Produit", "Designation", "Qte_Depot", "Zone"]),
+        "8_inventaire_detail": ("08. Inventaire Détaillé", "data/inventaire_detail.csv", "csv", ["ID", "Zone", "Réf.", "Qte_Comptee"]),
+        "16_inventaire_triple": ("16. Inventaire Triple", "data/inventaire_triple.csv", "csv", ["Produit", "Comptage_1", "Comptage_2", "Comptage_3"]),
+        "6_peremptions": ("06. Suivi des Périmés", "data/peremptions.csv", "csv", ["Code_Art", "Lot", "Date_Peremption", "Qte"]),
+        "14_liste_des_lots": ("14. Liste des Lots", "data/liste_lots.csv", "csv", ["Code_Art", "Num_Lot", "Stock_Lot"]),
+        "30_repartition_zones": ("30. Répartition Zones", "data/repartition_zones.csv", "csv", ["Zone", "Capacite", "Occupat"]),
+        "38_prediction_rupture": ("38. Suivi des Ruptures", "data/ruptures.csv", "csv", ["Code_Art", "Seuil_Alerte", "Stock_Actuel"]),
+        
+        # --- Achats, Réception & Réclamations ---
+        "18_reception": ("18. Réception Marchandise", "data/reception.csv", "csv", ["ID_BR", "Fournisseur", "Montant", "Date"]),
+        "34_arrivage_reception": ("34. Arrivage Réception", "data/arrivages.csv", "csv", ["Camion", "BL_Fournisseur", "Statut"]),
+        "20_transferts": ("20. Transferts de Stock", "data/transferts.csv", "csv", ["ID_Transfert", "Origine", "Destination", "Statut"]),
+        "10_reclamations_fournisseurs": ("10. Réclamations Fournisseurs", "data/reclamations_fourn.csv", "csv", ["ID_Rec", "Fournisseur", "Motif", "Statut"]),
+        "31_analyse_reclamations": ("31. Réclamations Logipharm", "data/reclamations.csv", "csv", ["Référence", "Client", "Valide", "Imprime", "Expedie", "Cloture"]),
+        "17_catalogue_produits": ("17. Catalogue Produits", "data/catalogue.csv", "csv", ["Code_Art", "Designation", "Prix_Vente", "PPA"]),
+        
+        # --- Suivi & Ventes ---
+        "3_suivi": ("03. Suivi Général", "data/suivi_general.csv", "csv", ["ID", "Titre", "Statut", "Date"]),
+        "11_analyse_rotation": ("11. Commandes & Rotations", "data/cmd_rotation.csv", "csv", ["Référence", "Client", "Nbr_Impres", "Type_Cmd", "Frig/Psy"]),
+        "44_pilotage_rotations": ("44. Pilotage des Rotations", "data/rotations.csv", "csv", ["Code_Art", "Classe_ABC", "Vitesse"]),
+        "32_analyse_ventes": ("32. Analyse Ventes", "data/ventes.csv", "csv", ["Code_Art", "Client", "Prix_Vente", "CA", "Marge"]),
+        "40_retours_avoirs": ("40. Retours & Avoirs", "data/retours.csv", "csv", ["Num_Avoir", "Client", "Montant_TTC"]),
+        
+        # --- Clients & Commercial ---
+        "12_gestion_clients": ("12. Base Clients", "data/clients.csv", "csv", ["ID", "Nom_Pharmacie", "Code_Client", "Conventionne"]),
+        "43_fiche_client_360": ("43. Fiche Client 360", "data/fiche_clients.csv", "csv", ["ID_Client", "Historique", "Solde"]),
+        "42_campagnes_remises": ("42. Campagnes Remises", "data/campagnes.csv", "csv", ["Nom_Campagne", "Taux_Remise", "Date_Fin"]),
+        "36_portail_b2b": ("36. Portail B2B", "data/portail_b2b.csv", "csv", ["Commande_ID", "Client", "Validation"]),
+        
+        # --- Finance & Recouvrement ---
+        "4_recouvrement": ("04. Recouvrement Logipharm", "data/recouvrement.csv", "csv", ["Client", "Montant_Regle", "Reste_A_Payer"]),
+        "27_provision_charge": ("27. Provision Charges", "data/provisions.csv", "csv", ["Rubrique", "Montant", "Exercice"]),
+        
+        # --- RH, Pointage & Gestion d'équipe ---
+        "5_admin": ("05. Administration RH", "data/admin_rh.csv", "csv", ["Matricule", "Nom", "Poste"]),
+        "5_pointage": ("05. Pointage Personnel", "data/pointage.csv", "csv", ["Agent", "Entree", "Sortie", "Date"]),
+        "13_rh": ("13. Ressources Humaines", "data/rh_utilisateurs.json", "json", []),  # Sécurité lockout active ici sur JSON
+        "21_coordination_equipe": ("21. Coordination Équipe", "data/coordination.csv", "csv", ["Equipe", "Responsable", "Shift"]),
+        "22_rh_permanence": ("22. RH Permanences", "data/permanences.csv", "csv", ["Agent", "Date_Permanence", "Statut"]),
+        
+        # --- Flotte & Maintenance ---
+        "25_maintenance_flotte": ("25. Maintenance Flotte", "data/maintenance_flotte.csv", "csv", ["Vehicule", "Dernier_Entretien", "Cout"]),
+        "45_performance_flotte": ("45. Performance Flotte", "data/performance_flotte.csv", "csv", ["Vehicule", "Consommation", "KM"]),
+        
+        # --- Divers & Support ---
+        "7_scanneur_qr": ("07. Scanneur QR", "data/scanneur.csv", "csv", ["Code_Scanne", "Horodatage"]),
+        "12_mobile_scan": ("12. Mobile Scan", "data/mobile_scan.csv", "csv", ["Terminal_ID", "Agent", "Scan_Data"]),
+        "9_automatisation": ("09. Automatisation Tâches", "data/jobs_auto.csv", "csv", ["Task_Name", "Last_Run", "Status"]),
+        "17_profil": ("17. Profil Utilisateur", "data/profils.csv", "csv", ["User_ID", "Theme", "Langue"]),
+        "23_mon_coin_admin": ("23. Mon Coin Admin", "data/coin_admin.csv", "csv", ["Note_ID", "Contenu"]),
+        "26_academie": ("26. Académie / Formation", "data/academie.csv", "csv", ["Module_Formation", "Score_Moyen"]),
+        "39_gestion_documentaire": ("39. Gestion Documentaire", "data/docs.csv", "csv", ["Doc_Name", "Chemin", "Categorie"]),
+        "41_vigilance_rappels": ("41. Vigilance Rappels", "data/rappels_sanitaires.csv", "csv", ["Lot_Concerne", "Motif", "Date_Alerte"]),
+        "19_chat_pharmaciel": ("19. Chat Pharmaciel", "data/chat_history.csv", "csv", ["User", "Message", "Timestamp"])
+    }
+
+    # ══════════════════════════════════════════════════════════════════════
+    # 2. BOUTONS DE SÉLECTION GLOBALE
+    # ══════════════════════════════════════════════════════════════════════
+    col_btn1, col_btn2, _ = st.columns([1, 1, 2])
+    
+    if col_btn1.button("☑️ Tout sélectionner"):
+        for key in MODULES_CONFIG.keys():
+            st.session_state[f"raz_{key}"] = True
+            
+    if col_btn2.button("⬛ Tout décocher"):
+        for key in MODULES_CONFIG.keys():
+            st.session_state[f"raz_{key}"] = False
+
+    st.markdown("---")
+    st.markdown(f"##### Sélectionnez les modules à réinitialiser ({len(MODULES_CONFIG)} disponibles) :")
+
+    # ══════════════════════════════════════════════════════════════════════
+    # 3. INTERFACE COMPOSANTE CHECKBOX (2 COLONNES)
+    # ══════════════════════════════════════════════════════════════════════
+    col_left, col_right = st.columns(2)
+    selected_modules = []
+
+    for idx, (mod_key, mod_info) in enumerate(MODULES_CONFIG.items()):
+        target_col = col_left if idx % 2 == 0 else col_right
+        state_key = f"raz_{mod_key}"
+        
+        if state_key not in st.session_state:
+            st.session_state[state_key] = False
+
+        checked = target_col.checkbox(mod_info[0], key=state_key)
+        if checked:
+            selected_modules.append(mod_key)
+
+    st.markdown("---")
+
+    # ══════════════════════════════════════════════════════════════════════
+    # 4. EXÉCUTION DE LA REMISE À ZÉRO (VOTRE MOTEUR OPTIMISÉ)
+    # ══════════════════════════════════════════════════════════════════════
+    if selected_modules:
+        st.error(f"🚨 **{len(selected_modules)} module(s) sélectionné(s) pour la remise à zéro.**")
+        
+        confirm_check = st.checkbox("Je confirme vouloir purger définitivement les données des modules cochés.")
+        
+        if st.button("🔥 Exécuter la Remise à Zéro", type="primary", disabled=not confirm_check):
+            success_logs = []
+            error_logs = []
+            progress_bar = st.progress(0.0)
+
+            for idx_m, mod_key in enumerate(selected_modules):
+                label, path, db_type, cols = MODULES_CONFIG[mod_key]
+                worksheet_name = label
+
+                try:
+                    # Garantir que le répertoire cible existe
+                    dir_name = os.path.dirname(path)
+                    os.makedirs(dir_name if dir_name else ".", exist_ok=True)
+
+                    if db_type == "csv":
+                        df_empty = pd.DataFrame(columns=cols)
+                        df_empty.to_csv(path, index=False, sep=',', encoding='utf-8-sig')
+
+                    elif db_type == "json":
+                        # Sécurité lockout pour le fichier Utilisateurs / RH
+                        if "rh_utilisateurs" in path or "Utilisateurs" in worksheet_name:
+                            default_users = [{
+                                "username": "admin", 
+                                "password": "admin", 
+                                "role": "Admin", 
+                                "pages": "All", 
+                                "nom": "Admin", 
+                                "prenom": "Systeme", 
+                                "zone": "Toutes"
+                            }]
+                            with open(path, 'w', encoding='utf-8') as f:
+                                json.dump(default_users, f, indent=4, ensure_ascii=False)
+                        else:
+                            with open(path, 'w', encoding='utf-8') as f:
+                                json.dump([], f, indent=4, ensure_ascii=False)
+
+                    success_logs.append(f"🗑️ Remise à Zéro : **{label}** réinitialisé à vide.")
                 
+                except Exception as e_del:
+                    error_logs.append(f"❌ Erreur Suppression **{label}** : {e_del}")
+
+                # Mise à jour progressive de la barre d'avancement
                 progress_bar.progress((idx_m + 1) / len(selected_modules))
-            
+
+            # Effacer tout le cache mémoire de Streamlit
             st.cache_data.clear()
-            
+
+            # Affichage des résultats
             if success_logs:
                 st.success("### 🎉 Opérations Réussies :\n" + "\n".join([f"- {log}" for log in success_logs]))
             if error_logs:
                 st.error("### ⚠️ Erreurs Rencontrées :\n" + "\n".join([f"- {log}" for log in error_logs]))
-                
+
             st.balloons()
+    else:
+        st.info("💡 Aucune case cochee. Choisissez au moins un module métier à réinitialiser.")
+
+# Appel du composant
+render_remise_a_zero_ui()
