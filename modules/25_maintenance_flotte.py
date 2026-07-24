@@ -2,15 +2,20 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from utils_gsheets import load_gs_data, save_gs_data
+import plotly.express as px
 
 # --- CONFIGURATION ---
 VEHICULES_WORKSHEET = "DB_Flotte_Vehicules"
 VEHICULES_FALLBACK = "data/db_flotte_vehicules.csv"
-COLS_VEHICULES = ["id", "id_vehicule", "vehicule", "immatriculation", "nom_vehicule", "capacite_reservoir", "carburant", "prix_litre", "derniere_date", "prochaine_echeance", "alerte_kms"]
+COLS_VEHICULES = ["id", "id_vehicule", "vehicule", "immatriculation", "nom_vehicule", "capacite_reservoir", "carburant", "prix_litre", "derniere_date", "prochaine_echeance", "alerte_kms", "km_actuel", "dernier_km_vidange", "dernier_km_freins", "dernier_km_distribution"]
 
 JOURNAL_WORKSHEET = "DB_Flotte_Journal"
 JOURNAL_FALLBACK = "data/db_flotte_journal.csv"
 COLS_JOURNAL = ["id", "livreur", "vehicule", "kilometrage", "date", "depense", "conso_estimee"]
+
+MECANIQUE_WORKSHEET = "DB_Entretien_Mecanique"
+MECANIQUE_FALLBACK = "data/db_entretien_mecanique.csv"
+COLS_MECANIQUE = ["id", "vehicule", "type_intervention", "kilometrage", "cout", "date", "commentaires"]
 
 CAISSE_WORKSHEET = "DB_Flotte_Caisse"
 CAISSE_FALLBACK = "data/db_flotte_caisse.csv"
@@ -26,6 +31,7 @@ st.markdown("### Suivi Financier et Maintenance du Parc")
 # --- 1. CHARGEMENT DONNÉES ---
 df_vehicules = load_gs_data(VEHICULES_WORKSHEET, VEHICULES_FALLBACK, COLS_VEHICULES)
 df_journal = load_gs_data(JOURNAL_WORKSHEET, JOURNAL_FALLBACK, COLS_JOURNAL)
+df_mecanique = load_gs_data(MECANIQUE_WORKSHEET, MECANIQUE_FALLBACK, COLS_MECANIQUE)
 df_caisse = load_gs_data(CAISSE_WORKSHEET, CAISSE_FALLBACK, COLS_CAISSE)
 df_livreurs = load_gs_data(LIVREURS_WORKSHEET, LIVREURS_FALLBACK, COLS_LIVREURS)
 
@@ -38,8 +44,9 @@ if df_caisse.empty:
 solde_initial = float(df_caisse['solde_initial'].iloc[0]) if not df_caisse.empty else 0.0
 df_journal['depense'] = pd.to_numeric(df_journal['depense'], errors='coerce').fillna(0.0)
 df_journal['kilometrage'] = pd.to_numeric(df_journal['kilometrage'], errors='coerce').fillna(0.0)
+df_mecanique['cout'] = pd.to_numeric(df_mecanique['cout'], errors='coerce').fillna(0.0)
 
-total_depenses = df_journal['depense'].sum()
+total_depenses = df_journal['depense'].sum() + df_mecanique['cout'].sum()
 solde_restant = solde_initial - total_depenses
 
 # --- 2. DASHBOARD FINANCIER ---
@@ -111,7 +118,7 @@ if not alertes_trouvees:
 st.divider()
 
 # --- 4. TABS: JOURNAL & VÉHICULES ---
-tab1, tab2 = st.tabs(["📝 Saisie & Journal des Dépenses", "🚛 Référentiel Véhicules"])
+tab1, tab2, tab3, tab4 = st.tabs(["📝 Saisie & Journal des Dépenses", "🚛 Référentiel Véhicules", "👨‍✈️ Dépenses par Livreur", "🔧 Suivi & Entretien Mécanique"])
 
 with tab1:
     st.markdown("### Ajouter une dépense / course")
@@ -127,7 +134,7 @@ with tab1:
         liste_livreurs = list(set(liste_livreurs + existing_journal_livreurs))
         
     liste_livreurs = sorted([str(x) for x in liste_livreurs if str(x).strip()])
-    options_livreur = liste_livreurs + ["➕ Autre / Saisie manuelle"]
+    options_livreur = liste_livreurs + ["➕ Ajouter manuellement..."]
     
     # Préparation de la liste des véhicules
     liste_vehicules = []
@@ -138,7 +145,7 @@ with tab1:
         col_f1, col_f2 = st.columns(2)
         with col_f1:
             sel_livreur = st.selectbox("Livreur", options_livreur)
-            custom_livreur = st.text_input("Nom du livreur (si 'Autre' sélectionné)")
+            custom_livreur = st.text_input("Nom du livreur (si 'Ajouter manuellement...' sélectionné)")
             vehicule_sel = st.selectbox("Véhicule", liste_vehicules if liste_vehicules else ["Aucun véhicule"])
             date_depense = st.date_input("Date")
         with col_f2:
@@ -151,7 +158,7 @@ with tab1:
             if not liste_vehicules or vehicule_sel == "Aucun véhicule":
                 st.error("Veuillez d'abord ajouter un véhicule dans le référentiel.")
             else:
-                final_livreur = custom_livreur.strip().upper() if sel_livreur == "➕ Autre / Saisie manuelle" else sel_livreur
+                final_livreur = custom_livreur.strip().upper() if sel_livreur == "➕ Ajouter manuellement..." else sel_livreur
                 if not final_livreur:
                     st.error("Veuillez spécifier le livreur.")
                 elif montant <= 0:
@@ -191,6 +198,16 @@ with tab1:
                     }
                     df_journal = pd.concat([df_journal, pd.DataFrame([new_dep])], ignore_index=True)
                     save_gs_data(df_journal, JOURNAL_WORKSHEET, JOURNAL_FALLBACK)
+                    
+                    # Mise à jour km_actuel
+                    if not df_vehicules.empty:
+                        idx = df_vehicules[df_vehicules['nom_vehicule'] == vehicule_sel].index
+                        if not idx.empty:
+                            current_km = pd.to_numeric(df_vehicules.loc[idx[0], 'km_actuel'], errors='coerce')
+                            if pd.isna(current_km) or km_actuel > current_km:
+                                df_vehicules.loc[idx[0], 'km_actuel'] = km_actuel
+                                save_gs_data(df_vehicules, VEHICULES_WORKSHEET, VEHICULES_FALLBACK)
+                    
                     st.success(f"Dépense ajoutée ! ({conso_estimee} estimé pour {distance} km parcourus)")
                     st.rerun()
 
@@ -220,6 +237,11 @@ with tab2:
                 v_last_d = st.date_input("Date dernière maintenance")
                 v_next_d = st.date_input("Date prochaine échéance prévue")
                 v_alert_km = st.number_input("Kilométrage pour prochaine alerte", min_value=0, value=10000, step=1000)
+                st.markdown("**Initialisation Kilométrage**")
+                v_km_actuel = st.number_input("Kilométrage Actuel", min_value=0.0, step=1.0)
+                v_km_vidange = st.number_input("Dernier km Vidange", min_value=0.0, step=1.0)
+                v_km_freins = st.number_input("Dernier km Freins", min_value=0.0, step=1.0)
+                v_km_distrib = st.number_input("Dernier km Distribution", min_value=0.0, step=1.0)
             
             if st.form_submit_button("Ajouter le véhicule"):
                 if v_veh and v_imm:
@@ -236,7 +258,11 @@ with tab2:
                         "prix_litre": v_prix,
                         "derniere_date": v_last_d.strftime("%d/%m/%Y"),
                         "prochaine_echeance": v_next_d.strftime("%d/%m/%Y"),
-                        "alerte_kms": v_alert_km
+                        "alerte_kms": v_alert_km,
+                        "km_actuel": v_km_actuel,
+                        "dernier_km_vidange": v_km_vidange,
+                        "dernier_km_freins": v_km_freins,
+                        "dernier_km_distribution": v_km_distrib
                     }
                     df_vehicules = pd.concat([df_vehicules, pd.DataFrame([new_vehicule])], ignore_index=True)
                     save_gs_data(df_vehicules, VEHICULES_WORKSHEET, VEHICULES_FALLBACK)
@@ -250,3 +276,116 @@ with tab2:
         st.info("Aucun véhicule dans le référentiel.")
     else:
         st.dataframe(df_vehicules.drop(columns=['date_dt'], errors='ignore'), use_container_width=True, hide_index=True)
+
+with tab3:
+    st.markdown("### 👨‍✈️ Dépenses par Livreur")
+    if df_journal.empty:
+        st.info("Aucune donnée disponible pour le moment.")
+    else:
+        df_l = df_journal.copy()
+        df_l['depense'] = pd.to_numeric(df_l['depense'], errors='coerce').fillna(0)
+        df_l['date'] = pd.to_datetime(df_l['date'], format='%d/%m/%Y', errors='coerce')
+        
+        recap_l = df_l.groupby("livreur").agg(
+            Total_Depense_DZD=('depense', 'sum'),
+            Nombre_Courses=('id', 'count'),
+            Derniere_Course=('date', 'max')
+        ).reset_index()
+        
+        recap_l['Derniere_Course'] = recap_l['Derniere_Course'].dt.strftime('%d/%m/%Y')
+        
+        col_t3_1, col_t3_2 = st.columns([1.5, 1])
+        with col_t3_1:
+            st.dataframe(recap_l, use_container_width=True, hide_index=True)
+        with col_t3_2:
+            fig = px.pie(recap_l, values='Total_Depense_DZD', names='livreur', title="Répartition du budget carburant")
+            st.plotly_chart(fig, use_container_width=True)
+
+with tab4:
+    st.markdown("### 🔧 Suivi & Entretien Mécanique")
+    
+    st.markdown("#### 🚨 Dashboard des Alertes Préventives")
+    alertes_meca = False
+    
+    if not df_vehicules.empty:
+        df_vehicules['km_actuel'] = pd.to_numeric(df_vehicules['km_actuel'], errors='coerce').fillna(0)
+        df_vehicules['dernier_km_vidange'] = pd.to_numeric(df_vehicules['dernier_km_vidange'], errors='coerce').fillna(0)
+        df_vehicules['dernier_km_freins'] = pd.to_numeric(df_vehicules['dernier_km_freins'], errors='coerce').fillna(0)
+        df_vehicules['dernier_km_distribution'] = pd.to_numeric(df_vehicules['dernier_km_distribution'], errors='coerce').fillna(0)
+        
+        for _, row in df_vehicules.iterrows():
+            km = row['km_actuel']
+            alert_list = []
+            if km - row['dernier_km_vidange'] >= 10000:
+                alert_list.append("Vidange (>= 10 000 km)")
+            if km - row['dernier_km_freins'] >= 20000:
+                alert_list.append("Freins (>= 20 000 km)")
+            if km - row['dernier_km_distribution'] >= 80000:
+                alert_list.append("Distribution (>= 80 000 km)")
+                
+            if alert_list:
+                alertes_meca = True
+                st.error(f"**{row['nom_vehicule']}** nécessite : " + ", ".join(alert_list))
+                
+    if not alertes_meca:
+        st.success("✅ Aucun entretien mécanique préventif en attente.")
+        
+    st.divider()
+    
+    st.markdown("#### 🛠️ Saisir une intervention mécanique")
+    with st.form("form_mecanique"):
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
+            liste_vehicules_meca = []
+            if not df_vehicules.empty and 'nom_vehicule' in df_vehicules.columns:
+                liste_vehicules_meca = df_vehicules['nom_vehicule'].dropna().unique().tolist()
+                
+            m_vehicule = st.selectbox("Véhicule concerné", liste_vehicules_meca if liste_vehicules_meca else ["Aucun véhicule"])
+            m_type = st.selectbox("Type d'intervention", ["Vidange", "Freins", "Distribution", "Autre"])
+            m_date = st.date_input("Date de l'intervention")
+        with col_m2:
+            m_km = st.number_input("Kilométrage (Relevé lors de l'intervention)", min_value=0.0, step=1.0)
+            m_cout = st.number_input("Coût (DZD)", min_value=0.0, step=100.0)
+            m_com = st.text_area("Commentaires additionnels (optionnel)")
+            
+        if st.form_submit_button("Enregistrer l'intervention", type="primary"):
+            if not liste_vehicules_meca or m_vehicule == "Aucun véhicule":
+                st.error("Veuillez d'abord ajouter un véhicule dans le référentiel.")
+            elif m_cout <= 0:
+                st.error("Le coût doit être supérieur à 0.")
+            else:
+                new_m_id = int(df_mecanique['id'].max()) + 1 if not df_mecanique.empty and pd.notna(df_mecanique['id'].max()) else 1
+                new_meca = {
+                    "id": new_m_id,
+                    "vehicule": m_vehicule,
+                    "type_intervention": m_type,
+                    "kilometrage": m_km,
+                    "cout": m_cout,
+                    "date": m_date.strftime("%d/%m/%Y"),
+                    "commentaires": m_com
+                }
+                df_mecanique = pd.concat([df_mecanique, pd.DataFrame([new_meca])], ignore_index=True)
+                save_gs_data(df_mecanique, MECANIQUE_WORKSHEET, MECANIQUE_FALLBACK)
+                
+                if not df_vehicules.empty:
+                    idx = df_vehicules[df_vehicules['nom_vehicule'] == m_vehicule].index
+                    if not idx.empty:
+                        df_vehicules.loc[idx[0], 'km_actuel'] = max(m_km, pd.to_numeric(df_vehicules.loc[idx[0], 'km_actuel'], errors='coerce') or 0)
+                        
+                        if m_type == "Vidange":
+                            df_vehicules.loc[idx[0], 'dernier_km_vidange'] = m_km
+                        elif m_type == "Freins":
+                            df_vehicules.loc[idx[0], 'dernier_km_freins'] = m_km
+                        elif m_type == "Distribution":
+                            df_vehicules.loc[idx[0], 'dernier_km_distribution'] = m_km
+                            
+                        save_gs_data(df_vehicules, VEHICULES_WORKSHEET, VEHICULES_FALLBACK)
+                
+                st.success("Intervention enregistrée et base de données mise à jour !")
+                st.rerun()
+
+    st.markdown("#### 📖 Historique des réparations")
+    if df_mecanique.empty:
+        st.info("Aucune intervention enregistrée.")
+    else:
+        st.dataframe(df_mecanique.sort_values(by="id", ascending=False), use_container_width=True, hide_index=True)
