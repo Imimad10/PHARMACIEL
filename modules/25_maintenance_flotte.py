@@ -6,7 +6,7 @@ from utils_gsheets import load_gs_data, save_gs_data
 # --- CONFIGURATION ---
 VEHICULES_WORKSHEET = "DB_Flotte_Vehicules"
 VEHICULES_FALLBACK = "data/db_flotte_vehicules.csv"
-COLS_VEHICULES = ["id", "nom_vehicule", "capacite_reservoir", "carburant", "prix_litre", "derniere_date", "prochaine_echeance", "alerte_kms"]
+COLS_VEHICULES = ["id", "id_vehicule", "vehicule", "immatriculation", "nom_vehicule", "capacite_reservoir", "carburant", "prix_litre", "derniere_date", "prochaine_echeance", "alerte_kms"]
 
 JOURNAL_WORKSHEET = "DB_Flotte_Journal"
 JOURNAL_FALLBACK = "data/db_flotte_journal.csv"
@@ -210,7 +210,9 @@ with tab2:
         with st.form("form_vehicule"):
             col_v1, col_v2 = st.columns(2)
             with col_v1:
-                v_nom = st.text_input("Nom / Immatriculation (ex: DOBLO - 12345)")
+                v_id_veh = st.selectbox("ID Véhicule", [f"{i:02d}" for i in range(1, 101)])
+                v_veh = st.text_input("Véhicule (ex: DOBLO)")
+                v_imm = st.text_input("Immatriculation (ex: 12345 123 16)")
                 v_cap = st.number_input("Capacité Réservoir (L)", min_value=1, value=50)
                 v_carb = st.selectbox("Carburant", ["MAZOUT", "ESSENCE", "GPL", "SANS PLOMB"])
                 v_prix = st.number_input("Prix au litre (DZD)", min_value=0.0, value=31.0)
@@ -220,10 +222,14 @@ with tab2:
                 v_alert_km = st.number_input("Kilométrage pour prochaine alerte", min_value=0, value=10000, step=1000)
             
             if st.form_submit_button("Ajouter le véhicule"):
-                if v_nom:
+                if v_veh and v_imm:
+                    v_nom = f"{v_id_veh} - {v_veh} - {v_imm}"
                     new_v_id = int(df_vehicules['id'].max()) + 1 if not df_vehicules.empty and pd.notna(df_vehicules['id'].max()) else 1
                     new_vehicule = {
                         "id": new_v_id,
+                        "id_vehicule": v_id_veh,
+                        "vehicule": v_veh,
+                        "immatriculation": v_imm,
                         "nom_vehicule": v_nom,
                         "capacite_reservoir": v_cap,
                         "carburant": v_carb,
@@ -237,7 +243,7 @@ with tab2:
                     st.success(f"Véhicule {v_nom} ajouté avec succès !")
                     st.rerun()
                 else:
-                    st.error("Le nom du véhicule est obligatoire.")
+                    st.error("Les champs Véhicule et Immatriculation sont obligatoires.")
                     
     st.markdown("### 📋 Liste des Véhicules & Alertes paramétrées")
     if df_vehicules.empty:
