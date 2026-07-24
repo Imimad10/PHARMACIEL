@@ -1643,258 +1643,254 @@
             except Exception as e:
                 st.error(f"Impossible de prévisualiser : {e}")
 
-    # =============================================================================
-    # ONGLET 7 : REMISE À ZÉRO / SAUVEGARDE
-    # =============================================================================
-    with tabs[7]:
-        st.subheader("🧹 Remise à Zéro & Sauvegarde de Sécurité")
-        st.warning("⚠️ **ATTENTION** : Cet onglet permet d'archiver sur le Cloud et/ou de supprimer les données locales des modules. Utilisez cet outil avec extrême précaution !")
+# =============================================================================
+# ONGLET 7 : REMISE À ZÉRO / SAUVEGARDE
+# =============================================================================
+with tabs[7]:
+    st.subheader("🧹 Remise à Zéro & Sauvegarde de Sécurité")
+    st.warning("⚠️ **ATTENTION** : Cet onglet permet d'archiver sur le Cloud et/ou de supprimer les données locales des modules. Utilisez cet outil avec extrême précaution !")
 
-        # Définition de TOUTES les bases de données / modules du projet
-        MODULES_DB = {
-            # --- Bases Système & Core ---
-            "👥 Utilisateurs & Accès": {
-                "worksheet": "Utilisateurs",
-                "path": "data/db_users.json",
-                "columns": [],
-                "type": "json"
-            },
-            "👥 Base Clients": {
-                "worksheet": "Base_Clients",
-                "path": DATA_CLIENTS,
-                "columns": COLS_CLIENTS,
-                "type": "csv"
-            },
-            "🏢 Fournisseurs": {
-                "worksheet": "DB_Fournisseurs",
-                "path": "data/db_fournisseurs.csv",
-                "columns": ["Etablissement", "Wilaya", "Activité", "Logo"],
-                "type": "csv"
-            },
-            "🚚 Livreurs": {
-                "worksheet": "Livreurs",
-                "path": DATA_LIVREURS,
-                "columns": COLS_LIVREURS,
-                "type": "csv"
-            },
-            "🗺️ Secteurs Logistique": {
-                "worksheet": "Secteurs",
-                "path": DATA_SECTEURS,
-                "columns": COLS_SECTEURS,
-                "type": "csv"
-            },
-            
-            # --- Stocks & Inventaires ---
-            "📦 Master Inventaire (Lots)": {
-                "worksheet": "Master_Inventaire_Zone",
-                "path": "data_inventaire_detail/master_detail.csv",
-                "columns": [],
-                "type": "csv"
-            },
-            "📋 Liste des Lots": {
-                "worksheet": "Liste_Lots",
-                "path": "data/db_liste_lots.csv",
-                "columns": ["Lot_ID", "Code_Produit", "Designation", "Date_Peremption", "Quantite"],
-                "type": "csv"
-            },
-            "⏳ Péremptions & Dates Courtes": {
-                "worksheet": "Peremptions",
-                "path": "data/db_peremptions.csv",
-                "columns": ["Code_Produit", "Designation", "Lot", "Date_Expir", "Quantite", "Statut"],
-                "type": "csv"
-            },
-            "📥 Réception & Arrivages": {
-                "worksheet": "Arrivage_Reception",
-                "path": "data/db_arrivage_reception.csv",
-                "columns": ["Date", "BL_Num", "Fournisseur", "Nb_Colis", "Agent", "Statut"],
-                "type": "csv"
-            },
-            "🔄 Transferts Inter-Dépôts": {
-                "worksheet": "Transferts",
-                "path": "data/db_transferts.csv",
-                "columns": ["Date", "Transfert_ID", "Depot_Origine", "Depot_Dest", "Statut"],
-                "type": "csv"
-            },
+    # Dictionnaire de toutes les bases de données et modules du projet
+    MODULES_DB = {
+        # --- Bases Système & Core ---
+        "👥 Utilisateurs & Accès": {
+            "worksheet": "Utilisateurs",
+            "path": "data/db_users.json",
+            "columns": [],
+            "type": "json"
+        },
+        "👥 Base Clients": {
+            "worksheet": "Base_Clients",
+            "path": DATA_CLIENTS,
+            "columns": COLS_CLIENTS,
+            "type": "csv"
+        },
+        "🏢 Fournisseurs": {
+            "worksheet": "DB_Fournisseurs",
+            "path": "data/db_fournisseurs.csv",
+            "columns": ["Etablissement", "Wilaya", "Activité", "Logo"],
+            "type": "csv"
+        },
+        "🚚 Livreurs": {
+            "worksheet": "Livreurs",
+            "path": DATA_LIVREURS,
+            "columns": COLS_LIVREURS,
+            "type": "csv"
+        },
+        "🗺️ Secteurs Logistique": {
+            "worksheet": "Secteurs",
+            "path": DATA_SECTEURS,
+            "columns": COLS_SECTEURS,
+            "type": "csv"
+        },
+        
+        # --- Stocks & Inventaires ---
+        "📦 Master Inventaire (Lots)": {
+            "worksheet": "Master_Inventaire_Zone",
+            "path": "data_inventaire_detail/master_detail.csv",
+            "columns": [],
+            "type": "csv"
+        },
+        "📋 Liste des Lots": {
+            "worksheet": "Liste_Lots",
+            "path": "data/db_liste_lots.csv",
+            "columns": ["Lot_ID", "Code_Produit", "Designation", "Date_Peremption", "Quantite"],
+            "type": "csv"
+        },
+        "⏳ Péremptions & Dates Courtes": {
+            "worksheet": "Peremptions",
+            "path": "data/db_peremptions.csv",
+            "columns": ["Code_Produit", "Designation", "Lot", "Date_Expir", "Quantite", "Statut"],
+            "type": "csv"
+        },
+        "📥 Réception & Arrivages": {
+            "worksheet": "Arrivage_Reception",
+            "path": "data/db_arrivage_reception.csv",
+            "columns": ["Date", "BL_Num", "Fournisseur", "Nb_Colis", "Agent", "Statut"],
+            "type": "csv"
+        },
+        "🔄 Transferts Inter-Dépôts": {
+            "worksheet": "Transferts",
+            "path": "data/db_transferts.csv",
+            "columns": ["Date", "Transfert_ID", "Depot_Origine", "Depot_Dest", "Statut"],
+            "type": "csv"
+        },
 
-            # --- Ventes, Expéditions & Recouvrement ---
-            "📈 Performance Ventes": {
-                "worksheet": "Analyse_Ventes_Perf",
-                "path": "data/db_ventes_performance.csv",
-                "columns": [],
-                "type": "csv"
-            },
-            "🚚 Suivi Expédition": {
-                "worksheet": "Expedition",
-                "path": "data/db_expedition_logipharm.csv",
-                "columns": [],
-                "type": "csv"
-            },
-            "💳 Suivi Recouvrement": {
-                "worksheet": "Recouvrement",
-                "path": "data_recouvrement.csv",
-                "columns": ["Client", "Facture", "Date", "Montant Initial", "Montant Réglé", "Reste à payer", "Mode Paiement", "Livreur", "Région", "Statut", "Commentaires", "Société"],
-                "type": "csv"
-            },
+        # --- Ventes, Expéditions & Recouvrement ---
+        "📈 Performance Ventes": {
+            "worksheet": "Analyse_Ventes_Perf",
+            "path": "data/db_ventes_performance.csv",
+            "columns": [],
+            "type": "csv"
+        },
+        "🚚 Suivi Expédition": {
+            "worksheet": "Expedition",
+            "path": "data/db_expedition_logipharm.csv",
+            "columns": [],
+            "type": "csv"
+        },
+        "💳 Suivi Recouvrement": {
+            "worksheet": "Recouvrement",
+            "path": "data_recouvrement.csv",
+            "columns": ["Client", "Facture", "Date", "Montant Initial", "Montant Réglé", "Reste à payer", "Mode Paiement", "Livreur", "Région", "Statut", "Commentaires", "Société"],
+            "type": "csv"
+        },
 
-            # --- Qualité, Réclamations & CRM ---
-            "📋 Réclamations Clients": {
-                "worksheet": "Analyse_Reclamations",
-                "path": "data/db_reclamations_analyse.csv",
-                "columns": [],
-                "type": "csv"
-            },
-            "📝 Réclamations Fournisseurs": {
-                "worksheet": "Reclamations_Fournisseurs",
-                "path": "data/db_reclamations_fournisseurs.csv",
-                "columns": ["Date", "Fournisseur", "Facture", "Motif", "Statut"],
-                "type": "csv"
-            },
-            "📦 Litiges & Anomalies Fournisseurs": {
-                "worksheet": "Litiges",
-                "path": "data/data_litiges.csv",
-                "columns": ["Date", "Heure", "Facture", "Fournisseur", "Agent", "Produit", "Lot", "Quantite", "Type", "Priorite", "Statut", "Commentaire", "Photo_Path", "Date_Resolution", "IA_Analyse"],
-                "type": "csv"
-            },
-            "📦 Base Produits (Réclamations)": {
-                "worksheet": "Base_Produits",
-                "path": "data_produits.csv",
-                "columns": ["Désignation"],
-                "type": "csv"
-            },
-            "🤝 Mini-CRM Interactions": {
-                "worksheet": "CRM",
-                "path": "data/db_crm.csv",
-                "columns": ["Date", "Client", "Type", "Note", "Agent"],
-                "type": "csv"
-            },
+        # --- Qualité, Réclamations & CRM ---
+        "📋 Réclamations Clients": {
+            "worksheet": "Analyse_Reclamations",
+            "path": "data/db_reclamations_analyse.csv",
+            "columns": [],
+            "type": "csv"
+        },
+        "📝 Réclamations Fournisseurs": {
+            "worksheet": "Reclamations_Fournisseurs",
+            "path": "data/db_reclamations_fournisseurs.csv",
+            "columns": ["Date", "Fournisseur", "Facture", "Motif", "Statut"],
+            "type": "csv"
+        },
+        "📦 Litiges & Anomalies Fournisseurs": {
+            "worksheet": "Litiges",
+            "path": "data/data_litiges.csv",
+            "columns": ["Date", "Heure", "Facture", "Fournisseur", "Agent", "Produit", "Lot", "Quantite", "Type", "Priorite", "Statut", "Commentaire", "Photo_Path", "Date_Resolution", "IA_Analyse"],
+            "type": "csv"
+        },
+        "📦 Base Produits (Réclamations)": {
+            "worksheet": "Base_Produits",
+            "path": "data_produits.csv",
+            "columns": ["Désignation"],
+            "type": "csv"
+        },
+        "🤝 Mini-CRM Interactions": {
+            "worksheet": "CRM",
+            "path": "data/db_crm.csv",
+            "columns": ["Date", "Client", "Type", "Note", "Agent"],
+            "type": "csv"
+        },
 
-            # --- RH, Pointage & Flotte ---
-            "⏱️ Pointage & Présence": {
-                "worksheet": "Pointage",
-                "path": "data/db_pointage.csv",
-                "columns": ["Date", "Matricule", "Employe", "Heure_Arrivee", "Heure_Depart", "Statut"],
-                "type": "csv"
-            },
-            "🛠️ Maintenance Flotte": {
-                "worksheet": "Maintenance_Flotte",
-                "path": "data/db_maintenance_flotte.csv",
-                "columns": ["Immatriculation", "Vehicule", "Chauffeur", "Dernière_Vidange", "Prochaine_Vidange", "Statut"],
-                "type": "csv"
-            }
+        # --- RH, Pointage & Flotte ---
+        "⏱️ Pointage & Présence": {
+            "worksheet": "Pointage",
+            "path": "data/db_pointage.csv",
+            "columns": ["Date", "Matricule", "Employe", "Heure_Arrivee", "Heure_Depart", "Statut"],
+            "type": "csv"
+        },
+        "🛠️ Maintenance Flotte": {
+            "worksheet": "Maintenance_Flotte",
+            "path": "data/db_maintenance_flotte.csv",
+            "columns": ["Immatriculation", "Vehicule", "Chauffeur", "Dernière_Vidange", "Prochaine_Vidange", "Statut"],
+            "type": "csv"
         }
+    }
 
-        # --- Liste des modules sous forme de cases à cocher ---
-        st.markdown("### 🗄️ Sélectionner les Modules / Bases de Données")
-        selected_modules = []
-        
-        col_sel_all1, col_sel_all2 = st.columns([1, 4])
-        select_all = col_sel_all1.checkbox("Tout cocher", value=False)
-        
-        cols_select = st.columns(3)
-        for idx, (mod_name, mod_info) in enumerate(MODULES_DB.items()):
-            col_item = cols_select[idx % 3]
-            if col_item.checkbox(mod_name, value=select_all, key=f"wipe_chk_{idx}"):
-                selected_modules.append(mod_name)
+    # --- Sélection des modules ---
+    st.markdown("### 🗄️ Sélectionner les Modules / Bases de Données")
+    selected_modules = []
+    
+    col_sel_all1, col_sel_all2 = st.columns([1, 4])
+    select_all = col_sel_all1.checkbox("Tout cocher", value=False)
+    
+    cols_select = st.columns(3)
+    for idx, (mod_name, mod_info) in enumerate(MODULES_DB.items()):
+        col_item = cols_select[idx % 3]
+        if col_item.checkbox(mod_name, value=select_all, key=f"wipe_chk_{idx}"):
+            selected_modules.append(mod_name)
+            
+    st.divider()
+    
+    # --- Choix de l'action ---
+    st.markdown("### ⚙️ Sélectionner l'Action à Exécuter")
+    action_type = st.radio(
+        "Action à appliquer sur les éléments cochés :",
+        [
+            "☁️ Sauvegarder dans le Cloud (Backup Google Sheets uniquement)",
+            "🗑️ Remise à Zéro (Suppression des données locales uniquement)",
+            "🔄 Backup Cloud ET Remise à Zéro (Sauvegarder puis Vider localement - Recommandé)"
+        ],
+        index=2
+    )
+    
+    st.divider()
+    
+    # --- Confirmation et Sécurité ---
+    st.markdown("### 🔒 Sécurité & Confirmation de l'Opération")
+    check_safety = st.checkbox("⚠️ Je confirme avoir sélectionné uniquement les modules à traiter et je comprends que la suppression locale est définitive.")
+    confirm_txt = st.text_input("Veuillez saisir 'CONFIRMER' en majuscules pour valider l'action :", key="wipe_confirm_input")
+    
+    if st.button("🚨 Lancer l'opération sur les éléments cochés", type="primary", use_container_width=True):
+        if not selected_modules:
+            st.error("❌ Veuillez sélectionner au moins un module.")
+        elif not check_safety:
+            st.error("❌ Veuillez cocher la case de confirmation de sécurité.")
+        elif confirm_txt != "CONFIRMER":
+            st.error("❌ Veuillez saisir exactement le mot 'CONFIRMER'.")
+        else:
+            progress_bar = st.progress(0.0)
+            success_logs = []
+            error_logs = []
+            
+            do_backup = "Sauvegarder" in action_type or "Backup" in action_type
+            do_delete = "Remise à Zéro" in action_type or "Suppression" in action_type
+            
+            for idx_m, mod_name in enumerate(selected_modules):
+                db_info = MODULES_DB[mod_name]
+                worksheet = db_info["worksheet"]
+                path = db_info["path"]
+                cols = db_info["columns"]
+                db_type = db_info["type"]
                 
-        st.divider()
-        
-        # --- Choix de l'action ---
-        st.markdown("### ⚙️ Sélectionner l'Action à Exécuter")
-        action_type = st.radio(
-            "Action à appliquer sur les éléments cochés :",
-            [
-                "☁️ Sauvegarder dans le Cloud (Backup Google Sheets uniquement)",
-                "🗑️ Remise à Zéro (Suppression des données locales uniquement)",
-                "🔄 Backup Cloud ET Remise à Zéro (Sauvegarder puis Vider localement - Recommandé)"
-            ],
-            index=2
-        )
-        
-        st.divider()
-        
-        # --- Sécurité ---
-        st.markdown("### 🔒 Sécurité & Confirmation de l'Opération")
-        check_safety = st.checkbox("⚠️ Je confirme avoir sélectionné uniquement les modules à traiter et je comprends que la suppression locale est définitive.")
-        confirm_txt = st.text_input("Veuillez saisir 'CONFIRMER' en majuscules pour valider l'action :", key="wipe_confirm_input")
-        
-        if st.button("🚨 Lancer l'opération sur les éléments cochés", type="primary", use_container_width=True):
-            if not selected_modules:
-                st.error("❌ Veuillez sélectionner au moins un module.")
-            elif not check_safety:
-                st.error("❌ Veuillez cocher la case de confirmation de sécurité.")
-            elif confirm_txt != "CONFIRMER":
-                st.error("❌ Veuillez saisir exactement le mot 'CONFIRMER'.")
-            else:
-                progress_bar = st.progress(0.0)
-                success_logs = []
-                error_logs = []
+                step_success = True
                 
-                # Identification précise du mode choisi
-                do_backup = "Sauvegarder" in action_type or "Backup" in action_type
-                do_delete = "Remise à Zéro" in action_type or "Suppression" in action_type
-                
-                for idx_m, mod_name in enumerate(selected_modules):
-                    db_info = MODULES_DB[mod_name]
-                    worksheet = db_info["worksheet"]
-                    path = db_info["path"]
-                    cols = db_info["columns"]
-                    db_type = db_info["type"]
-                    
-                    step_success = True
-                    
-                    # 1. SAUVEGARDE CLOUD
-                    if do_backup:
-                        try:
-                            if os.path.exists(path):
-                                if db_type == "csv":
-                                    df_to_backup = pd.read_csv(path)
-                                    save_gs_data(df_to_backup, worksheet, path)
-                                elif db_type == "json":
-                                    import json
-                                    with open(path, 'r', encoding='utf-8') as f:
-                                        data_json = json.load(f)
-                                    df_to_backup = pd.DataFrame(data_json)
-                                    save_gs_data(df_to_backup, worksheet, path)
-                                success_logs.append(f"☁️ Cloud Backup : **{mod_name}** sauvegardé avec succès.")
-                            else:
-                                success_logs.append(f"ℹ️ Cloud Backup : **{mod_name}** ignoré (fichier local introuvable).")
-                        except Exception as e_backup:
-                            step_success = False
-                            error_logs.append(f"❌ Erreur Backup **{mod_name}** : {e_backup}")
-                    
-                    # 2. REMISE A ZERO LOCALE
-                    if do_delete and step_success:
-                        try:
-                            # Assurer l'existence du dossier
-                            os.makedirs(os.path.dirname(path) if os.path.dirname(path) else ".", exist_ok=True)
-                            
+                # 1. Sauvegarde Cloud
+                if do_backup:
+                    try:
+                        if os.path.exists(path):
                             if db_type == "csv":
-                                df_empty = pd.DataFrame(columns=cols)
-                                df_empty.to_csv(path, index=False, sep=',', encoding='utf-8-sig')
+                                df_to_backup = pd.read_csv(path)
+                                save_gs_data(df_to_backup, worksheet, path)
                             elif db_type == "json":
-                                import json
-                                # Sécurité Anti-lockout pour le compte Administrateur
-                                if worksheet == "Utilisateurs":
-                                    default_users = [{"username": "admin", "password": "admin", "role": "Admin", "pages": "All", "nom": "Admin", "prenom": "Systeme", "zone": "Toutes"}]
-                                    with open(path, 'w', encoding='utf-8') as f:
-                                        json.dump(default_users, f, indent=4, ensure_ascii=False)
-                                else:
-                                    with open(path, 'w', encoding='utf-8') as f:
-                                        json.dump([], f, indent=4, ensure_ascii=False)
-                            
-                            success_logs.append(f"🗑️ Remise à Zéro : **{mod_name}** réinitialisé à vide.")
-                        except Exception as e_del:
-                            error_logs.append(f"❌ Erreur Suppression **{mod_name}** : {e_del}")
-                    
-                    progress_bar.progress((idx_m + 1) / len(selected_modules))
+                                with open(path, 'r', encoding='utf-8') as f:
+                                    data_json = json.load(f)
+                                df_to_backup = pd.DataFrame(data_json)
+                                save_gs_data(df_to_backup, worksheet, path)
+                            success_logs.append(f"☁️ Cloud Backup : **{mod_name}** sauvegardé avec succès.")
+                        else:
+                            success_logs.append(f"ℹ️ Cloud Backup : **{mod_name}** ignoré (fichier local introuvable).")
+                    except Exception as e_backup:
+                        step_success = False
+                        error_logs.append(f"❌ Erreur Backup **{mod_name}** : {e_backup}")
                 
-                # Invalidation du cache Streamlit
-                st.cache_data.clear()
+                # 2. Remise à zéro locale
+                if do_delete and step_success:
+                    try:
+                        dir_path = os.path.dirname(path)
+                        if dir_path:
+                            os.makedirs(dir_path, exist_ok=True)
+                        
+                        if db_type == "csv":
+                            df_empty = pd.DataFrame(columns=cols)
+                            df_empty.to_csv(path, index=False, sep=',', encoding='utf-8-sig')
+                        elif db_type == "json":
+                            if worksheet == "Utilisateurs":
+                                default_users = [{"username": "admin", "password": "admin", "role": "Admin", "pages": "All", "nom": "Admin", "prenom": "Systeme", "zone": "Toutes"}]
+                                with open(path, 'w', encoding='utf-8') as f:
+                                    json.dump(default_users, f, indent=4, ensure_ascii=False)
+                            else:
+                                with open(path, 'w', encoding='utf-8') as f:
+                                    json.dump([], f, indent=4, ensure_ascii=False)
+                        
+                        success_logs.append(f"🗑️ Remise à Zéro : **{mod_name}** réinitialisé à vide.")
+                    except Exception as e_del:
+                        error_logs.append(f"❌ Erreur Suppression **{mod_name}** : {e_del}")
                 
-                # Affichage des comptes-rendus
-                if success_logs:
-                    st.success("### 🎉 Opérations Réussies :\n" + "\n".join([f"- {log}" for log in success_logs]))
-                if error_logs:
-                    st.error("### ⚠️ Erreurs Rencontrées :\n" + "\n".join([f"- {log}" for log in error_logs]))
-                    
-                st.balloons()
+                progress_bar.progress((idx_m + 1) / len(selected_modules))
+            
+            # Invalidation du cache et résultats
+            st.cache_data.clear()
+            
+            if success_logs:
+                st.success("### 🎉 Opérations Réussies :\n" + "\n".join([f"- {log}" for log in success_logs]))
+            if error_logs:
+                st.error("### ⚠️ Erreurs Rencontrées :\n" + "\n".join([f"- {log}" for log in error_logs]))
+                
+            st.balloons()
