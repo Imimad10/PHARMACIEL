@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 from datetime import datetime
 from utils_gsheets import load_gs_data, save_gs_data
 from utils_ia import ask_ai, is_ia_enabled
+from utils_pdf import generate_inventory_report_pdf
 
 # --- 1. CONFIGURATION ---
 RECLAM_WORKSHEET = "Analyse_Reclamations"
@@ -38,13 +39,13 @@ st.markdown("""
     }
     
     .metric-card {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: var(--bg-card, linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%));
+        border: 1px solid rgba(150, 150, 150, 0.2);
         border-radius: 20px;
         padding: 24px;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         text-align: center;
-        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
         margin-bottom: 15px;
@@ -59,9 +60,7 @@ st.markdown("""
         font-size: 2rem;
         font-weight: 800;
         margin: 5px 0;
-        background: linear-gradient(90deg, #ffffff, #e2e8f0);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        color: var(--text-primary, #333);
     }
     .metric-val-vibrant {
         background: linear-gradient(90deg, #6366f1, #a855f7);
@@ -639,6 +638,39 @@ if "df_reclam_analysed" in st.session_state:
         else:
             st.info("Données insuffisantes pour la matrice.")
 
+        # --- ACTIONS TAB 0 ---
+        st.markdown("---")
+        col_act0_1, col_act0_2 = st.columns(2)
+        with col_act0_1:
+            if not df_filtered.empty and df_filtered['cree_par'].nunique() > 0:
+                df_export_0 = df_comm_statut.copy()
+                df_export_0.columns = ['Commercial', 'Statut', 'Nb_Réclamations']
+                pdf_data_0 = generate_inventory_report_pdf(
+                    df_export_0,
+                    title=f"RAPPORT KPIs RECLAMATIONS - {datetime.now().strftime('%d/%m/%Y')}",
+                    cols_to_include=['Commercial', 'Statut', 'Nb_Réclamations'],
+                    orientation='P'
+                )
+                st.download_button(
+                    "📥 Télécharger le Rapport KPI en PDF",
+                    data=pdf_data_0,
+                    file_name=f"Rapport_KPIs_{datetime.now().strftime('%Y%m%d')}.pdf",
+                    mime='application/pdf',
+                    use_container_width=True,
+                    type="primary"
+                )
+        with col_act0_2:
+            if is_ia_enabled() and not df_filtered.empty:
+                if st.button("🧠 Analyser les KPIs avec l'IA", use_container_width=True):
+                    with st.spinner("Analyse IA en cours..."):
+                        prompt_kpi = f"""Tu es un analyste expert de données. Analyse ces KPIs de réclamations:
+                        - Total Réclamations : {total_claims} (En cours: {nb_en_cours}, Clôturées: {nb_clotures})
+                        - Top Commercial : {top_comm} avec {top_comm_nb} réclamations
+                        - Temps moyen de clôture : {avg_closure_str}
+                        Fais un résumé concis des tendances et donne 2 recommandations stratégiques."""
+                        reponse_kpi = ask_ai(prompt_kpi)
+                        st.info(reponse_kpi)
+
     # ----------------- TAB 1 : PERFORMANCE COMMERCIAUX -----------------
     with tabs[1]:
         st.markdown("### 👥 Analyse Performance des Commerciaux")
@@ -794,6 +826,39 @@ if "df_reclam_analysed" in st.session_state:
                 else:
                     st.warning(f"⚠️ {len(df_breached)} réclamation(s) ont été déclarées plus de 48h après la facturation.")
                     st.dataframe(df_breached, use_container_width=True, hide_index=True)
+
+            # --- ACTIONS TAB 1 ---
+            st.markdown("---")
+            col_act1_1, col_act1_2 = st.columns(2)
+            with col_act1_1:
+                if not df_vol.empty:
+                    df_export_1 = display_vol.copy()
+                    pdf_data_1 = generate_inventory_report_pdf(
+                        df_export_1,
+                        title=f"PERFORMANCE COMMERCIAUX - {datetime.now().strftime('%d/%m/%Y')}",
+                        cols_to_include=['Commercial', 'Total', 'En Cours', 'Clôturées', 'Délai Moy.'],
+                        orientation='P'
+                    )
+                    st.download_button(
+                        "📥 Télécharger le Rapport Performance en PDF",
+                        data=pdf_data_1,
+                        file_name=f"Rapport_Perf_Commerciaux_{datetime.now().strftime('%Y%m%d')}.pdf",
+                        mime='application/pdf',
+                        use_container_width=True,
+                        type="primary"
+                    )
+            with col_act1_2:
+                if is_ia_enabled() and not df_vol.empty:
+                    if st.button("🧠 Analyser la Performance Commerciale", use_container_width=True):
+                        with st.spinner("Analyse IA en cours..."):
+                            vol_dict = display_vol[['Commercial', 'Total']].set_index('Commercial').to_dict()['Total']
+                            prompt_perf = f"""Tu es un directeur commercial. Analyse ces performances (Nb de réclamations par commercial):
+                            {vol_dict}
+                            - Quota autorisé : {QUOTA_MAX} par mois.
+                            - Taux global SLA 48h : {sla_rate if 'sla_rate' in locals() else 'N/A'}%
+                            Identifie les commerciaux les plus performants (le moins de réclamations) et ceux nécessitant un coaching, et propose 2 actions de coaching."""
+                            reponse_perf = ask_ai(prompt_perf)
+                            st.info(reponse_perf)
 
     # ----------------- TAB 2 : AUDIT & ALERTES -----------------
     with tabs[2]:
