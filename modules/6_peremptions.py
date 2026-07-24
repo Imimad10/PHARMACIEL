@@ -89,7 +89,9 @@ with tab1:
                 'produit': 'designation', 'designation': 'designation',
                 'n°lot': 'lot', 'lot': 'lot',
                 'peremption': 'ddp', 'ddp': 'ddp',
-                'qte_logi': 'qte_saisie', 'quantite': 'qte_saisie', 'stock_theorique': 'qte_saisie'
+                'qte_logi': 'qte_saisie', 'quantite': 'qte_saisie', 'stock_theorique': 'qte_saisie',
+                'qte': 'qte_saisie', 'quantité': 'qte_saisie', 'stock': 'qte_saisie',
+                'depot': 'depot', 'dépôt': 'depot', 'zone': 'depot', 'magasin': 'depot'
             }
             # Nettoyage minimaliste
             new_cols = []
@@ -171,8 +173,13 @@ with tab1:
                 clean_source = source_data.replace("📝", "").replace("📑", "").strip()
                 title_report = f"RAPPORT PEREMPTIONS - {clean_source}"
                 
+                cols_pdf = ['designation', 'lot', date_col, 'Statut']
+                if 'qte_saisie' in df_res.columns: cols_pdf.append('qte_saisie')
+                if 'depot' in df_res.columns: cols_pdf.append('depot')
+                elif 'zone' in df_res.columns: cols_pdf.append('zone')
+                
                 if st.download_button("📥 Télécharger le Rapport PDF Filtré", 
-                                    generate_inventory_report_pdf(df_to_export, title_report, cols_to_include=['designation', 'lot', date_col, 'Statut']), 
+                                    generate_inventory_report_pdf(df_to_export, title_report, cols_to_include=cols_pdf, orientation='L'), 
                                     f"Rapport_Peremptions_{datetime.now().strftime('%Y%m%d')}.pdf", 
                                     "application/pdf",
                                     use_container_width=True,
@@ -188,6 +195,10 @@ with tab1:
                 st.markdown("### 📋 Liste détaillée des produits")
                 # Utiliser date_col dynamiquement
                 cols_to_show = ['designation', 'lot', date_col, 'Statut', 'mois_restants']
+                for c in ['qte_saisie', 'depot', 'zone']:
+                    if c in df_res.columns and c not in cols_to_show:
+                        cols_to_show.append(c)
+                        
                 df_sorted = df_res.sort_values('expiry_date')[cols_to_show]
                 # Formater la date pour affichage
                 df_sorted[date_col] = pd.to_datetime(df_sorted[date_col], errors='coerce').dt.strftime('%m/%Y')

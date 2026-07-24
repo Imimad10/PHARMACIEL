@@ -239,44 +239,77 @@ def clean_col(c):
     c = str(c).strip().lower()
     return ''.join(ch for ch in unicodedata.normalize('NFD', c) if unicodedata.category(ch) != 'Mn')
 
+def get_raw_col_name(df, target_internal):
+    """Trouver le vrai nom de colonne (brut) depuis un nom interne."""
+    for raw_col in df.columns:
+        norm = clean_col(raw_col)
+        if norm == target_internal or GSHEET_COL_MAP.get(norm, norm) == target_internal:
+            return raw_col
+    return target_internal
+
 # ─── MAPPING STRICT DES COLONNES GSHEET ────────────────────────────────────
 # Dictionnaire de renommage : clé = nom normalisé GSheet, valeur = nom interne
 GSHEET_COL_MAP = {
     # Statut & Identifiants
     'statut':                   'statut',
     'reference':                'reference',
+    'statut bon':               'statut_bon',
+    'statut_bon':               'statut_bon',
+    'bon statut':               'statut_bon',
+    'etat':                     'statut_bon',
     # Dates
     'date':                     'date',
-    'date creation':            'date_creation',
     'date creation':            'date_creation',
     'cree le':                  'date_creation',
     'date validation':          'date_validation',
     'date cloture':             'date_cloture',
-    'date cloture':             'date_cloture',
     'ferme le':                 'date_cloture',
+    'date facture':             'date_facture',
     # Acteurs
     'client':                   'client',
-    'creer par':                'cree_par',           # Commercial créateur
+    'creer par':                'cree_par',
     'cree par':                 'cree_par',
     'valider par':              'valider_par',
     'cloturee par':             'cloturer_par',
     'cloturer par':             'cloturer_par',
     'fermeture utilisateur':    'fermeture_utilisateur',
-    # Facturation / Référence Commande
+    'verifier par':             'verifier_par',
+    'responsable':              'responsable',
+    # Facturation
     'ref facture':              'ref_facture',
     'ref.facture':              'ref_facture',
-    'date facture':             'date_facture',
-    # Existants / compatibilité
+    # Produit
+    'produit':                  'produit',
+    'designation':              'produit',
+    'produit court':            'produit',
+    'lot':                      'lot',
+    'n lot':                    'lot',
+    'quantite':                 'quantite',
+    'qte':                      'quantite',
+    'quantite reclamee':        'quantite',
+    # Financier
     'code':                     'code_client',
     'code client':              'code_client',
     'categorie':                'motif',
     'categorie de reclamation': 'motif',
     'valeur':                   'valeur_vente',
     'montant':                  'valeur_vente',
+    'valeur vente':             'valeur_vente',
+    'cout revient':             'cout_revient',
+    # Divers
     'commercial':               'commercial',
     'region':                   'region',
-    'produit':                  'produit',
+    'reponse':                  'reponse',
+    'avis dt':                  'avis_dt',
+    'avis direction technique': 'avis_dt',
+    'offre':                    'offre',
+    'delai reclam':             'delai_reclam',
+    'delai':                    'delai_reclam',
+    'remarque ligne':           'remarque_ligne',
+    'remarque':                 'remarque_ligne',
+    'region':                   'region',
 }
+
 
 df_db_raw = df_db.copy()
 df_db_raw.columns = [clean_col(c) for c in df_db_raw.columns]
@@ -893,21 +926,37 @@ if "df_reclam_analysed" in st.session_state:
     def save_status_change(ref, produit_val, new_status):
         """Load DB, update statut_bon for the matching row, save back."""
         df_db = load_gs_data(RECLAM_WORKSHEET, RECLAM_FALLBACK)
-        mask = (df_db['reference'] == ref) & (df_db['produit'] == produit_val)
+        raw_ref = get_raw_col_name(df_db, 'reference')
+        raw_prod = get_raw_col_name(df_db, 'produit')
+        raw_statut_bon = get_raw_col_name(df_db, 'statut_bon')
+        raw_date_cloture = get_raw_col_name(df_db, 'date_cloture')
+        raw_cloturer_par = get_raw_col_name(df_db, 'cloturer_par')
+        raw_delai = get_raw_col_name(df_db, 'delai_reclam')
+        raw_date = get_raw_col_name(df_db, 'date')
+
+        mask = (df_db[raw_ref] == ref) & (df_db[raw_prod] == produit_val)
         if mask.any():
             today_str = datetime.now().strftime("%d-%m-%y %H:%M:%S")
-            df_db.loc[mask, 'statut_bon'] = new_status
+            df_db.loc[mask, raw_statut_bon] = new_status
             if new_status == "CLOTURER":
-                df_db.loc[mask, 'date_cloture'] = today_str
-                df_db.loc[mask, 'cloturer_par'] = st.session_state.current_user['username']
+                df_db.loc[mask, raw_date_cloture] = today_str
+                df_db.loc[mask, raw_cloturer_par] = st.session_state.current_user['username']
                 # Auto-calculate delai if not set
-                existing_delai = df_db.loc[mask, 'delai_reclam'].values[0]
-                if pd.isna(existing_delai) or str(existing_delai).strip() in ["", "nan"]:
-                    claim_date = parse_date_robust(df_db.loc[mask, 'date'].values[0])
+                existing_delai = df_db.loc[mask, raw_delai].values[0] if raw_delai in df_db.columns else None
+                if pd.isna(existing_delai) or str(existing_delai).strip() in ["", "nan", "None"]:
+                    claim_date = parse_date_robust(df_db.loc[mask, raw_date].values[0]) if raw_date in df_db.columns else pd.NaT
                     duration = max(0, (datetime.now() - claim_date).days) if not pd.isna(claim_date) else 0
-                    df_db.loc[mask, 'delai_reclam'] = float(duration)
+                    df_db.loc[mask, raw_delai] = float(duration)
             save_gs_data(df_db, RECLAM_WORKSHEET, RECLAM_FALLBACK)
-            st.session_state.df_reclam_analysed = df_db
+            # Recharger correctement avec les colonnes normalisées
+            df_db_raw_new = df_db.copy()
+            df_db_raw_new.columns = [clean_col(c) for c in df_db_raw_new.columns]
+            rename_map_new = {}
+            for raw_norm, internal in GSHEET_COL_MAP.items():
+                if raw_norm in df_db_raw_new.columns and raw_norm != internal:
+                    rename_map_new[raw_norm] = internal
+            df_db_raw_new.rename(columns=rename_map_new, inplace=True)
+            st.session_state.df_reclam_analysed = df_db_raw_new
             return True
         return False
 
@@ -1006,7 +1055,11 @@ if "df_reclam_analysed" in st.session_state:
 
                         if st.form_submit_button("💾 ENREGISTRER LA RÉSOLUTION & CLÔTURER LE LITIGE", type="primary", use_container_width=True):
                             df_db = load_gs_data(RECLAM_WORKSHEET, RECLAM_FALLBACK)
-                            mask = (df_db['reference'] == row['reference']) & (df_db['produit'] == row['produit'])
+                            
+                            raw_ref = get_raw_col_name(df_db, 'reference')
+                            raw_prod = get_raw_col_name(df_db, 'produit')
+                            
+                            mask = (df_db[raw_ref] == row['reference']) & (df_db[raw_prod] == row['produit'])
 
                             if mask.any():
                                 today = datetime.now()
@@ -1015,19 +1068,27 @@ if "df_reclam_analysed" in st.session_state:
                                 if duration < 0:
                                     duration = 0
 
-                                df_db.loc[mask, 'statut_bon'] = "CLOTURER"
-                                df_db.loc[mask, 'statut'] = statut_final
-                                df_db.loc[mask, 'reponse'] = reponse_text
-                                df_db.loc[mask, 'avis_dt'] = avis_dt_text
-                                df_db.loc[mask, 'verifier_par'] = verifier_par_val
-                                df_db.loc[mask, 'responsable'] = responsible_dept
-                                df_db.loc[mask, 'delai_reclam'] = float(duration)
-                                df_db.loc[mask, 'date_cloture'] = today.strftime("%d-%m-%y %H:%M:%S")
-                                df_db.loc[mask, 'cloturer_par'] = st.session_state.current_user['username']
-                                df_db.loc[mask, 'offre'] = action_type
+                                df_db.loc[mask, get_raw_col_name(df_db, 'statut_bon')] = "CLOTURER"
+                                df_db.loc[mask, get_raw_col_name(df_db, 'statut')] = statut_final
+                                df_db.loc[mask, get_raw_col_name(df_db, 'reponse')] = reponse_text
+                                df_db.loc[mask, get_raw_col_name(df_db, 'avis_dt')] = avis_dt_text
+                                df_db.loc[mask, get_raw_col_name(df_db, 'verifier_par')] = verifier_par_val
+                                df_db.loc[mask, get_raw_col_name(df_db, 'responsable')] = responsible_dept
+                                df_db.loc[mask, get_raw_col_name(df_db, 'delai_reclam')] = float(duration)
+                                df_db.loc[mask, get_raw_col_name(df_db, 'date_cloture')] = today.strftime("%d-%m-%y %H:%M:%S")
+                                df_db.loc[mask, get_raw_col_name(df_db, 'cloturer_par')] = st.session_state.current_user['username']
+                                df_db.loc[mask, get_raw_col_name(df_db, 'offre')] = action_type
 
                                 save_gs_data(df_db, RECLAM_WORKSHEET, RECLAM_FALLBACK)
-                                st.session_state.df_reclam_analysed = df_db
+                                
+                                df_db_raw_new = df_db.copy()
+                                df_db_raw_new.columns = [clean_col(c) for c in df_db_raw_new.columns]
+                                rename_map_new = {}
+                                for raw_norm, internal in GSHEET_COL_MAP.items():
+                                    if raw_norm in df_db_raw_new.columns and raw_norm != internal:
+                                        rename_map_new[raw_norm] = internal
+                                df_db_raw_new.rename(columns=rename_map_new, inplace=True)
+                                st.session_state.df_reclam_analysed = df_db_raw_new
 
                                 st.success("🎉 Réclamation clôturée et synchronisée avec succès !")
                                 st.balloons()
@@ -1149,17 +1210,31 @@ if "df_reclam_analysed" in st.session_state:
             if bulk_refs_input.strip():
                 refs_to_update = [r.strip() for r in bulk_refs_input.split(",") if r.strip()]
                 df_db_bulk = load_gs_data(RECLAM_WORKSHEET, RECLAM_FALLBACK)
+                
+                raw_ref_bulk = get_raw_col_name(df_db_bulk, 'reference')
+                raw_statut_bulk = get_raw_col_name(df_db_bulk, 'statut_bon')
+                raw_date_cloture_bulk = get_raw_col_name(df_db_bulk, 'date_cloture')
+                raw_cloturer_par_bulk = get_raw_col_name(df_db_bulk, 'cloturer_par')
+                
                 updated_count = 0
                 for ref_bulk in refs_to_update:
-                    mask_bulk = df_db_bulk['reference'] == ref_bulk
+                    mask_bulk = df_db_bulk[raw_ref_bulk] == ref_bulk
                     if mask_bulk.any():
-                        df_db_bulk.loc[mask_bulk, 'statut_bon'] = bulk_status_sel
+                        df_db_bulk.loc[mask_bulk, raw_statut_bulk] = bulk_status_sel
                         if bulk_status_sel == "CLOTURER":
-                            df_db_bulk.loc[mask_bulk, 'date_cloture'] = datetime.now().strftime("%d-%m-%y %H:%M:%S")
-                            df_db_bulk.loc[mask_bulk, 'cloturer_par'] = st.session_state.current_user['username']
+                            df_db_bulk.loc[mask_bulk, raw_date_cloture_bulk] = datetime.now().strftime("%d-%m-%y %H:%M:%S")
+                            df_db_bulk.loc[mask_bulk, raw_cloturer_par_bulk] = st.session_state.current_user['username']
                         updated_count += mask_bulk.sum()
                 save_gs_data(df_db_bulk, RECLAM_WORKSHEET, RECLAM_FALLBACK)
-                st.session_state.df_reclam_analysed = df_db_bulk
+                
+                df_db_raw_new = df_db_bulk.copy()
+                df_db_raw_new.columns = [clean_col(c) for c in df_db_raw_new.columns]
+                rename_map_new = {}
+                for raw_norm, internal in GSHEET_COL_MAP.items():
+                    if raw_norm in df_db_raw_new.columns and raw_norm != internal:
+                        rename_map_new[raw_norm] = internal
+                df_db_raw_new.rename(columns=rename_map_new, inplace=True)
+                st.session_state.df_reclam_analysed = df_db_raw_new
                 st.success(f"✅ {updated_count} ligne(s) mise(s) à jour avec le statut **{bulk_status_sel}** !")
                 st.rerun()
             else:
