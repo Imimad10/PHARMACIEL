@@ -152,7 +152,7 @@ def generate_inventory_report_pdf(df_diff, title="RAPPORT D'INVENTAIRE", cols_to
                 except: pass
                 
             # Nettoyer les emojis pour le PDF (FPDF ne supporte pas Unicode par défaut)
-            val = val.replace("❌", "[PERIME]").replace("⚠️", "[CRITIQUE]").replace("🟠", "[VIGILANCE]").replace("✅", "[SAIN]")
+            val = val.replace("❌", "[PERIME]").replace("⚠️", "[CRITIQUE]").replace("🟠", "[VIGILANCE]").replace("✅", "[SAIN]").replace("🔴", "[!]").replace("🟡", "[ATT]")
             val = val[:45]
             
             align = 'L' if i == 0 else 'C'

@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 from utils_gsheets import load_gs_data
 from utils_ia import ask_ai, is_ia_enabled
+from utils_pdf import generate_inventory_report_pdf
 
 # ─── CONFIGURATION ─────────────────────────────────────────────────────────────
 MASTER_WORKSHEET = "Master_Inventaire_Zone"
@@ -268,6 +269,22 @@ with col_left:
             df_alert[cols_display].style.apply(color_row, axis=1),
             use_container_width=True, hide_index=True
         )
+        
+        # Bouton PDF alertes
+        pdf_alert_data = generate_inventory_report_pdf(
+            df_alert, 
+            title=f"RAPPORT ALERTES RUPTURE - {datetime.now().strftime('%d/%m/%Y')}",
+            cols_to_include=cols_display,
+            orientation='L'
+        )
+        st.download_button(
+            "📥 Télécharger les Alertes en PDF",
+            data=pdf_alert_data,
+            file_name=f"Alertes_Rupture_{datetime.now().strftime('%Y%m%d')}.pdf",
+            mime='application/pdf',
+            use_container_width=True,
+            type="primary"
+        )
 
 with col_right:
     st.markdown("### 📋 Actions")
@@ -316,14 +333,31 @@ with st.expander(f"📋 Liste Complète des Produits ({len(df_view)} produits)",
     cols_display_all = ['Statut', 'Produit', 'Dépôt', 'Zone', 'Nb Lots', 'Stock Total', 'Rotation/Jour', 'Jours Restants', 'Date Rupture Estimée']
     st.dataframe(df_view[cols_display_all], use_container_width=True, hide_index=True)
     
-    csv_data = df_view.to_csv(index=False, sep=';', encoding='utf-8-sig')
-    st.download_button(
-        "📥 Télécharger le rapport CSV",
-        data=csv_data.encode('utf-8-sig'),
-        file_name=f"Rapport_Ruptures_{datetime.now().strftime('%Y%m%d')}.csv",
-        mime='text/csv',
-        use_container_width=True
-    )
+    dl_col1, dl_col2 = st.columns(2)
+    with dl_col1:
+        pdf_full_data = generate_inventory_report_pdf(
+            df_view, 
+            title=f"RAPPORT COMPLET RUPTURES - {datetime.now().strftime('%d/%m/%Y')}",
+            cols_to_include=cols_display_all,
+            orientation='L'
+        )
+        st.download_button(
+            "📥 Télécharger en PDF",
+            data=pdf_full_data,
+            file_name=f"Rapport_Ruptures_{datetime.now().strftime('%Y%m%d')}.pdf",
+            mime='application/pdf',
+            use_container_width=True,
+            type="primary"
+        )
+    with dl_col2:
+        csv_data = df_view.to_csv(index=False, sep=';', encoding='utf-8-sig')
+        st.download_button(
+            "📥 Télécharger en CSV",
+            data=csv_data.encode('utf-8-sig'),
+            file_name=f"Rapport_Ruptures_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime='text/csv',
+            use_container_width=True
+        )
 
 # ─── IA EXPERT ────────────────────────────────────────────────────────────────────
 st.markdown("---")
