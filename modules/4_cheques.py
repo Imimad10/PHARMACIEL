@@ -251,6 +251,10 @@ def save_cheques(df):
 
 def get_personnes(worksheet, fallback):
     df = load_gs_data(worksheet, fallback, COLS_PERSONNE)
+    # Force text columns to object dtype to prevent dtype coercion errors on assignment
+    for col in ["Nom", "Prenom", "Tel"]:
+        if col in df.columns:
+            df[col] = df[col].astype(object).fillna("")
     return ensure_unique_ids(df, worksheet, fallback)
 
 def ensure_unique_ids(df, worksheet, fallback):
@@ -666,11 +670,15 @@ def render_personnes_tab(worksheet, fallback, df, label_singulier, icon, show_sy
                         st.rerun()
                 with col_save:
                     if st.button("💾 Enregistrer", key=f"save_{key_prefix}", use_container_width=True, type="primary"):
-                        mask = df['ID'] == sel_id
-                        df.loc[mask, "Nom"] = nom.strip()
-                        df.loc[mask, "Prenom"] = prenom.strip()
-                        df.loc[mask, "Tel"] = tel.strip()
-                        save_personnes(df, worksheet, fallback)
+                        # Safe update: rebuild df to avoid pandas dtype coercion errors
+                        df_updated = df.copy()
+                        for col in ["Nom", "Prenom", "Tel"]:
+                            df_updated[col] = df_updated[col].astype(object)
+                        mask = df_updated['ID'] == sel_id
+                        df_updated.loc[mask, "Nom"] = nom.strip()
+                        df_updated.loc[mask, "Prenom"] = prenom.strip()
+                        df_updated.loc[mask, "Tel"] = tel.strip()
+                        save_personnes(df_updated, worksheet, fallback)
                         log_action(st.session_state.current_user['username'], f"Modification {label_singulier} : {nom} {prenom}", f"Gestion {label_singulier}s")
                         st.toast(f"✅ {label_singulier.capitalize()} mis à jour", icon="💾")
                         st.rerun()
