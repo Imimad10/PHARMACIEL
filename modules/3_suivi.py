@@ -20,8 +20,61 @@ import time
 # --- CONFIGURATION ---
 WORKSHEET_SUIVI = "Suivi_Frigo"
 FALLBACK_SUIVI = "suivi_data.csv"
-CHAMBRES = ["Chambre Froide 1", "Chambre Froide 2"]
 COLS_SUIVI = ["Date", "Heure", "Température", "Agent", "Statut", "Commentaire", "Type", "Chambre"]
+
+# --- STRUCTURE DES ZONES / UNITES DE MESURE ---
+# Chaque zone définit : ses unités, sa plage conforme (min/max) et la plage
+# du slider de saisie rapide (slider_min/slider_max) + une valeur par défaut.
+ZONES = {
+    "Chambre Froide": {
+        "unites": ["Chambre Froide 1", "Chambre Froide 2"],
+        "min": 2.0,
+        "max": 8.0,
+        "slider_min": -10.0,
+        "slider_max": 20.0,
+        "default": 4.0,
+    },
+    "Stock": {
+        "unites": ["Stock - Thermomètre 1", "Stock - Thermomètre 2"],
+        "min": 23.0,
+        "max": 28.0,
+        "slider_min": 15.0,
+        "slider_max": 35.0,
+        "default": 25.0,
+    },
+    "Salle de Préparation": {
+        "unites": ["Zone 1", "Zone 4", "Ascenseur"],
+        "min": 23.0,
+        "max": 28.0,
+        "slider_min": 15.0,
+        "slider_max": 35.0,
+        "default": 25.0,
+    },
+}
+
+# Liste à plat de toutes les unités (pour les sélecteurs dashboard / admin)
+ALL_UNITS = [u for zone in ZONES.values() for u in zone["unites"]]
+
+# Mapping unité -> nom de la zone à laquelle elle appartient
+UNIT_TO_ZONE = {u: zname for zname, zinfo in ZONES.items() for u in zinfo["unites"]}
+
+# Conservé pour compatibilité (ancien nom utilisé ailleurs dans l'app)
+CHAMBRES = ZONES["Chambre Froide"]["unites"]
+
+
+def get_zone_for_unit(unit):
+    """Retourne le nom de la zone (catégorie) pour une unité donnée."""
+    return UNIT_TO_ZONE.get(unit, "Chambre Froide")
+
+
+def get_range_for_unit(unit):
+    """Retourne (min, max) conforme pour une unité donnée. Fallback Chambre Froide si inconnue."""
+    zname = UNIT_TO_ZONE.get(unit)
+    if zname:
+        info = ZONES[zname]
+        return info["min"], info["max"]
+    return ZONES["Chambre Froide"]["min"], ZONES["Chambre Froide"]["max"]
+
 
 if "tz_offset" not in st.session_state:
     st.session_state.tz_offset = 1
@@ -98,6 +151,18 @@ st.markdown("""
         transform: scale(1.02);
         box-shadow: 0 10px 20px rgba(91, 108, 249, 0.3);
     }
+
+    .zone-tag {
+        display: inline-block;
+        background: #eef1ff;
+        color: #364fc7;
+        font-weight: 700;
+        font-size: 0.75rem;
+        padding: 4px 12px;
+        border-radius: 12px;
+        margin-bottom: 10px;
+        letter-spacing: 0.5px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -105,11 +170,18 @@ st.markdown("""
 def clean_frigo_data(df):
     if 'Température' in df.columns:
         df['Température'] = pd.to_numeric(df['Température'], errors='coerce')
-        df.loc[(df['Température'] >= 2.0) & (df['Température'] <= 8.0), 'Statut'] = 'OK'
-        df.loc[(df['Température'] < 2.0) | (df['Température'] > 8.0), 'Statut'] = 'ALERTE'
+
+        def compute_status(row):
+            t = row['Température']
+            if pd.isna(t):
+                return row.get('Statut', '')
+            tmin, tmax = get_range_for_unit(row.get('Chambre', ''))
+            return 'OK' if tmin <= t <= tmax else 'ALERTE'
+
+        df['Statut'] = df.apply(compute_status, axis=1)
     if 'Type' in df.columns:
-        df['Type'] = df['Type'].replace('Relevé Standard', 'Plage idéale :+2°C+8°C')
-    if 'Chambre' not in df.columns: df['Chambre'] = CHAMBRES[0]
+        df['Type'] = df['Type'].replace('Relevé Standard', 'Plage idéale selon zone')
+    if 'Chambre' not in df.columns: df['Chambre'] = ALL_UNITS[0]
     return df
 
 def get_data():
@@ -145,29 +217,42 @@ tabs = st.tabs(["🎮 Pilotage & Saisie", "📈 Dashboards", "📑 Rapports & Ad
 
 # --- TAB 1 : PILOTAGE ---
 with tabs[0]:
-    col_sel1, col_sel2 = st.columns([1, 1])
-    room = col_sel1.radio("Choisir l'unité", CHAMBRES, horizontal=True, label_visibility="collapsed")
-    
+    col_sel1, col_sel2 = st.columns([1, 1.3])
+    with col_sel1:
+        categorie = st.radio("Catégorie", list(ZONES.keys()), horizontal=True)
+    zone_info = ZONES[categorie]
+    with col_sel2:
+        room = st.radio("Unité", zone_info["unites"], horizontal=True, key=f"unit_radio_{categorie}")
+
     st.markdown("<br>", unsafe_allow_html=True)
-    
+
     col_input, col_info = st.columns([1.5, 1])
-    
+
     with col_input:
-        # Thermostat visuel interactif
-        val_temp = st.slider("Ajuster la température", -10.0, 20.0, 4.0, 0.1, label_visibility="collapsed")
-        
+        # Thermostat visuel interactif (plage du slider adaptée à la catégorie)
+        val_temp = st.slider(
+            "Ajuster la température",
+            zone_info["slider_min"], zone_info["slider_max"], zone_info["default"], 0.1,
+            key=f"slider_{categorie}",
+            label_visibility="collapsed"
+        )
+
+        tmin, tmax = zone_info["min"], zone_info["max"]
+
         # Logique de couleur dynamique
-        t_color = "#10b981" # Green
-        if val_temp < 2.0: t_color = "#5b6cf9" # Blue
-        elif val_temp > 8.0: t_color = "#ef4444" # Red
-        
+        t_color = "#10b981"  # Green (conforme)
+        if val_temp < tmin: t_color = "#5b6cf9"  # Blue (trop froid)
+        elif val_temp > tmax: t_color = "#ef4444"  # Red (trop chaud)
+
         st.markdown(f"""
             <div class="thermostat-card">
+                <div class="zone-tag">{categorie.upper()}</div>
                 <div style="color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">{room}</div>
                 <div class="temp-display" style="color: {t_color};">{val_temp}°C</div>
                 <div style="background: {t_color}1a; color: {t_color}; padding: 8px 20px; border-radius: 20px; display: inline-block; font-weight: bold;">
-                    {"CONFORME ✅" if 2.0 <= val_temp <= 8.0 else "HORS PLAGE ⚠️"}
+                    {"CONFORME ✅" if tmin <= val_temp <= tmax else "HORS PLAGE ⚠️"}
                 </div>
+                <div style="margin-top: 12px; color: #94a3b8; font-size: 0.75rem;">Plage conforme : {tmin:g}°C à {tmax:g}°C</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -175,8 +260,8 @@ with tabs[0]:
         st.markdown(f"""<div class="quick-btn" onclick="">🚀 ENREGISTREMENT RAPIDE ({val_temp:.1f}°C)</div>""", unsafe_allow_html=True)
         if st.button(f"Confirmer {val_temp:.1f}°C", use_container_width=True):
             now = get_now()
-            status = "OK" if 2.0 <= val_temp <= 8.0 else "ALERTE"
-            save_entry({"Date": now.strftime("%d/%m/%Y"), "Heure": now.strftime("%H:%M"), "Température": val_temp, "Agent": st.session_state.current_user['username'], "Statut": status, "Commentaire": "Rapide", "Type": "Plage idéale :+2°C+8°C", "Chambre": room})
+            status = "OK" if tmin <= val_temp <= tmax else "ALERTE"
+            save_entry({"Date": now.strftime("%d/%m/%Y"), "Heure": now.strftime("%H:%M"), "Température": val_temp, "Agent": st.session_state.current_user['username'], "Statut": status, "Commentaire": "Rapide", "Type": "Standard", "Chambre": room})
             st.rerun()
             
         with st.form("full_entry", clear_on_submit=True):
@@ -184,7 +269,7 @@ with tabs[0]:
             comm = st.text_input("Note (Optionnel)")
             if st.form_submit_button("VALIDER LE RELEVÉ", use_container_width=True):
                 now = get_now()
-                save_entry({"Date": now.strftime("%d/%m/%Y"), "Heure": now.strftime("%H:%M"), "Température": val_temp, "Agent": st.session_state.current_user['username'], "Statut": "OK" if 2.0 <= val_temp <= 8.0 else "ALERTE", "Commentaire": comm, "Type": motif, "Chambre": room})
+                save_entry({"Date": now.strftime("%d/%m/%Y"), "Heure": now.strftime("%H:%M"), "Température": val_temp, "Agent": st.session_state.current_user['username'], "Statut": "OK" if tmin <= val_temp <= tmax else "ALERTE", "Commentaire": comm, "Type": motif, "Chambre": room})
                 st.rerun()
 
 # --- TAB 2 : DASHBOARD ---
@@ -192,7 +277,8 @@ with tabs[1]:
     if df_all.empty:
         st.info("Aucune donnée disponible.")
     else:
-        room_dash = st.selectbox("Unité de visualisation", CHAMBRES)
+        room_dash = st.selectbox("Unité de visualisation", ALL_UNITS)
+        dash_tmin, dash_tmax = get_range_for_unit(room_dash)
         df = df_all[df_all['Chambre'] == room_dash].copy()
         
         if not df.empty:
@@ -206,12 +292,13 @@ with tabs[1]:
             c3.markdown(f"""<div class="kpi-tile"><div style="font-size: 0.8rem; color: #64748b;">CONFORMITÉ</div><div style="font-size: 1.5rem; font-weight: 800; color: #10b981;">{conf:.0f}%</div></div>""", unsafe_allow_html=True)
             c4.markdown(f"""<div class="kpi-tile"><div style="font-size: 0.8rem; color: #64748b;">ALERTES</div><div style="font-size: 1.5rem; font-weight: 800; color: #ef4444;">{len(df[df['Statut']=='ALERTE'])}</div></div>""", unsafe_allow_html=True)
             
+            st.caption(f"Zone : **{get_zone_for_unit(room_dash)}** | Plage conforme : **{dash_tmin:g}°C à {dash_tmax:g}°C**")
             st.markdown("<br>", unsafe_allow_html=True)
             
             fig = px.line(df.tail(48), x="Timestamp", y="Température", markers=True, 
                          template="plotly_white", color_discrete_sequence=["#5b6cf9"])
-            fig.add_hline(y=8, line_dash="dot", line_color="red", annotation_text="Max 8°C")
-            fig.add_hline(y=2, line_dash="dot", line_color="blue", annotation_text="Min 2°C")
+            fig.add_hline(y=dash_tmax, line_dash="dot", line_color="red", annotation_text=f"Max {dash_tmax:g}°C")
+            fig.add_hline(y=dash_tmin, line_dash="dot", line_color="blue", annotation_text=f"Min {dash_tmin:g}°C")
             fig.update_layout(hovermode="x unified", margin=dict(l=0, r=0, t=20, b=0))
             st.plotly_chart(fig, use_container_width=True)
             
@@ -247,10 +334,15 @@ with tabs[2]:
                 options=[2026, 2027],
                 index=0 if get_now().year == 2026 else 1
             )
-            
+
+        sel_categorie = st.selectbox("Catégorie / Zone", options=list(ZONES.keys()))
+        cat_info = ZONES[sel_categorie]
+        cat_units = cat_info["unites"]
+
+        toutes_label = f"Toutes les unités de {sel_categorie} ({len(cat_units)} pages)"
         sel_chambre = st.selectbox(
-            "Unité / Chambre Froide",
-            options=["Chambre Froide 1", "Chambre Froide 2", "Toutes les unités (2 pages)"],
+            "Unité",
+            options=cat_units + [toutes_label],
             index=0
         )
         
@@ -266,22 +358,22 @@ with tabs[2]:
         if not sel_hours:
             st.warning("Veuillez saisir au moins une heure de relevé.")
         else:
-            chambres_to_gen = CHAMBRES
-            suffixe = "Toutes"
-            if "Chambre Froide 1" in sel_chambre:
-                chambres_to_gen = ["Chambre Froide 1"]
-                suffixe = "CF1"
-            elif "Chambre Froide 2" in sel_chambre:
-                chambres_to_gen = ["Chambre Froide 2"]
-                suffixe = "CF2"
-                
+            if sel_chambre == toutes_label:
+                chambres_to_gen = cat_units
+                suffixe = sel_categorie.replace(" ", "")
+            else:
+                chambres_to_gen = [sel_chambre]
+                suffixe = sel_chambre.replace(" ", "")
+
             nom_fichier = f"Fiche_Temp_{suffixe}_{sel_year}_{sel_month:02d}.pdf"
             try:
                 pdf_bytes = generate_fiche_temperature_pdf(
                     year=sel_year,
                     month=sel_month,
                     hours=sel_hours,
-                    chambres=chambres_to_gen
+                    chambres=chambres_to_gen,
+                    temp_min=cat_info["min"],
+                    temp_max=cat_info["max"],
                 )
                 st.download_button(
                     label="📄 Télécharger Fiche Manuelle",
@@ -290,7 +382,7 @@ with tabs[2]:
                     mime="application/pdf",
                     use_container_width=True,
                 )
-                st.caption(f"ℹ️ Fiche pré-remplie pour **{sel_chambre}** ({sel_month_name} {sel_year}) à **{', '.join(sel_hours)}**.")
+                st.caption(f"ℹ️ Fiche pré-remplie pour **{sel_chambre}** ({sel_month_name} {sel_year}) à **{', '.join(sel_hours)}** | Plage : **{cat_info['min']:g}°C à {cat_info['max']:g}°C**.")
             except Exception as e:
                 st.error(f"Erreur lors de la génération : {e}")
             
@@ -313,16 +405,17 @@ with tabs[2]:
                     retro_heure = st.text_input("Heure (ex: 17:00)", value="17:00")
                 with col_r2:
                     retro_temp = st.number_input("Température (°C)", value=4.0, min_value=-20.0, max_value=40.0, step=0.1)
-                    retro_chambre = st.selectbox("Chambre / Unité", CHAMBRES)
+                    retro_chambre = st.selectbox("Chambre / Unité", ALL_UNITS)
                 with col_r3:
                     retro_agent = st.text_input("Agent", value=st.session_state.current_user['username'])
-                    retro_type = st.selectbox("Type de relevé", ["Plage idéale :+2°C+8°C", "Arrivage", "Maintenance", "Nettoyage"])
+                    retro_type = st.selectbox("Type de relevé", ["Standard", "Arrivage", "Maintenance", "Nettoyage"])
                 
                 retro_comment = st.text_input("Commentaire (Optionnel)", value="Saisie rétroactive")
                 
                 if st.form_submit_button("💾 ENREGISTRER LE RELEVÉ RETROACTIF", use_container_width=True):
                     now_str = retro_date.strftime("%d/%m/%Y")
-                    status_calc = "OK" if 2.0 <= retro_temp <= 8.0 else "ALERTE"
+                    r_tmin, r_tmax = get_range_for_unit(retro_chambre)
+                    status_calc = "OK" if r_tmin <= retro_temp <= r_tmax else "ALERTE"
                     
                     new_entry = {
                         "Date": now_str,

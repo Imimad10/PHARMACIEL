@@ -455,10 +455,100 @@ def generate_rh_planning_pdf(df, title="PLANNING & PERMANENCES", model="Classiqu
         return bytes(raw)
     return raw.encode('latin-1', 'replace')
 
-def generate_fiche_temperature_pdf(year=None, month=None, hours=None, chambres=None, mois_label=None):
+def generate_cheques_report_pdf(df, subtitle=""):
     """
-    Génère une fiche de relevé de température vierge pour une ou plusieurs chambres.
-    Chaque chambre tient sur UNE SEULE page A4 grâce à un format compact en colonnes.
+    Génère un rapport PDF de la liste des chèques (filtrée ou complète).
+    df doit contenir les colonnes : N, Chauffeur, Client, Montant, N_Cheque,
+    Date_Sortie, Date_Retour, Statut.
+    Les lignes sont colorées selon le statut (vert=Réglé, jaune=En attente, rouge=Refusée).
+    """
+    STATUT_FILL = {
+        "Réglé": (209, 250, 229),
+        "En attente": (254, 243, 199),
+        "Refusée": (254, 226, 226),
+    }
+
+    pdf = InventoryPDF()
+    pdf.title_text = "SUIVI DES CHEQUES"
+    pdf.subtitle_text = subtitle
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    # --- Résumé ---
+    total = len(df)
+    montant_total = pd.to_numeric(df['Montant'], errors='coerce').fillna(0).sum() if not df.empty else 0
+    n_regle = len(df[df['Statut'] == 'Réglé']) if not df.empty else 0
+    n_attente = len(df[df['Statut'] == 'En attente']) if not df.empty else 0
+    n_refuse = len(df[df['Statut'] == 'Refusée']) if not df.empty else 0
+
+    pdf.set_font('Arial', 'B', 11)
+    pdf.cell(0, 8, "RESUME", 0, 1)
+    pdf.set_font('Arial', '', 9)
+    pdf.cell(0, 6, f"Nombre total de cheques : {total}   |   Montant total : {montant_total:,.0f} DA".replace(",", " "), 0, 1)
+    pdf.cell(0, 6, f"Regles : {n_regle}   |   En attente : {n_attente}   |   Refuses : {n_refuse}", 0, 1)
+    pdf.ln(4)
+
+    # --- Tableau ---
+    cols_config = [
+        ("N", "N", 10),
+        ("Chauffeur", "Chauffeur", 33),
+        ("Client", "Client", 33),
+        ("Montant", "Montant", 24),
+        ("N_Cheque", "N Cheque", 27),
+        ("Date_Sortie", "Sortie", 21),
+        ("Date_Retour", "Retour", 21),
+        ("Statut", "Statut", 21),
+    ]
+
+    def draw_header():
+        pdf.set_font('Arial', 'B', 9)
+        pdf.set_fill_color(224, 228, 255)
+        for _, label, w in cols_config:
+            pdf.cell(w, 8, label, 1, 0, 'C', 1)
+        pdf.ln()
+
+    draw_header()
+    pdf.set_font('Arial', '', 8)
+
+    for _, row in df.iterrows():
+        if pdf.get_y() > 265:
+            pdf.add_page()
+            draw_header()
+            pdf.set_font('Arial', '', 8)
+
+        statut = str(row.get('Statut', ''))
+        fill_rgb = STATUT_FILL.get(statut, (255, 255, 255))
+        pdf.set_fill_color(*fill_rgb)
+
+        for key, _, w in cols_config:
+            val = row.get(key, "")
+            if key == "Montant":
+                try:
+                    val = f"{float(val):,.0f}".replace(",", " ")
+                except (ValueError, TypeError):
+                    val = str(val)
+            else:
+                val = str(val)
+            val = val[:22].encode('latin-1', 'replace').decode('latin-1')
+            align = 'L' if key in ("Chauffeur", "Client") else 'C'
+            pdf.cell(w, 7, val, 1, 0, align, 1)
+        pdf.ln()
+
+    raw = pdf.output(dest='S')
+    if isinstance(raw, (bytes, bytearray)):
+        return bytes(raw)
+    return raw.encode('latin-1', 'replace')
+
+
+def generate_fiche_temperature_pdf(year=None, month=None, hours=None, chambres=None, mois_label=None, temp_min=2.0, temp_max=8.0):
+    """
+    Génère une fiche de relevé de température vierge pour une ou plusieurs unités
+    (Chambre Froide, Stock, Salle de Préparation...).
+    Chaque unité tient sur UNE SEULE page A4 grâce à un format compact en colonnes.
+
+    temp_min / temp_max : bornes de la plage conforme à afficher sur la fiche.
+    Par défaut +2°C / +8°C (Chambre Froide) pour rester rétro-compatible avec
+    les appels existants qui ne précisent pas de plage.
     """
     import calendar
     from datetime import datetime
@@ -496,12 +586,20 @@ def generate_fiche_temperature_pdf(year=None, month=None, hours=None, chambres=N
     ]
     mois_label = f"{french_months[month]} {year}"
 
+    # Formatage propre des bornes de température (ex: 2.0 -> "+2°C", 23.5 -> "+23.5°C")
+    def fmt_temp(t):
+        t = float(t)
+        val = f"{t:+.0f}" if t.is_integer() else f"{t:+.1f}"
+        return f"{val}\u00b0C"
+
+    plage_txt = f"{fmt_temp(temp_min)} a {fmt_temp(temp_max)}"
+
     pdf = InventoryPDF()
     # Supprimer les marges superflues du haut (5mm) et du bas (5mm de garde) pour maximiser l'espace A4
     pdf.set_margins(10, 5, 10)
     pdf.set_auto_page_break(True, margin=5)
     pdf.title_text = "FICHE DE POINTAGE DES TEMPERATURES"
-    pdf.subtitle_text = f"Mois : {mois_label}   |   Plage conforme : +2\u00b0C a +8\u00b0C"
+    pdf.subtitle_text = f"Mois : {mois_label}   |   Plage conforme : {plage_txt}"
     pdf.alias_nb_pages()
 
     # Mapping jours
@@ -534,7 +632,9 @@ def generate_fiche_temperature_pdf(year=None, month=None, hours=None, chambres=N
         # Info conformite
         pdf.set_font('Arial', 'I', 8)
         pdf.set_text_color(80, 80, 80)
-        pdf.cell(0, 5, "Plage ideale : +2 degres C a +8 degres C  |  Frequence : Saisie manuelle  |  ALERTE si hors plage", 0, 1, 'C')
+        min_txt = f"{temp_min:+.0f}" if float(temp_min).is_integer() else f"{temp_min:+.1f}"
+        max_txt = f"{temp_max:+.0f}" if float(temp_max).is_integer() else f"{temp_max:+.1f}"
+        pdf.cell(0, 5, f"Plage ideale : {min_txt} degres C a {max_txt} degres C  |  Frequence : Saisie manuelle  |  ALERTE si hors plage", 0, 1, 'C')
         pdf.set_text_color(0, 0, 0)
         pdf.ln(1)
 

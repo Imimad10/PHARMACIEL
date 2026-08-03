@@ -517,9 +517,9 @@ GOLDEN_BACKUP_PATH = "data/golden_roles_backup.json"
 
 # Définition des pages par métier (synchronisée avec golden_roles_backup.json)
 PAGES_BY_METIER = {
-    "Admin": str(['Dashboard', 'Profil', 'Admin Centrale', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Pointage Marchandise', 'Réception Fournisseurs', 'Péremptions', 'Scanneur QR', 'Scan Mobile', 'Litiges Fournisseurs', 'Analyse Rotation', 'RH', 'RH Planning', 'Clients', 'Liste des Lots', 'Catalogue Produits', 'Page de Garde', 'Assistant IA', 'Transferts', 'Coordination', 'Qualité IA', 'Mon Coin', 'Briefing IA', 'Maintenance', 'Académie', 'Prévisions', 'Mode Meeting', 'Répartition Zones', 'Analyse Réclamations', 'Performance Ventes', 'Cortex IA', 'Automatisation', 'Portail B2B', 'Optimisation Tournées', 'Prédiction Rupture', 'Gestion Documentaire', 'Retours & Avoirs', 'Vigilance & Rappels', 'Campagnes & Remises']),
+    "Admin": str(['Dashboard', 'Profil', 'Admin Centrale', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Pointage Marchandise', 'Réception Fournisseurs', 'Péremptions', 'Scanneur QR', 'Scan Mobile', 'Litiges Fournisseurs', 'Analyse Rotation', 'RH', 'RH Planning', 'Clients', 'Chèques', 'Liste des Lots', 'Catalogue Produits', 'Page de Garde', 'Assistant IA', 'Transferts', 'Coordination', 'Qualité IA', 'Mon Coin', 'Briefing IA', 'Maintenance', 'Académie', 'Prévisions', 'Mode Meeting', 'Répartition Zones', 'Analyse Réclamations', 'Performance Ventes', 'Cortex IA', 'Automatisation', 'Portail B2B', 'Optimisation Tournées', 'Prédiction Rupture', 'Gestion Documentaire', 'Retours & Avoirs', 'Vigilance & Rappels', 'Campagnes & Remises']),
     "Agent de Stock": str(['Profil', 'Dashboard', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Péremptions', 'Liste des Lots', 'Catalogue Produits', 'Répartition Zones', 'Scanneur QR', 'Scan Mobile', 'Transferts']),
-    "Chef Livreurs & Parc": str(['Profil', 'Dashboard', 'Logistique', 'Pointage Expéditeur', 'Recouvrement', 'Maintenance', 'Clients', 'Suivi', 'Analyse Rotation', 'Transferts', 'Page de Garde']),
+    "Chef Livreurs & Parc": str(['Profil', 'Dashboard', 'Logistique', 'Pointage Expéditeur', 'Recouvrement', 'Maintenance', 'Clients', 'Chèques', 'Suivi', 'Analyse Rotation', 'Transferts', 'Page de Garde']),
     "Superviseur": str(['Profil', 'Dashboard', 'Analyse Rotation', 'Analyse Réclamations', 'Performance Ventes', 'Prévisions', 'Logistique', 'Inventaire', 'RH', 'Briefing IA', 'Mode Meeting']),
     "Préparateur": str(['Profil', 'Pointage Marchandise', 'Réception Fournisseurs', 'Inventaire Détail', 'Scanneur QR', 'Scan Mobile', 'Transferts']),
 }
@@ -570,7 +570,7 @@ GOLDEN_USERS = [
 # CHARTE PHARMACIEL (Filiale) — Golden Backup
 # ═══════════════════════════════════════════════════════════════════
 PAGES_BY_METIER_PHARMACIEL = {
-    "Admin": str(['Dashboard', 'Profil', 'Admin Centrale', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Pointage Marchandise', 'Réception Fournisseurs', 'Péremptions', 'Scanneur QR', 'Scan Mobile', 'Litiges Fournisseurs', 'Analyse Rotation', 'RH', 'RH Planning', 'Liste des Lots', 'Catalogue Produits', 'Page de Garde', 'Assistant IA', 'Transferts', 'Coordination', 'Qualité IA', 'Mon Coin', 'Briefing IA', 'Académie', 'Prévisions', 'Répartition Zones', 'Analyse Réclamations', 'Performance Ventes', 'Cortex IA', 'Automatisation', 'Portail B2B', 'Optimisation Tournées', 'Prédiction Rupture', 'Gestion Documentaire', 'Retours & Avoirs', 'Vigilance & Rappels', 'Campagnes & Remises']),
+    "Admin": str(['Dashboard', 'Profil', 'Admin Centrale', 'Logistique', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Suivi', 'Recouvrement', 'Pointage', 'Pointage Expéditeur', 'Pointage Marchandise', 'Réception Fournisseurs', 'Péremptions', 'Scanneur QR', 'Scan Mobile', 'Litiges Fournisseurs', 'Analyse Rotation', 'RH', 'RH Planning', 'Chèques', 'Liste des Lots', 'Catalogue Produits', 'Page de Garde', 'Assistant IA', 'Transferts', 'Coordination', 'Qualité IA', 'Mon Coin', 'Briefing IA', 'Académie', 'Prévisions', 'Répartition Zones', 'Analyse Réclamations', 'Performance Ventes', 'Cortex IA', 'Automatisation', 'Portail B2B', 'Optimisation Tournées', 'Prédiction Rupture', 'Gestion Documentaire', 'Retours & Avoirs', 'Vigilance & Rappels', 'Campagnes & Remises']),
     "Gestionnaire de Stock": str(['Profil', 'Dashboard', 'Inventaire', 'Inventaire Détail', 'Inventaire Triple', 'Péremptions', 'Liste des Lots', 'Catalogue Produits', 'Répartition Zones', 'Scanneur QR', 'Scan Mobile', 'Transferts', 'Réception Fournisseurs', 'Coordination', 'Analyse Rotation']),
     "Préparateur": str(['Profil', 'Pointage Marchandise', 'Réception Fournisseurs', 'Inventaire Détail', 'Scanneur QR', 'Scan Mobile', 'Transferts', 'Coordination']),
 }
@@ -1295,7 +1295,7 @@ if not isinstance(user_pages, list):
 is_admin = user.get('role') == 'Admin'
 
 if is_admin:
-    for extra_page in ["Cortex IA", "Automatisation", "Liste des Lots", "Répartition Zones", "Analyse Réclamations", "Performance Ventes", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Réception Fournisseurs", "Litiges Fournisseurs", "Assistant IA", "Base IA", "Transferts", "Coordination", "Qualité IA", "Mon Coin", "Briefing IA", "Maintenance", "Académie", "Prévisions", "Mode Meeting", "Page de Garde", "Portail B2B", "Optimisation Tournées", "Prédiction Rupture", "Gestion Documentaire", "Retours & Avoirs", "Vigilance & Rappels", "Campagnes & Remises", "Fiche Client 360", "Pilotage Rotations", "Performance Flotte", "Pilotage Centrale", "Affectation Flotte"]:
+    for extra_page in ["Cortex IA", "Automatisation", "Liste des Lots", "Répartition Zones", "Analyse Réclamations", "Performance Ventes", "Pointage Expéditeur", "Inventaire Triple", "Pointage Marchandise", "Réception Fournisseurs", "Litiges Fournisseurs", "Assistant IA", "Base IA", "Transferts", "Coordination", "Qualité IA", "Mon Coin", "Briefing IA", "Maintenance", "Académie", "Prévisions", "Mode Meeting", "Page de Garde", "Portail B2B", "Optimisation Tournées", "Prédiction Rupture", "Gestion Documentaire", "Retours & Avoirs", "Vigilance & Rappels", "Campagnes & Remises", "Fiche Client 360", "Pilotage Rotations", "Performance Flotte", "Pilotage Centrale", "Affectation Flotte", "Chèques"]:
         if extra_page not in user_pages:
             user_pages.append(extra_page)
 
@@ -1323,6 +1323,7 @@ ALL_PAGES = {
     "RH": st.Page("modules/13_rh.py", title="RH & Performance", icon="👥"),
     "RH Planning": st.Page("modules/22_rh_permanence.py", title="RH & Planning (Permanence)", icon="📅"),
     "Clients": st.Page("modules/12_gestion_clients.py", title="Gestion Clients (CRM)", icon="🤝"),
+    "Chèques": st.Page("modules/4_cheques.py", title="Suivi des Chèques", icon="🧾"),
     "Liste des Lots": st.Page("modules/14_liste_des_lots.py", title="Liste des Lots", icon="📑"),
     "Catalogue Produits": st.Page("modules/17_catalogue_produits.py", title="Catalogue Produits", icon="📚"),
     "Pointage Marchandise": st.Page("modules/18_reception.py", title="Pointage Marchandise", icon="🔍"),
@@ -1371,7 +1372,7 @@ CATEGORIES = {
     "📊 SUPERVISION": ["Master Global", "Dashboard", "Analyse Rotation", "Prévisions", "Mode Meeting", "Analyse Réclamations", "Performance Ventes", "Suivi", "Dashboard Premium", "Optimisation Tournées", "Fiche Client 360", "Pilotage Rotations", "Performance Flotte", "Pilotage Centrale"],
     "📦 GESTION DES STOCKS": ["Inventaire", "Inventaire Détail", "Inventaire Triple", "Péremptions", "Liste des Lots", "Catalogue Produits", "Répartition Zones", "Prédiction Rupture", "Gestion Documentaire", "Vigilance & Rappels"],
     "🏭 FOURNISSEURS": ["Réception Fournisseurs", "Pointage Marchandise", "Litiges Fournisseurs"],
-    "📝 POINTAGES & FLUX": ["Pointage", "Pointage Expéditeur", "Page de Garde", "Recouvrement", "Logistique", "Scanneur QR", "Scan Mobile", "Transferts", "Clients", "Portail B2B", "Retours & Avoirs", "Campagnes & Remises", "Affectation Flotte"],
+    "📝 POINTAGES & FLUX": ["Pointage", "Pointage Expéditeur", "Page de Garde", "Recouvrement", "Logistique", "Scanneur QR", "Scan Mobile", "Transferts", "Clients", "Chèques", "Portail B2B", "Retours & Avoirs", "Campagnes & Remises", "Affectation Flotte"],
     "🤖 DARPHARM IA": ["Cortex IA", "Assistant IA", "Base IA", "Qualité IA", "Briefing IA", "Automatisation", "Coordination", "Académie"],
     "🏥 ADMINISTRATION": ["Admin Centrale", "RH", "RH Planning", "Maintenance"]
 }
