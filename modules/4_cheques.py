@@ -666,7 +666,10 @@ def render_personnes_tab(worksheet, fallback, df, label_singulier, icon, show_sy
                         st.rerun()
                 with col_save:
                     if st.button("💾 Enregistrer", key=f"save_{key_prefix}", use_container_width=True, type="primary"):
-                        df.loc[df['ID'] == sel_id, ["Nom", "Prenom", "Tel"]] = [nom.strip(), prenom.strip(), tel.strip()]
+                        mask = df['ID'] == sel_id
+                        df.loc[mask, "Nom"] = nom.strip()
+                        df.loc[mask, "Prenom"] = prenom.strip()
+                        df.loc[mask, "Tel"] = tel.strip()
                         save_personnes(df, worksheet, fallback)
                         log_action(st.session_state.current_user['username'], f"Modification {label_singulier} : {nom} {prenom}", f"Gestion {label_singulier}s")
                         st.toast(f"✅ {label_singulier.capitalize()} mis à jour", icon="💾")
