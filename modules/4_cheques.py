@@ -11,6 +11,19 @@ except ImportError:
         """Fallback silencieux si log_action n'existe pas dans utils.py de ce projet."""
         pass
 
+import sys
+import importlib
+
+# Resolve Streamlit Cloud module caching issues
+import utils_gsheets
+import utils_pdf
+import utils_excel
+
+if not hasattr(utils_pdf, 'generate_cheques_report_pdf'):
+    importlib.reload(utils_pdf)
+if not hasattr(utils_excel, 'generate_cheques_excel'):
+    importlib.reload(utils_excel)
+
 from utils_gsheets import load_gs_data, save_gs_data
 from utils_pdf import generate_cheques_report_pdf
 from utils_excel import generate_cheques_excel
