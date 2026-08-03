@@ -999,7 +999,14 @@ if "df_reclam_analysed" in st.session_state:
         raw_delai = get_raw_col_name(df_db, 'delai_reclam')
         raw_date = get_raw_col_name(df_db, 'date')
 
-        mask = (df_db[raw_ref] == ref) & (df_db[raw_prod] == produit_val)
+        mask = pd.Series([False] * len(df_db))
+        if raw_ref in df_db.columns and raw_prod in df_db.columns:
+            mask = (df_db[raw_ref] == ref) & (df_db[raw_prod] == produit_val)
+        else:
+            missing = [c for c in [raw_ref, raw_prod] if c not in df_db.columns]
+            st.error(f"❌ Impossible de mettre à jour le statut. Colonnes manquantes dans Google Sheets : {missing}")
+            return False
+        
         if mask.any():
             today_str = datetime.now().strftime("%d-%m-%y %H:%M:%S")
             df_db.loc[mask, raw_statut_bon] = new_status
