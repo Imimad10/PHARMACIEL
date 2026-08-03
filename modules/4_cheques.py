@@ -498,7 +498,7 @@ with tabs[0]:
 # --- FONCTION GENERIQUE : GESTION D'UNE LISTE DE PERSONNES ---
 # (utilisée pour l'onglet Livreurs et l'onglet Clients)
 # =========================================================
-def render_personnes_tab(worksheet, fallback, df, label_singulier, icon):
+def render_personnes_tab(worksheet, fallback, df, label_singulier, icon, show_sync=False):
     key_prefix = worksheet.lower()
     mode_key = f"mode_{key_prefix}"
     selected_key = f"selected_{key_prefix}"
@@ -544,16 +544,81 @@ def render_personnes_tab(worksheet, fallback, df, label_singulier, icon):
 
     # --- PANNEAU AJOUTER / MODIFIER (colonne droite, reprend la maquette) ---
     with col_panel:
-        b1, b2 = st.columns(2)
-        with b1:
-            if st.button("➕ Ajouter", key=f"btn_add_{key_prefix}", use_container_width=True, type="primary" if st.session_state[mode_key] == "ajouter" else "secondary"):
-                st.session_state[mode_key] = "ajouter"
-                st.session_state[selected_key] = None
-                st.rerun()
-        with b2:
-            if st.button("✏️ Modifier / Supprimer", key=f"btn_edit_{key_prefix}", use_container_width=True, type="primary" if st.session_state[mode_key] == "modifier" else "secondary"):
-                st.session_state[mode_key] = "modifier"
-                st.rerun()
+        if show_sync:
+            b1, b2, b3 = st.columns([1, 1, 1.2])
+            with b1:
+                if st.button("➕ Ajouter", key=f"btn_add_{key_prefix}", use_container_width=True, type="primary" if st.session_state[mode_key] == "ajouter" else "secondary"):
+                    st.session_state[mode_key] = "ajouter"
+                    st.session_state[selected_key] = None
+                    st.rerun()
+            with b2:
+                if st.button("✏️ Mod/Sup", key=f"btn_edit_{key_prefix}", use_container_width=True, type="primary" if st.session_state[mode_key] == "modifier" else "secondary"):
+                    st.session_state[mode_key] = "modifier"
+                    st.rerun()
+            with b3:
+                if st.button("🔄 Sync Plat", key=f"btn_sync_{key_prefix}", use_container_width=True, help="Synchroniser depuis la base plate-forme"):
+                    with st.spinner("Synchronisation des clients..."):
+                        df_platform = load_gs_data("Base_Clients", "base_clients.csv")
+                        if not df_platform.empty:
+                            name_col = None
+                            for c in ["Nom Client", "Nom_Client", "Nom_Pharmacie", "Nom"]:
+                                if c in df_platform.columns:
+                                    name_col = c
+                                    break
+                            tel_col = None
+                            for c in ["Téléphone", "Telephone", "Tel", "tel"]:
+                                if c in df_platform.columns:
+                                    tel_col = c
+                                    break
+                            
+                            if name_col:
+                                existing_names = set()
+                                for _, r in df.iterrows():
+                                    full_name = f"{r.get('Nom', '')} {r.get('Prenom', '')}".strip().upper()
+                                    existing_names.add(full_name)
+                                
+                                new_rows = []
+                                for _, row in df_platform.iterrows():
+                                    raw_name = row.get(name_col)
+                                    if pd.isna(raw_name):
+                                        continue
+                                    plat_name = str(raw_name).strip()
+                                    plat_tel = str(row.get(tel_col, "")).strip() if tel_col and not pd.isna(row.get(tel_col)) else ""
+                                    
+                                    if plat_name.upper() not in existing_names:
+                                        new_rows.append({
+                                            "ID": str(uuid.uuid4())[:8],
+                                            "Nom": plat_name,
+                                            "Prenom": "",
+                                            "Tel": plat_tel
+                                        })
+                                        existing_names.add(plat_name.upper())
+                                
+                                if new_rows:
+                                    df_updated = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
+                                    save_personnes(df_updated, worksheet, fallback)
+                                    log_action(st.session_state.current_user['username'], f"Synchro {len(new_rows)} clients depuis plateforme", "Suivi Chèques")
+                                    st.toast(f"✅ {len(new_rows)} clients synchronisés avec succès !", icon="🔄")
+                                    import time
+                                    time.sleep(1)
+                                    st.rerun()
+                                else:
+                                    st.toast("ℹ️ Tous les clients sont déjà synchronisés.", icon="ℹ️")
+                            else:
+                                st.error("Colonne de nom de client introuvable dans la base plateforme.")
+                        else:
+                            st.warning("La base plateforme des clients est vide.")
+        else:
+            b1, b2 = st.columns(2)
+            with b1:
+                if st.button("➕ Ajouter", key=f"btn_add_{key_prefix}", use_container_width=True, type="primary" if st.session_state[mode_key] == "ajouter" else "secondary"):
+                    st.session_state[mode_key] = "ajouter"
+                    st.session_state[selected_key] = None
+                    st.rerun()
+            with b2:
+                if st.button("✏️ Modifier / Supprimer", key=f"btn_edit_{key_prefix}", use_container_width=True, type="primary" if st.session_state[mode_key] == "modifier" else "secondary"):
+                    st.session_state[mode_key] = "modifier"
+                    st.rerun()
 
         st.markdown('<div class="form-panel">', unsafe_allow_html=True)
 
@@ -620,7 +685,7 @@ with tabs[1]:
 # --- TAB 3 : CLIENTS ---
 # =========================================================
 with tabs[2]:
-    render_personnes_tab(WORKSHEET_CLIENTS, FALLBACK_CLIENTS, df_clients, "client", "👤")
+    render_personnes_tab(WORKSHEET_CLIENTS, FALLBACK_CLIENTS, df_clients, "client", "👤", show_sync=True)
 
 # =========================================================
 # --- TAB 4 : STATISTIQUES ---
