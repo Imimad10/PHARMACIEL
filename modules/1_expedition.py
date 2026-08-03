@@ -718,25 +718,27 @@ with tab_suivi_sav:
         else:
             df_disp['Date'] = df_disp['date_crea'].astype(str)
             
-        for col in ["signature", "date_reglement", "motif", "ref", "ville", "client", "secteur"]:
-            if col in df_disp.columns:
+        # Cast ALL potentially float columns to str to prevent StreamlitAPIException
+        for col in df_disp.columns:
+            if df_disp[col].dtype in ['float64', 'float32', 'object'] and col not in ['statut']:
                 df_disp[col] = df_disp[col].fillna("").astype(str)
 
         df_disp_sorted = df_disp.sort_values(['SLA_Statut', 'date_crea'], ascending=[True, True]).reset_index(drop=True)
 
+        # Only show relevant columns to avoid type errors with hidden float64 cols
+        cols_to_show = ["Date", "SLA_Statut", "client", "secteur", "ville", "ref", "motif", "signature", "statut", "date_reglement"]
+        cols_to_show = [c for c in cols_to_show if c in df_disp_sorted.columns]
+
         edited_df = st.data_editor(
-            df_disp_sorted,
+            df_disp_sorted[cols_to_show],
             use_container_width=True,
             hide_index=True,
             column_config={
                 "SLA_Statut": st.column_config.TextColumn("État SLA", disabled=True),
-                "SLA_Color": None, 
                 "statut": st.column_config.SelectboxColumn(
                     "Statut Opérationnel",
                     options=["En cours", "Réglée", "Livré", "Annulé", "Clôturée"]
                 ),
-                "Type_Region": st.column_config.TextColumn("Type Secteur", disabled=True),
-                "date_crea": None,
                 "secteur": st.column_config.TextColumn("Région", disabled=True),
                 "client": st.column_config.TextColumn("Client", disabled=True),
                 "ville": st.column_config.TextColumn("Ville", disabled=True),
@@ -744,9 +746,12 @@ with tab_suivi_sav:
                 "motif": st.column_config.TextColumn("Motif", disabled=True),
                 "signature": st.column_config.TextColumn("Signature", disabled=False),
                 "date_reglement": st.column_config.TextColumn("Date Règlement", disabled=True),
-                "Date": st.column_config.TextColumn("Date", disabled=True)
+                "Date": st.column_config.TextColumn("Date", disabled=True),
             }
         )
+        # Merge edited cols back to df_disp_sorted for saving
+        df_disp_sorted.update(edited_df)
+        edited_df = df_disp_sorted
 
         col_save, col_bulk = st.columns([2, 1])
         with col_save:
