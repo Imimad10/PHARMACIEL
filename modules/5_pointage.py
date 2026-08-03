@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import io
 import plotly.express as px
 from datetime import datetime, timedelta
 import uuid
@@ -239,7 +240,7 @@ with c_h2:
 df_factures = get_factures()
 df_livreurs = get_personnes(WORKSHEET_LIVREURS, FALLBACK_LIVREURS)
 
-tabs = st.tabs(["📊 Tableau de Bord", "📥 Importation", "🚚 Livreurs", "📈 Statistiques"])
+tabs = st.tabs(["📊 Tableau de Bord", "📥 Importation", "🚚 Livreurs", "📈 Statistiques", "🖨️ Impression PDF / Excel"])
 
 # =========================================================
 # --- TAB 1 : TABLEAU DE BORD ---
@@ -593,3 +594,117 @@ with tabs[3]:
             st.plotly_chart(fig_chauffeur, use_container_width=True)
     else:
         st.info("Pas assez de données pour générer des statistiques.")
+
+
+# =========================================================
+# --- TAB 5 : IMPRESSION PDF / EXCEL ---
+# =========================================================
+with tabs[4]:
+    st.markdown("### 🖨️ Impression du Bordereau de Pointage")
+    st.caption("Sélectionnez la région et le livreur pour générer un bordereau personnalisé — seule la région choisie sera incluse dans le fichier téléchargé.")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    col_cfg1, col_cfg2 = st.columns(2)
+
+    with col_cfg1:
+        st.markdown("##### 📍 Région / Secteur à imprimer")
+        regions_available = ["Toutes"] + sorted(
+            df_factures["Region"].dropna().unique().tolist()
+        ) if not df_factures.empty else ["Toutes"]
+        region_impression = st.selectbox(
+            "Choisir la Région",
+            regions_available,
+            key="region_impression"
+        )
+        if region_impression != "Toutes":
+            nb_region = len(df_factures[df_factures["Region"] == region_impression])
+            st.info(f"📦 **{nb_region}** factures dans cette région")
+        else:
+            st.info(f"📦 **{len(df_factures)}** factures au total")
+
+    with col_cfg2:
+        st.markdown("##### 👤 Choisir le Livreur pour cette mission")
+        livreurs_list = personne_display_list(df_livreurs)
+        livreur_options = ["Non attribué"] + livreurs_list
+        livreur_impression = st.selectbox(
+            "Assigner un Livreur",
+            livreur_options,
+            key="livreur_impression"
+        )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # --- APERÇU DE LA SÉLECTION ---
+    df_print = df_factures.copy()
+    if region_impression != "Toutes":
+        df_print = df_print[df_print["Region"] == region_impression]
+
+    if livreur_impression != "Non attribué":
+        df_print = df_print.copy()
+        df_print["Livreur"] = livreur_impression
+
+    st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+                    border: 2px solid #0ea5e9; border-radius: 16px; padding: 20px 24px; margin-bottom: 16px;">
+            <div style="font-size: 1.1rem; font-weight: 800; color: #0369a1; margin-bottom: 8px;">🧾 Aperçu du Bordereau</div>
+            <div style="color: #374151; font-size: 0.9rem;">
+                <b>Région :</b> {region_impression} &nbsp;|&nbsp;
+                <b>Livreur :</b> {livreur_impression} &nbsp;|&nbsp;
+                <b>Nombre de factures :</b> {len(df_print)}
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    if not df_print.empty:
+        # Aperçu du tableau
+        with st.expander(f"👁️ Prévisualiser les {len(df_print)} factures", expanded=False):
+            st.dataframe(
+                df_print[["Reference", "Client", "Date_Creation", "Statut"]].reset_index(drop=True),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        btn1, btn2, _ = st.columns([1, 1, 1])
+
+        with btn1:
+            try:
+                pdf_bytes = generate_factures_report_pdf(
+                    df_print,
+                    livreur_nom=livreur_impression,
+                    region=region_impression
+                )
+                region_label = region_impression.replace(" ", "_") if region_impression != "Toutes" else "Toutes"
+                st.download_button(
+                    label="📄 Télécharger PDF",
+                    data=pdf_bytes,
+                    file_name=f"Pointage_{region_label}_{get_now().strftime('%Y%m%d_%H%M')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    type="primary"
+                )
+            except Exception as e:
+                st.error(f"Erreur PDF : {e}")
+
+        with btn2:
+            try:
+                output = io.BytesIO()
+                df_excel = df_print[["Reference", "Client", "Region", "Livreur", "Date_Creation", "Statut"]].copy()
+                df_excel.columns = ["Référence", "Client", "Région", "Livreur", "Date Création", "Statut"]
+                with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                    df_excel.to_excel(writer, index=False, sheet_name="Pointage")
+                excel_bytes = output.getvalue()
+                region_label = region_impression.replace(" ", "_") if region_impression != "Toutes" else "Toutes"
+                st.download_button(
+                    label="📊 Télécharger Excel",
+                    data=excel_bytes,
+                    file_name=f"Pointage_{region_label}_{get_now().strftime('%Y%m%d_%H%M')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
+            except Exception as e:
+                st.error(f"Erreur Excel : {e}")
+    else:
+        st.warning("⚠️ Aucune facture disponible pour cette sélection.")
