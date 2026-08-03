@@ -82,13 +82,12 @@ def generate_blank_inventory_pdf(df, module_name, columns_to_print, subtitle="")
         return bytes(raw)
     return raw.encode('latin-1', 'replace')
 
-def generate_inventory_report_pdf(df_diff, title="RAPPORT D'INVENTAIRE", cols_to_include=None, orientation='P'):
+def generate_inventory_report_pdf(df_diff, title="RAPPORT D'INVENTAIRE", cols_to_include=None):
     """
     df_diff: DataFrame contenant les données
     cols_to_include: Liste de colonnes spécifiques (facultatif)
-    orientation: 'P' (Portrait) ou 'L' (Landscape)
     """
-    pdf = InventoryPDF(orientation=orientation)
+    pdf = InventoryPDF()
     pdf.title_text = title.upper()
     pdf.alias_nb_pages()
     pdf.add_page()
@@ -114,9 +113,8 @@ def generate_inventory_report_pdf(df_diff, title="RAPPORT D'INVENTAIRE", cols_to
     
     if cols_to_include:
         # On définit des largeurs automatiques simplifiées
-        max_w = 280 if orientation == 'L' else 190
-        w_main = 90 if orientation == 'L' else 80
-        w_others = (max_w - w_main) / (len(cols_to_include) - 1) if len(cols_to_include) > 1 else (max_w - w_main)
+        w_main = 80
+        w_others = (190 - w_main) / (len(cols_to_include) - 1) if len(cols_to_include) > 1 else 110
         cols_config = []
         for i, col in enumerate(cols_to_include):
             w = w_main if i == 0 else w_others
@@ -133,9 +131,8 @@ def generate_inventory_report_pdf(df_diff, title="RAPPORT D'INVENTAIRE", cols_to
     
     # Affichage lignes
     pdf.set_font('Arial', '', 8)
-    page_break_y = 180 if orientation == 'L' else 260
     for _, row in df_diff.iterrows():
-        if pdf.get_y() > page_break_y:
+        if pdf.get_y() > 260:
             pdf.add_page()
             pdf.set_font('Arial', 'B', 9)
             for _, label, w in cols_config: pdf.cell(w, 8, label, 1, 0, 'C', 1)
@@ -152,7 +149,7 @@ def generate_inventory_report_pdf(df_diff, title="RAPPORT D'INVENTAIRE", cols_to
                 except: pass
                 
             # Nettoyer les emojis pour le PDF (FPDF ne supporte pas Unicode par défaut)
-            val = val.replace("❌", "[PERIME]").replace("⚠️", "[CRITIQUE]").replace("🟠", "[VIGILANCE]").replace("✅", "[SAIN]").replace("🔴", "[!]").replace("🟡", "[ATT]")
+            val = val.replace("❌", "[PERIME]").replace("⚠️", "[CRITIQUE]").replace("🟠", "[VIGILANCE]").replace("✅", "[SAIN]")
             val = val[:45]
             
             align = 'L' if i == 0 else 'C'

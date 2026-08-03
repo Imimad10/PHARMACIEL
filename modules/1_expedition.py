@@ -713,7 +713,15 @@ with tab_suivi_sav:
         st.subheader("📋 Liste des Litiges par Priorité")
         
         # Formattage pour l'affichage
-        df_disp['Date'] = df_disp['date_crea'].dt.strftime("%d/%m %H:%M")
+        if pd.api.types.is_datetime64_any_dtype(df_disp['date_crea']):
+            df_disp['Date'] = df_disp['date_crea'].dt.strftime("%d/%m %H:%M")
+        else:
+            df_disp['Date'] = df_disp['date_crea'].astype(str)
+            
+        for col in ["signature", "date_reglement", "motif", "ref", "ville", "client", "secteur"]:
+            if col in df_disp.columns:
+                df_disp[col] = df_disp[col].fillna("").astype(str)
+
         df_disp_sorted = df_disp.sort_values(['SLA_Statut', 'date_crea'], ascending=[True, True]).reset_index(drop=True)
 
         edited_df = st.data_editor(
