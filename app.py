@@ -714,6 +714,80 @@ if st.session_state.current_user:
     # Appliquer le thème personnalisé de l'utilisateur (depuis la base de thèmes)
     apply_user_theme(st.session_state.current_user.get('username', ''))
 
+# ==============================================================================
+# --- GOOGLE OAUTH2 CALLBACK HANDLER ---
+# ==============================================================================
+_qp = st.query_params.to_dict()
+
+if "code" in _qp:
+    _code  = _qp["code"]
+    _state = _qp.get("state", "login")
+    # Nettoyer l'URL immédiatement pour éviter une double exécution au reload
+    st.query_params.clear()
+
+    from utils_google_auth import get_user_info as _gauth_get_user_info
+
+    with st.spinner("🔄 Authentification Google en cours..."):
+        _user_info, _err = _gauth_get_user_info(_code)
+
+    if _err:
+        st.error(f"❌ Erreur OAuth2 Google : {_err}")
+        st.stop()
+
+    elif _user_info and "email" in _user_info:
+        _google_email = _user_info["email"].strip().lower()
+        _google_name  = _user_info.get("name", "")
+
+        # ── CAS 1 : LIAISON (utilisateur déjà connecté, state='link') ──────────
+        if _state == "link" and st.session_state.get("current_user"):
+            _username = st.session_state.current_user["username"]
+            if 'google_email' not in df_users.columns:
+                df_users['google_email'] = ''
+
+            # Vérifier que l'email n'est pas déjà utilisé par un autre compte
+            _taken = df_users[
+                (df_users['google_email'].astype(str).str.lower() == _google_email) &
+                (df_users['username'].astype(str) != _username)
+            ]
+            if not _taken.empty:
+                st.error(f"❌ L'adresse **{_google_email}** est déjà liée au compte `{_taken.iloc[0]['username']}`.")
+            else:
+                _mask = df_users['username'] == _username
+                df_users.loc[_mask, 'google_email'] = _google_email
+                save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+                st.session_state.current_user['google_email'] = _google_email
+                st.success(f"✅ Compte Google lié avec succès : **{_google_email}**")
+                st.rerun()
+
+        # ── CAS 2 : CONNEXION (utilisateur non connecté, state='login') ────────
+        elif _state == "login":
+            if 'google_email' not in df_users.columns:
+                df_users['google_email'] = ''
+
+            # Recherche : colonne google_email puis username puis email
+            _mask_ge = df_users['google_email'].astype(str).str.lower() == _google_email
+            _mask_un = df_users['username'].astype(str).str.lower() == _google_email
+            _mask_em = df_users['email'].astype(str).str.lower() == _google_email
+            _found   = df_users[_mask_ge | _mask_un | _mask_em]
+
+            if not _found.empty:
+                _user_data = _found.iloc[0].to_dict()
+                st.session_state.current_user  = _user_data
+                st.session_state.etablissement = _user_data.get('depot', 'darpharm') or 'darpharm'
+                st.session_state.remember_me   = True
+                try:
+                    controller.set("user_token", str(_user_data['username']), max_age=86400 * 30)
+                    controller.set("etab_token", st.session_state.etablissement, max_age=86400 * 30)
+                except Exception:
+                    pass
+                st.rerun()
+            else:
+                st.error(
+                    f"❌ Aucun compte DarPharm associé à l'adresse **{_google_email}**.\n"
+                    "Connectez-vous d'abord avec votre mot de passe, puis liez votre compte Google depuis **Mon Profil**."
+                )
+
+
 # --- 4. ÉCRAN DE CONNEXION ---
 if st.session_state.current_user is None:
 
@@ -1076,6 +1150,22 @@ Bienvenue 👋
                     </div>
                     """, unsafe_allow_html=True)
     
+            from utils_google_auth import get_login_url
+            google_url = get_login_url(state="login")
+            if google_url:
+                st.markdown(f"""
+                <a href="{google_url}" target="_self" style="text-decoration: none; display: flex; width: 100%; margin-top: 16px; background-color: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 14px; padding: 14px; font-weight: 600; font-size: 15px; align-items: center; justify-content: center; gap: 10px; transition: all 0.2s;">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" style="width: 20px; height: 20px; background: white; border-radius: 50%; padding: 2px;">
+                    🌐 Se connecter avec Google
+                </a>
+                <style>
+                    a[href^="https://accounts.google.com"]:hover {{
+                        background-color: rgba(255,255,255,0.15) !important;
+                        border-color: rgba(255,255,255,0.6) !important;
+                    }}
+                </style>
+                """, unsafe_allow_html=True)
+
             st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
             if st.button("❓ Mot de passe oublié ?", use_container_width=True, key="btn_forgot_pwd"):
                 st.session_state.show_forgot_password = True
@@ -1265,6 +1355,7 @@ ALL_PAGES = {
     "Pilotage Rotations": st.Page("modules/44_pilotage_rotations.py", title="Pilotage Rotations & Charge", icon="⚡"),
     "Pilotage Centrale": st.Page("modules/pilotage_complet_centrale.py", title="Pilotage Centrale & Recouvrement", icon="⚡"),
     "Performance Flotte": st.Page("modules/45_performance_flotte.py", title="Performance Flotte", icon="🚚"),
+    "Affectation Flotte": st.Page("modules/46_affectation_livreurs.py", title="Affectation & Flotte", icon="📍"),
     "Profil": st.Page("modules/17_profil.py", title="Mon Profil", icon="👤")
 }
 

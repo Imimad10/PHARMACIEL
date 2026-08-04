@@ -8,6 +8,17 @@ import plotly.express as px
 from utils import log_action
 from utils_ia import ask_ai, is_ia_enabled
 from utils_gsheets import load_gs_data, save_gs_data
+import importlib.util as _iutil, sys as _sys
+def _import_affectation():
+    _spec = _iutil.spec_from_file_location("affectation_livreurs", os.path.join(os.path.dirname(__file__), "46_affectation_livreurs.py"))
+    _mod = _iutil.module_from_spec(_spec)
+    _sys.modules.setdefault("affectation_livreurs", _mod)
+    try: _spec.loader.exec_module(_mod)
+    except Exception: pass
+    return _mod
+_aff_mod = _import_affectation()
+get_secteur_actuel = getattr(_aff_mod, "get_secteur_actuel", lambda n, df: "")
+get_all_current_assignments = getattr(_aff_mod, "get_all_current_assignments", lambda df: {})
 
 # --- CONFIGURATION ---
 # st.set_page_config(page_title="Gestion des Expéditions", layout="wide")
@@ -121,6 +132,10 @@ with tab_exp:
     df_livreurs = load_livreurs()
     liste_livreurs = df_livreurs["Nom"].tolist() if not df_livreurs.empty else []
     
+    # Charger la table d'affectation (pour auto-fill du secteur)
+    df_affectations_exp = load_gs_data("Affectation_Livreurs", "data/db_affectations.csv", None)
+    current_assignments = get_all_current_assignments(df_affectations_exp)
+    
     # Liste de tous les secteurs pour le filtrage libre
     all_sectors = sorted([str(s).strip().lower() for s in df_clients['Secteur'].dropna().unique() if str(s).lower() != 'nan'])
 
@@ -128,10 +143,9 @@ with tab_exp:
         # Sélection libre du secteur (Région)
         secteur_affichage = st.selectbox("🌍 Région / Secteur à traiter", ["Tous"] + all_sectors, key="exp_sector_sel")
         
-        # --- FIX: TOUJOURS AFFICHER TOUS LES LIVREURS (PAS DE FILTRAGE PAR SECTEUR) ---
+        # Afficher tous les livreurs, trier par secteur pour commodité
         df_all_livreurs = load_livreurs()
         if not df_all_livreurs.empty:
-            # On trie pour que les livreurs du secteur soient en haut (optionnel mais utile)
             if secteur_affichage != "Tous":
                 mask_secteur = df_all_livreurs['Secteur'].astype(str).str.strip().str.lower() == secteur_affichage.lower()
                 livreurs_secteur = df_all_livreurs[mask_secteur]['Nom'].tolist()
@@ -147,7 +161,12 @@ with tab_exp:
                                       key="exp_livreur_sel",
                                       help="Tous les livreurs sont affichés ici, peu importe le secteur choisi.")
         
-        if secteur_affichage != "Tous":
+        # ── AUTO-FILL : Secteur actuel du livreur depuis la table d'affectation ──
+        secteur_auto_livreur = get_secteur_actuel(livreur_choisi, df_affectations_exp) if livreur_choisi and livreur_choisi != "--- AUTRES SECTEURS ---" else ""
+        
+        if secteur_auto_livreur:
+            st.success(f"📍 Secteur actif (affectation) : **{secteur_auto_livreur.upper()}**")
+        elif secteur_affichage != "Tous":
             st.success(f"📍 Secteur actif : **{secteur_affichage.upper()}**")
         else:
             st.info("🔓 Toutes les régions affichées")
@@ -167,22 +186,25 @@ with tab_exp:
     st.divider()
     
     if mode in ["Réclamation", "Réclamation en Urgence"]:
-        with st.expander("📥 Importation groupée des Réclamations (Excel)", expanded=False):
-            st.write(f"Importation pour le secteur : **{secteur_affichage.upper()}**")
-            file_complaints = st.file_uploader("Glisser le fichier Excel ici", type=['xlsx', 'xls'], key="uploader_reclamations")
-            
-            if file_complaints:
-                try:
-                    df_reclam = pd.read_excel(file_complaints)
-                    
-                    import unicodedata
-                    def clean_col(c):
-                        c = str(c).strip().lower()
-                        return ''.join(ch for ch in unicodedata.normalize('NFD', c) if unicodedata.category(ch) != 'Mn')
-                    
+        st.write(f"🔄 **Synchronisation des réclamations** pour le secteur : **{secteur_affichage.upper()}**")
+        if st.button("📥 Charger les réclamations actives depuis la Centrale", use_container_width=True, type="primary"):
+            try:
+                # 1. Charger les réclamations depuis la base centrale
+                df_reclam = load_gs_data("Analyse_Reclamations", "data/db_reclamations_analyse.csv", None)
+                
+                if df_reclam.empty:
+                    df_reclam = load_gs_data("reclamation", "data/db_reclamations.csv", None)
+
+                import unicodedata
+                def clean_col(c):
+                    c = str(c).strip().lower()
+                    return ''.join(ch for ch in unicodedata.normalize('NFD', c) if unicodedata.category(ch) != 'Mn')
+                
+                if not df_reclam.empty:
                     df_reclam.columns = [clean_col(c) for c in df_reclam.columns]
                     
                     if 'client' in df_reclam.columns:
+                        # 2. Filtrer uniquement les réclamations "en cours"
                         if 'statut' in df_reclam.columns:
                             df_reclam['statut_clean'] = df_reclam['statut'].astype(str).str.strip().str.lower()
                             df_to_add = df_reclam[df_reclam['statut_clean'].str.contains("en cours", na=False)].copy()
@@ -200,7 +222,7 @@ with tab_exp:
                             for _, row in df_to_add.iterrows():
                                 client_name = str(row['client']).strip()
                                 
-                                # Détermination du secteur : Priorité au fichier Excel, puis à la base locale
+                                # Détermination du secteur
                                 file_secteur = ""
                                 if 'region' in row: file_secteur = str(row['region']).strip().lower()
                                 elif 'secteur' in row: file_secteur = str(row['secteur']).strip().lower()
@@ -208,7 +230,7 @@ with tab_exp:
                                 client_secteur = file_secteur if file_secteur else sect_map.get(client_name, "")
                                 
                                 # Filtrage selon le secteur d'affichage (si pas "Tous")
-                                if secteur_affichage != "Tous" and client_secteur != secteur_affichage:
+                                if secteur_affichage != "Tous" and client_secteur != secteur_affichage.lower():
                                     skipped_count += 1
                                     continue
                                 
@@ -217,23 +239,32 @@ with tab_exp:
                                 telephone = str(row['tel']).strip() if 'tel' in row else tel_map.get(client_name, "")
                                 info_str = f"Tel: {telephone}" if telephone else ""
                                 
-                                info_val = "RAPPEL DE LOT" if mode == "Réclamation en Urgence" else "RÉCLAMATION IMPORTÉE"
+                                # Motif depuis la DB ou par défaut
+                                motif_db = str(row['motif']).strip() if 'motif' in df_reclam.columns and pd.notna(row['motif']) else (str(row['reponse']).strip() if 'reponse' in df_reclam.columns and pd.notna(row['reponse']) else "")
+                                if mode == "Réclamation en Urgence":
+                                    info_val = "RAPPEL DE LOT"
+                                else:
+                                    info_val = motif_db if motif_db else "RÉCLAMATION IMPORTÉE"
+                                
                                 add_or_merge_row(client_name, ville, ref_val, info_val, "En cours", info_str, mode=mode, secteur=client_secteur)
                                 added_count += 1
                             
                             if added_count > 0:
-                                st.success(f"✅ {added_count} réclamations ajoutées !")
+                                st.success(f"✅ {added_count} réclamations actives synchronisées !")
                                 if skipped_count > 0:
-                                    st.info(f"ℹ️ {skipped_count} lignes ignorées (hors secteur {secteur_affichage.upper()}).")
-                                log_action(st.session_state.current_user['username'], f"Importation réclamations ({secteur_affichage})", "Expédition")
+                                    st.info(f"ℹ️ {skipped_count} réclamations ignorées (hors secteur {secteur_affichage.upper()}).")
+                                log_action(st.session_state.current_user['username'], f"Synchro Centrale réclamations ({secteur_affichage})", "Expédition")
+                                st.rerun() # Rafraîchissement immédiat
                             else:
-                                st.error(f"❌ Aucune donnée correspondant au secteur **{secteur_affichage.upper()}**.")
+                                st.warning(f"❌ Aucune réclamation en cours trouvée pour le secteur **{secteur_affichage.upper()}**.")
                         else:
-                            st.info("Aucune réclamation valide trouvée.")
+                            st.info("✅ Aucune réclamation 'en cours' trouvée dans la base centrale.")
                     else:
-                        st.error(f"Colonne 'client' manquante. Trouvé: {list(df_reclam.columns)}")
-                except Exception as e:
-                    st.error(f"Erreur : {e}")
+                        st.error(f"Colonne 'client' manquante dans la base centrale. Colonnes : {list(df_reclam.columns)}")
+                else:
+                    st.info("La base centrale de réclamations est vide ou introuvable.")
+            except Exception as e:
+                st.error(f"Erreur lors de la synchronisation : {e}")
 
     # Formulaire d'ajout manuel
     c1, c2, c3, c4, c5 = st.columns([2, 1.5, 1.5, 1, 1])
@@ -530,15 +561,37 @@ with tab_exp:
                 
                 st.success("✅ PDF prêt ! Une fois téléchargé, cliquez ci-dessous pour archiver et passer au livreur suivant.")
                 if st.button("🏁 Valider l'envoi & Vider le tableau", type="secondary"):
+                    # ── TRAÇABILITÉ : Figer le triplet (date, livreur, secteur) sur chaque bon ──
+                    # Le secteur est copié AU MOMENT de la validation. Aucune opération future
+                    # ne pourra modifier ce secteur figé, même si le livreur change d'affectation.
+                    date_operation_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    secteur_fige = secteur_auto_livreur if secteur_auto_livreur else secteur_affichage
+                    
+                    # Archiver les expéditions validées avec le secteur figé
+                    df_exp_archive = load_gs_data("Expeditions", "data/db_expeditions.csv", None)
+                    rows_to_archive = df_visible.copy()
+                    rows_to_archive["Livreur"]        = livreur_choisi
+                    rows_to_archive["secteur_fige"]   = secteur_fige
+                    rows_to_archive["date_operation"] = date_operation_str
+                    rows_to_archive["Date"]           = date_exp
+                    rows_to_archive["Itinéraire"]     = f"{secteur_fige} — {date_exp}"
+                    rows_to_archive["Nombre de Colis"] = rows_to_archive.get("Qte Colis", pd.Series([1]*len(rows_to_archive)))
+                    rows_to_archive["Région/Wilaya"]  = secteur_fige
+                    rows_to_archive["Véhicule/Matricule"] = "—"
+                    df_exp_archive = pd.concat([df_exp_archive, rows_to_archive], ignore_index=True)
+                    save_gs_data(df_exp_archive, "Expeditions", "data/db_expeditions.csv")
+
                     if mode in ["Réclamation", "Réclamation en Urgence"]:
-                        # Affecter le livreur aux réclamations dans la base centrale
+                        # Affecter le livreur + secteur figé aux réclamations dans la base centrale
                         df_sav_all = load_gs_data("Litiges_SAV", "data/db_sav.csv", COLS_SAV)
                         refs_to_update = df_visible['N° Doc'].tolist()
                         df_sav_all.loc[df_sav_all['ref'].isin(refs_to_update), 'livreur'] = livreur_choisi
+                        df_sav_all.loc[df_sav_all['ref'].isin(refs_to_update), 'secteur_fige'] = secteur_fige
+                        df_sav_all.loc[df_sav_all['ref'].isin(refs_to_update), 'date_operation'] = date_operation_str
                         save_gs_data(df_sav_all, "Litiges_SAV", "data/db_sav.csv")
-                        st.success(f"Affectation de {livreur_choisi} enregistrée.")
+                        st.success(f"Affectation de {livreur_choisi} (secteur: {secteur_fige}) enregistrée.")
 
-                    log_action(st.session_state.current_user['username'], f"Validation finale tournée {livreur_choisi}", "Expédition")
+                    log_action(st.session_state.current_user['username'], f"Validation finale tournée {livreur_choisi} — Secteur figé: {secteur_fige}", "Expédition")
                     st.session_state.rows = pd.DataFrame(columns=["Client", "Ville", "Secteur", "N° Doc", "Info", "Statut", "Signature"])
                     st.rerun()
             except Exception as e:
@@ -660,22 +713,32 @@ with tab_suivi_sav:
         st.subheader("📋 Liste des Litiges par Priorité")
         
         # Formattage pour l'affichage
-        df_disp['Date'] = df_disp['date_crea'].dt.strftime("%d/%m %H:%M")
+        if pd.api.types.is_datetime64_any_dtype(df_disp['date_crea']):
+            df_disp['Date'] = df_disp['date_crea'].dt.strftime("%d/%m %H:%M")
+        else:
+            df_disp['Date'] = df_disp['date_crea'].astype(str)
+            
+        # Cast ALL potentially float columns to str to prevent StreamlitAPIException
+        for col in df_disp.columns:
+            if df_disp[col].dtype in ['float64', 'float32', 'object'] and col not in ['statut']:
+                df_disp[col] = df_disp[col].fillna("").astype(str)
+
         df_disp_sorted = df_disp.sort_values(['SLA_Statut', 'date_crea'], ascending=[True, True]).reset_index(drop=True)
 
+        # Only show relevant columns to avoid type errors with hidden float64 cols
+        cols_to_show = ["Date", "SLA_Statut", "client", "secteur", "ville", "ref", "motif", "signature", "statut", "date_reglement"]
+        cols_to_show = [c for c in cols_to_show if c in df_disp_sorted.columns]
+
         edited_df = st.data_editor(
-            df_disp_sorted,
+            df_disp_sorted[cols_to_show],
             use_container_width=True,
             hide_index=True,
             column_config={
                 "SLA_Statut": st.column_config.TextColumn("État SLA", disabled=True),
-                "SLA_Color": None, 
                 "statut": st.column_config.SelectboxColumn(
                     "Statut Opérationnel",
                     options=["En cours", "Réglée", "Livré", "Annulé", "Clôturée"]
                 ),
-                "Type_Region": st.column_config.TextColumn("Type Secteur", disabled=True),
-                "date_crea": None,
                 "secteur": st.column_config.TextColumn("Région", disabled=True),
                 "client": st.column_config.TextColumn("Client", disabled=True),
                 "ville": st.column_config.TextColumn("Ville", disabled=True),
@@ -683,9 +746,12 @@ with tab_suivi_sav:
                 "motif": st.column_config.TextColumn("Motif", disabled=True),
                 "signature": st.column_config.TextColumn("Signature", disabled=False),
                 "date_reglement": st.column_config.TextColumn("Date Règlement", disabled=True),
-                "Date": st.column_config.TextColumn("Date", disabled=True)
+                "Date": st.column_config.TextColumn("Date", disabled=True),
             }
         )
+        # Merge edited cols back to df_disp_sorted for saving
+        df_disp_sorted.update(edited_df)
+        edited_df = df_disp_sorted
 
         col_save, col_bulk = st.columns([2, 1])
         with col_save:

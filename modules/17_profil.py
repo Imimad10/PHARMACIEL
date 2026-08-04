@@ -372,6 +372,46 @@ with tab_activite:
 with tab_compte:
     st.write("#### ⚙️ Paramètres de Sécurité")
 
+    st.markdown("##### 🌐 Connexion Google (Sign-In)")
+    current_google = str(st.session_state.current_user.get('google_email', '') or '').strip()
+    if current_google in ('', 'nan', 'None'):
+        current_google = ''
+
+    if current_google:
+        st.markdown(f"""
+        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:16px 20px; margin-bottom:12px; display:flex; align-items:center; gap:12px;">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" style="width:22px; height:22px;">
+            <div>
+                <div style="font-weight:700; color:#166534;">Compte Google lié ✅</div>
+                <div style="font-size:0.85rem; color:#15803d;">{current_google}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("🔗 Délier mon compte Google", key="btn_unlink_google"):
+            mask = df_users['username'] == username
+            df_users.loc[mask, 'google_email'] = ''
+            save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+            st.session_state.current_user['google_email'] = ''
+            st.rerun()
+    else:
+        st.info("Liez votre compte Google pour vous connecter en un clic à l'avenir.")
+        try:
+            from utils_google_auth import get_login_url
+            link_url = get_login_url(state="link")
+            if link_url:
+                st.markdown(f"""
+                <a href="{link_url}" target="_self" style="text-decoration: none; display: inline-flex; background-color: white; color: #444; border: 1px solid #ccc; border-radius: 10px; padding: 10px 20px; font-weight: 600; font-size: 14px; align-items: center; justify-content: center; gap: 10px; transition: all 0.2s;">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" style="width: 18px; height: 18px;">
+                    🔗 Lier mon compte Google
+                </a>
+                <br><br>
+                """, unsafe_allow_html=True)
+            else:
+                st.warning("⚠️ L'authentification Google n'est pas configurée dans les Secrets.")
+        except Exception: pass
+
+    st.divider()
+
     with st.form("form_pwd"):
         new_p = st.text_input("Nouveau mot de passe", type="password")
         conf_p= st.text_input("Confirmer le mot de passe", type="password")

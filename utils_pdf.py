@@ -82,12 +82,13 @@ def generate_blank_inventory_pdf(df, module_name, columns_to_print, subtitle="")
         return bytes(raw)
     return raw.encode('latin-1', 'replace')
 
-def generate_inventory_report_pdf(df_diff, title="RAPPORT D'INVENTAIRE", cols_to_include=None):
+def generate_inventory_report_pdf(df_diff, title="RAPPORT D'INVENTAIRE", cols_to_include=None, orientation='P'):
     """
     df_diff: DataFrame contenant les données
     cols_to_include: Liste de colonnes spécifiques (facultatif)
+    orientation: 'P' (Portrait) ou 'L' (Landscape)
     """
-    pdf = InventoryPDF()
+    pdf = InventoryPDF(orientation=orientation)
     pdf.title_text = title.upper()
     pdf.alias_nb_pages()
     pdf.add_page()
@@ -113,8 +114,9 @@ def generate_inventory_report_pdf(df_diff, title="RAPPORT D'INVENTAIRE", cols_to
     
     if cols_to_include:
         # On définit des largeurs automatiques simplifiées
-        w_main = 80
-        w_others = (190 - w_main) / (len(cols_to_include) - 1) if len(cols_to_include) > 1 else 110
+        max_w = 280 if orientation == 'L' else 190
+        w_main = 90 if orientation == 'L' else 80
+        w_others = (max_w - w_main) / (len(cols_to_include) - 1) if len(cols_to_include) > 1 else (max_w - w_main)
         cols_config = []
         for i, col in enumerate(cols_to_include):
             w = w_main if i == 0 else w_others
@@ -131,8 +133,9 @@ def generate_inventory_report_pdf(df_diff, title="RAPPORT D'INVENTAIRE", cols_to
     
     # Affichage lignes
     pdf.set_font('Arial', '', 8)
+    page_break_y = 180 if orientation == 'L' else 260
     for _, row in df_diff.iterrows():
-        if pdf.get_y() > 260:
+        if pdf.get_y() > page_break_y:
             pdf.add_page()
             pdf.set_font('Arial', 'B', 9)
             for _, label, w in cols_config: pdf.cell(w, 8, label, 1, 0, 'C', 1)
@@ -149,7 +152,7 @@ def generate_inventory_report_pdf(df_diff, title="RAPPORT D'INVENTAIRE", cols_to
                 except: pass
                 
             # Nettoyer les emojis pour le PDF (FPDF ne supporte pas Unicode par défaut)
-            val = val.replace("❌", "[PERIME]").replace("⚠️", "[CRITIQUE]").replace("🟠", "[VIGILANCE]").replace("✅", "[SAIN]")
+            val = val.replace("❌", "[PERIME]").replace("⚠️", "[CRITIQUE]").replace("🟠", "[VIGILANCE]").replace("✅", "[SAIN]").replace("🔴", "[!]").replace("🟡", "[ATT]")
             val = val[:45]
             
             align = 'L' if i == 0 else 'C'
@@ -733,3 +736,63 @@ def generate_suivi_direct_pdf(df):
         return bytes(raw)
     return raw.encode('latin-1', 'replace')
 
+
+
+
+def generate_factures_report_pdf(df, livreur_nom='Non specifie', region='Non specifiee'):
+    """
+    Genere un rapport PDF pour le pointage des factures.
+    """
+    from fpdf import FPDF
+    from datetime import datetime
+
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # En-tete
+    pdf.set_font('Arial', 'B', 15)
+    pdf.cell(0, 10, 'POINTAGE DE FACTURES', 0, 1, 'C')
+    pdf.set_font('Arial', 'I', 10)
+    pdf.cell(0, 6, f'Date : {datetime.now().strftime("%d/%m/%Y %H:%M")}', 0, 1, 'C')
+    
+    pdf.ln(5)
+    pdf.set_font('Arial', 'B', 11)
+    pdf.cell(0, 8, f'Livreur : {livreur_nom.encode("latin-1", "replace").decode("latin-1")}', 0, 1, 'L')
+    pdf.cell(0, 8, f'Region : {region.encode("latin-1", "replace").decode("latin-1")}', 0, 1, 'L')
+    pdf.ln(5)
+    
+    # Tableau
+    cols_config = [
+        ("Client", "Client", 90),
+        ("Reference", "Reference", 40),
+        ("Date_Creation", "Date", 40),
+        ("Statut", "Statut", 20),
+    ]
+    
+    # Header tableau
+    pdf.set_font('Arial', 'B', 10)
+    pdf.set_fill_color(200, 220, 255)
+    for _, label, width in cols_config:
+        pdf.cell(width, 8, label, 1, 0, 'C', 1)
+    pdf.ln()
+    
+    # Lignes tableau
+    pdf.set_font('Arial', '', 9)
+    for _, row in df.iterrows():
+        for key, _, width in cols_config:
+            val = str(row.get(key, '')).encode('latin-1', 'replace').decode('latin-1')
+            if len(val) > 40 and key == 'Client':
+                val = val[:37] + '...'
+            pdf.cell(width, 7, val, 1, 0, 'L' if key == 'Client' else 'C')
+        pdf.ln()
+    
+    pdf.ln(20)
+    # Zone de signature
+    pdf.set_font('Arial', 'B', 11)
+    pdf.cell(100, 10, 'Signature de la logistique', 0, 0, 'C')
+    pdf.cell(90, 10, 'Signature et cachet du livreur', 0, 1, 'C')
+    
+    raw = pdf.output(dest='S')
+    if isinstance(raw, (bytes, bytearray)):
+        return bytes(raw)
+    return raw.encode('latin-1', 'replace')

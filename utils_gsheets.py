@@ -11,7 +11,7 @@ GS_CONFIG_PATH = "gs_config.txt"
 # Configuration Centralisée
 DB_USERS_WORKSHEET = "Utilisateurs"
 DB_USERS_FALLBACK = "data/db_users.json"
-USER_COLUMNS = ["username", "password", "role", "pages", "nom", "prenom", "zone", "depot", "metier", "sous_metier", "tel", "email"]
+USER_COLUMNS = ["username", "password", "role", "pages", "nom", "prenom", "zone", "depot", "metier", "sous_metier", "tel", "email", "google_email"]
 
 # Liste des modules qui DOIVENT rester sur le Cloud en permanence
 ALWAYS_CLOUD = [DB_USERS_WORKSHEET, "Base_Clients", "Secteurs", "Livreurs", "Suivi_Frigo", "Logs"]
