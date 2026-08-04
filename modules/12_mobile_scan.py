@@ -17,7 +17,7 @@ from utils_gsheets import load_gs_data, save_gs_data
 
 # --- CONFIGURATION BASE DE DONNÉES SCAN ---
 DB_IA_SCANS = "data/db_ia_scans.csv"
-COLS_IA_SCANS = ["date_scan", "designation", "lot", "ddp", "ppa", "shp", "couleur"]
+COLS_IA_SCANS = ["date_scan", "designation", "lot", "ddf", "ddp", "ppa", "shp", "couleur"]
 
 # --- CONFIGURATION PAGE ---
 etab_nom = "Pharmaciel" if st.session_state.get('etablissement') == 'pharmaciel' else "DarPharm"
@@ -113,24 +113,28 @@ def process_vignette_image(img_input):
     Tu es un expert en lecture de vignettes pharmaceutiques algériennes et boîtes de médicaments.
     Extrais les informations de cette image avec une très grande précision.
     
-    Règles très strictes :
-    1. designation: Nom commercial + dosage + forme + conditionnement (ex: LAVIDA 4mg Boite de 30 cps). Ignore le laboratoire.
-    2. ppa et shp: 
+    Règles très strictes d'extraction :
+    1. designation: Nom commercial + dosage + forme + conditionnement (ex: LAVIDA 4mg Boite de 30 cps). Ignore le nom du laboratoire.
+    2. lot: Le numéro de lot. ATTENTION : Peut contenir des LETTRES et des CHIFFRES (alphanumérique), d'une longueur de 1 à 30 caractères (ex: "A16001", "LOT-9876543210-B", "24B012", "L12"). Repéré sur l'image par "LOT", "N° LOT", "Batch", "L", "B.N.".
+    3. ddf: Date de fabrication. Repérée sur la vignette/boîte par des mentions telles que "FAB", "DDF", "Date fab", "Date de fab", "Mfg", "Fabriqué le".
+       Format attendu : MM/AA ou MM/AAAA (ex: 03/24 ou 03/2024, ou JJ/MM/AA, JJ/MM/AAAA). Si non présente sur l'image, retourne une chaîne vide "".
+    4. ddp: Date d'expiration ou péremption. Repérée sur la vignette/boîte par "EXP", "Date exp", "Exp.", "Pér.", "Péremption", "Use before".
+       Format attendu : MM/AA ou MM/AAAA (ex: 03/26 ou 03/2026, ou JJ/MM/AA, JJ/MM/AAAA).
+    5. ppa et shp: 
        ATTENTION PIÈGE ! Sur la vignette, il est souvent écrit "PPA : 808.00 DA" tout en bas, mais c'est le PRIX TOTAL.
        Regarde attentivement la ligne du haut. Si tu lis "Prix: 805.50 + SHP 2.50", alors:
        - ppa = 805.50 (c'est le prix de base)
        - shp = 2.50
        Le SHP ne peut être que 0.0, 1.5 ou 2.5. Si tu ne vois pas de SHP, mets 0.0.
        NE METS JAMAIS le prix total (ex: 808.00) dans le champ ppa si un SHP de 2.50 est appliqué.
-    3. lot: Le numéro de lot (ex: 16001).
-    4. ddp: Date de péremption ou Exp (ex: 02/2019).
-    5. couleur: La couleur dominante de la bande de la vignette (ex: Vert, Rouge, Bleu, Jaune, Blanc).
+    6. couleur: La couleur dominante de la bande de la vignette (ex: Vert, Rouge, Bleu, Jaune, Blanc).
     {regles_ia}
 
     Retourne UNIQUEMENT un JSON brut sans markdown avec ces clés exactes :
     {{
         "designation": "...",
         "lot": "...",
+        "ddf": "...",
         "ddp": "...",
         "ppa": 0.0,
         "shp": 0.0,
@@ -262,8 +266,9 @@ elif st.session_state.mobile_mode == "VIG":
             use_container_width=True,
             column_config={
                 "designation": st.column_config.TextColumn("Désignation Produit", required=True),
-                "lot": st.column_config.TextColumn("N° Lot"),
-                "ddp": st.column_config.TextColumn("DDP (MM/AA)"),
+                "lot": st.column_config.TextColumn("N° Lot (1-30 car.)"),
+                "ddf": st.column_config.TextColumn("Date Fab (FAB/DDF)"),
+                "ddp": st.column_config.TextColumn("Date Exp (EXP/DDP)"),
                 "ppa": st.column_config.NumberColumn("PPA (DA)", format="%.2f DA"),
                 "shp": st.column_config.NumberColumn("SHP (DA)", format="%.2f DA"),
                 "qte": st.column_config.NumberColumn("Quantité", min_value=1, step=1),
@@ -284,6 +289,7 @@ elif st.session_state.mobile_mode == "VIG":
                             "date_scan": r.get("date_scan", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
                             "designation": r.get("designation", ""),
                             "lot": r.get("lot", ""),
+                            "ddf": r.get("ddf", ""),
                             "ddp": r.get("ddp", ""),
                             "ppa": float(r.get("ppa", 0.0) or 0.0),
                             "shp": float(r.get("shp", 0.0) or 0.0),
@@ -347,9 +353,10 @@ elif st.session_state.mobile_mode == "INV":
     
     with st.form("quick_entry"):
         prod = st.text_input("Désignation Produit", value=ai_data.get("designation", ""))
-        col_lot, col_ddp = st.columns(2)
-        lot = col_lot.text_input("Lot", value=ai_data.get("lot", ""))
-        ddp = col_ddp.text_input("DDP (MM/AA)", value=ai_data.get("ddp", ""))
+        col_lot, col_ddf, col_ddp = st.columns(3)
+        lot = col_lot.text_input("Lot (1-30 car.)", value=ai_data.get("lot", ""))
+        ddf = col_ddf.text_input("DDF (Fab)", value=ai_data.get("ddf", ""))
+        ddp = col_ddp.text_input("DDP (Exp)", value=ai_data.get("ddp", ""))
         qty = st.number_input("Quantité", min_value=1, value=int(ai_data.get("qte", 1)), step=1)
         
         if st.form_submit_button("💾 ENREGISTRER LA SAISIE"):
