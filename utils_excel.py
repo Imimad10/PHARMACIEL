@@ -1,37 +1,8 @@
 import io
-from datetime import datetime
 import pandas as pd
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-from utils_gsheets import load_gs_data, save_gs_data
-
-WORKSHEET_LOGS = "Logs_Actions"
-FALLBACK_LOGS = "data/logs_actions.csv"
-COLS_LOGS = ["Horodatage", "Utilisateur", "Module", "Description"]
-
-
-def log_action(username, description, module=""):
-    """
-    Enregistre une action utilisateur dans l'onglet 'Logs_Actions' du Google Sheet
-    (avec repli CSV local si Google Sheets est indisponible).
-    Utilisé par tous les modules (Admin Centrale, Suivi Chèques, etc.)
-    pour tracer qui a fait quoi, quand, et dans quel module.
-    """
-    try:
-        df_logs = load_gs_data(WORKSHEET_LOGS, FALLBACK_LOGS, COLS_LOGS)
-        nouvelle_ligne = pd.DataFrame([{
-            "Horodatage": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "Utilisateur": username,
-            "Module": module,
-            "Description": description,
-        }])
-        df_logs = pd.concat([df_logs, nouvelle_ligne], ignore_index=True)
-        save_gs_data(df_logs, WORKSHEET_LOGS, FALLBACK_LOGS)
-    except Exception:
-        # On ne bloque jamais l'app si le log échoue
-        pass
-
 
 STATUT_FILL_HEX = {
     "Réglé": "D1FAE5",
