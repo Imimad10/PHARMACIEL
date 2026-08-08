@@ -310,7 +310,7 @@ GSHEET_COL_MAP = {
 }
 
 
-df_db_raw = df_db.copy()
+df_db_raw = df_db.copy().reset_index(drop=True)
 df_db_raw.columns = [clean_col(c) for c in df_db_raw.columns]
 
 # Appliquer le renommage strict
@@ -323,7 +323,7 @@ df_db_raw.rename(columns=rename_map, inplace=True)
 st.session_state.df_reclam_analysed = df_db_raw
 
 if "df_reclam_analysed" in st.session_state:
-    df_raw = st.session_state.df_reclam_analysed.copy()
+    df_raw = st.session_state.df_reclam_analysed.copy().reset_index(drop=True)
 
     # ─── VALEURS PAR DÉFAUT pour toutes les colonnes attendues ────────────────
     _defaults = {
