@@ -754,7 +754,7 @@ def generate_factures_report_pdf(df, livreur_nom='Non specifie', region='Non spe
         "Refusee":  (254, 226, 226),
     }
 
-    def clean(v, maxlen=40):
+    def clean(v, maxlen=100):
         s = str(v)
         replacements = {
             'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
@@ -799,8 +799,10 @@ def generate_factures_report_pdf(df, livreur_nom='Non specifie', region='Non spe
     # Bloc info livreur / date
     pdf.set_font('Arial', '', 10)
     pdf.set_fill_color(240, 244, 255)
-    pdf.cell(95, 7, f"Livreur : {clean(livreur_nom, 35)}", 0, 0, 'L', 1)
-    pdf.cell(95, 7, f"Region  : {clean(region, 35)}", 0, 1, 'L', 1)
+    livreur_text = clean(livreur_nom, 80)
+    region_text = clean(region, 50)
+    pdf.cell(95, 7, f"Livreur : {livreur_text}", 0, 0, 'L', 1)
+    pdf.cell(95, 7, f"Region  : {region_text}", 0, 1, 'L', 1)
     pdf.cell(95, 7, f"Date edition : {datetime.now().strftime('%d/%m/%Y %H:%M')}", 0, 0, 'L', 1)
     pdf.cell(95, 7, f"Nb factures  : {len(df)}", 0, 1, 'L', 1)
     pdf.ln(4)
