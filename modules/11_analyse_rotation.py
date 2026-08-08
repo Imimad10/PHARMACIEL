@@ -166,6 +166,8 @@ with tab_analyse:
             
             if st.button("🚀 Calculer la Rotation"):
                 df_sl_agg = df_sl.groupby(col_sl)[col_qty_sl].sum().reset_index()
+                df_st[col_st] = df_st[col_st].astype(str)
+                df_sl_agg[col_sl] = df_sl_agg[col_sl].astype(str)
                 df_merged = pd.merge(df_st, df_sl_agg, left_on=col_st, right_on=col_sl, how='left').fillna(0)
                 df_merged['Rotation'] = df_merged[col_qty_sl] / (df_merged[col_qty_st] + 0.1)
                 
@@ -219,6 +221,8 @@ with tab_stagnant:
                 col_qty_sl = [c for c in df_sl.columns if "QTE" in c or "QUANTITE" in c or "VENTE" in c][0] if [c for c in df_sl.columns if "QTE" in c or "QUANTITE" in c or "VENTE" in c] else df_sl.columns[0]
                 
                 df_sl_agg = df_sl.groupby(col_sl_name)[col_qty_sl].sum().reset_index()
+                df_stag[col_st_name] = df_stag[col_st_name].astype(str)
+                df_sl_agg[col_sl_name] = df_sl_agg[col_sl_name].astype(str)
                 df_stag = pd.merge(df_stag, df_sl_agg, left_on=col_st_name, right_on=col_sl_name, how='left').fillna(0)
                 df_stag['ROTATION'] = df_stag[col_qty_sl] / (df_stag[sel_qty_col] + 0.1)
             else:

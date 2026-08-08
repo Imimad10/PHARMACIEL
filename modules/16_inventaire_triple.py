@@ -83,6 +83,18 @@ def normalize_text(text):
     if not isinstance(text, str): return str(text)
     return unicodedata.normalize('NFD', text).encode('ascii', 'ignore').decode('utf-8').upper().strip()
 
+def sanitize_str_col(series):
+    def _clean(val):
+        if pd.isna(val) or val is None or str(val).lower() in ['nan', 'none', 'null']:
+            return ""
+        if isinstance(val, float) and val.is_integer():
+            return str(int(val)).upper().strip()
+        s = str(val).upper().strip()
+        if s.endswith('.0'):
+            s = s[:-2]
+        return s
+    return series.apply(_clean)
+
 # --- CHARGEMENT ---
 @st.cache_data(ttl=300)
 def get_master():
@@ -101,9 +113,9 @@ def get_master():
     for c in ['depot','zone','produit','lot','qte_logi','colissage','ppa','shp','ddp','laboratoire','categorie']:
         if c not in df.columns: df[c] = ""
     
-    df['produit'] = df['produit'].astype(str).str.upper().str.strip()
-    df['lot']     = df['lot'].astype(str).str.upper().str.strip()
-    df['zone']    = df['zone'].astype(str).str.upper().str.strip()
+    df['produit'] = sanitize_str_col(df['produit'])
+    df['lot']     = sanitize_str_col(df['lot'])
+    df['zone']    = sanitize_str_col(df['zone'])
     df['qte_logi'] = pd.to_numeric(df['qte_logi'], errors='coerce').fillna(0)
     
     # Exclure les produits du dépôt secondaire (périmés, abimés, SV...)
@@ -122,6 +134,11 @@ def get_master():
 df_m = get_master()
 df_z = load_gs_data(WS_ZONE, FB_ZONE, COLS_ENTRY)
 df_mi = load_gs_data(WS_MINI, FB_MINI, COLS_ENTRY)
+
+for _d in [df_z, df_mi]:
+    if not _d.empty:
+        if 'produit' in _d.columns: _d['produit'] = sanitize_str_col(_d['produit'])
+        if 'lot' in _d.columns: _d['lot'] = sanitize_str_col(_d['lot'])
 
 # --- LOGIQUE D'ACCÈS ---
 user_role = st.session_state.current_user.get('role', 'Saisie')
@@ -281,8 +298,15 @@ with t_mini:
 # --- COMPILATION ---
 with t_final:
     st.markdown('<div class="section-title">📊 Réconciliation & Compilation</div>', unsafe_allow_html=True)
-    w_z = get_working_entries(df_z)
-    w_mi = get_working_entries(df_mi)
+    w_z = get_working_entries(df_z).copy()
+    w_mi = get_working_entries(df_mi).copy()
+    
+    if not w_z.empty:
+        w_z['produit'] = sanitize_str_col(w_z['produit'])
+        w_z['lot'] = sanitize_str_col(w_z['lot'])
+    if not w_mi.empty:
+        w_mi['produit'] = sanitize_str_col(w_mi['produit'])
+        w_mi['lot'] = sanitize_str_col(w_mi['lot'])
     
     df_c = pd.merge(w_z, w_mi, on=['produit', 'lot'], how='outer', suffixes=('_z', '_m')).fillna(0)
     
@@ -290,14 +314,16 @@ with t_final:
         st.info("Aucune donnée saisie pour le moment.")
     else:
         df_c['zone'] = df_c.apply(lambda r: r['zone_z'] if r['zone_z'] != 0 else r['zone_m'], axis=1)
+        df_c['qte_z'] = pd.to_numeric(df_c['qte_z'], errors='coerce').fillna(0)
+        df_c['qte_m'] = pd.to_numeric(df_c['qte_m'], errors='coerce').fillna(0)
         df_c['Total'] = df_c['qte_z'] + df_c['qte_m']
         
         def check_inc(r):
             if r['qte_z'] > 0 and r['qte_m'] > 0:
                 e = []
                 if str(r['ddp_z']) != str(r['ddp_m']): e.append("DDP")
-                if r['ppa_z'] != r['ppa_m']: e.append("PPA")
-                if r['shp_z'] != r['shp_m']: e.append("SHP")
+                if float(r['ppa_z'] or 0) != float(r['ppa_m'] or 0): e.append("PPA")
+                if float(r['shp_z'] or 0) != float(r['shp_m'] or 0): e.append("SHP")
                 return ", ".join(e) if e else "OK"
             return "OK"
         
@@ -316,10 +342,19 @@ with t_conf:
     if 'it_ready' not in st.session_state:
         st.info("Veuillez d'abord valider la compilation dans l'onglet précédent.")
     else:
-        ready = st.session_state.it_ready
-        m_w = get_working_master()
+        ready = st.session_state.it_ready.copy()
+        m_w = get_working_master().copy()
         
+        if not ready.empty:
+            ready['produit'] = sanitize_str_col(ready['produit'])
+            ready['lot'] = sanitize_str_col(ready['lot'])
+        if not m_w.empty:
+            m_w['produit'] = sanitize_str_col(m_w['produit'])
+            m_w['lot'] = sanitize_str_col(m_w['lot'])
+            
         final = pd.merge(m_w, ready[['produit', 'lot', 'Total', 'Incohérence']], on=['produit', 'lot'], how='left').fillna(0)
+        final['Total'] = pd.to_numeric(final['Total'], errors='coerce').fillna(0)
+        final['qte_logi'] = pd.to_numeric(final['qte_logi'], errors='coerce').fillna(0)
         final['Ecart'] = final['Total'] - final['qte_logi']
         
         c_show = ['zone', 'produit', 'lot', 'qte_logi', 'Total', 'Ecart', 'Incohérence']
