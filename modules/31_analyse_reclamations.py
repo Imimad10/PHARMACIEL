@@ -1348,6 +1348,83 @@ if "df_reclam_analysed" in st.session_state:
             else:
                 st.warning("Veuillez saisir au moins une référence.")
 
+        # --- Clôture Massive par Plage de Dates ---
+        st.markdown("---")
+        st.markdown("#### 📅 Clôture Massive par Plage de Dates (Un Seul Clic)")
+        st.write("Sélectionnez une période pour clôturer automatiquement toutes les réclamations ouvertes enregistrées durant cet intervalle.")
+
+        col_date1, col_date2, col_date3 = st.columns([2, 2, 2])
+        default_start = datetime.now().date().replace(day=1)
+        default_end = datetime.now().date()
+        
+        date_start = col_date1.date_input("Date de début :", value=default_start, key="cloture_date_start")
+        date_end = col_date2.date_input("Date de fin :", value=default_end, key="cloture_date_end")
+
+        if col_date3.button("🔒 Clôturer la Période", type="primary", use_container_width=True, key="cloture_period_btn"):
+            if date_start > date_end:
+                st.error("La date de début doit être antérieure ou égale à la date de fin.")
+            else:
+                df_db_bulk = load_gs_data(RECLAM_WORKSHEET, RECLAM_FALLBACK)
+                
+                raw_ref_bulk = get_raw_col_name(df_db_bulk, 'reference')
+                raw_statut_bulk = get_raw_col_name(df_db_bulk, 'statut_bon')
+                raw_date_cloture_bulk = get_raw_col_name(df_db_bulk, 'date_cloture')
+                raw_cloturer_par_bulk = get_raw_col_name(df_db_bulk, 'cloturer_par')
+                raw_delai_bulk = get_raw_col_name(df_db_bulk, 'delai_reclam')
+                
+                raw_date_bulk = get_raw_col_name(df_db_bulk, 'date')
+                if raw_date_bulk not in df_db_bulk.columns or df_db_bulk[raw_date_bulk].dropna().empty:
+                    raw_date_bulk = get_raw_col_name(df_db_bulk, 'date_creation')
+
+                def check_date_in_range(val):
+                    dt = parse_date_robust(val)
+                    if pd.isna(dt):
+                        return False
+                    return date_start <= dt.date() <= date_end
+
+                if raw_date_bulk in df_db_bulk.columns:
+                    date_mask = df_db_bulk[raw_date_bulk].apply(check_date_in_range)
+                    status_mask = df_db_bulk[raw_statut_bulk].astype(str).str.upper() != "CLOTURER"
+                    final_mask = date_mask & status_mask
+                    
+                    to_update_count = final_mask.sum()
+                    if to_update_count > 0:
+                        today_str = datetime.now().strftime("%d-%m-%y %H:%M:%S")
+                        curr_user = get_current_username()
+                        
+                        df_db_bulk.loc[final_mask, raw_statut_bulk] = "CLOTURER"
+                        df_db_bulk.loc[final_mask, raw_date_cloture_bulk] = today_str
+                        df_db_bulk.loc[final_mask, raw_cloturer_par_bulk] = curr_user
+                        
+                        for idx_m in df_db_bulk[final_mask].index:
+                            if raw_delai_bulk in df_db_bulk.columns:
+                                ex_d = df_db_bulk.loc[idx_m, raw_delai_bulk]
+                                if pd.isna(ex_d) or str(ex_d).strip() in ["", "nan", "None", "0", "0.0"]:
+                                    c_dt = parse_date_robust(df_db_bulk.loc[idx_m, raw_date_bulk])
+                                    dur = max(0, (datetime.now() - c_dt).days) if not pd.isna(c_dt) else 0
+                                    df_db_bulk.loc[idx_m, raw_delai_bulk] = float(dur)
+
+                        save_gs_data(df_db_bulk, RECLAM_WORKSHEET, RECLAM_FALLBACK)
+                        
+                        df_db_raw_new = df_db_bulk.copy()
+                        df_db_raw_new.columns = [clean_col(c) for c in df_db_raw_new.columns]
+                        df_db_raw_new = deduplicate_columns(df_db_raw_new)
+                        rename_map_new = {}
+                        for raw_norm, internal in GSHEET_COL_MAP.items():
+                            if raw_norm in df_db_raw_new.columns and raw_norm != internal:
+                                rename_map_new[raw_norm] = internal
+                        df_db_raw_new.rename(columns=rename_map_new, inplace=True)
+                        df_db_raw_new = deduplicate_columns(df_db_raw_new)
+                        st.session_state.df_reclam_analysed = df_db_raw_new
+                        
+                        st.success(f"🎉 {to_update_count} réclamation(s) clôturée(s) avec succès pour la période du {date_start.strftime('%d/%m/%Y')} au {date_end.strftime('%d/%m/%Y')} !")
+                        st.balloons()
+                        st.rerun()
+                    else:
+                        st.info(f"Aucune réclamation ouverte trouvée pour la période du {date_start.strftime('%d/%m/%Y')} au {date_end.strftime('%d/%m/%Y')}.")
+                else:
+                    st.error("Impossible de trouver la colonne de date dans la base de données.")
+
     # ----------------- TAB 5 : PROFILING CLIENT & PRODUIT -----------------
     # ----------------- TAB 4 : GESTION DES STATUTS -----------------
     with tabs[5]:
