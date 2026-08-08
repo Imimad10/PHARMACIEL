@@ -1563,31 +1563,35 @@ if "df_reclam_analysed" in st.session_state:
             # ── Classement principal ──────────────────────────────────────────
             st.markdown("#### 📋 Classement des Clients à Risque")
 
-            for _, hf_row in df_hf.iterrows():
+            for rank, (_, hf_row) in enumerate(df_hf.iterrows(), 1):
                 badge_color = hf_row['_color']
-                with st.container():
-                    st.markdown(f"""
-                    <div style="background:rgba(255,255,255,0.03); border-left:5px solid {badge_color};
-                                border-radius:12px; padding:16px 20px; margin-bottom:12px;
-                                border:1px solid {badge_color}33;">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span style="font-size:1.1rem; font-weight:700; color:#e2e8f0;">{hf_row['client']}</span>
-                            <span style="font-size:1rem; font-weight:800; color:{badge_color};">{hf_row['niveau_risque']}</span>
-                        </div>
-                        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:10px; font-size:0.82rem; color:#94a3b8;">
-                            <span>📦 <b>{hf_row['nb_total']}</b> réclamations</span>
-                            <span>🔓 <b>{hf_row['nb_ouvertes']}</b> ouvertes</span>
-                            <span>💰 <b>{hf_row['valeur_totale']:,.0f}</b> DA</span>
-                            <span>🗺️ {hf_row['region']}</span>
-                        </div>
-                        <div style="margin-top:8px; font-size:0.82rem; color:#94a3b8;">
-                            🏷️ Motif dominant : <b style="color:#e2e8f0;">{hf_row['motif_principal']}</b> &nbsp;|&nbsp;
-                            📂 Catégorie : <b style="color:#e2e8f0;">{hf_row['categorie']}</b> &nbsp;|&nbsp;
-                            👤 Commercial : <b style="color:#e2e8f0;">{hf_row['commercial']}</b> &nbsp;|&nbsp;
-                            📅 Dernière : <b style="color:#e2e8f0;">{hf_row['derniere_reclam']}</b>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                risk = hf_row['niveau_risque']
+
+                with st.container(border=True):
+                    head_col, badge_col = st.columns([5, 1])
+                    with head_col:
+                        st.markdown(f"**#{rank} — {hf_row['client']}**")
+                    with badge_col:
+                        st.markdown(
+                            f"<span style='background:{badge_color};color:#fff;"
+                            f"padding:4px 12px;border-radius:20px;font-weight:700;"
+                            f"font-size:0.82rem;display:inline-block;'>{risk}</span>",
+                            unsafe_allow_html=True
+                        )
+
+                    c1, c2, c3, c4 = st.columns(4)
+                    c1.metric("📦 Total réclamations", hf_row['nb_total'])
+                    c2.metric("🔓 Ouvertes", hf_row['nb_ouvertes'])
+                    c3.metric("✅ Clôturées", hf_row['nb_clotures'])
+                    c4.metric("💰 Valeur cumulée", f"{hf_row['valeur_totale']:,.0f} DA")
+
+                    st.caption(
+                        f"🏷️ Motif : **{hf_row['motif_principal']}**  |  "
+                        f"📂 Catégorie : **{hf_row['categorie']}**  |  "
+                        f"🗺️ Région : **{hf_row['region']}**  |  "
+                        f"👤 Commercial : **{hf_row['commercial']}**  |  "
+                        f"📅 Dernière réclam. : **{hf_row['derniere_reclam']}**"
+                    )
 
             # ── Graphiques ────────────────────────────────────────────────────
             st.markdown("#### 📊 Visualisations")
