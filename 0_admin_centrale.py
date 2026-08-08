@@ -733,7 +733,48 @@ def do_import_sheet(df_up, target):
             if 'reference' in df_merged.columns:
                 df_merged = df_merged.drop_duplicates(subset=['reference'], keep='last')
             save_gs_data(df_merged, "Cmd_Rotation", db_path)
-            return True, f"{len(df_merged)} commandes en base", len(df_up)
+
+            # Auto-sync invoice references to Suivi_Factures (Pointage Factures)
+            added_fac = 0
+            try:
+                cols_fac = ["N", "Livreur", "Region", "Client", "Reference", "Date_Creation", "Date_Pointage", "Statut"]
+                df_fac = load_gs_data("Suivi_Factures", "factures_data.csv", cols_fac)
+                existing_refs = set(df_fac["Reference"].astype(str).str.strip()) if not df_fac.empty else set()
+                next_n = int(df_fac["N"].max()) + 1 if not df_fac.empty and df_fac["N"].notna().any() else 1
+
+                ref_col = next((c for c in df_up.columns if str(c).strip().lower() in ['reference', 'référence', 'ref']), None)
+                cli_col = next((c for c in df_up.columns if str(c).strip().lower() in ['client', 'nom client']), None)
+                reg_col = next((c for c in df_up.columns if str(c).strip().lower() in ['region', 'région']), None)
+                date_col = next((c for c in df_up.columns if any(k in str(c).strip().lower() for k in ['date', 'creation', 'validat'])), None)
+
+                if ref_col:
+                    new_fac_rows = []
+                    for _, r in df_up.iterrows():
+                        ref_v = str(r[ref_col]).strip() if pd.notna(r[ref_col]) else ""
+                        if ref_v and ref_v not in existing_refs and ref_v.lower() != 'nan':
+                            cli_v = str(r[cli_col]).strip() if cli_col and pd.notna(r[cli_col]) else "Client inconnu"
+                            reg_v = str(r[reg_col]).strip() if reg_col and pd.notna(r[reg_col]) else "Non spécifiée"
+                            dt_v = str(r[date_col]).strip() if date_col and pd.notna(r[date_col]) else datetime.now().strftime("%d/%m/%Y %H:%M")
+                            new_fac_rows.append({
+                                "N": next_n + added_fac,
+                                "Livreur": "Non assigné",
+                                "Region": reg_v,
+                                "Client": cli_v,
+                                "Reference": ref_v,
+                                "Date_Creation": dt_v,
+                                "Date_Pointage": "",
+                                "Statut": "En attente"
+                            })
+                            added_fac += 1
+                            existing_refs.add(ref_v)
+                    if new_fac_rows:
+                        df_fac_up = pd.concat([df_fac, pd.DataFrame(new_fac_rows)], ignore_index=True)
+                        save_gs_data(df_fac_up, "Suivi_Factures", "factures_data.csv")
+            except Exception:
+                pass
+
+            msg_fac = f" ({added_fac} nouvelles factures dans Pointage)" if added_fac > 0 else ""
+            return True, f"{len(df_merged)} commandes en base{msg_fac}", len(df_up)
 
         elif target == "Fournisseurs":
             key = "Etablissement"

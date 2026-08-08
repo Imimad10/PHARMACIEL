@@ -240,7 +240,7 @@ def clean_inventory_cols(df):
         # Règles de détection du dépôt secondaire
         is_secondaire = (
             depot_vals.isin(['2', '02', 'SEC', 'SECONDAIRE', 'NON CONFORME', 'NC', 'SV']) |
-            depot_vals.str.contains('SEC|PERIMES|ABIMES|NON.CONF|S\.V\.|HORS', na=False, regex=True)
+            depot_vals.str.contains(r'SEC|PERIMES|ABIMES|NON.CONF|S\.V\.|HORS', na=False, regex=True)
         )
         
         # Créer la colonne statut_stock si elle n'existe pas

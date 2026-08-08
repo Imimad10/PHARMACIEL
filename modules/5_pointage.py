@@ -444,92 +444,187 @@ with tabs[0]:
 # --- TAB 2 : IMPORTATION ---
 # =========================================================
 with tabs[1]:
-    st.markdown("### 📥 Importation depuis LogiPharm (Excel)")
-    st.write("Le fichier Excel doit contenir les colonnes : `Client`, `Référence`, `Date Création`, `Région`.")
-    
-    uploaded_file = st.file_uploader("Choisissez le fichier Excel d'export", type=['xlsx'])
-    
-    if uploaded_file:
-        try:
-            df_import = pd.read_excel(uploaded_file)
-            
-            # Nettoyage des entêtes
-            import unicodedata
-            def clean_col(c):
-                c = str(c).strip().lower()
-                return ''.join(ch for ch in unicodedata.normalize('NFD', c) if unicodedata.category(ch) != 'Mn')
-            
-            df_import.columns = [clean_col(c) for c in df_import.columns]
-            
-            cols_obligatoires = ['client', 'reference', 'region']
-            missing = [c for c in cols_obligatoires if c not in df_import.columns]
-            
-            if not missing:
-                date_col = 'date creation'
-                if date_col not in df_import.columns:
-                    if 'date creat' in df_import.columns:
-                        date_col = 'date creat'
-                    else:
-                        df_import[date_col] = get_now().strftime("%d/%m/%Y %H:%M")
+    st.markdown("### 📥 Importation des Factures (LogiPharm / Cmds & Rotation)")
+    st.caption("Vous pouvez importer un fichier Excel de factures ou de **Cmds & Rotation** (`lot.xlsx`), ou synchroniser directement depuis la base Master Data.")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    col_up_file, col_sync_db = st.columns([1.5, 1])
+
+    # ── OPTION A : UPLOAD D'UN FICHIER EXCEL ──
+    with col_up_file:
+        st.markdown("##### 📁 Importer un fichier Excel")
+        uploaded_file = st.file_uploader("Choisissez le fichier Excel (ex: lot.xlsx ou export LogiPharm)", type=['xlsx'], key="uploader_pointage")
+        
+        if uploaded_file:
+            try:
+                xls = pd.ExcelFile(uploaded_file)
+                sheet_names = xls.sheet_names
                 
-                st.success(f"✅ Fichier lu avec succès : {len(df_import)} lignes détectées.")
-                
-                # Affectation Livreurs Automatique ou Manuelle
-                livreurs_list = personne_display_list(df_livreurs)
-                if not livreurs_list:
-                    st.warning("⚠️ Aucun livreur n'est enregistré. Vous ne pourrez pas affecter de livreur.")
-                    def_livreur = "Non assigné"
+                # Détection automatique de la feuille Cmds & Rotation / Feuil2
+                default_sheet_idx = 0
+                for idx, s_name in enumerate(sheet_names):
+                    s_lower = s_name.lower().strip()
+                    if "cmd" in s_lower or "rotation" in s_lower or s_lower == "feuil2":
+                        default_sheet_idx = idx
+                        break
+
+                if len(sheet_names) > 1:
+                    chosen_sheet = st.selectbox(
+                        "📄 Feuille Excel détectée dans ce fichier",
+                        options=sheet_names,
+                        index=default_sheet_idx,
+                        key="select_excel_sheet"
+                    )
                 else:
-                    def_livreur = st.selectbox("Assigner un livreur par défaut pour ce lot d'import (Optionnel)", ["Automatique selon la région"] + livreurs_list)
-                
-                if st.button("🚀 Intégrer les factures à la base de suivi", type="primary"):
-                    new_rows = []
-                    existing_refs = set(df_factures['Reference'].astype(str)) if not df_factures.empty else set()
-                    
-                    next_n = int(df_factures["N"].max()) + 1 if not df_factures.empty and df_factures["N"].notna().any() else 1
-                    
-                    added = 0
-                    for _, row in df_import.iterrows():
-                        ref = str(row['reference']).strip()
-                        if ref not in existing_refs:
-                            # Logique d'affectation basique
-                            livreur_assigne = "Non assigné"
-                            if def_livreur != "Automatique selon la région":
-                                livreur_assigne = def_livreur
-                            else:
-                                reg_str = str(row['region']).lower()
-                                if "alger 1" in reg_str:
-                                    livreur_assigne = next((l for l in livreurs_list if "fethi" in l.lower()), "Non assigné")
-                                elif "alger 2" in reg_str:
-                                    livreur_assigne = next((l for l in livreurs_list if "fares" in l.lower()), "Non assigné")
-                            
-                            new_rows.append({
-                                "N": next_n + added,
-                                "Livreur": livreur_assigne,
-                                "Region": str(row['region']).strip(),
-                                "Client": str(row['client']).strip(),
-                                "Reference": ref,
-                                "Date_Creation": str(row[date_col]),
-                                "Date_Pointage": "",
-                                "Statut": "En attente"
-                            })
-                            added += 1
-                    
-                    if added > 0:
-                        df_new = pd.DataFrame(new_rows)
-                        df_updated = pd.concat([df_factures, df_new], ignore_index=True)
-                        save_factures(df_updated)
-                        log_action(st.session_state.current_user['username'], f"Import de {added} factures", "Pointage Factures")
-                        st.success(f"🎉 {added} nouvelles factures ajoutées à la base de suivi !")
+                    chosen_sheet = sheet_names[0]
+
+                df_import = pd.read_excel(xls, sheet_name=chosen_sheet)
+
+                # Nettoyage & mapping intelligent des entêtes
+                import unicodedata
+                def clean_str(c):
+                    c = str(c).strip().lower()
+                    return ''.join(ch for ch in unicodedata.normalize('NFD', c) if unicodedata.category(ch) != 'Mn')
+
+                raw_cols = df_import.columns.tolist()
+                mapped_cols = {}
+                for col in raw_cols:
+                    c_clean = clean_str(col)
+                    if c_clean in ['reference', 'reference', 'ref', 'b.l', 'n° ordre', 'n°ordre', 'nordre']:
+                        mapped_cols[col] = 'reference'
+                    elif c_clean in ['client', 'nom client', 'raison sociale']:
+                        mapped_cols[col] = 'client'
+                    elif c_clean in ['region', 'region', 'wilaya', 'zone']:
+                        mapped_cols[col] = 'region'
+                    elif any(k in c_clean for k in ['date creation', 'date creat', 'date validat', 'date']):
+                        mapped_cols[col] = 'date_creation'
+
+                df_import = df_import.rename(columns=mapped_cols)
+
+                missing = [c for c in ['client', 'reference', 'region'] if c not in df_import.columns]
+
+                if not missing:
+                    if 'date_creation' not in df_import.columns:
+                        df_import['date_creation'] = get_now().strftime("%d/%m/%Y %H:%M")
+
+                    st.success(f"✅ Feuille `{chosen_sheet}` lue avec succès : **{len(df_import)}** lignes détectées.")
+
+                    livreurs_list = personne_display_list(df_livreurs)
+                    if not livreurs_list:
+                        st.warning("⚠️ Aucun livreur n'est enregistré. Les factures seront 'Non assigné'.")
+                        def_livreur = "Non assigné"
                     else:
-                        st.info("Aucune nouvelle facture à ajouter (toutes les références existent déjà).")
-                    
+                        def_livreur = st.selectbox("Assigner un livreur par défaut (Optionnel)", ["Automatique selon la région"] + livreurs_list, key="def_livreur_import")
+
+                    if st.button("🚀 Intégrer les factures à la base de suivi", type="primary", use_container_width=True):
+                        new_rows = []
+                        existing_refs = set(df_factures['Reference'].astype(str).str.strip()) if not df_factures.empty else set()
+                        next_n = int(df_factures["N"].max()) + 1 if not df_factures.empty and df_factures["N"].notna().any() else 1
+
+                        added = 0
+                        for _, row in df_import.iterrows():
+                            ref = str(row['reference']).strip()
+                            if ref and ref not in existing_refs and ref.lower() != 'nan':
+                                livreur_assigne = "Non assigné"
+                                if def_livreur != "Automatique selon la région":
+                                    livreur_assigne = def_livreur
+                                else:
+                                    reg_str = str(row['region']).lower()
+                                    if "alger 1" in reg_str:
+                                        livreur_assigne = next((l for l in livreurs_list if "fethi" in l.lower()), "Non assigné")
+                                    elif "alger 2" in reg_str:
+                                        livreur_assigne = next((l for l in livreurs_list if "fares" in l.lower()), "Non assigné")
+
+                                dt_val = str(row['date_creation']) if pd.notna(row['date_creation']) else get_now().strftime("%d/%m/%Y %H:%M")
+
+                                new_rows.append({
+                                    "N": next_n + added,
+                                    "Livreur": livreur_assigne,
+                                    "Region": str(row['region']).strip(),
+                                    "Client": str(row['client']).strip(),
+                                    "Reference": ref,
+                                    "Date_Creation": dt_val,
+                                    "Date_Pointage": "",
+                                    "Statut": "En attente"
+                                })
+                                added += 1
+                                existing_refs.add(ref)
+
+                        if added > 0:
+                            df_new = pd.DataFrame(new_rows)
+                            df_updated = pd.concat([df_factures, df_new], ignore_index=True)
+                            save_factures(df_updated)
+                            log_action(st.session_state.current_user['username'], f"Import de {added} factures depuis {chosen_sheet}", "Pointage Factures")
+                            st.success(f"🎉 {added} nouvelles factures ajoutées à la base de suivi !")
+                            st.rerun()
+                        else:
+                            st.info("Toutes les références de cette feuille existent déjà dans la base.")
+
+                else:
+                    st.error(f"❌ Colonnes requis non trouvées dans `{chosen_sheet}` : {missing}")
+                    st.caption(f"Colonnes disponibles : {list(raw_cols)}")
+
+            except Exception as e:
+                st.error(f"Erreur de lecture Excel : {e}")
+
+    # ── OPTION B : SYNCHRONISATION DIRECTE DEPUIS MASTER DATA (CMDS & ROTATION) ──
+    with col_sync_db:
+        st.markdown("##### 🔄 Synchronisation Master Data")
+        st.caption("Extrayez directement les références de factures stockées dans l'archive Master Data (`Cmds & Rotation`).")
+
+        try:
+            df_cmd_rot = load_gs_data("Cmd_Rotation", "data/db_cmd_rotation.csv", ["reference", "client", "region", "date_creation"])
+            if not df_cmd_rot.empty and "reference" in df_cmd_rot.columns:
+                existing_refs_sync = set(df_factures["Reference"].astype(str).str.strip()) if not df_factures.empty else set()
+                pending_sync_df = df_cmd_rot[~df_cmd_rot["reference"].astype(str).str.strip().isin(existing_refs_sync)]
+                nb_pending = len(pending_sync_df)
+
+                st.markdown(f"""
+                    <div style="background: rgba(59, 130, 246, 0.1); padding: 16px; border-radius: 14px; border: 1px solid rgba(59, 130, 246, 0.3); margin-bottom: 12px;">
+                        <div style="font-weight: 700; color: #1e40af;">📋 Archive Cmds & Rotation</div>
+                        <div style="font-size: 0.88rem; color: #3b82f6; margin-top: 4px;">
+                            Total commandes : <b>{len(df_cmd_rot)}</b><br>
+                            Factures à synchroniser : <b>{nb_pending}</b>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+                if nb_pending > 0:
+                    if st.button(f"⚡ Importer {nb_pending} factures depuis Master Data", type="primary", use_container_width=True):
+                        next_n = int(df_factures["N"].max()) + 1 if not df_factures.empty and df_factures["N"].notna().any() else 1
+                        new_sync_rows = []
+                        added_sync = 0
+                        for _, r in pending_sync_df.iterrows():
+                            ref_v = str(r["reference"]).strip()
+                            if ref_v and ref_v.lower() != 'nan':
+                                cli_v = str(r.get("client", "Client inconnu")).strip()
+                                reg_v = str(r.get("region", "Non spécifiée")).strip()
+                                dt_v = str(r.get("date_creation", get_now().strftime("%d/%m/%Y %H:%M"))).strip()
+
+                                new_sync_rows.append({
+                                    "N": next_n + added_sync,
+                                    "Livreur": "Non assigné",
+                                    "Region": reg_v,
+                                    "Client": cli_v,
+                                    "Reference": ref_v,
+                                    "Date_Creation": dt_v,
+                                    "Date_Pointage": "",
+                                    "Statut": "En attente"
+                                })
+                                added_sync += 1
+                        if new_sync_rows:
+                            df_updated = pd.concat([df_factures, pd.DataFrame(new_sync_rows)], ignore_index=True)
+                            save_factures(df_updated)
+                            log_action(st.session_state.current_user['username'], f"Sync Master Data: {added_sync} factures intégrées", "Pointage Factures")
+                            st.toast(f"✅ {added_sync} factures intégrées depuis Master Data !", icon="⚡")
+                            st.rerun()
+                else:
+                    st.success("✅ Toutes les factures de Cmds & Rotation sont déjà synchronisées !")
             else:
-                st.error(f"❌ Colonnes manquantes dans l'Excel : {missing}")
-                st.write(f"Colonnes trouvées : {list(df_import.columns)}")
-                
-        except Exception as e:
-            st.error(f"Erreur de lecture Excel : {e}")
+                st.info("Aucune archive `Cmds & Rotation` importée dans Master Data pour le moment.")
+        except Exception as e_sync:
+            st.error(f"Erreur de lecture Master Data : {e_sync}")
 
 # =========================================================
 # --- TAB 3 : LIVREURS ---
