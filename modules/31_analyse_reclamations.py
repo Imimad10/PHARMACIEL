@@ -238,6 +238,29 @@ def clean_col(c):
     c = str(c).strip().lower()
     return ''.join(ch for ch in unicodedata.normalize('NFD', c) if unicodedata.category(ch) != 'Mn')
 
+def deduplicate_columns(df):
+    """Dédoublonne les colonnes d'un DataFrame en fusionnant les valeurs non-nulles des colonnes de même nom."""
+    if df is None or df.empty or not df.columns.has_duplicates:
+        return df
+    cols = df.columns
+    unique_cols = cols.unique()
+    new_data = {}
+    for col in unique_cols:
+        sub = df.loc[:, cols == col]
+        if isinstance(sub, pd.DataFrame):
+            s = sub.bfill(axis=1).iloc[:, 0]
+            new_data[col] = s
+        else:
+            new_data[col] = sub
+    return pd.DataFrame(new_data, index=df.index)
+
+def get_current_username():
+    """Récupère le nom d'utilisateur courant en toute sécurité."""
+    usr = st.session_state.get('current_user')
+    if isinstance(usr, dict):
+        return usr.get('username', 'Admin')
+    return 'Admin'
+
 def get_raw_col_name(df, target_internal):
     """Trouver le vrai nom de colonne (brut) depuis un nom interne."""
     for raw_col in df.columns:
@@ -312,6 +335,7 @@ GSHEET_COL_MAP = {
 
 df_db_raw = df_db.copy().reset_index(drop=True)
 df_db_raw.columns = [clean_col(c) for c in df_db_raw.columns]
+df_db_raw = deduplicate_columns(df_db_raw)
 
 # Appliquer le renommage strict
 rename_map = {}
@@ -319,11 +343,13 @@ for raw_norm, internal in GSHEET_COL_MAP.items():
     if raw_norm in df_db_raw.columns and raw_norm != internal:
         rename_map[raw_norm] = internal
 df_db_raw.rename(columns=rename_map, inplace=True)
+df_db_raw = deduplicate_columns(df_db_raw)
 
 st.session_state.df_reclam_analysed = df_db_raw
 
 if "df_reclam_analysed" in st.session_state:
     df_raw = st.session_state.df_reclam_analysed.copy().reset_index(drop=True)
+    df_raw = deduplicate_columns(df_raw)
 
     # ─── VALEURS PAR DÉFAUT pour toutes les colonnes attendues ────────────────
     _defaults = {
@@ -347,8 +373,12 @@ if "df_reclam_analysed" in st.session_state:
         df_raw.loc[mask_empty_cree, 'cree_par'] = df_raw.loc[mask_empty_cree, 'commercial']
 
     # ─── NETTOYAGE TYPES ──────────────────────────────────────────────────────
+    # Guard: ensure clean 0-based integer index and unique column labels before any column assignment
+    df_raw = df_raw.reset_index(drop=True)
+    df_raw = deduplicate_columns(df_raw)
     df_raw['motif'] = df_raw['motif'].fillna("Non Renseigné").astype(str)
-    df_raw['categorie_motif'] = df_raw['motif'].apply(categorize_motif)
+    # Use .values to assign positionally — immune to any index-alignment issues
+    df_raw['categorie_motif'] = df_raw['motif'].apply(categorize_motif).values
     df_raw['commercial'] = df_raw['commercial'].fillna("Inconnu").astype(str)
     df_raw['cree_par'] = df_raw['cree_par'].fillna("Inconnu").astype(str).str.strip().str.upper()
     df_raw['valider_par'] = df_raw['valider_par'].fillna("").astype(str)
@@ -1012,7 +1042,7 @@ if "df_reclam_analysed" in st.session_state:
             df_db.loc[mask, raw_statut_bon] = new_status
             if new_status == "CLOTURER":
                 df_db.loc[mask, raw_date_cloture] = today_str
-                df_db.loc[mask, raw_cloturer_par] = st.session_state.current_user['username']
+                df_db.loc[mask, raw_cloturer_par] = get_current_username()
                 # Auto-calculate delai if not set
                 existing_delai = df_db.loc[mask, raw_delai].values[0] if raw_delai in df_db.columns else None
                 if pd.isna(existing_delai) or str(existing_delai).strip() in ["", "nan", "None"]:
@@ -1023,11 +1053,13 @@ if "df_reclam_analysed" in st.session_state:
             # Recharger correctement avec les colonnes normalisées
             df_db_raw_new = df_db.copy()
             df_db_raw_new.columns = [clean_col(c) for c in df_db_raw_new.columns]
+            df_db_raw_new = deduplicate_columns(df_db_raw_new)
             rename_map_new = {}
             for raw_norm, internal in GSHEET_COL_MAP.items():
                 if raw_norm in df_db_raw_new.columns and raw_norm != internal:
                     rename_map_new[raw_norm] = internal
             df_db_raw_new.rename(columns=rename_map_new, inplace=True)
+            df_db_raw_new = deduplicate_columns(df_db_raw_new)
             st.session_state.df_reclam_analysed = df_db_raw_new
             return True
         return False
@@ -1122,7 +1154,7 @@ if "df_reclam_analysed" in st.session_state:
                         reponse_text = st.text_area("Réponse officielle transmise au client (Sera visible sur son bon) :", value=str(row.get('reponse', '')))
 
                         col_form3, col_form4 = st.columns(2)
-                        verifier_par_val = col_form3.text_input("Vérifié et validé par :", value=st.session_state.current_user['username'])
+                        verifier_par_val = col_form3.text_input("Vérifié et validé par :", value=get_current_username())
                         statut_final = col_form4.selectbox("Statut final de conformité :", ["ACCEPTE", "REFUSE"])
 
                         if st.form_submit_button("💾 ENREGISTRER LA RÉSOLUTION & CLÔTURER LE LITIGE", type="primary", use_container_width=True):
@@ -1148,18 +1180,20 @@ if "df_reclam_analysed" in st.session_state:
                                 df_db.loc[mask, get_raw_col_name(df_db, 'responsable')] = responsible_dept
                                 df_db.loc[mask, get_raw_col_name(df_db, 'delai_reclam')] = float(duration)
                                 df_db.loc[mask, get_raw_col_name(df_db, 'date_cloture')] = today.strftime("%d-%m-%y %H:%M:%S")
-                                df_db.loc[mask, get_raw_col_name(df_db, 'cloturer_par')] = st.session_state.current_user['username']
+                                df_db.loc[mask, get_raw_col_name(df_db, 'cloturer_par')] = get_current_username()
                                 df_db.loc[mask, get_raw_col_name(df_db, 'offre')] = action_type
 
                                 save_gs_data(df_db, RECLAM_WORKSHEET, RECLAM_FALLBACK)
                                 
                                 df_db_raw_new = df_db.copy()
                                 df_db_raw_new.columns = [clean_col(c) for c in df_db_raw_new.columns]
+                                df_db_raw_new = deduplicate_columns(df_db_raw_new)
                                 rename_map_new = {}
                                 for raw_norm, internal in GSHEET_COL_MAP.items():
                                     if raw_norm in df_db_raw_new.columns and raw_norm != internal:
                                         rename_map_new[raw_norm] = internal
                                 df_db_raw_new.rename(columns=rename_map_new, inplace=True)
+                                df_db_raw_new = deduplicate_columns(df_db_raw_new)
                                 st.session_state.df_reclam_analysed = df_db_raw_new
 
                                 st.success("🎉 Réclamation clôturée et synchronisée avec succès !")
@@ -1295,17 +1329,19 @@ if "df_reclam_analysed" in st.session_state:
                         df_db_bulk.loc[mask_bulk, raw_statut_bulk] = bulk_status_sel
                         if bulk_status_sel == "CLOTURER":
                             df_db_bulk.loc[mask_bulk, raw_date_cloture_bulk] = datetime.now().strftime("%d-%m-%y %H:%M:%S")
-                            df_db_bulk.loc[mask_bulk, raw_cloturer_par_bulk] = st.session_state.current_user['username']
+                            df_db_bulk.loc[mask_bulk, raw_cloturer_par_bulk] = get_current_username()
                         updated_count += mask_bulk.sum()
                 save_gs_data(df_db_bulk, RECLAM_WORKSHEET, RECLAM_FALLBACK)
                 
                 df_db_raw_new = df_db_bulk.copy()
                 df_db_raw_new.columns = [clean_col(c) for c in df_db_raw_new.columns]
+                df_db_raw_new = deduplicate_columns(df_db_raw_new)
                 rename_map_new = {}
                 for raw_norm, internal in GSHEET_COL_MAP.items():
                     if raw_norm in df_db_raw_new.columns and raw_norm != internal:
                         rename_map_new[raw_norm] = internal
                 df_db_raw_new.rename(columns=rename_map_new, inplace=True)
+                df_db_raw_new = deduplicate_columns(df_db_raw_new)
                 st.session_state.df_reclam_analysed = df_db_raw_new
                 st.success(f"✅ {updated_count} ligne(s) mise(s) à jour avec le statut **{bulk_status_sel}** !")
                 st.rerun()
