@@ -239,6 +239,10 @@ with c_h2:
     """, unsafe_allow_html=True)
 
 df_factures = get_factures()
+# Ensure date/status columns are object dtype to prevent pandas TypeError on .loc assignment
+for _col in ["Date_Pointage", "Date_Creation", "Statut"]:
+    if _col in df_factures.columns:
+        df_factures[_col] = df_factures[_col].astype(object).fillna("")
 df_livreurs = get_personnes(WORKSHEET_LIVREURS, FALLBACK_LIVREURS)
 
 tabs = st.tabs(["📊 Tableau de Bord", "📥 Importation", "🚚 Livreurs", "📈 Statistiques", "🖨️ Impression PDF / Excel", "🗑️ Admin DB"])
