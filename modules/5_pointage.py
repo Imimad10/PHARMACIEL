@@ -268,13 +268,21 @@ with tabs[0]:
 
     # --- LISTE / FILTRES (colonne gauche) ---
     with col_list:
-        f1, f2, f3 = st.columns(3)
+        f0, f1, f2, f3 = st.columns([1.5, 1, 1, 1])
+        recherche_text = f0.text_input("🔍 Rechercher Client / Réf.", key="f_search", placeholder="Nom ou Référence…")
         filtre_statut = f1.selectbox("Filtrer par statut", ["Tous"] + STATUTS, key="f_statut")
         filtre_region = f2.selectbox("Filtrer par région", ["Toutes"] + sorted(df_factures["Region"].dropna().unique().tolist()) if not df_factures.empty else ["Toutes"])
         filtre_livreur = f3.selectbox("Filtrer par livreur", ["Tous"] + sorted(df_factures["Livreur"].dropna().unique().tolist()) if not df_factures.empty else ["Tous"])
 
         df_view = df_factures.copy()
         if not df_view.empty:
+            if recherche_text.strip():
+                query = recherche_text.strip().lower()
+                mask_search = (
+                    df_view["Client"].astype(str).str.lower().str.contains(query, na=False) |
+                    df_view["Reference"].astype(str).str.lower().str.contains(query, na=False)
+                )
+                df_view = df_view[mask_search]
             if filtre_statut != "Tous":
                 df_view = df_view[df_view["Statut"] == filtre_statut]
             if filtre_region != "Toutes":
@@ -299,6 +307,23 @@ with tabs[0]:
                 )
             else:
                 st.button("📄 Imprimer Pointage PDF", disabled=True, use_container_width=True)
+
+        with exp2:
+            if not df_view.empty:
+                output_tab1 = io.BytesIO()
+                df_tab1_ex = df_view[["Reference", "Client", "Region", "Livreur", "Date_Creation", "Date_Pointage", "Statut"]].copy()
+                df_tab1_ex.columns = ["Référence", "Client", "Région", "Livreur", "Date Création", "Date Pointage", "Statut"]
+                with pd.ExcelWriter(output_tab1, engine="openpyxl") as writer:
+                    df_tab1_ex.to_excel(writer, index=False, sheet_name="Pointage_Filtre")
+                st.download_button(
+                    "📊 Exporter Liste (Excel)",
+                    data=output_tab1.getvalue(),
+                    file_name=f"Pointage_Export_{get_now().strftime('%Y%m%d_%H%M')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
+            else:
+                st.button("📊 Exporter Liste (Excel)", disabled=True, use_container_width=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -367,17 +392,26 @@ with tabs[0]:
 
             st.divider()
 
-            # ── Changement de statut EN MASSE ──
+            # ── Changement de statut EN MASSE avec SELECT ALL ──
             st.markdown("##### 🔀 Changement en masse")
             refs_dispo = df_view["Reference"].tolist()
+            
+            select_all = st.checkbox(
+                f"Sélectionner TOUTES les factures filtrées ({len(refs_dispo)})",
+                key="select_all_refs"
+            )
+            
+            default_selected = refs_dispo if select_all else []
+
             selected_refs = st.multiselect(
                 "Sélectionner les factures",
                 options=refs_dispo,
+                default=default_selected,
                 placeholder="Choisir une ou plusieurs références…",
                 key="multiselect_refs"
             )
             if selected_refs:
-                st.caption(f"**{len(selected_refs)}** facture(s) sélectionnée(s)")
+                st.caption(f"🎯 **{len(selected_refs)}** facture(s) sélectionnée(s)")
                 nouveau_statut_masse = st.selectbox(
                     "Nouveau statut à appliquer",
                     STATUTS,

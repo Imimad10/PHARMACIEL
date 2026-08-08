@@ -127,7 +127,7 @@ def get_master():
         # Détection automatique par code dépôt
         depot_nc = df['depot'].astype(str).str.upper()
         df = df[~(depot_nc.isin(['2', '02', 'SEC', 'SECONDAIRE', 'NC', 'SV']) |
-                  depot_nc.str.contains('SEC|PERIMES|ABIMES|NON.CONF|S\.V\.', na=False, regex=True))]
+                  depot_nc.str.contains(r'SEC|PERIMES|ABIMES|NON.CONF|S\.V\.', na=False, regex=True))]
     
     return df
 

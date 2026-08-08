@@ -746,6 +746,7 @@ def generate_factures_report_pdf(df, livreur_nom='Non specifie', region='Non spe
     """
     from fpdf import FPDF
     from datetime import datetime
+    import unicodedata
 
     STATUT_FILL = {
         "Regle":    (209, 250, 229),
@@ -754,9 +755,36 @@ def generate_factures_report_pdf(df, livreur_nom='Non specifie', region='Non spe
     }
 
     def clean(v, maxlen=40):
-        return str(v).encode('latin-1', 'replace').decode('latin-1')[:maxlen]
+        s = str(v)
+        replacements = {
+            'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
+            'à': 'a', 'â': 'a', 'ä': 'a',
+            'î': 'i', 'ï': 'i',
+            'ô': 'o', 'ö': 'o',
+            'ù': 'u', 'û': 'u', 'ü': 'u',
+            'ç': 'c',
+            'É': 'E', 'È': 'E', 'Ê': 'E', 'Ë': 'E',
+            'À': 'A', 'Â': 'A', 'Ä': 'A',
+            'Î': 'I', 'Ï': 'I',
+            'Ô': 'O', 'Ö': 'O',
+            'Ù': 'U', 'Û': 'U', 'Ü': 'U',
+            'Ç': 'C',
+        }
+        for char, repl in replacements.items():
+            s = s.replace(char, repl)
+        s = ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+        return s.encode('latin-1', 'replace').decode('latin-1')[:maxlen]
 
-    pdf = FPDF(orientation='P', unit='mm', format='A4')
+    class PointagePDF(FPDF):
+        def footer(self):
+            self.set_y(-12)
+            self.set_font('Arial', 'I', 7)
+            self.set_text_color(130, 130, 130)
+            self.cell(0, 4, f'DarPharm Solution | Bordereau de Pointage | Page {self.page_no()}/{{nb}}', 0, 0, 'C')
+            self.set_text_color(0, 0, 0)
+
+    pdf = PointagePDF(orientation='P', unit='mm', format='A4')
+    pdf.alias_nb_pages()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
 
@@ -801,15 +829,14 @@ def generate_factures_report_pdf(df, livreur_nom='Non specifie', region='Non spe
     pdf.set_font('Arial', '', 8)
 
     for i, (_, row) in enumerate(df.iterrows()):
-        if pdf.get_y() > 260:
+        if pdf.get_y() > 255:
             pdf.add_page()
             draw_header()
             pdf.set_font('Arial', '', 8)
 
         # Couleur de fond selon statut
-        statut_raw = str(row.get('Statut', ''))
-        statut_key = statut_raw.replace('\u00e9', 'e').replace('\u00e8', 'e').replace('\u00ea', 'e')
-        fill_rgb = STATUT_FILL.get(statut_key, (255, 255, 255))
+        statut_raw = clean(row.get('Statut', ''))
+        fill_rgb = STATUT_FILL.get(statut_raw, (255, 255, 255))
         pdf.set_fill_color(*fill_rgb)
 
         for key, _, w in cols_config:
@@ -836,16 +863,16 @@ def generate_factures_report_pdf(df, livreur_nom='Non specifie', region='Non spe
     pdf.ln(4)
     pdf.set_font('Arial', 'B', 9)
     pdf.set_fill_color(240, 244, 255)
-    n_regle   = len(df[df['Statut'] == 'R\u00e9gl\u00e9'])   if not df.empty else 0
+    n_regle   = len(df[df['Statut'].astype(str).str.contains('R.gl', na=False, regex=True)]) if not df.empty else 0
     n_attente = len(df[df['Statut'] == 'En attente']) if not df.empty else 0
-    n_refuse  = len(df[df['Statut'] == 'Refus\u00e9e'])  if not df.empty else 0
+    n_refuse  = len(df[df['Statut'].astype(str).str.contains('Refus', na=False, regex=True)]) if not df.empty else 0
     pdf.cell(63, 7, f"Regles : {n_regle}", 1, 0, 'C', 1)
     pdf.cell(63, 7, f"En attente : {n_attente}", 1, 0, 'C', 1)
     pdf.cell(64, 7, f"Refusees : {n_refuse}", 1, 1, 'C', 1)
-    pdf.ln(10)
+    pdf.ln(8)
 
     # ── ZONE SIGNATURES ───────────────────────────────────────
-    if pdf.get_y() > 240:
+    if pdf.get_y() > 235:
         pdf.add_page()
 
     pdf.set_font('Arial', 'B', 10)
@@ -853,25 +880,19 @@ def generate_factures_report_pdf(df, livreur_nom='Non specifie', region='Non spe
     pdf.cell(95, 8, 'Signature et Cachet du Livreur', 0, 1, 'C')
     pdf.ln(2)
     # Cadre VISA livreur (case large pour signature manuscrite)
+    y_start_box = pdf.get_y()
     pdf.set_fill_color(250, 250, 255)
-    pdf.rect(10, pdf.get_y(), 85, 30)
-    pdf.set_xy(105, pdf.get_y())
+    pdf.rect(10, y_start_box, 85, 26)
     pdf.set_fill_color(255, 252, 230)  # fond jaune clair pour le visa
-    pdf.rect(105, pdf.get_y(), 95, 30)
+    pdf.rect(105, y_start_box, 95, 26)
+
     # Labels dans les cases
-    y_sig = pdf.get_y() + 1
     pdf.set_font('Arial', 'I', 7)
     pdf.set_text_color(150, 150, 150)
-    pdf.set_xy(10, y_sig)
+    pdf.set_xy(10, y_start_box + 1)
     pdf.cell(85, 5, '(signer ici)', 0, 0, 'C')
-    pdf.set_xy(105, y_sig)
+    pdf.set_xy(105, y_start_box + 1)
     pdf.cell(95, 5, 'VISA LIVREUR  (signer et cacheter)', 0, 1, 'C')
-    pdf.set_text_color(0, 0, 0)
-    pdf.ln(32)
-
-    pdf.set_font('Arial', 'I', 7)
-    pdf.set_text_color(130, 130, 130)
-    pdf.cell(0, 4, 'DarPharm Solution | Bordereau de Pointage | Document officiel de livraison', 0, 1, 'C')
     pdf.set_text_color(0, 0, 0)
 
     raw = pdf.output(dest='S')
