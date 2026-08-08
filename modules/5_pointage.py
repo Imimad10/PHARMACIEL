@@ -32,6 +32,7 @@ FALLBACK_LIVREURS = "livreurs_data.csv"
 COLS_PERSONNE = ["ID", "Nom", "Prenom", "Tel"]
 
 STATUTS = ["En attente", "Réglé", "Refusée"]
+IS_ADMIN = lambda: st.session_state.get("current_user", {}).get("role", "") in ["Admin", "Superviseur"]
 STATUT_COLORS = {
     "Réglé": "#10b981",
     "En attente": "#f59e0b",
@@ -240,7 +241,7 @@ with c_h2:
 df_factures = get_factures()
 df_livreurs = get_personnes(WORKSHEET_LIVREURS, FALLBACK_LIVREURS)
 
-tabs = st.tabs(["📊 Tableau de Bord", "📥 Importation", "🚚 Livreurs", "📈 Statistiques", "🖨️ Impression PDF / Excel"])
+tabs = st.tabs(["📊 Tableau de Bord", "📥 Importation", "🚚 Livreurs", "📈 Statistiques", "🖨️ Impression PDF / Excel", "🗑️ Admin DB"])
 
 # =========================================================
 # --- TAB 1 : TABLEAU DE BORD ---
@@ -323,38 +324,39 @@ with tabs[0]:
             if len(df_view) > 100:
                 st.caption(f"Affichage limité aux 100 dernières factures. Total : {len(df_view)}")
 
-    # --- FORMULAIRE D'ACTION RAPIDE (colonne droite) ---
+    # --- PANNEAU DROIT : POINTAGE RAPIDE + SELECTION EN MASSE ---
     with col_form:
         st.markdown('<div class="form-panel">', unsafe_allow_html=True)
         st.markdown("#### ✅ Pointage Rapide")
-        st.caption("Changez rapidement le statut d'une ou plusieurs factures en sélectionnant dans le tableau.")
-        
+        st.caption("Modifiez le statut de factures individuelles ou sélectionnez-en plusieurs pour un changement en masse.")
+
         if not df_view.empty:
+            # ── Tableau éditable (statut individuel) ──
             edited_df = st.data_editor(
                 df_view[["Reference", "Statut"]].copy(),
                 column_config={
                     "Reference": st.column_config.TextColumn("Facture", disabled=True),
-                    "Statut": st.column_config.SelectboxColumn("Action (Statut)", options=STATUTS, required=True),
+                    "Statut": st.column_config.SelectboxColumn("Statut", options=STATUTS, required=True),
                 },
                 hide_index=True,
                 use_container_width=True,
                 key="editor_pointage"
             )
-            
-            if st.button("💾 Enregistrer les pointages", use_container_width=True, type="primary"):
-                # On met à jour la base principale df_factures avec les changements
+
+            if st.button("💾 Enregistrer les modifications", use_container_width=True, type="primary"):
                 df_updated = df_factures.copy()
                 changed = 0
                 for idx, row in edited_df.iterrows():
                     ref = row['Reference']
                     new_stat = row['Statut']
-                    old_stat = df_updated.loc[df_updated['Reference'] == ref, 'Statut'].values[0]
-                    if new_stat != old_stat:
-                        df_updated.loc[df_updated['Reference'] == ref, 'Statut'] = new_stat
-                        if new_stat != "En attente":
-                            df_updated.loc[df_updated['Reference'] == ref, 'Date_Pointage'] = get_now().strftime("%d/%m/%Y %H:%M")
-                        changed += 1
-                
+                    mask = df_updated['Reference'] == ref
+                    if mask.any():
+                        old_stat = df_updated.loc[mask, 'Statut'].values[0]
+                        if new_stat != old_stat:
+                            df_updated.loc[mask, 'Statut'] = new_stat
+                            if new_stat != "En attente":
+                                df_updated.loc[mask, 'Date_Pointage'] = get_now().strftime("%d/%m/%Y %H:%M")
+                            changed += 1
                 if changed > 0:
                     save_factures(df_updated)
                     log_action(st.session_state.current_user['username'], f"Pointage de {changed} factures", "Pointage Factures")
@@ -362,6 +364,42 @@ with tabs[0]:
                     st.rerun()
                 else:
                     st.info("Aucune modification détectée.")
+
+            st.divider()
+
+            # ── Changement de statut EN MASSE ──
+            st.markdown("##### 🔀 Changement en masse")
+            refs_dispo = df_view["Reference"].tolist()
+            selected_refs = st.multiselect(
+                "Sélectionner les factures",
+                options=refs_dispo,
+                placeholder="Choisir une ou plusieurs références…",
+                key="multiselect_refs"
+            )
+            if selected_refs:
+                st.caption(f"**{len(selected_refs)}** facture(s) sélectionnée(s)")
+                nouveau_statut_masse = st.selectbox(
+                    "Nouveau statut à appliquer",
+                    STATUTS,
+                    key="statut_masse"
+                )
+                if st.button(f"⚡ Appliquer '{nouveau_statut_masse}' aux {len(selected_refs)} factures",
+                             use_container_width=True, type="primary"):
+                    df_updated = df_factures.copy()
+                    count = 0
+                    for ref in selected_refs:
+                        mask = df_updated['Reference'] == ref
+                        if mask.any():
+                            df_updated.loc[mask, 'Statut'] = nouveau_statut_masse
+                            if nouveau_statut_masse != "En attente":
+                                df_updated.loc[mask, 'Date_Pointage'] = get_now().strftime("%d/%m/%Y %H:%M")
+                            count += 1
+                    save_factures(df_updated)
+                    log_action(st.session_state.current_user['username'],
+                               f"Changement en masse : {count} factures → {nouveau_statut_masse}",
+                               "Pointage Factures")
+                    st.toast(f"✅ {count} factures mises à jour → {nouveau_statut_masse}", icon="⚡")
+                    st.rerun()
         else:
             st.info("Sélectionnez des factures à gauche pour les pointer.")
 
@@ -708,3 +746,72 @@ with tabs[4]:
                 st.error(f"Erreur Excel : {e}")
     else:
         st.warning("⚠️ Aucune facture disponible pour cette sélection.")
+
+# =========================================================
+# --- TAB 6 : ADMIN DB ---
+# =========================================================
+with tabs[5]:
+    st.markdown("### 🗑️ Administration de la Base de Données")
+
+    if not IS_ADMIN():
+        st.error("🔒 Accès réservé aux **Administrateurs** et **Superviseurs**.")
+        st.stop()
+
+    st.markdown("""
+        <div style="background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
+                    border: 2px solid #fca5a5; border-radius: 16px; padding: 20px 24px; margin-bottom: 20px;">
+            <div style="font-size: 1.1rem; font-weight: 800; color: #b91c1c; margin-bottom: 8px;">
+                ⚠️ Zone de danger — Actions irréversibles
+            </div>
+            <div style="color: #7f1d1d; font-size: 0.9rem;">
+                Les opérations ci-dessous suppriment définitivement des données de la base.
+                Assurez-vous d'avoir exporté une sauvegarde avant de continuer.
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # --- Export de sauvegarde avant suppression ---
+    with st.expander("📥 Télécharger une sauvegarde avant suppression", expanded=True):
+        if not df_factures.empty:
+            output_bck = io.BytesIO()
+            with pd.ExcelWriter(output_bck, engine="openpyxl") as writer:
+                df_factures.to_excel(writer, index=False, sheet_name="Backup_Factures")
+            st.download_button(
+                label="📊 Sauvegarder toutes les factures (Excel)",
+                data=output_bck.getvalue(),
+                file_name=f"Backup_Factures_{get_now().strftime('%Y%m%d_%H%M')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
+        else:
+            st.info("La base est déjà vide.")
+
+    st.divider()
+
+    # --- Vider la base factures ---
+    st.markdown("#### 🗑️ Vider la base des factures")
+    st.caption(f"La base contient actuellement **{len(df_factures)}** facture(s).")
+
+    confirm1 = st.checkbox(
+        "Je comprends que cette action est **irréversible** et que toutes les factures seront supprimées.",
+        key="confirm_wipe_1"
+    )
+    if confirm1:
+        confirm2 = st.checkbox(
+            "Je confirme vouloir **vider définitivement** la base des factures.",
+            key="confirm_wipe_2"
+        )
+        if confirm2:
+            st.warning("⚠️ Double confirmation obtenue. Le bouton ci-dessous effacera toutes les données.")
+            if st.button("🚨 VIDER TOUTE LA BASE DES FACTURES", type="primary", use_container_width=True):
+                df_vide = pd.DataFrame(columns=COLS_FACTURES)
+                save_factures(df_vide)
+                load_gs_data.clear()
+                log_action(
+                    st.session_state.current_user['username'],
+                    "VIDAGE COMPLET de la base Suivi_Factures",
+                    "Admin DB Pointage"
+                )
+                st.success("✅ Base vidée avec succès. Rechargement en cours…")
+                st.rerun()
+
