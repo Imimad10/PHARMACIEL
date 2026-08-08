@@ -272,9 +272,9 @@ with tabs[0]:
 
     # --- LISTE / FILTRES (colonne gauche) ---
     with col_list:
-        f0, f1, f2, f3 = st.columns([1.5, 1, 1, 1])
+        f0, f1, f2, f3 = st.columns([1.5, 1.2, 1, 1])
         recherche_text = f0.text_input("🔍 Rechercher Client / Réf.", key="f_search", placeholder="Nom ou Référence…")
-        filtre_statut = f1.selectbox("Filtrer par statut", ["Tous"] + STATUTS, key="f_statut")
+        filtre_statut = f1.multiselect("Statut(s)", options=STATUTS, default=STATUTS, key="f_statut", help="Sélectionnez un ou plusieurs statuts")
         filtre_region = f2.selectbox("Filtrer par région", ["Toutes"] + sorted(df_factures["Region"].dropna().unique().tolist()) if not df_factures.empty else ["Toutes"])
         filtre_livreur = f3.selectbox("Filtrer par livreur", ["Tous"] + sorted(df_factures["Livreur"].dropna().unique().tolist()) if not df_factures.empty else ["Tous"])
 
@@ -287,8 +287,10 @@ with tabs[0]:
                     df_view["Reference"].astype(str).str.lower().str.contains(query, na=False)
                 )
                 df_view = df_view[mask_search]
-            if filtre_statut != "Tous":
-                df_view = df_view[df_view["Statut"] == filtre_statut]
+            if filtre_statut:
+                df_view = df_view[df_view["Statut"].isin(filtre_statut)]
+            else:
+                df_view = df_view.iloc[0:0]
             if filtre_region != "Toutes":
                 df_view = df_view[df_view["Region"] == filtre_region]
             if filtre_livreur != "Tous":
@@ -778,14 +780,14 @@ with tabs[3]:
 # =========================================================
 with tabs[4]:
     st.markdown("### 🖨️ Impression du Bordereau de Pointage")
-    st.caption("Sélectionnez la région et le livreur pour générer un bordereau personnalisé — seule la région choisie sera incluse dans le fichier téléchargé.")
+    st.caption("Sélectionnez la région, le livreur et le(s) statut(s) désiré(s) pour générer un bordereau personnalisé.")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    col_cfg1, col_cfg2 = st.columns(2)
+    col_cfg1, col_cfg2, col_cfg3 = st.columns([1, 1, 1.2])
 
     with col_cfg1:
-        st.markdown("##### 📍 Région / Secteur à imprimer")
+        st.markdown("##### 📍 Région / Secteur")
         regions_available = ["Toutes"] + sorted(
             df_factures["Region"].dropna().unique().tolist()
         ) if not df_factures.empty else ["Toutes"]
@@ -801,7 +803,7 @@ with tabs[4]:
             st.info(f"📦 **{len(df_factures)}** factures au total")
 
     with col_cfg2:
-        st.markdown("##### 👤 Choisir le Livreur pour cette mission")
+        st.markdown("##### 👤 Livreur")
         livreurs_list = personne_display_list(df_livreurs)
         livreur_options = ["Non attribué"] + livreurs_list
         livreur_impression = st.selectbox(
@@ -810,6 +812,20 @@ with tabs[4]:
             key="livreur_impression"
         )
 
+    with col_cfg3:
+        st.markdown("##### 🏷️ Statut(s) à inclure")
+        statuts_impression = st.multiselect(
+            "Sélectionner les statuts",
+            options=STATUTS,
+            default=STATUTS,
+            key="statuts_impression",
+            help="Cochez 1, 2 ou tous les statuts (ex: En attente + Refusée)"
+        )
+        if statuts_impression:
+            st.caption(f"Statuts inclus ({len(statuts_impression)}) : **{', '.join(statuts_impression)}**")
+        else:
+            st.warning("⚠️ Aucun statut sélectionné")
+
     st.markdown("<br>", unsafe_allow_html=True)
 
     # --- APERÇU DE LA SÉLECTION ---
@@ -817,10 +833,16 @@ with tabs[4]:
     if region_impression != "Toutes":
         df_print = df_print[df_print["Region"] == region_impression]
 
+    if statuts_impression:
+        df_print = df_print[df_print["Statut"].isin(statuts_impression)]
+    else:
+        df_print = df_print.iloc[0:0]
+
     if livreur_impression != "Non attribué":
         df_print = df_print.copy()
         df_print["Livreur"] = livreur_impression
 
+    statuts_label = ", ".join(statuts_impression) if statuts_impression else "Aucun"
     st.markdown(f"""
         <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
                     border: 2px solid #0ea5e9; border-radius: 16px; padding: 20px 24px; margin-bottom: 16px;">
@@ -828,7 +850,8 @@ with tabs[4]:
             <div style="color: #374151; font-size: 0.9rem;">
                 <b>Région :</b> {region_impression} &nbsp;|&nbsp;
                 <b>Livreur :</b> {livreur_impression} &nbsp;|&nbsp;
-                <b>Nombre de factures :</b> {len(df_print)}
+                <b>Statut(s) :</b> <span style="background:#e0f2fe; padding:2px 8px; border-radius:10px; font-weight:700; color:#0284c7;">{statuts_label}</span> &nbsp;|&nbsp;
+                <b>Nombre de factures :</b> <b>{len(df_print)}</b>
             </div>
         </div>
     """, unsafe_allow_html=True)
