@@ -358,7 +358,7 @@ with t_conf:
         final['Ecart'] = final['Total'] - final['qte_logi']
         
         c_show = ['zone', 'produit', 'lot', 'qte_logi', 'Total', 'Ecart', 'Incohérence']
-        st.dataframe(final[c_show].style.applymap(lambda v: 'color: red' if v<0 else ('color: green' if v>0 else ''), subset=['Ecart']), use_container_width=True)
+        st.dataframe(final[c_show].style.map(lambda v: 'color: red' if isinstance(v, (int, float)) and v < 0 else ('color: green' if isinstance(v, (int, float)) and v > 0 else ''), subset=['Ecart']), use_container_width=True)
         
         if st.button("📄 Rapport Final PDF"):
             from utils_pdf import generate_inventory_report_pdf
