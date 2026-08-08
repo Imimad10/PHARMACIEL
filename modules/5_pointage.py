@@ -374,6 +374,9 @@ with tabs[0]:
 
             if st.button("💾 Enregistrer les modifications", use_container_width=True, type="primary"):
                 df_updated = df_factures.copy()
+                for _c in ['Date_Pointage', 'Date_Creation', 'Statut']:
+                    if _c in df_updated.columns:
+                        df_updated[_c] = df_updated[_c].astype(object).fillna("")
                 changed = 0
                 for idx, row in edited_df.iterrows():
                     ref = row['Reference']
@@ -424,6 +427,9 @@ with tabs[0]:
                 if st.button(f"⚡ Appliquer '{nouveau_statut_masse}' aux {len(selected_refs)} factures",
                              use_container_width=True, type="primary"):
                     df_updated = df_factures.copy()
+                    for _c in ['Date_Pointage', 'Date_Creation', 'Statut']:
+                        if _c in df_updated.columns:
+                            df_updated[_c] = df_updated[_c].astype(object).fillna("")
                     count = 0
                     for ref in selected_refs:
                         mask = df_updated['Reference'] == ref
