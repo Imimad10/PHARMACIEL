@@ -510,7 +510,8 @@ if "df_reclam_analysed" in st.session_state:
     # tabs[3] = Centre de Résolution
     # tabs[4] = Gestion des Statuts
     # tabs[5] = Profiling & Détails
-    # tabs[6] = Diagnostic IA Expert
+    # tabs[6] = Clients Haute Fréquence (NOUVEAU)
+    # tabs[7] = Diagnostic IA Expert
     tabs = st.tabs([
         "📊 Analyses & KPIs",
         "👥 Performance Commerciaux",
@@ -518,6 +519,7 @@ if "df_reclam_analysed" in st.session_state:
         "⚙️ Centre de Résolution",
         "🔄 Gestion des Statuts",
         "🔍 Profiling & Détails",
+        "🔥 Clients Haute Fréquence",
         "🧠 Diagnostic IA Expert"
     ])
 
@@ -1480,9 +1482,171 @@ if "df_reclam_analysed" in st.session_state:
                 st.markdown("#### Lots et préparateurs concernés par le produit")
                 st.dataframe(df_prod[['date', 'lot', 'date_exp', 'quantite', 'valeur_vente', 'preparateur', 'motif', 'statut_bon']], use_container_width=True, hide_index=True)
 
-    # ----------------- TAB 6 : DIAGNOSTIC IA EXPERT -----------------
-    # ----------------- TAB 5 : PROFILING & DÉTAILS -----------------
+    # ----------------- TAB 6 : CLIENTS HAUTE FRÉQUENCE -----------------
     with tabs[6]:
+        st.markdown("### 🔥 Détection Automatique des Clients à Haute Fréquence de Réclamation")
+        st.write("Ce module identifie automatiquement les clients qui génèrent un volume anormalement élevé de réclamations et calcule leur niveau de risque.")
+
+        # ── Contrôles utilisateur ─────────────────────────────────────────────
+        col_hf1, col_hf2, col_hf3 = st.columns([2, 2, 2])
+        seuil_nb   = col_hf1.number_input("Seuil minimum de réclamations :", min_value=1, max_value=50, value=3, step=1, key="hf_seuil_nb")
+        seuil_val  = col_hf2.number_input("Valeur cumulée minimale (DA) :", min_value=0, value=0, step=1000, key="hf_seuil_val")
+        hf_statut  = col_hf3.selectbox("Inclure :", ["Toutes (ouvertes + clôturées)", "Uniquement ouvertes", "Uniquement clôturées"], key="hf_statut_filter")
+
+        # ── Filtrage selon statut choisi ──────────────────────────────────────
+        df_hf_base = df_raw.copy()
+        if hf_statut == "Uniquement ouvertes":
+            df_hf_base = df_hf_base[df_hf_base['statut'] == 'En cours']
+        elif hf_statut == "Uniquement clôturées":
+            df_hf_base = df_hf_base[df_hf_base['statut'] == 'Clôturer']
+
+        # ── Calcul des statistiques par client ────────────────────────────────
+        df_hf_valid = df_hf_base[
+            ~df_hf_base['client'].astype(str).str.strip().str.upper()
+             .isin(['INCONNU', 'NAN', '', 'NONE', 'NON RENSEIGNÉ'])
+        ]
+
+        hf_records = []
+        for client_name, grp in df_hf_valid.groupby('client'):
+            nb_claims  = len(grp)
+            val_tot    = grp['valeur_vente'].sum()
+            nb_open    = len(grp[grp['statut'] == 'En cours'])
+            nb_closed  = len(grp[grp['statut'] == 'Clôturer'])
+
+            if nb_claims < seuil_nb or val_tot < seuil_val:
+                continue
+
+            top_motif  = grp['motif'].mode().iloc[0] if not grp['motif'].empty else 'N/A'
+            top_cat    = grp['categorie_motif'].mode().iloc[0] if not grp['categorie_motif'].empty else 'Autre'
+            region     = grp['region'].mode().iloc[0] if 'region' in grp.columns else 'Inconnu'
+            commercial = grp['cree_par'].mode().iloc[0] if 'cree_par' in grp.columns else 'Inconnu'
+            last_date  = grp['date'].dropna().iloc[-1] if 'date' in grp.columns and not grp['date'].dropna().empty else 'N/A'
+
+            # Score de risque composite
+            score = nb_claims * 2 + (val_tot / 10000)
+            if nb_claims >= 10 or val_tot >= 100000:
+                risk_level = '🔴 CRITIQUE'
+                risk_color = '#ef4444'
+            elif nb_claims >= 5 or val_tot >= 30000:
+                risk_level = '🟠 ÉLEVÉ'
+                risk_color = '#f97316'
+            else:
+                risk_level = '🟡 MODÉRÉ'
+                risk_color = '#eab308'
+
+            hf_records.append({
+                'client': client_name, 'nb_total': nb_claims, 'nb_ouvertes': nb_open,
+                'nb_clotures': nb_closed, 'valeur_totale': val_tot,
+                'motif_principal': top_motif, 'categorie': top_cat,
+                'region': region, 'commercial': commercial,
+                'derniere_reclam': last_date, 'niveau_risque': risk_level,
+                'score': score, '_color': risk_color
+            })
+
+        df_hf = pd.DataFrame(hf_records).sort_values('score', ascending=False) if hf_records else pd.DataFrame()
+
+        if df_hf.empty:
+            st.info(f"✅ Aucun client ne dépasse le seuil de **{seuil_nb}** réclamations et **{seuil_val:,} DA** de valeur cumulée.")
+        else:
+            # ── KPIs synthèse ─────────────────────────────────────────────────
+            nb_critique = len(df_hf[df_hf['niveau_risque'] == '🔴 CRITIQUE'])
+            nb_eleve    = len(df_hf[df_hf['niveau_risque'] == '🟠 ÉLEVÉ'])
+            nb_modere   = len(df_hf[df_hf['niveau_risque'] == '🟡 MODÉRÉ'])
+            val_expose  = df_hf['valeur_totale'].sum()
+
+            k1, k2, k3, k4 = st.columns(4)
+            k1.metric("Clients Haute Fréquence", len(df_hf))
+            k2.metric("🔴 Niveau Critique", nb_critique)
+            k3.metric("🟠 Niveau Élevé", nb_eleve)
+            k4.metric("Valeur Totale Exposée", f"{val_expose:,.0f} DA")
+
+            # ── Classement principal ──────────────────────────────────────────
+            st.markdown("#### 📋 Classement des Clients à Risque")
+
+            for _, hf_row in df_hf.iterrows():
+                badge_color = hf_row['_color']
+                with st.container():
+                    st.markdown(f"""
+                    <div style="background:rgba(255,255,255,0.03); border-left:5px solid {badge_color};
+                                border-radius:12px; padding:16px 20px; margin-bottom:12px;
+                                border:1px solid {badge_color}33;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:1.1rem; font-weight:700; color:#e2e8f0;">{hf_row['client']}</span>
+                            <span style="font-size:1rem; font-weight:800; color:{badge_color};">{hf_row['niveau_risque']}</span>
+                        </div>
+                        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:10px; font-size:0.82rem; color:#94a3b8;">
+                            <span>📦 <b>{hf_row['nb_total']}</b> réclamations</span>
+                            <span>🔓 <b>{hf_row['nb_ouvertes']}</b> ouvertes</span>
+                            <span>💰 <b>{hf_row['valeur_totale']:,.0f}</b> DA</span>
+                            <span>🗺️ {hf_row['region']}</span>
+                        </div>
+                        <div style="margin-top:8px; font-size:0.82rem; color:#94a3b8;">
+                            🏷️ Motif dominant : <b style="color:#e2e8f0;">{hf_row['motif_principal']}</b> &nbsp;|&nbsp;
+                            📂 Catégorie : <b style="color:#e2e8f0;">{hf_row['categorie']}</b> &nbsp;|&nbsp;
+                            👤 Commercial : <b style="color:#e2e8f0;">{hf_row['commercial']}</b> &nbsp;|&nbsp;
+                            📅 Dernière : <b style="color:#e2e8f0;">{hf_row['derniere_reclam']}</b>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            # ── Graphiques ────────────────────────────────────────────────────
+            st.markdown("#### 📊 Visualisations")
+            chart_col1, chart_col2 = st.columns(2)
+
+            with chart_col1:
+                fig_bar = px.bar(
+                    df_hf.head(15), x='client', y='nb_total',
+                    color='niveau_risque',
+                    color_discrete_map={'🔴 CRITIQUE': '#ef4444', '🟠 ÉLEVÉ': '#f97316', '🟡 MODÉRÉ': '#eab308'},
+                    title='Top Clients — Volume Réclamations',
+                    labels={'nb_total': 'Nb Réclamations', 'client': 'Client'},
+                    template='plotly_dark'
+                )
+                fig_bar.update_xaxes(tickangle=45)
+                fig_bar.update_layout(showlegend=True, height=380, margin=dict(b=100))
+                st.plotly_chart(fig_bar, use_container_width=True)
+
+            with chart_col2:
+                fig_val = px.bar(
+                    df_hf.head(15), x='client', y='valeur_totale',
+                    color='niveau_risque',
+                    color_discrete_map={'🔴 CRITIQUE': '#ef4444', '🟠 ÉLEVÉ': '#f97316', '🟡 MODÉRÉ': '#eab308'},
+                    title='Top Clients — Valeur Cumulée (DA)',
+                    labels={'valeur_totale': 'Valeur (DA)', 'client': 'Client'},
+                    template='plotly_dark'
+                )
+                fig_val.update_xaxes(tickangle=45)
+                fig_val.update_layout(showlegend=False, height=380, margin=dict(b=100))
+                st.plotly_chart(fig_val, use_container_width=True)
+
+            # Répartition par catégorie de motif
+            cat_dist = df_hf['categorie'].value_counts().reset_index()
+            cat_dist.columns = ['Catégorie', 'Nb Clients']
+            fig_pie = px.pie(
+                cat_dist, names='Catégorie', values='Nb Clients',
+                title='Répartition par Catégorie de Motif',
+                template='plotly_dark', hole=0.45
+            )
+            fig_pie.update_layout(height=340)
+            st.plotly_chart(fig_pie, use_container_width=True)
+
+            # ── Tableau d'export ──────────────────────────────────────────────
+            st.markdown("#### 📥 Tableau Complet (exportable)")
+            export_cols = ['client', 'niveau_risque', 'nb_total', 'nb_ouvertes', 'nb_clotures',
+                           'valeur_totale', 'motif_principal', 'categorie', 'region', 'commercial', 'derniere_reclam']
+            st.dataframe(
+                df_hf[export_cols].rename(columns={
+                    'client': 'Client', 'niveau_risque': 'Risque', 'nb_total': 'Total',
+                    'nb_ouvertes': 'Ouvertes', 'nb_clotures': 'Clôturées',
+                    'valeur_totale': 'Valeur (DA)', 'motif_principal': 'Motif Principal',
+                    'categorie': 'Catégorie', 'region': 'Région',
+                    'commercial': 'Commercial', 'derniere_reclam': 'Dernière Réclam.'
+                }),
+                use_container_width=True, hide_index=True
+            )
+
+    # ----------------- TAB 7 : DIAGNOSTIC IA EXPERT -----------------
+    with tabs[7]:
         st.subheader("🧠 Diagnostic Stratégique par Intelligence Artificielle (RCA)")
         st.write("L'IA va croiser en profondeur les variables (commerciaux, préparateurs, produits réfrigérés, motifs de retours) pour dégager des solutions logistiques concrètes.")
         
