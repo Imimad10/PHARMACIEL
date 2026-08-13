@@ -134,6 +134,9 @@ with tabs[1]:
 # --- TAB 3 : PLANNING GLOBAL ---
 with tabs[2]:
     st.subheader("📊 Suivi du Personnel")
+
+    is_admin_rh = st.session_state.current_user.get('role') == 'Admin'
+
     df_view = df_rh.copy()
     if not df_view.empty and 'Agent' in df_view.columns:
         df_view['Agent'] = df_view['Agent'].apply(format_agent_display)
@@ -143,7 +146,6 @@ with tabs[2]:
     f_agent = c_f1.multiselect("Filtrer par agent", agents_display_list)
     f_type = c_f2.multiselect("Type d'événement", df_rh['Type'].unique() if not df_rh.empty else [])
     
-    # Extraction et formatage des périodes (mois) disponibles
     FRENCH_MONTHS = {
         1: "Janvier", 2: "Février", 3: "Mars", 4: "Avril", 5: "Mai", 6: "Juin",
         7: "Juillet", 8: "Août", 9: "Septembre", 10: "Octobre", 11: "Novembre", 12: "Décembre"
@@ -151,6 +153,8 @@ with tabs[2]:
     
     month_options = ["Tous"]
     month_map = {}
+    target_year = today.year
+    target_month = today.month
     
     if not df_rh.empty and 'Date_Debut' in df_rh.columns:
         dates = pd.to_datetime(df_rh['Date_Debut'], errors='coerce')
@@ -166,29 +170,121 @@ with tabs[2]:
                 
     f_month = c_f3.selectbox("Période (Mois)", month_options, index=0)
     
-    if f_agent: df_view = df_view[df_view['Agent'].isin(f_agent)]
-    if f_type: df_view = df_view[df_view['Type'].isin(f_type)]
+    df_filtered = df_view.copy()
+    if f_agent: df_filtered = df_filtered[df_filtered['Agent'].isin(f_agent)]
+    if f_type:  df_filtered = df_filtered[df_filtered['Type'].isin(f_type)]
     
-    # Filtrer par mois/année sélectionné (en gérant les chevauchements de dates)
     if f_month != "Tous":
         target_year, target_month = month_map[f_month]
         import calendar
         start_of_month = pd.Timestamp(datetime(target_year, target_month, 1))
-        end_of_month = pd.Timestamp(datetime(target_year, target_month, calendar.monthrange(target_year, target_month)[1]))
-        
-        parsed_start = pd.to_datetime(df_view['Date_Debut'], errors='coerce')
-        parsed_end = pd.to_datetime(df_view['Date_Fin'], errors='coerce').fillna(parsed_start)
-        
+        end_of_month   = pd.Timestamp(datetime(target_year, target_month, calendar.monthrange(target_year, target_month)[1]))
+        parsed_start = pd.to_datetime(df_filtered['Date_Debut'], errors='coerce')
+        parsed_end   = pd.to_datetime(df_filtered['Date_Fin'],   errors='coerce').fillna(parsed_start)
         overlap_mask = (parsed_start <= end_of_month) & (parsed_end >= start_of_month)
-        df_view = df_view[overlap_mask]
-        
-    st.dataframe(df_view.sort_values("Date_Debut", ascending=False), use_container_width=True, hide_index=True)
-    
+        df_filtered = df_filtered[overlap_mask]
+
+    # ── Tableau interactif ──────────────────────────────────────────
+    if df_filtered.empty:
+        st.info("Aucun enregistrement pour cette sélection.")
+    else:
+        # En-têtes tableau
+        hdr = st.columns([1.2, 2, 2, 1.5, 2, 1, 1])
+        for h, t in zip(hdr, ["ID", "Agent", "Type", "Statut", "Période", "✏️ Modifier", "🗑️ Supprimer"]):
+            h.markdown(f"**{t}**")
+        st.markdown("<hr style='margin:4px 0;'>", unsafe_allow_html=True)
+
+        for view_idx, view_row in df_filtered.sort_values("Date_Debut", ascending=False).iterrows():
+            row_id  = view_row.get('ID', view_idx)
+            agent_d = str(view_row.get('Agent', ''))
+            type_d  = str(view_row.get('Type', ''))
+            statut  = str(view_row.get('Statut', ''))
+            date_d  = str(view_row.get('Date_Debut', ''))
+            date_f  = str(view_row.get('Date_Fin', ''))
+            periode = date_d if date_d == date_f else f"{date_d} → {date_f}"
+
+            statut_color = {"Validé": "#10b981", "En attente": "#f59e0b", "Rejeté": "#ef4444"}.get(statut, "#64748b")
+
+            c_id, c_ag, c_ty, c_st, c_pe, c_ed, c_dl = st.columns([1.2, 2, 2, 1.5, 2, 1, 1])
+            c_id.caption(f"#{row_id}")
+            c_ag.write(agent_d)
+            c_ty.write(type_d)
+            c_st.markdown(f"<span style='color:{statut_color};font-weight:700;font-size:.82rem;'>{statut}</span>", unsafe_allow_html=True)
+            c_pe.caption(periode)
+
+            edit_key = f"edit_btn_{view_idx}"
+            del_key  = f"del_btn_{view_idx}"
+
+            if is_admin_rh:
+                if c_ed.button("✏️", key=edit_key, help="Modifier cet enregistrement"):
+                    st.session_state[f"editing_{view_idx}"] = True
+                if c_dl.button("🗑️", key=del_key, help="Supprimer cet enregistrement"):
+                    df_rh = df_rh.drop(index=view_idx).reset_index(drop=True)
+                    save_gs_data(df_rh, WORKSHEET_NAME, FALLBACK_PATH)
+                    st.success(f"✅ Entrée #{row_id} supprimée.")
+                    st.rerun()
+            else:
+                c_ed.write("—")
+                c_dl.write("—")
+
+            # Formulaire d'édition inline
+            if is_admin_rh and st.session_state.get(f"editing_{view_idx}", False):
+                with st.container():
+                    st.markdown(f"<div style='background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;padding:16px;margin:6px 0;'>", unsafe_allow_html=True)
+                    st.markdown(f"**✏️ Modifier l'entrée #{row_id}**")
+                    with st.form(f"form_edit_row_{view_idx}"):
+                        e1, e2 = st.columns(2)
+                        new_agent  = e1.selectbox("Agent", agents_display_list,
+                                                   index=agents_display_list.index(agent_d) if agent_d in agents_display_list else 0,
+                                                   key=f"e_agent_{view_idx}")
+                        new_type   = e2.selectbox("Type", ["Permanence Samedi", "Congé Annuel", "Maladie",
+                                                            "Récupération", "Absence Autorisée", "Urgence"],
+                                                   index=["Permanence Samedi", "Congé Annuel", "Maladie",
+                                                          "Récupération", "Absence Autorisée", "Urgence"].index(type_d)
+                                                   if type_d in ["Permanence Samedi", "Congé Annuel", "Maladie",
+                                                                  "Récupération", "Absence Autorisée", "Urgence"] else 0,
+                                                   key=f"e_type_{view_idx}")
+                        e3, e4 = st.columns(2)
+                        try:
+                            d_debut_val = pd.to_datetime(date_d).date()
+                        except Exception:
+                            d_debut_val = today.date()
+                        try:
+                            d_fin_val = pd.to_datetime(date_f).date()
+                        except Exception:
+                            d_fin_val = today.date()
+                        new_debut  = e3.date_input("Date début",  value=d_debut_val, key=f"e_debut_{view_idx}")
+                        new_fin    = e4.date_input("Date fin",    value=d_fin_val,   key=f"e_fin_{view_idx}")
+                        new_statut = e1.selectbox("Statut", ["Validé", "En attente", "Rejeté"],
+                                                   index=["Validé", "En attente", "Rejeté"].index(statut)
+                                                   if statut in ["Validé", "En attente", "Rejeté"] else 0,
+                                                   key=f"e_statut_{view_idx}")
+                        new_comm   = e2.text_input("Commentaire", value=str(view_row.get('Commentaire', '') or ''),
+                                                    key=f"e_comm_{view_idx}")
+
+                        sb1, sb2 = st.columns(2)
+                        if sb1.form_submit_button("💾 Enregistrer", use_container_width=True, type="primary"):
+                            df_rh.at[view_idx, 'Agent']      = new_agent
+                            df_rh.at[view_idx, 'Type']       = new_type
+                            df_rh.at[view_idx, 'Date_Debut'] = new_debut.strftime("%Y-%m-%d")
+                            df_rh.at[view_idx, 'Date_Fin']   = new_fin.strftime("%Y-%m-%d")
+                            df_rh.at[view_idx, 'Statut']     = new_statut
+                            df_rh.at[view_idx, 'Commentaire']= new_comm
+                            save_gs_data(df_rh, WORKSHEET_NAME, FALLBACK_PATH)
+                            st.session_state[f"editing_{view_idx}"] = False
+                            st.success(f"✅ Entrée #{row_id} mise à jour !")
+                            st.rerun()
+                        if sb2.form_submit_button("✖ Annuler", use_container_width=True):
+                            st.session_state[f"editing_{view_idx}"] = False
+                            st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("---")
     c_btn1, c_btn2 = st.columns(2)
     with c_btn1:
         if st.button("🤖 Analyser la couverture (IA)", use_container_width=True):
             with st.spinner("Analyse..."):
-                res = ask_ai(f"Analyse ce planning : {df_view.to_string()}. Y a-t-il des anomalies ?")
+                res = ask_ai(f"Analyse ce planning : {df_filtered.to_string()}. Y a-t-il des anomalies ?")
                 st.info(res)
                 
     with c_btn2:
@@ -198,23 +294,28 @@ with tabs[2]:
             key="planning_model_choice"
         )
         model_param = "Classique" if "Classique" in model_pdf else "RDC"
-        
         pdf_title = "PLANNING & PERMANENCES"
         if f_month != "Tous":
-            pdf_title = f"PLANNING & PERMANENCES - {f_month.upper()}"
+            pdf_title    = f"PLANNING & PERMANENCES - {f_month.upper()}"
             pdf_filename = f"Planning_RH_{target_year}_{target_month:02d}.pdf"
         else:
             pdf_filename = f"Planning_RH_Global_{datetime.now().strftime('%Y%m%d')}.pdf"
-            
         from utils_pdf import generate_rh_planning_pdf
-        pdf_bytes = generate_rh_planning_pdf(df_view, title=pdf_title, model=model_param)
-        st.download_button(
-            "📥 Télécharger le Planning (PDF)",
-            pdf_bytes,
-            pdf_filename,
-            "application/pdf",
-            use_container_width=True
-        )
+        pdf_bytes = generate_rh_planning_pdf(df_filtered, title=pdf_title, model=model_param)
+        st.download_button("📥 Télécharger le Planning (PDF)", pdf_bytes, pdf_filename,
+                           "application/pdf", use_container_width=True)
+
+    # ── Zone Danger : Vider tout le planning ───────────────────────
+    if is_admin_rh:
+        st.markdown("---")
+        with st.expander("⚠️ Zone Danger — Vider le Planning", expanded=False):
+            st.warning("⚠️ Cette action supprime **TOUS** les enregistrements du planning RH de façon irréversible.")
+            confirm_clear = st.checkbox("Je confirme vouloir vider entièrement le planning RH", key="confirm_clear_rh")
+            if st.button("🗑️ Vider tout le Planning RH", type="primary", use_container_width=True, disabled=not confirm_clear):
+                df_rh = pd.DataFrame(columns=COLUMNS)
+                save_gs_data(df_rh, WORKSHEET_NAME, FALLBACK_PATH)
+                st.success("✅ Le planning RH a été entièrement vidé.")
+                st.rerun()
 
 # --- TAB 4 : VALIDATION ADMIN ---
 with tabs[3]:
@@ -224,26 +325,36 @@ with tabs[3]:
     else:
         df_pending = df_rh[df_rh['Statut'] == "En attente"]
         if df_pending.empty:
-            st.success("Aucune demande en attente.")
+            st.success("✅ Aucune demande en attente.")
         else:
+            st.info(f"📋 {len(df_pending)} demande(s) en attente de validation.")
             for idx, row in df_pending.iterrows():
                 with st.container(border=True):
                     c1, c2 = st.columns([3, 1])
                     agent_disp = format_agent_display(row['Agent'])
-                    c1.write(f"**{agent_disp}** - {row['Type']}")
+                    c1.write(f"**{agent_disp}** — {row['Type']}")
                     c1.caption(f"Du {row['Date_Debut']} au {row['Date_Fin']}")
+                    if row.get('Commentaire'):
+                        c1.caption(f"💬 {row['Commentaire']}")
                     
-                    if row['Justificatif_Path'] and os.path.exists(row['Justificatif_Path']):
+                    if row.get('Justificatif_Path') and os.path.exists(str(row['Justificatif_Path'])):
                         with open(row['Justificatif_Path'], "rb") as f:
-                            c2.download_button("📂 Justificatif", f, file_name=os.path.basename(row['Justificatif_Path']), key=f"dl_{idx}")
+                            c2.download_button("📂 Justificatif", f,
+                                               file_name=os.path.basename(row['Justificatif_Path']),
+                                               key=f"dl_{idx}")
                     
-                    b1, b2 = st.columns(2)
+                    b1, b2, b3 = st.columns(3)
                     if b1.button("✅ Valider", key=f"v_{idx}", use_container_width=True):
                         df_rh.at[idx, 'Statut'] = "Validé"
-                        save_gs_data(df_rh, WORKSHEET_NAME, FALLBACK_PATH); st.rerun()
+                        save_gs_data(df_rh, WORKSHEET_NAME, FALLBACK_PATH)
+                        st.rerun()
                     if b2.button("❌ Rejeter", key=f"r_{idx}", use_container_width=True):
                         df_rh.at[idx, 'Statut'] = "Rejeté"
-                        save_gs_data(df_rh, WORKSHEET_NAME, FALLBACK_PATH); st.rerun()
+                        save_gs_data(df_rh, WORKSHEET_NAME, FALLBACK_PATH)
+                        st.rerun()
+                    if b3.button("🗑️ Supprimer", key=f"d_{idx}", use_container_width=True):
+                        df_rh = df_rh.drop(index=idx).reset_index(drop=True)
+                        save_gs_data(df_rh, WORKSHEET_NAME, FALLBACK_PATH)
+                        st.rerun()
 
-st.divider()
-st.caption("Pharmaciel RH — Organisation & Rigueur.")
+
