@@ -33,9 +33,36 @@ today = datetime.now()
 tabs = st.tabs(["🕒 Permanence Samedi", "🏥 Absences & Congés", "📋 Planning Global", "🛡️ Validation Admin"])
 
 # --- RÉCUPÉRATION AGENTS ---
-from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK
-df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username"])
-agents_list = sorted(df_users['username'].unique().tolist()) if not df_users.empty else ["Ayoub", "Islem", "Seif", "admin_imad"]
+from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK, USER_COLUMNS
+df_users = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, USER_COLUMNS)
+
+user_map = {}          # username ou Nom -> "Nom Prénom"
+display_to_username = {} # "Nom Prénom" -> username
+agents_display_list = []
+
+if not df_users.empty:
+    for _, urow in df_users.iterrows():
+        u_name   = str(urow.get('username', '')).strip()
+        u_nom    = str(urow.get('nom', '') or '').strip()
+        u_prenom = str(urow.get('prenom', '') or '').strip()
+        
+        disp = f"{u_nom} {u_prenom}".strip() if (u_nom or u_prenom) else u_name
+        if disp and u_name:
+            user_map[u_name] = disp
+            user_map[disp] = disp
+            display_to_username[disp] = u_name
+            if disp not in agents_display_list:
+                agents_display_list.append(disp)
+
+agents_display_list = sorted(agents_display_list)
+if not agents_display_list:
+    agents_display_list = ["Bousserouel Imad", "Ayoub", "Islem", "Seif"]
+
+def format_agent_display(agent_raw):
+    """Retourne le Nom + Prénom de l'agent si disponible."""
+    if not agent_raw: return ""
+    agent_str = str(agent_raw).strip()
+    return user_map.get(agent_str, agent_str)
 
 # --- TAB 1 : PERMANENCE SAMEDI ---
 with tabs[0]:
@@ -44,7 +71,7 @@ with tabs[0]:
     
     with st.form("form_permanence"):
         c1, c2 = st.columns(2)
-        agent_p = c1.selectbox("Collaborateur désigné", agents_list, key="p_agent")
+        agent_p = c1.selectbox("Collaborateur désigné", agents_display_list, key="p_agent")
         date_p = c2.date_input("Samedi concerné", value=today + timedelta(days=(5 - today.weekday()) % 7))
         
         obs_p = st.text_input("Commentaire (Optionnel)")
@@ -71,7 +98,7 @@ with tabs[1]:
     st.subheader("🏥 Déclarer une Absence ou un Congé")
     with st.form("form_absences"):
         c1, c2 = st.columns(2)
-        agent_a = c1.selectbox("Collaborateur concerné", agents_list, key="a_agent")
+        agent_a = c1.selectbox("Collaborateur concerné", agents_display_list, key="a_agent")
         type_a = c2.selectbox("Type d'absence", ["Congé Annuel", "Maladie", "Récupération", "Absence Autorisée", "Urgence"])
         
         d1 = c1.date_input("Date de début", value=today, key="a_d1")
@@ -108,10 +135,12 @@ with tabs[1]:
 with tabs[2]:
     st.subheader("📊 Suivi du Personnel")
     df_view = df_rh.copy()
+    if not df_view.empty and 'Agent' in df_view.columns:
+        df_view['Agent'] = df_view['Agent'].apply(format_agent_display)
     
     # Filtres simples
     c_f1, c_f2, c_f3 = st.columns(3)
-    f_agent = c_f1.multiselect("Filtrer par agent", agents_list)
+    f_agent = c_f1.multiselect("Filtrer par agent", agents_display_list)
     f_type = c_f2.multiselect("Type d'événement", df_rh['Type'].unique() if not df_rh.empty else [])
     
     # Extraction et formatage des périodes (mois) disponibles
@@ -200,7 +229,8 @@ with tabs[3]:
             for idx, row in df_pending.iterrows():
                 with st.container(border=True):
                     c1, c2 = st.columns([3, 1])
-                    c1.write(f"**{row['Agent']}** - {row['Type']}")
+                    agent_disp = format_agent_display(row['Agent'])
+                    c1.write(f"**{agent_disp}** - {row['Type']}")
                     c1.caption(f"Du {row['Date_Debut']} au {row['Date_Fin']}")
                     
                     if row['Justificatif_Path'] and os.path.exists(row['Justificatif_Path']):

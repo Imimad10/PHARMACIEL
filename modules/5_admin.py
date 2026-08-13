@@ -218,8 +218,11 @@ with tabs[0]:
         show_pwd = st.toggle("👁️ Afficher les mots de passe", value=False, key="toggle_pwd")
 
         if not df_users.empty:
-            for _, row in df_users.iterrows():
-                uname    = row.get('username','')
+            for idx_u, row in df_users.iterrows():
+                uname    = str(row.get('username',''))
+                unom     = str(row.get('nom','') or '').strip()
+                uprenom  = str(row.get('prenom','') or '').strip()
+                full_name= f"{unom} {uprenom}".strip() if (unom or uprenom) else uname
                 umetier  = str(row.get('metier','') or row.get('depot',''))
                 urole    = str(row.get('role',''))
                 udepot   = str(row.get('depot',''))
@@ -228,20 +231,60 @@ with tabs[0]:
 
                 st.markdown(f"""
                 <div class="user-row">
-                    <div><b>{uname}</b></div>
+                    <div>
+                        <div style="font-weight:700;color:#0f172a;font-size:.92rem;">👤 {full_name}</div>
+                        <div style="color:#64748b;font-size:.78rem;">@{uname}</div>
+                    </div>
                     <div><span class="metier-pill" style="background:{info['bg']};color:{info['color']};">{info['icon']} {umetier}</span></div>
                     <div style="color:#94a3b8;font-size:.82rem;">{udepot}</div>
                     <div style="color:#94a3b8;font-size:.82rem;font-family:monospace;">{upwd}</div>
                     <div style="color:#94a3b8;font-size:.75rem;">{urole}</div>
                 </div>""", unsafe_allow_html=True)
+
+                with st.expander(f"✏️ Modifier {full_name} (@{uname})", expanded=False):
+                    with st.form(f"form_edit_user_{uname}"):
+                        c_n1, c_n2 = st.columns(2)
+                        edit_nom = c_n1.text_input("Nom", value=unom, key=f"edit_nom_{uname}")
+                        edit_prenom = c_n2.text_input("Prénom", value=uprenom, key=f"edit_prenom_{uname}")
+                        
+                        c_p1, c_p2 = st.columns(2)
+                        edit_pwd = c_p1.text_input("Mot de passe", value=str(row.get('password','')), type="password", key=f"edit_pwd_{uname}")
+                        edit_metier = c_p2.selectbox("Métier", list(GOLDEN_METIERS.keys()), 
+                                                      index=list(GOLDEN_METIERS.keys()).index(umetier) if umetier in GOLDEN_METIERS else 0,
+                                                      key=f"edit_metier_{uname}")
+
+                        if st.form_submit_button("💾 Enregistrer les modifications", use_container_width=True, type="primary"):
+                            mask = df_users['username'] == uname
+                            df_users = safe_set(df_users, mask, 'nom', edit_nom.strip())
+                            df_users = safe_set(df_users, mask, 'prenom', edit_prenom.strip())
+                            df_users = safe_set(df_users, mask, 'password', edit_pwd.strip())
+                            df_users = safe_set(df_users, mask, 'metier', edit_metier)
+                            df_users = safe_set(df_users, mask, 'pages', PAGES_BY_METIER.get(edit_metier, PAGES_BY_METIER['Préparateur']))
+                            df_users = safe_set(df_users, mask, 'role', 'Admin' if edit_metier == 'Admin' else 'Saisie')
+                            
+                            from utils_gsheets import save_users_to_config
+                            save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+                            save_users_to_config(df_users)
+                            st.success(f"✅ Profil de {edit_nom} {edit_prenom} mis à jour avec succès !")
+                            st.rerun()
         else:
             st.info("Aucun utilisateur chargé.")
 
     with col_quick:
         st.markdown('<div class="section-title">⚡ Affectation Rapide</div>', unsafe_allow_html=True)
 
-        u_list = df_users['username'].tolist() if not df_users.empty else []
-        u_target = st.selectbox("Collaborateur", u_list, key="u_assign")
+        user_options = {}
+        if not df_users.empty:
+            for _, r in df_users.iterrows():
+                u_un = str(r.get('username',''))
+                u_nm = str(r.get('nom','') or '').strip()
+                u_pr = str(r.get('prenom','') or '').strip()
+                lbl = f"{u_nm} {u_pr}".strip()
+                label = f"{lbl} (@{u_un})" if lbl else f"@{u_un}"
+                user_options[label] = u_un
+
+        selected_label = st.selectbox("Collaborateur", list(user_options.keys()) if user_options else [], key="u_assign_label")
+        u_target = user_options.get(selected_label, "")
         m_target = st.selectbox("Nouveau Métier", list(GOLDEN_METIERS.keys()), key="m_assign")
 
         if m_target in GOLDEN_METIERS:
@@ -249,35 +292,81 @@ with tabs[0]:
             st.markdown(f"<span style='color:{info['color']};font-weight:600;'>{info['icon']} Métier sélectionné</span>", unsafe_allow_html=True)
 
         if st.button("✅ Appliquer", type="primary", use_container_width=True):
-            mask = df_users['username'] == u_target
-            df_users = safe_set(df_users, mask, 'metier', m_target)
-            df_users = safe_set(df_users, mask, 'pages',  PAGES_BY_METIER.get(m_target, PAGES_BY_METIER['Préparateur']))
-            df_users = safe_set(df_users, mask, 'role',   'Admin' if m_target == 'Admin' else 'Saisie')
-            save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
-            st.success(f"✅ {u_target} → {GOLDEN_METIERS[m_target]['icon']} {m_target}")
-            st.rerun()
+            if u_target:
+                mask = df_users['username'] == u_target
+                df_users = safe_set(df_users, mask, 'metier', m_target)
+                df_users = safe_set(df_users, mask, 'pages',  PAGES_BY_METIER.get(m_target, PAGES_BY_METIER['Préparateur']))
+                df_users = safe_set(df_users, mask, 'role',   'Admin' if m_target == 'Admin' else 'Saisie')
+                from utils_gsheets import save_users_to_config
+                save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+                save_users_to_config(df_users)
+                st.success(f"✅ {u_target} → {GOLDEN_METIERS[m_target]['icon']} {m_target}")
+                st.rerun()
 
         st.markdown("---")
         st.markdown('<div class="section-title">➕ Nouvel Utilisateur</div>', unsafe_allow_html=True)
         with st.form("form_add_user"):
-            nu = st.text_input("Nom d'utilisateur")
+            new_nom = st.text_input("Nom")
+            new_prenom = st.text_input("Prénom")
+            nu = st.text_input("Nom d'utilisateur (Identifiant de connexion)")
             np_ = st.text_input("Mot de passe", type="password")
             nm = st.selectbox("Métier", list(GOLDEN_METIERS.keys()), key="nm_new")
-            if st.form_submit_button("Créer le compte", use_container_width=True):
-                if nu and np_:
+            
+            if st.form_submit_button("Créer le compte", use_container_width=True, type="primary"):
+                if nu and np_ and new_nom:
                     if not df_users.empty and nu in df_users['username'].values:
-                        st.error("Utilisateur déjà existant.")
+                        st.error("Nom d'utilisateur déjà existant.")
                     else:
-                        new_row = {'username':nu,'password':np_,'role':'Saisie' if nm!='Admin' else 'Admin',
-                                   'metier':nm,'depot':GOLDEN_METIERS[nm]['icon'],
-                                   'pages':PAGES_BY_METIER.get(nm,PAGES_BY_METIER['Préparateur']),
-                                   'nom':nu,'prenom':'','zone':'Aucune'}
+                        new_row = {
+                            'username': nu.strip(),
+                            'password': np_.strip(),
+                            'nom': new_nom.strip(),
+                            'prenom': new_prenom.strip(),
+                            'role': 'Admin' if nm == 'Admin' else 'Saisie',
+                            'metier': nm,
+                            'depot': GOLDEN_METIERS[nm]['icon'],
+                            'pages': PAGES_BY_METIER.get(nm, PAGES_BY_METIER['Préparateur']),
+                            'zone': 'Aucune'
+                        }
                         df_users = pd.concat([df_users, pd.DataFrame([new_row])], ignore_index=True)
+                        from utils_gsheets import save_users_to_config
                         save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
-                        st.success(f"✅ Compte {nu} créé !")
+                        save_users_to_config(df_users)
+                        st.success(f"✅ Compte {new_nom} {new_prenom} (@{nu}) créé avec succès !")
                         st.rerun()
                 else:
-                    st.error("Remplissez tous les champs.")
+                    st.error("Veuillez renseigner le Nom, Nom d'utilisateur et Mot de passe.")
+
+        st.markdown("---")
+        st.markdown('<div class="section-title">✏️ Modifier l\'Identité (Nom & Prénom)</div>', unsafe_allow_html=True)
+        if user_options:
+            q_target_lbl = st.selectbox("Choisir le collaborateur", list(user_options.keys()), key="q_edit_user_sel")
+            q_target_un = user_options.get(q_target_lbl, "")
+            if q_target_un and not df_users.empty:
+                q_row_matches = df_users[df_users['username'] == q_target_un]
+                if not q_row_matches.empty:
+                    q_row = q_row_matches.iloc[0]
+                    with st.form(f"form_quick_edit_{q_target_un}"):
+                        q_nom = st.text_input("Nom", value=str(q_row.get('nom','') or '').strip(), key=f"q_nom_{q_target_un}")
+                        q_prenom = st.text_input("Prénom", value=str(q_row.get('prenom','') or '').strip(), key=f"q_prenom_{q_target_un}")
+                        q_pwd = st.text_input("Mot de passe", value=str(q_row.get('password','')), type="password", key=f"q_pwd_{q_target_un}")
+                        q_curr_m = str(q_row.get('metier',''))
+                        q_metier = st.selectbox("Métier", list(GOLDEN_METIERS.keys()), 
+                                                index=list(GOLDEN_METIERS.keys()).index(q_curr_m) if q_curr_m in GOLDEN_METIERS else 0,
+                                                key=f"q_metier_{q_target_un}")
+                        if st.form_submit_button("💾 Mettre à jour l'identité", use_container_width=True, type="primary"):
+                            mask = df_users['username'] == q_target_un
+                            df_users = safe_set(df_users, mask, 'nom', q_nom.strip())
+                            df_users = safe_set(df_users, mask, 'prenom', q_prenom.strip())
+                            df_users = safe_set(df_users, mask, 'password', q_pwd.strip())
+                            df_users = safe_set(df_users, mask, 'metier', q_metier)
+                            df_users = safe_set(df_users, mask, 'pages', PAGES_BY_METIER.get(q_metier, PAGES_BY_METIER['Préparateur']))
+                            df_users = safe_set(df_users, mask, 'role', 'Admin' if q_metier == 'Admin' else 'Saisie')
+                            from utils_gsheets import save_users_to_config
+                            save_gs_data(df_users, DB_USERS_WORKSHEET, DB_USERS_FALLBACK)
+                            save_users_to_config(df_users)
+                            st.success(f"✅ Nom et Prénom de @{q_target_un} mis à jour : {q_nom} {q_prenom}")
+                            st.rerun()
 
 # ═══════════════════════════════════════════════════════════════════
 # TAB 2 : MÉTIERS

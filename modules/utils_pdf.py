@@ -373,7 +373,7 @@ def generate_rh_planning_pdf(df, title="PLANNING & PERMANENCES", model="Classiqu
     ]
     
     # Dictionnaire de ciblage des équipes
-    team_rdc_keywords = ['admin_imad', 'ayoub', 'islem', 'seif', 'karim', 'abdelmalek', 'samra']
+    team_rdc_keywords = ['admin_imad', 'bousserouel', 'imad', 'ayoub', 'islem', 'seif', 'karim', 'benmesrouk', 'abdelmalek', 'samra']
     
     def is_rdc(agent_name):
         a_lower = str(agent_name).lower()

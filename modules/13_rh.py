@@ -27,6 +27,8 @@ POINTAGES_FALLBACK = "data/db_pointages.csv"
 RECLAM_WORKSHEET = "Litiges_SAV"
 RECLAM_FALLBACK = "data/db_reclamations.csv"
 
+from utils_gsheets import USER_COLUMNS
+
 # --- CHARGEMENT DES DONNÉES MULTI-SOURCES ---
 @st.cache_data(ttl=60)
 def get_rh_data():
@@ -36,7 +38,7 @@ def get_rh_data():
         'recouvrement': load_gs_data(RECOUV_WORKSHEET, RECOUV_FALLBACK, ["Client", "Montant Réglé", "Livreur", "Statut", "Mode Paiement"]),
         'pointages': load_gs_data(POINTAGES_WORKSHEET, POINTAGES_FALLBACK, ['livreur', 'reference']),
         'reclamations': load_gs_data(RECLAM_WORKSHEET, RECLAM_FALLBACK, ['livreur', 'motif']),
-        'users': load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, ["username", "role"])
+        'users': load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, USER_COLUMNS)
     }
     
     # Nettoyage spécifique pour le recouvrement
@@ -49,7 +51,18 @@ def get_rh_data():
     return data
 
 rh_data = get_rh_data()
+user_display_map = {}
+if not rh_data['users'].empty:
+    for _, r in rh_data['users'].iterrows():
+        un = str(r.get('username',''))
+        nm = str(r.get('nom','') or '').strip()
+        pr = str(r.get('prenom','') or '').strip()
+        disp = f"{nm} {pr}".strip() if (nm or pr) else un
+        user_display_map[un] = disp
+        user_display_map[disp] = un
+
 users_list = rh_data['users']['username'].tolist() if not rh_data['users'].empty else []
+users_display_list = [user_display_map.get(u, u) for u in users_list]
 
 # --- FILTRES ET ONGLETS ---
 tab_dash, tab_podium = st.tabs(["📊 Tableaux de Bord", "🏆 Podium & Gamification (Top Employés)"])
@@ -57,7 +70,8 @@ tab_dash, tab_podium = st.tabs(["📊 Tableaux de Bord", "🏆 Podium & Gamifica
 with tab_dash:
     col_f1, col_f2 = st.columns([1, 2])
     with col_f1:
-        selected_user = st.selectbox("👤 Sélectionner un employé", ["Tous le personnel"] + users_list)
+        selected_display = st.selectbox("👤 Sélectionner un employé", ["Tous le personnel"] + users_display_list)
+        selected_user = user_display_map.get(selected_display, selected_display)
     with col_f2:
         st.write("") # Alignement
 
