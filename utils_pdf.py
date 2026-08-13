@@ -2,6 +2,49 @@ from fpdf import FPDF
 import pandas as pd
 from datetime import datetime
 import io
+import json
+import os
+
+TEAMS_CONFIG_PATH = "data/teams_config.json"
+DEFAULT_RDC_LIST = ['admin_imad', 'bousserouel', 'imad', 'ayoub', 'islem', 'seif', 'karim', 'benmesrouk', 'abdelmalek', 'samra']
+
+def load_teams_config():
+    if os.path.exists(TEAMS_CONFIG_PATH):
+        try:
+            with open(TEAMS_CONFIG_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"rdc": list(DEFAULT_RDC_LIST), "etage": []}
+
+def save_teams_config(cfg):
+    os.makedirs(os.path.dirname(TEAMS_CONFIG_PATH), exist_ok=True)
+    with open(TEAMS_CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=4, ensure_ascii=False)
+
+def is_rdc(agent_name):
+    cfg = load_teams_config()
+    rdc_list = [str(x).strip().lower() for x in cfg.get("rdc", []) if str(x).strip()]
+    etage_list = [str(x).strip().lower() for x in cfg.get("etage", []) if str(x).strip()]
+    a_lower = str(agent_name).strip().lower()
+    
+    # 1. Vérification directe d'égalité exacte d'abord
+    if a_lower in etage_list:
+        return False
+    if a_lower in rdc_list:
+        return True
+
+    # 2. Vérification par inclusion partielle
+    for item in etage_list:
+        if item and (item in a_lower or a_lower in item):
+            return False
+            
+    for item in rdc_list:
+        if item and (item in a_lower or a_lower in item):
+            return True
+            
+    return False
+
 
 class InventoryPDF(FPDF):
     def header(self):
@@ -374,52 +417,8 @@ def generate_rh_planning_pdf(df, title="PLANNING & PERMANENCES", model="Classiqu
         ('Statut', 'Statut', 25),
         ('Commentaire', 'Observations', 45)
     ]
-    
-import json
-import os
-
-TEAMS_CONFIG_PATH = "data/teams_config.json"
-DEFAULT_RDC_LIST = ['admin_imad', 'bousserouel', 'imad', 'ayoub', 'islem', 'seif', 'karim', 'benmesrouk', 'abdelmalek', 'samra']
-
-def load_teams_config():
-    if os.path.exists(TEAMS_CONFIG_PATH):
-        try:
-            with open(TEAMS_CONFIG_PATH, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return {"rdc": list(DEFAULT_RDC_LIST), "etage": []}
-
-def save_teams_config(cfg):
-    os.makedirs(os.path.dirname(TEAMS_CONFIG_PATH), exist_ok=True)
-    with open(TEAMS_CONFIG_PATH, "w", encoding="utf-8") as f:
-        json.dump(cfg, f, indent=4, ensure_ascii=False)
-
-def is_rdc(agent_name):
-    cfg = load_teams_config()
-    rdc_list = [str(x).strip().lower() for x in cfg.get("rdc", []) if str(x).strip()]
-    etage_list = [str(x).strip().lower() for x in cfg.get("etage", []) if str(x).strip()]
-    a_lower = str(agent_name).strip().lower()
-    
-    # 1. Vérification directe d'égalité exacte d'abord
-    if a_lower in etage_list:
-        return False
-    if a_lower in rdc_list:
-        return True
-
-    # 2. Vérification par inclusion partielle
-    for item in etage_list:
-        if item and (item in a_lower or a_lower in item):
-            return False
-            
-    for item in rdc_list:
-        if item and (item in a_lower or a_lower in item):
-            return True
-            
-    return False
-
-
     # Séparation des données
+
     df_rdc = df[df['Agent'].apply(is_rdc)]
     df_etage = df[~df['Agent'].apply(is_rdc)]
 
