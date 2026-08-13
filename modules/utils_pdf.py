@@ -2,6 +2,8 @@ from fpdf import FPDF
 import pandas as pd
 from datetime import datetime
 import io
+from utils_pdf import is_rdc, load_teams_config, save_teams_config
+
 
 class InventoryPDF(FPDF):
     def header(self):
@@ -371,18 +373,8 @@ def generate_rh_planning_pdf(df, title="PLANNING & PERMANENCES", model="Classiqu
         ('Statut', 'Statut', 25),
         ('Commentaire', 'Observations', 45)
     ]
-    
-    # Dictionnaire de ciblage des équipes
-    team_rdc_keywords = ['admin_imad', 'bousserouel', 'imad', 'ayoub', 'islem', 'seif', 'karim', 'benmesrouk', 'abdelmalek', 'samra']
-    
-    def is_rdc(agent_name):
-        a_lower = str(agent_name).lower()
-        for k in team_rdc_keywords:
-            if k in a_lower:
-                return True
-        return False
-
     # Séparation des données
+
     df_rdc = df[df['Agent'].apply(is_rdc)]
     df_etage = df[~df['Agent'].apply(is_rdc)]
 

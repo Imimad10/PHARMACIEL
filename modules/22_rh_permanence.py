@@ -30,7 +30,7 @@ def is_weekend(dt):
 today = datetime.now()
 
 
-tabs = st.tabs(["🕒 Permanence Samedi", "🏥 Absences & Congés", "📋 Planning Global", "🛡️ Validation Admin"])
+tabs = st.tabs(["🕒 Permanence Samedi", "🏥 Absences & Congés", "📋 Planning Global", "🛡️ Validation Admin", "🏢 Équipes RDC & 1er Étage"])
 
 # --- RÉCUPÉRATION AGENTS ---
 from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK, USER_COLUMNS
@@ -356,5 +356,91 @@ with tabs[3]:
                         df_rh = df_rh.drop(index=idx).reset_index(drop=True)
                         save_gs_data(df_rh, WORKSHEET_NAME, FALLBACK_PATH)
                         st.rerun()
+
+# --- TAB 5 : GESTION ÉQUIPES RDC & 1ER ÉTAGE ---
+with tabs[4]:
+    st.subheader("🏢 Composition & Échanges d'Équipes (RDC / 1er Étage)")
+    st.caption("Modifiez l'affectation des collaborateurs entre le Rez-de-Chaussée (RDC) et le 1er Étage pour mettre à jour automatiquement les plannings et rapports PDF.")
+    
+    from utils_pdf import load_teams_config, save_teams_config, is_rdc, DEFAULT_RDC_LIST
+    
+    is_admin = st.session_state.get('current_user', {}).get('role') == 'Admin'
+    if not is_admin:
+        st.warning("🔒 Seuls les administrateurs peuvent modifier la composition des équipes.")
+    
+    teams_cfg = load_teams_config()
+    
+    # Séparer les collaborateurs actuels
+    rdc_agents = [ag for ag in agents_display_list if is_rdc(ag)]
+    etage_agents = [ag for ag in agents_display_list if not is_rdc(ag)]
+    
+    col_rdc, col_etage = st.columns(2)
+    with col_rdc:
+        st.markdown("#### ⬇️ Équipe RDC (Rez-de-Chaussée)")
+        st.info(f"**{len(rdc_agents)} collaborateur(s)**")
+        for a in rdc_agents:
+            st.write(f"• **{a}**")
+            
+    with col_etage:
+        st.markdown("#### ⬆️ Équipe 1er Étage")
+        st.success(f"**{len(etage_agents)} collaborateur(s)**")
+        for a in etage_agents:
+            st.write(f"• **{a}**")
+            
+    st.markdown("---")
+    
+    if is_admin:
+        st.markdown("### 🔄 1. Échange Direct (Permutation rapide)")
+        st.caption("Permutez directement les postes d'un collaborateur du RDC et d'un collaborateur du 1er Étage.")
+        
+        with st.form("form_swap_teams"):
+            c_swap1, c_swap2 = st.columns(2)
+            ag_rdc_sel = c_swap1.selectbox("Collaborateur actuellement au RDC :", rdc_agents if rdc_agents else ["Aucun"], key="swap_rdc_sel")
+            ag_etage_sel = c_swap2.selectbox("Collaborateur actuellement au 1er Étage :", etage_agents if etage_agents else ["Aucun"], key="swap_etage_sel")
+            
+            if st.form_submit_button("🔄 Permuter les 2 collaborateurs", use_container_width=True, type="primary"):
+                if ag_rdc_sel == "Aucun" or ag_etage_sel == "Aucun":
+                    st.error("⚠️ Veuillez sélectionner deux collaborateurs valides.")
+                else:
+                    # Mettre à jour la config
+                    current_rdc_cfg = set(teams_cfg.get("rdc", list(DEFAULT_RDC_LIST)))
+                    current_etage_cfg = set(teams_cfg.get("etage", []))
+                    
+                    # On retire ag_rdc_sel de RDC et on l'ajoute à Etage
+                    current_rdc_cfg.discard(ag_rdc_sel)
+                    current_etage_cfg.add(ag_rdc_sel)
+                    
+                    # On retire ag_etage_sel de Etage et on l'ajoute à RDC
+                    current_etage_cfg.discard(ag_etage_sel)
+                    current_rdc_cfg.add(ag_etage_sel)
+                    
+                    save_teams_config({"rdc": list(current_rdc_cfg), "etage": list(current_etage_cfg)})
+                    st.success(f"✅ Échange réussi entre **{ag_rdc_sel}** (maintenant 1er Étage) et **{ag_etage_sel}** (maintenant RDC) !")
+                    st.rerun()
+
+        st.markdown("---")
+        st.markdown("### 🛠️ 2. Affectation Sélection Globale")
+        st.caption("Cochez tous les collaborateurs devant appartenir à l'Équipe RDC. Les autres iront automatiquement au 1er Étage.")
+        
+        with st.form("form_global_teams"):
+            selected_rdc = st.multiselect(
+                "Sélectionnez les membres du RDC :",
+                options=agents_display_list,
+                default=rdc_agents,
+                key="multiselect_rdc_teams"
+            )
+            
+            if st.form_submit_button("💾 Enregistrer la composition des équipes", use_container_width=True):
+                selected_etage = [ag for ag in agents_display_list if ag not in selected_rdc]
+                save_teams_config({"rdc": selected_rdc, "etage": selected_etage})
+                st.success("✅ Configuration des équipes mise à jour avec succès !")
+                st.rerun()
+                
+        with st.expander("⚙️ Réinitialisation des équipes", expanded=False):
+            if st.button("🔄 Réinitialiser aux équipes par défaut", use_container_width=True):
+                save_teams_config({"rdc": list(DEFAULT_RDC_LIST), "etage": []})
+                st.success("✅ Équipes réinitialisées aux valeurs par défaut.")
+                st.rerun()
+
 
 

@@ -513,7 +513,7 @@ st.markdown('''
 ''', unsafe_allow_html=True)
 
 # --- TABS ---
-tabs = st.tabs(["📤 Importateur Universel", "👥 Base Clients", "🚚 Livreurs", "🗺️ Secteurs Logistique", "📦 Archivage Cloud", "🎨 Gestion des Thèmes", "⚙️ Maintenance & Hors-Ligne", "🧹 Remise à Zéro"])
+tabs = st.tabs(["📤 Importateur Universel", "👥 Base Clients", "🚚 Livreurs", "🗺️ Secteurs Logistique", "📦 Archivage Cloud", "🎨 Gestion des Thèmes", "⚙️ Maintenance & Hors-Ligne", "🧹 Remise à Zéro", "🏢 Équipes RDC / 1er Étage"])
 
 # ═══════════════════════════════════════════════════════════════
 # FONCTIONS UTILITAIRES : DÉTECTION & IMPORT (utilisées par
@@ -1766,3 +1766,77 @@ with tabs[7]:
                 st.error("### ⚠️ Erreurs Rencontrées :\n" + "\n".join([f"- {log}" for log in error_logs]))
                 
             st.balloons()
+
+# --- TAB 9 : GESTION DES ÉQUIPES (RDC / 1ER ÉTAGE) ---
+with tabs[8]:
+    st.subheader("🏢 Pilotage des Équipes RDC & 1er Étage")
+    st.caption("Gérez la répartition des collaborateurs entre le Rez-de-Chaussée (RDC) et le 1er Étage pour les plannings RH et documents officiels.")
+
+    from utils_gsheets import DB_USERS_WORKSHEET, DB_USERS_FALLBACK, USER_COLUMNS
+    from utils_pdf import load_teams_config, save_teams_config, is_rdc, DEFAULT_RDC_LIST
+
+    df_u = load_gs_data(DB_USERS_WORKSHEET, DB_USERS_FALLBACK, USER_COLUMNS)
+    all_collaborators = []
+    if not df_u.empty:
+        for _, urow in df_u.iterrows():
+            u_nom = str(urow.get('nom', '') or '').strip()
+            u_prenom = str(urow.get('prenom', '') or '').strip()
+            u_username = str(urow.get('username', '') or '').strip()
+            disp = f"{u_nom} {u_prenom}".strip() if (u_nom or u_prenom) else u_username
+            if disp and disp not in all_collaborators:
+                all_collaborators.append(disp)
+    all_collaborators = sorted(all_collaborators)
+    if not all_collaborators:
+        all_collaborators = ["Bousserouel Imad", "Ayoub", "Islem", "Seif", "Karim", "Samra", "Idris", "Aymen", "Rami"]
+
+    teams_cfg = load_teams_config()
+    current_rdc = [c for c in all_collaborators if is_rdc(c)]
+    current_etage = [c for c in all_collaborators if not is_rdc(c)]
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("#### 🏢 Équipe RDC")
+        st.info(f"**{len(current_rdc)} collaborateurs**")
+        for member in current_rdc:
+            st.write(f"• **{member}**")
+
+    with c2:
+        st.markdown("#### 🏢 Équipe 1er Étage")
+        st.success(f"**{len(current_etage)} collaborateurs**")
+        for member in current_etage:
+            st.write(f"• **{member}**")
+
+    st.markdown("---")
+    st.markdown("### 🔄 Permutation Rapide entre 2 Collaborateurs")
+    with st.form("admin_swap_form_root"):
+        cs1, cs2 = st.columns(2)
+        sel_rdc = cs1.selectbox("Membre du RDC :", current_rdc if current_rdc else ["Aucun"])
+        sel_etage = cs2.selectbox("Membre du 1er Étage :", current_etage if current_etage else ["Aucun"])
+        
+        if st.form_submit_button("🔄 Permuter les Équipes", type="primary", use_container_width=True):
+            if sel_rdc == "Aucun" or sel_etage == "Aucun":
+                st.error("Sélection invalide.")
+            else:
+                rdc_set = set(teams_cfg.get("rdc", list(DEFAULT_RDC_LIST)))
+                etage_set = set(teams_cfg.get("etage", []))
+                
+                rdc_set.discard(sel_rdc)
+                etage_set.add(sel_rdc)
+                
+                etage_set.discard(sel_etage)
+                rdc_set.add(sel_etage)
+                
+                save_teams_config({"rdc": list(rdc_set), "etage": list(etage_set)})
+                st.success(f"✅ Échange effectué : **{sel_rdc}** <-> **{sel_etage}**")
+                st.rerun()
+
+    st.markdown("---")
+    st.markdown("### 🛠️ Configuration Globale de l'Équipe RDC")
+    with st.form("admin_global_team_form_root"):
+        new_rdc = st.multiselect("Sélectionnez les membres de l'équipe RDC :", options=all_collaborators, default=current_rdc)
+        if st.form_submit_button("💾 Sauvegarder", use_container_width=True):
+            new_etage = [c for c in all_collaborators if c not in new_rdc]
+            save_teams_config({"rdc": new_rdc, "etage": new_etage})
+            st.success("✅ Équipes mises à jour avec succès !")
+            st.rerun()
+
